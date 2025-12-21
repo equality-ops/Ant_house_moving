@@ -14,6 +14,7 @@ import ant_motor
 import ant_beep
 import ant_flash
 from ant_flash import find_aimed_value as find_value
+import ant_menu
 
 # 包含 gc 与 time 类
 import gc

@@ -11,7 +11,7 @@ def time_pit2_handler(time):
     # 这部分操作需结合后续其他文件情况！！！！
 
 # 定时器初始化
-def PIT2_Start():
+def pit2_Start():
     pit2 = ticker(1)
     pit2.callback(time_pit2_handler)
     pit2.start(10)
