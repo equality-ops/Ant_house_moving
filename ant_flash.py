@@ -1,5 +1,6 @@
 from typing import Union
-
+import ant_beep
+import user_main
 
 # 将字符串解析为整数或浮点数，如果无法解析则返回原始字符串
 def phase_num_string(s: str) -> Union[int, float, str]:
@@ -47,25 +48,36 @@ def phase_config(file_path: str) -> dict:
     return config
 
 
-def find_aimed_value(config: dict, var_name: str) -> Union[int, float, None]:
-    var_value = config[var_name]
-    if var_value == None:
-        print("No find aimed key!")
-    return var_value
+def find_aimed_value(config: dict, var_name: str) -> Union[int, float]:
+    try:
+        var_value = config[var_name.strip()]
+        return var_value
+    except KeyError as e:
+        print("Failure to find aimed key!")
+        ant_beep.beep_warn(user_main.beep)
+        return 0
+    
     
 
 # 调试程序
 if __name__ == "__main__":
     test_strings = ["123", "45.67", "hello", "-89", "3.14159", "world123"]
 
+    # 检测phase_num_string函数
     for s in test_strings:
         result = phase_num_string(s)
         print(f"Input: {s} => Output: {result} (Type: {type(result).__name__})")
 
+    # 检测find_aimed_value函数
     config = phase_config("config.txt")
 
     print("Parsed Successfully:")
     for key, value in config.items():
         print(f"{key} = {value} (Type: {type(value).__name__})")
+
+    # 检测phase_config函数
+    print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
+    print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
+
 
 

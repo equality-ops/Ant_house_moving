@@ -10,16 +10,23 @@ from machine import *
 from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker
 from smartcar import encoder
-import hqu_motor
+import ant_motor
+import ant_beep
+import ant_flash
+from ant_flash import find_aimed_value as find_value
 
 # 包含 gc 与 time 类
 import gc
 import time
 
-###################################【变量定义及初始化】###################################
-enc_data = 0    # type: int
-target = 100    # type: int
+###################################【文件读取】###################################
+# 从config.txt中读取保存所有的参数并保存到config字典中
+config = ant_flash.phase_config("/flash/config.txt")
 
+###################################【变量定义及初始化】###################################
+enc_data_L = 0    # type: int
+target_L = 100    # type: int
+beep_state = 0  # type: int
 
 ##################################【实例对象构建及初始化】##################################
 # 核心板上 C4 是 LED
@@ -43,10 +50,15 @@ my_uart6.write("Motor test begins!\r\n")
 encoder_l = encoder("D15", "D16", True)
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_1 = hqu_motor.SlipAveragingFilter(5)
+diff_filter_1 = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
 
 # 创建电机pid对象
-Posi_speed_PID_l = hqu_motor.SpeedPositionPID(kp = 0.0, ki = 0.2, kd = 0.0, integral_limit = 29000, pwmout_limitmax = 6000, diff_filter = diff_filter_1)
+Posi_speed_PID_L = ant_motor.SpeedPositionPID(kp = find_value(config, "L_normal_kp"), 
+                                              ki = find_value(config, "L_normal_ki"), 
+                                              kd = find_value(config, "L_normal_kd"), 
+                                              integral_limit = 29000, 
+                                              pwmout_limitmax = 6000, 
+                                              diff_filter = diff_filter_1)
 
 # 新建LCD实例并初始化
 cs = Pin('C5' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
@@ -71,10 +83,8 @@ def set_motor(motor, duty) -> None:
 def time_pit1_handler(time):
     global enc_data
     enc_data = encoder_l.get()
-    Posi_speed_PID_l.compute_pid(target = target, actual = enc_data)
-    set_motor(motor_1, Posi_speed_PID_l.pwm_output)
-    # 输出波形图用于调试电机pid
-    my_uart6.write("%d %d %.3f\r\n" % (target, enc_data, Posi_speed_PID_l.pwm_output))
+    Posi_speed_PID_L.compute_pid(target = target_L, actual = enc_data)
+    set_motor(motor_1, Posi_speed_PID_L.pwm_output)
 
 # 定时器1初始化
 def pit1_start():
@@ -89,6 +99,8 @@ def pit1_start():
 pit1_start()
 
 while True:
+    # 输出波形图用于调试电机pid
+    my_uart6.write("%d %d %.3f\r\n" % (target_L, enc_data_L, Posi_speed_PID_L.pwm_output))
 
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
