@@ -55,8 +55,7 @@ diff_filter_1 = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
 # 创建电机pid对象
 Posi_speed_PID_L = ant_motor.SpeedPositionPID(kp = find_value(config, "L_normal_kp"), 
                                               ki = find_value(config, "L_normal_ki"), 
-                                              kd = find_value(config, "L_normal_kd"), 
-                                              integral_limit = 29000, 
+                                              kd = find_value(config, "L_normal_kd"),  
                                               pwmout_limitmax = 6000, 
                                               diff_filter = diff_filter_1)
 

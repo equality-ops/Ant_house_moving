@@ -21,7 +21,7 @@ class ControlPID:
 
 
 class SpeedPositionPID(ControlPID):
-    def __init__(self, kp: float, ki: float, kd: float, integral_limit: int, pwmout_limitmax: int, diff_filter: SlipAveragingFilter):
+    def __init__(self, kp: float, ki: float, kd: float, pwmout_limitmax: int, diff_filter: SlipAveragingFilter):
         self.kp = kp        # type: float
         self.ki = ki        # type: float
         self.kd = kd        # type: float
@@ -30,7 +30,6 @@ class SpeedPositionPID(ControlPID):
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
-        self.__integral_limit = integral_limit      # type: int
         self.__pwmout_limitmax = pwmout_limitmax    # type: float
         self.diff_filter = diff_filter
         self.__A = 800      # 变速积分上限
