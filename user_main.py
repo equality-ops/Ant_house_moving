@@ -94,9 +94,9 @@ def pit1_start():
 
 # 定时器2初始化
 def pit2_Start():
-    pit2 = ticker(1)
+    pit2 = ticker(2)
     pit2.callback(ant_menu.time_pit2_handler)
-    pit2.start(10)
+    pit2.start(20)
 
 ###################################【主程序模块】###################################
 # 打开定时器
