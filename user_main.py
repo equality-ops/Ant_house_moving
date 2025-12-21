@@ -11,6 +11,7 @@ from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker
 from smartcar import encoder
 import hqu_motor
+import ant_menu
 
 # 包含 gc 与 time 类
 import gc
@@ -83,10 +84,16 @@ def pit1_start():
     pit1.callback(time_pit1_handler)
     pit1.start(10)
 
+# 定时器2初始化
+def PIT2_Start():
+    pit2 = ticker(1)
+    pit2.callback(ant_menu.time_pit2_handler)
+    pit2.start(10)
 
 ###################################【主程序模块】###################################
 # 打开定时器
 pit1_start()
+PIT2_Start()
 
 while True:
 
