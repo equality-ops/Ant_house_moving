@@ -28,6 +28,9 @@ led = Pin('C4', Pin.OUT, value=True)
 switch2 = Pin('D9', Pin.IN, pull=Pin.PULL_UP_47K)
 state2 = switch2.value()
 
+# 蜂鸣器初始化
+beep = Pin('C9' , Pin.OUT, pull = Pin.PULL_UP_47K, value = False)
+
 # 创建MOTOR_CONTROLLER对象
 motor_1 = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 
