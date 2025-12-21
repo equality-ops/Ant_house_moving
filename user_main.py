@@ -26,7 +26,7 @@ config = ant_flash.phase_config("/flash/config.txt")
 ###################################【变量定义及初始化】###################################
 enc_data_L = 0    # type: int
 target_L = 100    # type: int
-beep_state = 0  # type: int
+beep_state = 0    # type: int
 
 ##################################【实例对象构建及初始化】##################################
 # 核心板上 C4 是 LED

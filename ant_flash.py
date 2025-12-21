@@ -31,7 +31,6 @@ def phase_config(file_path: str) -> dict:
     except FileNotFoundError as e:
         print(e)
         print(f"Error: File {file_path} not found.")
-        ant_beep.beep_warn(user_main.beep)
         return config
     
     content = f.readlines()
