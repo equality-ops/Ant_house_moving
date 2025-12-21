@@ -31,6 +31,7 @@ def phase_config(file_path: str) -> dict:
     except FileNotFoundError as e:
         print(e)
         print(f"Error: File {file_path} not found.")
+        ant_beep.beep_warn(user_main.beep)
         return config
     
     content = f.readlines()
@@ -53,7 +54,7 @@ def find_aimed_value(config: dict, var_name: str) -> Union[int, float]:
         var_value = config[var_name.strip()]
         return var_value
     except KeyError as e:
-        print("Failure to find aimed key!")
+        print(f"Failure to find {var_name.strip()}!")
         ant_beep.beep_warn(user_main.beep)
         return 0
     

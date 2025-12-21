@@ -8,8 +8,7 @@
 # 从 machine 库包含所有内容
 from machine import *
 from seekfree import MOTOR_CONTROLLER
-from smartcar import ticker
-from smartcar import encoder
+from smartcar import ticker, encoder
 import ant_motor
 import ant_beep
 import ant_flash
@@ -78,6 +77,12 @@ lcd.clear(0x0000)
 def set_motor(motor, duty) -> None:
     motor.duty(duty)
 
+# 是否成功读取文件和开启定时器检查函数
+def detect_if_normal() -> None:
+    for i in range(4):
+        time.sleep_ms(400)
+        led.toggle()
+
 """ 定时器类 """
 # 定时器中断回调函数
 def time_pit1_handler(time):
@@ -94,7 +99,7 @@ def pit1_start():
     pit1.start(10)
 
 # 定时器2初始化
-def pit2_Start():
+def pit2_start():
     pit2 = ticker(2)
     pit2.callback(ant_menu.time_pit2_handler)
     pit2.start(20)
@@ -102,7 +107,10 @@ def pit2_Start():
 ###################################【主程序模块】###################################
 # 打开定时器
 pit1_start()
-pit2_Start()
+pit2_start()
+
+# 检测是否正常开启定时器并读取文件
+detect_if_normal()
 
 while True:
     # 输出波形图用于调试电机pid
