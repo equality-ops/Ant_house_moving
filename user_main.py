@@ -45,6 +45,19 @@ diff_filter_1 = hqu_motor.SlipAveragingFilter(5)
 # 创建电机pid对象
 Posi_speed_PID_l = hqu_motor.SpeedPositionPID(kp = 0.0, ki = 0.2, kd = 0.0, integral_limit = 29000, pwmout_limitmax = 6000, diff_filter = diff_filter_1)
 
+# 新建LCD实例并初始化
+cs = Pin('C5' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
+cs.high()
+cs.low()
+rst = Pin('B9' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
+dc  = Pin('B8' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
+blk = Pin('C4' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
+drv = LCD_Drv(SPI_INDEX=1, BAUDRATE=60000000, DC_PIN=dc, RST_PIN=rst, LCD_TYPE=LCD_Drv.LCD200_TYPE)
+lcd = LCD(drv)
+lcd.color(0xFFFF, 0x0000)
+lcd.mode(2)
+lcd.clear(0x0000)
+
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
