@@ -120,8 +120,6 @@ while True:
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
     if switch2.value() != state2:
         print("Test program stop.")
-        ticker(1).stop()
-        ticker(2).stop()
         break
 
     gc.collect()
