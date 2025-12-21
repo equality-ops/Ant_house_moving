@@ -93,10 +93,16 @@ def pit1_start():
     pit1.callback(time_pit1_handler)
     pit1.start(10)
 
+# 定时器2初始化
+def pit2_Start():
+    pit2 = ticker(1)
+    pit2.callback(ant_menu.time_pit2_handler)
+    pit2.start(10)
 
 ###################################【主程序模块】###################################
 # 打开定时器
 pit1_start()
+pit2_Start()
 
 while True:
     # 输出波形图用于调试电机pid
