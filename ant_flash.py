@@ -21,10 +21,22 @@ def phase_num_string(s: str) -> Union[int, float, str]:
     return s
 
 
-def phase_config():
+def phase_config(file_path: str) -> dict:
     config = dict()
-    
+    with open(file_path, 'r') as f:
+        content = f.readlines()
+        for line in content:
+            if not line or line.startswith('#'):
+                continue
+            line = line.strip()
+            line = line.split('=', 1)
+            var_name = line[0].strip()
+            var_value = line[1].strip()
+            config[var_name] = phase_num_string(var_value)
 
+    return config
+
+# 调试程序
 if __name__ == "__main__":
     test_strings = ["123", "45.67", "hello", "-89", "3.14159", "world123"]
 
