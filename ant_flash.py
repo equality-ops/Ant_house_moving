@@ -45,6 +45,8 @@ def phase_config(file_path: str) -> dict:
         # 解析变量值
         config[var_name] = phase_num_string(var_value)
 
+    f.close
+
     return config
 
 
