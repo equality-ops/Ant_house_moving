@@ -66,7 +66,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     for i in range(4):
-        time.sleep_ms(400)
+        time.sleep_ms(250)
         led.toggle()
 
 """ 定时器类 """
@@ -87,7 +87,6 @@ def pit1_start():
 # 定时器2初始化
 def pit2_start():
     pit2 = ticker(2)
-    # 记得恢复
     pit2.callback(ant_menu.time_pit2_handler)
     pit2.start(20)
 
@@ -112,10 +111,10 @@ ant_menu.Menu_First()
 while True:
     # 输出波形图用于调试电机pid
     my_uart6.write("%d %d %.3f\r\n" % (target_L, enc_data_L, Posi_speed_PID_L.pwm_output))
+
+    # 屏幕测试程序
     # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
     # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
-
-    
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0xF800)
     # time.sleep_ms(500)
