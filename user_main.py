@@ -56,18 +56,7 @@ Posi_speed_PID_L = ant_motor.SpeedPositionPID(kp = find_value(config, "L_normal_
                                               pwmout_limitmax = 6000, 
                                               diff_filter = diff_filter_1)
 
-# 新建LCD实例并初始化
-cs = Pin('C5' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
-cs.high()
-cs.low()
-rst = Pin('B9' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
-dc  = Pin('B8' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
-blk = Pin('C4' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
-drv = LCD_Drv(SPI_INDEX=1, BAUDRATE=60000000, DC_PIN=dc, RST_PIN=rst, LCD_TYPE=LCD_Drv.LCD200_TYPE)
-lcd = LCD(drv)
-lcd.color(0xFFFF, 0x0000)
-lcd.mode(2)
-lcd.clear(0x0000)
+
 
 ###################################【函数定义】###################################
 # 电机驱动函数
@@ -77,7 +66,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     for i in range(4):
-        time.sleep_ms(250)
+        time.sleep_ms(400)
         led.toggle()
 
 """ 定时器类 """
@@ -98,6 +87,7 @@ def pit1_start():
 # 定时器2初始化
 def pit2_start():
     pit2 = ticker(2)
+    # 记得恢复
     pit2.callback(ant_menu.time_pit2_handler)
     pit2.start(20)
 
@@ -109,16 +99,29 @@ pit2_start()
 # 检测是否正常开启定时器并读取文件
 detect_if_normal()
 
-# 测试程序
-# print(f"L_normal_kp: {Posi_speed_PID_L.kp}")
-# print(f"L_normal_ki: {Posi_speed_PID_L.ki}")
-# print(f"L_normal_kd: {Posi_speed_PID_L.kd}")
+# flash测试程序
+print(f"L_normal_kp: {Posi_speed_PID_L.kp}")
+print(f"L_normal_ki: {Posi_speed_PID_L.ki}")
+print(f"L_normal_kd: {Posi_speed_PID_L.kd}")
 
-# find_value(config, "hello")
+find_value(config, "hello")
+
+# 屏幕测试程序
+ant_menu.Menu_First()
 
 while True:
     # 输出波形图用于调试电机pid
     my_uart6.write("%d %d %.3f\r\n" % (target_L, enc_data_L, Posi_speed_PID_L.pwm_output))
+    # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
+    # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
+
+    
+    # time.sleep_ms(500)
+    # ant_menu.lcd.clear(0xF800)
+    # time.sleep_ms(500)
+    # ant_menu.lcd.clear(0x07E0)
+    # time.sleep_ms(500)
+    # ant_menu.lcd.clear(0x001F)
 
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
