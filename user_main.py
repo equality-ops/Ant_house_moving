@@ -7,10 +7,10 @@
 
 # 从 machine 库包含所有内容
 from machine import *
+from display import *
 from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker, encoder
 import ant_motor
-import ant_beep
 import ant_flash
 from ant_flash import find_aimed_value as find_value
 import ant_menu
@@ -34,9 +34,6 @@ beep_state = 0    # type: int
 led = Pin('C4', Pin.OUT, value=True)
 switch2 = Pin('D9', Pin.IN, pull=Pin.PULL_UP_47K)
 state2 = switch2.value()
-
-# 蜂鸣器初始化
-beep = Pin('C9' , Pin.OUT, pull = Pin.PULL_UP_47K, value = False)
 
 # 创建MOTOR_CONTROLLER对象
 motor_1 = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
@@ -80,7 +77,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     for i in range(4):
-        time.sleep_ms(400)
+        time.sleep_ms(250)
         led.toggle()
 
 """ 定时器类 """
@@ -112,6 +109,13 @@ pit2_start()
 # 检测是否正常开启定时器并读取文件
 detect_if_normal()
 
+# 测试程序
+# print(f"L_normal_kp: {Posi_speed_PID_L.kp}")
+# print(f"L_normal_ki: {Posi_speed_PID_L.ki}")
+# print(f"L_normal_kd: {Posi_speed_PID_L.kd}")
+
+# find_value(config, "hello")
+
 while True:
     # 输出波形图用于调试电机pid
     my_uart6.write("%d %d %.3f\r\n" % (target_L, enc_data_L, Posi_speed_PID_L.pwm_output))
@@ -123,3 +127,4 @@ while True:
         break
 
     gc.collect()
+
