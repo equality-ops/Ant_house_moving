@@ -2,7 +2,7 @@ from machine import *
 import time
 
 # 蜂鸣器初始化
-beep    = Pin('D24', Pin.OUT, value = False)
+beep = Pin('D24', Pin.OUT, value = False)
 
 class BeepState:
     beep_state = 0

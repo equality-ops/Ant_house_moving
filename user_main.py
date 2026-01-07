@@ -12,6 +12,7 @@ from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker, encoder
 import ant_motor
 import ant_flash
+import ant_beep
 from ant_flash import find_aimed_value as find_value
 import ant_menu
 
@@ -34,6 +35,9 @@ beep_state = 0    # type: int
 led = Pin('C4', Pin.OUT, value=True)
 switch2 = Pin('D9', Pin.IN, pull=Pin.PULL_UP_47K)
 state2 = switch2.value()
+
+# 构造输入电压分压检测电路接口
+power_adc = ADC('B27')
 
 # 创建MOTOR_CONTROLLER对象
 motor_1 = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
@@ -69,6 +73,15 @@ def detect_if_normal() -> None:
         time.sleep_ms(250)
         led.toggle()
 
+# 检测电源电压函数
+def voltage_detect(limit_min: float) -> None:
+    power_adc_value = power_adc.read_u16()
+    power_voltage = power_adc_value / 65535 * 3.3 * 11
+    if power_voltage <= limit_min:
+        print("The power supply voltage is too low!")
+        ant_beep.beep_warn()
+
+
 """ 定时器类 """
 # 定时器中断回调函数
 def time_pit1_handler(time):
@@ -91,6 +104,9 @@ def pit2_start():
     pit2.start(20)
 
 ###################################【主程序模块】###################################
+# 检测电源电压是否正常
+voltage_detect(11.1)
+
 # 打开定时器
 pit1_start()
 pit2_start()
