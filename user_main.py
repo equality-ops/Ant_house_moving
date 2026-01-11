@@ -70,7 +70,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     for i in range(4):
-        time.sleep_ms(250)
+        time.sleep_ms(200)
         led.toggle()
 
 # 检测电源电压函数
@@ -111,9 +111,6 @@ voltage_detect(11.1)
 pit1_start()
 pit2_start()
 
-# 检测是否正常开启定时器并读取文件
-detect_if_normal()
-
 # flash测试程序
 print(f"L_normal_kp: {Posi_speed_PID_L.kp}")
 print(f"L_normal_ki: {Posi_speed_PID_L.ki}")
@@ -123,6 +120,9 @@ find_value(config, "hello")
 
 # 屏幕测试程序
 ant_menu.Menu_First()
+
+# 检测是否正常初始化所有
+detect_if_normal()
 
 while True:
     # 输出波形图用于调试电机pid
@@ -145,4 +145,5 @@ while True:
         break
 
     gc.collect()
+
 

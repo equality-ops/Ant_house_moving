@@ -11,6 +11,23 @@ class SlipAveragingFilter:
         self.buffer[self.index] = data
         self.index = (self.index + 1) % self.filter_size
         return sum(self.buffer) / self.filter_size
+    
+    
+# 一维卡尔曼滤波器
+class KalmanFilter:
+    def __init__(self, P=1.0, Q=0.01, R=0.1, initial_output=0.0):
+        self.P = P
+        self.Q = Q
+        self.R = R
+        self.Output = initial_output
+
+    def update(self, input_value):
+        self.P += self.Q
+        K = self.P / (self.P + self.R)
+        self.Output += K * (input_value - self.Output)
+        self.P = (1 - K) * self.P
+        return self.Output
+
 
 
 # 定义一个抽象类用于顶层设计
