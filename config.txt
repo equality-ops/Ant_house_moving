@@ -1,9 +1,27 @@
-L_normal_kp = 5.0
-L_normal_ki = 0.3
-L_normal_kd = 0.1
-conversion_gamma = 1.779418
+# PID参数
+ul_normal_kp = 0.0
+ul_normal_ki = 0.1
+ul_normal_kd = 0.0
+ur_normal_kp = 0.0
+ur_normal_ki = 0.1
+ur_normal_kd = 0.0
+md_normal_kp = 0.0
+md_normal_ki = 0.1
+md_normal_kd = 0.0
+angle_normal_kp = 0.0
+angle_normal_ki = 0.1
+angle_normal_kd = 0.0
+
+# 机械参数
 wheel_radius = 5.8
 car_radius = 10.5
-collect_dt = 0.005
+
+# 系数
+conversion_gamma = 1.779418
 gkd = -0.01
 fuse_ratio = 0.5
+gyro_z_bias = 0
+
+# 时间
+motor_control_T = 5
+collect_dt = 0.005

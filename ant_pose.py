@@ -12,6 +12,8 @@ encoder_md = encoder("D15", "D16", True)
 
 # IMU初始化
 imu = IMU660RX()
+# 定时器1采集已经与imu_data相连
+imu_data = []   # type: list
 
 class PoseData:
     def __init__(self, diff_filter: ant_motor.SlipAveragingFilter):
@@ -32,12 +34,12 @@ class PoseData:
         self.encoder_data_ur = encoder_ur.get()
         self.encoder_data_md = encoder_md.get()
 
-        self.acc_x = imu[0]
-        self.acc_y = imu[1]
-        self.acc_z = imu[2]
-        self.gyro_x = imu[3]
-        self.gyro_y = imu[4]
+        self.acc_x = imu_data[0]
+        self.acc_y = imu_data[1]
+        self.acc_z = imu_data[2]
+        self.gyro_x = imu_data[3]
+        self.gyro_y = imu_data[4]
         # 去零漂后滑动平均滤波（单位：角度每秒）
-        self.gyro_z = self.diff_filter.filtering((imu[5] - self.gyro_z_bias) / 16.4) 
+        self.gyro_z = self.diff_filter.filtering((imu_data[5] - self.gyro_z_bias) / 16.4) 
 
     

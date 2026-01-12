@@ -24,7 +24,6 @@ import time
 enc_data_L = 0    # type: int
 target_L = 100    # type: int
 beep_state = 0    # type: int
-imu_data = []   # type: list
 
 ##################################【实例对象构建及初始化】##################################
 # 核心板上 C4 是 LED
@@ -57,7 +56,7 @@ def voltage_detect(limit_min: float) -> None:
     power_adc_value = power_adc.read_u16()
     power_voltage = power_adc_value / 65535 * 3.3 * 11
     if power_voltage <= limit_min:
-        print("The power supply voltage is too low!")
+        print(f"The power supply voltage: {power_voltage} is too low!")
         ant_beep.beep_warn()
 
 
@@ -68,9 +67,9 @@ def pit1_start():
     pit1 = ticker(1)
     pit1.capture_list(ant_pose.encoder_ul, ant_pose.encoder_ur, ant_pose.encoder_md, ant_pose.imu)
     # 将imu对象与传感器数据缓冲区链接起来
-    imu_data = ant_pose.imu.get()
+    ant_pose.imu_data = ant_pose.imu.get()
     pit1.callback(ant_motor.time_pit1_handler)
-    pit1.start(find_value(ant_motor.config, "collect_dt"))
+    pit1.start(find_value(ant_motor.config, "motor_control_T"))
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
@@ -111,5 +110,6 @@ while True:
         break
 
     gc.collect()
+
 
 

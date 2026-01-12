@@ -149,9 +149,9 @@ motor_md_pid = SpeedPositionPID(kp = find_value(config, "md_normal_kp"),
                                 diff_filter = diff_filter_md)
 
 angle_pid = AnglePositionPID(kp = find_value(config, "angle_normal_kp"), 
-                            ki = find_value(config, "amgle_normal_ki"), 
-                            kd = find_value(config, "amgle_normal_kd"),  
-                            pwmout_limitmax = 4000)
+                            ki = find_value(config, "angle_normal_ki"), 
+                            kd = find_value(config, "angle_normal_kd"),  
+                            pwmout_limitmax = 3000)
 
 # 创建MOTOR_CONTROLLER对象
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = False)

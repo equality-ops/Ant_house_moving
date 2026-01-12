@@ -34,7 +34,7 @@ def phase_config(file_path: str) -> dict:
     content = f.readlines()
     for line in content:
         # 跳过空行和注释行
-        if not line or line.startswith('#'):
+        if not line or line.startswith('#') or line.startswith('\r\n'):
             continue
         line = line.strip()
         line = line.split('=', 1)
