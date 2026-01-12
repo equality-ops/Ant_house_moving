@@ -6,6 +6,7 @@ import ant_flash
 from ant_math import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 import ant_pose
+import ant_uart
 
 
 ###################################【文件读取】###################################
@@ -44,10 +45,10 @@ class KalmanFilter:
 
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = SlipAveragingFilter(5)    # 滤波窗口为5个
-diff_filter_ur = SlipAveragingFilter(5)    # 滤波窗口为5个
-diff_filter_md = SlipAveragingFilter(5)    # 滤波窗口为5个
-diff_filter_gyroz = SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_ul = SlipAveragingFilter(2)    # 滤波窗口为2个
+diff_filter_ur = SlipAveragingFilter(2)    # 滤波窗口为2个
+diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
+diff_filter_gyroz = SlipAveragingFilter(5)  # 滤波窗口为3个
 
 # 创建姿态数据对象
 pose_data = ant_pose.PoseData(diff_filter_gyroz)
@@ -65,6 +66,8 @@ class SpeedPositionPID(ControlPID):
         self.kp = kp        # type: float
         self.ki = ki        # type: float
         self.kd = kd        # type: float
+        self.target = 0     # type: int
+        self.actual = 0     # type: int
         self.nowError = 0   # type: int
         self.preError = 0   # type: int
         self.integral = 0   # type: float
@@ -76,8 +79,10 @@ class SpeedPositionPID(ControlPID):
         self.__B = 200      # 变速积分下限
 
     def compute_pid(self, target: int, actual: int):
+        self.target = target
+        self.actual = actual
         self.preError = self.nowError
-        self.nowError = target - actual
+        self.nowError = self.target - self.actual
         self.integral += self.nowError
         # 对微分项进行滑动平均滤波
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
@@ -110,6 +115,8 @@ class AnglePositionPID(ControlPID):
         self.kp = kp        # type: float
         self.ki = ki        # type: float
         self.kd = kd        # type: float
+        self.target = 0     # type: int
+        self.actual = 0     # type: int
         self.nowError = 0   # type: int
         self.preError = 0   # type: int
         self.integral = 0   # type: float
@@ -118,8 +125,10 @@ class AnglePositionPID(ControlPID):
         self.__pwmout_limitmax = pwmout_limitmax    # type: float
 
     def compute_pid(self, target: int, actual: int):
+        self.target = target
+        self.actual = actual
         self.preError = self.nowError
-        self.nowError = target - actual
+        self.nowError = self.target - self.actual
         self.integral += self.nowError
         self.derivative = self.nowError - self.preError
 
@@ -154,9 +163,9 @@ angle_pid = AnglePositionPID(kp = find_value(config, "angle_normal_kp"),
                             pwmout_limitmax = 3000)
 
 # 创建MOTOR_CONTROLLER对象
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
 
 # 小车姿态控制
 class CarPose:
@@ -251,16 +260,25 @@ class CarPose:
 
     # 设置电机pwm输出函数
     def set_motor_pwm(self):
-        motor_ul.duty(int(motor_ul_pid.pwm_output))
+        motor_ul.duty(motor_ul_pid.pwm_output)
         motor_ur.duty(int(motor_ur_pid.pwm_output))
         motor_md.duty(int(motor_md_pid.pwm_output))
 
+
+def show_speed_PID_test():
+    motor_ul_pid.compute_pid(500, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output))
+    
+    
 # 创建小车姿态对象
 my_car = CarPose()
 
 # 定时器1中断回调函数
 def time_pit1_handler(time):
     pose_data.update_data()
-    my_car.update_pose(pose_data)
-    my_car.move_ctrl(50, 0, 0)
+    show_speed_PID_test()
+    # my_car.update_pose(pose_data)
+    # my_car.move_ctrl(50, 0, 0)
     my_car.set_motor_pwm()

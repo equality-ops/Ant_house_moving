@@ -35,11 +35,6 @@ state2 = switch2.value()
 # 构造输入电压分压检测电路接口
 power_adc = ADC('B27')
 
-# 异步串口通信初始化
-my_uart6 = UART(5)
-my_uart6.init(460800)
-my_uart6.write("Motor test begins!\r\n")
-
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -79,7 +74,10 @@ def pit2_start():
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
-voltage_detect(11.1)
+voltage_detect(11.7)
+
+# 进行零篇校准
+ant_motor.pose_data.init_bias()
 
 # 打开定时器
 pit1_start()
@@ -110,6 +108,7 @@ while True:
         break
 
     gc.collect()
+
 
 
 

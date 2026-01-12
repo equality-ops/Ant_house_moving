@@ -1,12 +1,12 @@
 # PID参数
-ul_normal_kp = 0.0
-ul_normal_ki = 0.1
-ul_normal_kd = 0.0
-ur_normal_kp = 0.0
-ur_normal_ki = 0.1
+ul_normal_kp = 15.0
+ul_normal_ki = 5.0
+ul_normal_kd = 0.2
+ur_normal_kp = 21.0
+ur_normal_ki = 1.0
 ur_normal_kd = 0.0
 md_normal_kp = 0.0
-md_normal_ki = 0.1
+md_normal_ki = 0.0
 md_normal_kd = 0.0
 angle_normal_kp = 0.0
 angle_normal_ki = 0.1
