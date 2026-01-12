@@ -1,3 +1,9 @@
 L_normal_kp = 5.0
 L_normal_ki = 0.3
 L_normal_kd = 0.1
+conversion_gamma = 1.779418
+wheel_radius = 5.8
+car_radius = 10.5
+collect_dt = 0.005
+gkd = -0.01
+fuse_ratio = 0.5

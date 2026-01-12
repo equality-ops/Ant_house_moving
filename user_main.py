@@ -9,9 +9,9 @@
 from machine import *
 from display import *
 from seekfree import MOTOR_CONTROLLER
-from smartcar import ticker, encoder
+from smartcar import ticker, encoder  
+import ant_pose  
 import ant_motor
-import ant_flash
 import ant_beep
 from ant_flash import find_aimed_value as find_value
 import ant_menu
@@ -20,14 +20,12 @@ import ant_menu
 import gc
 import time
 
-###################################【文件读取】###################################
-# 从config.txt中读取保存所有的参数并保存到config字典中
-config = ant_flash.phase_config("/flash/config.txt")
 
 ###################################【变量定义及初始化】###################################
 enc_data_L = 0    # type: int
 target_L = 100    # type: int
 beep_state = 0    # type: int
+imu_data = []   # type: list
 
 ##################################【实例对象构建及初始化】##################################
 # 核心板上 C4 是 LED
@@ -39,28 +37,10 @@ state2 = switch2.value()
 # 构造输入电压分压检测电路接口
 power_adc = ADC('B27')
 
-# 创建MOTOR_CONTROLLER对象
-motor_1 = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
-
 # 异步串口通信初始化
 my_uart6 = UART(5)
 my_uart6.init(460800)
 my_uart6.write("Motor test begins!\r\n")
-
-# 编码器初始化
-encoder_l = encoder("D15", "D16", True)
-
-# 创建电机微分项的滑动平均滤波器对象
-diff_filter_1 = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
-
-# 创建电机pid对象
-Posi_speed_PID_L = ant_motor.SpeedPositionPID(kp = find_value(config, "L_normal_kp"), 
-                                              ki = find_value(config, "L_normal_ki"), 
-                                              kd = find_value(config, "L_normal_kd"),  
-                                              pwmout_limitmax = 6000, 
-                                              diff_filter = diff_filter_1)
-
-
 
 ###################################【函数定义】###################################
 # 电机驱动函数
@@ -83,21 +63,17 @@ def voltage_detect(limit_min: float) -> None:
 
 
 """ 定时器类 """
-# 定时器中断回调函数
-def time_pit1_handler(time):
-    global enc_data
-    enc_data = encoder_l.get()
-    Posi_speed_PID_L.compute_pid(target = target_L, actual = enc_data)
-    set_motor(motor_1, Posi_speed_PID_L.pwm_output)
-
-# 定时器1初始化
+# 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
+    global imu_data
     pit1 = ticker(1)
-    pit1.capture_list(encoder_l)
-    pit1.callback(time_pit1_handler)
-    pit1.start(10)
+    pit1.capture_list(ant_pose.encoder_ul, ant_pose.encoder_ur, ant_pose.encoder_md, ant_pose.imu)
+    # 将imu对象与传感器数据缓冲区链接起来
+    imu_data = ant_pose.imu.get()
+    pit1.callback(ant_motor.time_pit1_handler)
+    pit1.start(5)
 
-# 定时器2初始化
+# 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
     pit2 = ticker(2)
     pit2.callback(ant_menu.time_pit2_handler)
@@ -111,12 +87,6 @@ voltage_detect(11.1)
 pit1_start()
 pit2_start()
 
-# flash测试程序
-print(f"L_normal_kp: {Posi_speed_PID_L.kp}")
-print(f"L_normal_ki: {Posi_speed_PID_L.ki}")
-print(f"L_normal_kd: {Posi_speed_PID_L.kd}")
-
-find_value(config, "hello")
 
 # 屏幕测试程序
 ant_menu.Menu_First()
@@ -125,9 +95,6 @@ ant_menu.Menu_First()
 detect_if_normal()
 
 while True:
-    # 输出波形图用于调试电机pid
-    my_uart6.write("%d %d %.3f\r\n" % (target_L, enc_data_L, Posi_speed_PID_L.pwm_output))
-
     # 屏幕测试程序
     # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
     # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
