@@ -1,6 +1,6 @@
 from machine import *
 from seekfree import MOTOR_CONTROLLER
-from smartcar import ticker, encoder
+from smartcar import ticker
 import math
 import ant_flash
 from ant_math import MATH as MATH
@@ -59,7 +59,7 @@ class ControlPID:
     def compute_pid(self, target: int, actual: int) -> None:
         pass
 
-# 速度环PID
+# 速度环位置式PID
 class SpeedPositionPID(ControlPID):
     def __init__(self, kp: float, ki: float, kd: float, pwmout_limitmax: int, diff_filter: SlipAveragingFilter):
         self.kp = kp        # type: float
@@ -129,7 +129,7 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
-# 创建电机pid对象
+# 创建电机pid对象和角度pid对象
 motor_ul_pid = SpeedPositionPID(kp = find_value(config, "ul_normal_kp"), 
                                 ki = find_value(config, "ul_normal_ki"), 
                                 kd = find_value(config, "ul_normal_kd"),  

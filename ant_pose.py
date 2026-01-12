@@ -1,9 +1,9 @@
 from machine import *
 from seekfree import IMU660RX
-from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker, encoder
 import ant_motor
 from ant_math import MATH as MATH
+from ant_flash import find_aimed_value as find_value
 
 # 编码器初始化
 encoder_ul = encoder("C0" , "C1" , True)
@@ -24,7 +24,7 @@ class PoseData:
         self.gyro_x = 0             # type: int
         self.gyro_y = 0             # type: int
         self.gyro_z = 0             # type: float
-        self.gyro_z_bias = 0        # type: int
+        self.gyro_z_bias = find_value(ant_motor.config, "gyro_z_bias")        # type: int
         self.diff_filter = diff_filter
 
     def update_data(self):

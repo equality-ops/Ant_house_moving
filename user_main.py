@@ -5,14 +5,13 @@
 # 当成功执行 user_main.py 后 C4 LED 会以一秒周期进行闪烁
 # 当 D9 引脚电平出现变化时退出测试程序
 
-# 从 machine 库包含所有内容
+# 从 machine 库包含所有内容 
+import ant_beep    # 先导入 ant_beep 模块以确保蜂鸣器被初始化
+import ant_motor   # 先导入 ant_motor 模块以确保配置文件被加载
 from machine import *
 from display import *
-from seekfree import MOTOR_CONTROLLER
-from smartcar import ticker, encoder  
+from smartcar import ticker
 import ant_pose  
-import ant_motor
-import ant_beep
 from ant_flash import find_aimed_value as find_value
 import ant_menu
 
@@ -71,7 +70,7 @@ def pit1_start():
     # 将imu对象与传感器数据缓冲区链接起来
     imu_data = ant_pose.imu.get()
     pit1.callback(ant_motor.time_pit1_handler)
-    pit1.start(5)
+    pit1.start(find_value(ant_motor.config, "collect_dt"))
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
