@@ -228,29 +228,34 @@ class CarPose:
     # 全向移动控制函数
     def move_ctrl(self, move_speed_target: int, move_angle_target: int, turn_angle_target: int):
         # 计算各个电机的目标速度
-        speed_w = turn_angle_target - self.now_yaw
+        angle_pid.compute_pid(turn_angle_target, int(self.now_yaw))
+        speed_w = angle_pid.pwm_output
+        # 限定speed_w在-180到180度之间
         if speed_w > 180:  speed_w -= 360
         elif speed_w < -180:  speed_w += 360
 
+        # 设置目标速度
         self.target_speed_w = speed_w
         self.target_speed_x = move_speed_target * math.cos(math.radians(move_angle_target))
         self.target_speed_y = move_speed_target * math.sin(math.radians(move_angle_target))
     
+        # 计算各个电机的目标速度
         motor_ul_speed_target = (self.target_speed_w + self.target_speed_x) * MATH.OneThird + self.target_speed_y / MATH.SQRT3 + self.car_speed_w * self.gkd
         motor_ur_speed_target = (self.target_speed_w + self.target_speed_x) * MATH.OneThird - self.target_speed_y / MATH.SQRT3 + self.car_speed_w * self.gkd
         motor_md_speed_target = self.target_speed_w * MATH.OneThird - self.target_speed_x * MATH.TwoThirdS + self.car_speed_w * self.gkd
         
-        # 设置各个电机的目标速度
+        # 计算各个电机的pid得到pwm输出
         motor_ul_pid.compute_pid(int(motor_ul_speed_target), pose_data.encoder_data_ul)
         motor_ur_pid.compute_pid(int(motor_ur_speed_target), pose_data.encoder_data_ur)
         motor_md_pid.compute_pid(int(motor_md_speed_target), pose_data.encoder_data_md)
 
+    # 设置电机pwm输出函数
     def set_motor_pwm(self):
         motor_ul.duty(int(motor_ul_pid.pwm_output))
         motor_ur.duty(int(motor_ur_pid.pwm_output))
         motor_md.duty(int(motor_md_pid.pwm_output))
 
-
+# 创建小车姿态对象
 my_car = CarPose()
 
 # 定时器1中断回调函数
