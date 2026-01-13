@@ -46,7 +46,7 @@ class KalmanFilter:
 
 # 创建电机微分项的滑动平均滤波器对象
 diff_filter_ul = SlipAveragingFilter(2)    # 滤波窗口为2个
-diff_filter_ur = SlipAveragingFilter(2)    # 滤波窗口为2个
+diff_filter_ur = SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
 diff_filter_gyroz = SlipAveragingFilter(5)  # 滤波窗口为3个
 
@@ -73,10 +73,13 @@ class SpeedPositionPID(ControlPID):
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
-        self.__pwmout_limitmax = pwmout_limitmax    # type: float
+        self.__integral_limitmax = find_value(config, "integral_limitmax")      # type: float
+        self.__pwmout_limitmax = find_value(config, "pwmout_limitmax")          # type: float
         self.diff_filter = diff_filter
-        self.__A = 800      # 变速积分上限
-        self.__B = 200      # 变速积分下限
+        self.__A = find_value(config, "A")      # type: float # 变速积分误差阈值上限
+        self.__B = find_value(config, "B")      # type: float # 变速积分误差阈值下限
+        self.__kp_mid = find_value(config, "kp_mid")  # type: float # 中等误差时的kp系数
+        self.__kp_low = find_value(config, "kp_low")  # type: float # 低误差时的kp系数
 
     def compute_pid(self, target: int, actual: int):
         self.target = target
@@ -84,27 +87,42 @@ class SpeedPositionPID(ControlPID):
         self.preError = self.nowError
         self.nowError = self.target - self.actual
         self.integral += self.nowError
-        # 对微分项进行滑动平均滤波
-        self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
-        abs_integral = abs(self.integral)
+        abs_nowerror = abs(self.nowError)
         coefficient = 1.0   # type: float
         if self.__A == self.__B:
             # 避免除以0
-            coefficient = 0.0 if (abs_integral > self.__A) else 1.0
-        else:
-            if abs_integral > self.__A:
+            if (abs_nowerror > self.__A):
                 coefficient = 0.0
-            elif abs_integral > self.__B:
-                coefficient = (self.__A - abs_integral) / (self.__A - self.__B)
+                kp_coefficient = 1.0
             else:
                 coefficient = 1.0
+                kp_coefficient = self.__kp_low
+        else:
+            if abs_nowerror > self.__A:
+                coefficient = 0.0
+                kp_coefficient = 1.0
+            elif abs_nowerror > self.__B:
+                coefficient = (self.__A - abs_nowerror) / (self.__A - self.__B)
+                # 根据误差动态调节kp系数
+                kp_coefficient = self.__kp_mid
+            else:
+                coefficient = 1.0
+                # 根据误差动态调节kp系数
+                kp_coefficient = self.__kp_low
 
-        self.integral = self.integral * coefficient
+        # 根据误差大小调整积分项
+        self.integral += coefficient * self.nowError
+
+        # 积分项限幅
+        self.integral = max(-self.__integral_limitmax, min(self.integral, self.__integral_limitmax))
+
+        # 对微分项进行滑动平均滤波
+        self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
         # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError + self.ki * self.integral * coefficient + self.kd * self.derivative
-
+        self.pwm_output = self.kp * self.nowError * kp_coefficient + self.ki * self.integral + self.kd * self.derivative
+        
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
@@ -177,7 +195,7 @@ class CarPose:
         self.last_car_speed_x = 0.0  # type: float
         self.last_car_speed_y = 0.0  # type: float
         self.last_car_speed_w = 0.0  # type: float
-        # 小车当前速度
+        # 小车坐标系下的当前速度
         self.car_speed_x = 0.0  # type: float
         self.car_speed_y = 0.0  # type: float
         self.car_speed_w = 0.0  # type: float
@@ -185,10 +203,14 @@ class CarPose:
         self.real_speed_x = 0.0  # type: float
         self.real_speed_y = 0.0  # type: float
         self.real_speed_w = 0.0  # type: float
-        # 目标速度
-        self.target_speed_x = 0.0  # type: float
-        self.target_speed_y = 0.0  # type: float
-        self.target_speed_w = 0.0  # type: float
+        # 小车坐标系下的目标速度
+        self.car_speed_x_target = 0.0  # type: float
+        self.car_speed_y_target = 0.0  # type: float
+        self.car_speed_w_target = 0.0  # type: float
+        # 世界坐标系下的目标速度
+        self.real_speed_x_target = 0.0  # type: float
+        self.real_speed_y_target = 0.0  # type: float
+        self.real_speed_w_target = 0.0  # type: float
         # 速度系数
         self.conversion_gamma = find_value(config, "conversion_gamma")    # 一个脉冲在一个周期(0.005s)内的速度转换系数，单位：cm/s
         self.gkd = find_value(config, "gkd")  # type: float  # 角速度补偿系数
@@ -212,6 +234,7 @@ class CarPose:
 
     # 小车姿态更新
     def update_pose(self, pose_data: ant_pose.PoseData):
+        ###################【速度计算】###################
         # 保存上一次速度
         self.last_car_speed_x = self.car_speed_x
         self.last_car_speed_y = self.car_speed_y
@@ -222,7 +245,7 @@ class CarPose:
         self.car_speed_y = (MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.conversion_gamma
         # 计算小车当前角速度
         # car_speed_w单位：角度每秒
-        self.car_speed_w = self.fuse_ratio * (pose_data.encoder_data_ur + pose_data.encoder_data_ul + pose_data.encoder_data_md) * self.conversion_gamma / self.car_radius * MATH.PI / 180 + (1 - self.fuse_ratio) * pose_data.gyro_z
+        self.car_speed_w = self.fuse_ratio * (pose_data.encoder_data_ur + pose_data.encoder_data_ul + pose_data.encoder_data_md) * self.conversion_gamma / self.car_radius * 180 / MATH.PI + (1 - self.fuse_ratio) * pose_data.gyro_z
         # 计算小车在世界坐标系下的偏航角
         # now_yaw单位：角度
         self.now_yaw += self.car_speed_w * self.collect_dt 
@@ -233,6 +256,12 @@ class CarPose:
         self.real_speed_x = self.car_speed_x * math.cos(math.radians(self.now_yaw)) - self.car_speed_y * math.sin(math.radians(self.now_yaw))
         self.real_speed_y = self.car_speed_x * math.sin(math.radians(self.now_yaw)) + self.car_speed_y * math.cos(math.radians(self.now_yaw))
         self.real_speed_w = self.car_speed_w
+        ###################【位置计算】###################
+        # 计算小车当前位置
+        self.x_last = self.x_current
+        self.y_last = self.y_current
+        self.x_current = self.x_last + self.real_speed_x * self.collect_dt
+        self.y_current = self.y_last + self.real_speed_y * self.collect_dt
 
     # 全向移动控制函数
     def move_ctrl(self, move_speed_target: int, move_angle_target: int, turn_angle_target: int):
@@ -244,15 +273,15 @@ class CarPose:
         elif speed_w < -180:  speed_w += 360
 
         # 设置目标速度
-        self.target_speed_w = speed_w
-        self.target_speed_x = move_speed_target * math.cos(math.radians(move_angle_target))
-        self.target_speed_y = move_speed_target * math.sin(math.radians(move_angle_target))
-    
+        self.real_speed_w_target = speed_w
+        self.real_speed_x_target = move_speed_target * math.cos(math.radians(move_angle_target))
+        self.real_speed_y_target = move_speed_target * math.sin(math.radians(move_angle_target))
+
         # 计算各个电机的目标速度
-        motor_ul_speed_target = (self.target_speed_w + self.target_speed_x) * MATH.OneThird + self.target_speed_y / MATH.SQRT3 + self.car_speed_w * self.gkd
-        motor_ur_speed_target = (self.target_speed_w + self.target_speed_x) * MATH.OneThird - self.target_speed_y / MATH.SQRT3 + self.car_speed_w * self.gkd
-        motor_md_speed_target = self.target_speed_w * MATH.OneThird - self.target_speed_x * MATH.TwoThirdS + self.car_speed_w * self.gkd
-        
+        motor_ul_speed_target = (self.real_speed_w_target + self.real_speed_x_target) * MATH.OneThird + self.real_speed_y_target / MATH.SQRT3 + self.car_speed_w * self.gkd
+        motor_ur_speed_target = (self.real_speed_w_target + self.real_speed_x_target) * MATH.OneThird - self.real_speed_y_target / MATH.SQRT3 + self.car_speed_w * self.gkd
+        motor_md_speed_target = self.real_speed_w_target * MATH.OneThird - self.real_speed_x_target * MATH.TwoThirdS + self.car_speed_w * self.gkd
+
         # 计算各个电机的pid得到pwm输出
         motor_ul_pid.compute_pid(int(motor_ul_speed_target), pose_data.encoder_data_ul)
         motor_ur_pid.compute_pid(int(motor_ur_speed_target), pose_data.encoder_data_ur)
@@ -266,10 +295,10 @@ class CarPose:
 
 
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(500, pose_data.encoder_data_ul)
+    motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
     motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output))
+    motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
     
     
 # 创建小车姿态对象
@@ -282,3 +311,4 @@ def time_pit1_handler(time):
     # my_car.update_pose(pose_data)
     # my_car.move_ctrl(50, 0, 0)
     my_car.set_motor_pwm()
+

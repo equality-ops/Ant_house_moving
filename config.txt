@@ -1,16 +1,24 @@
 # PID参数
-ul_normal_kp = 15.0
-ul_normal_ki = 5.0
-ul_normal_kd = 0.2
-ur_normal_kp = 21.0
-ur_normal_ki = 1.0
-ur_normal_kd = 0.0
+ul_normal_kp = 4.0
+ul_normal_ki = 0.0
+ul_normal_kd = 0.0
+ur_normal_kp = 12.0
+ur_normal_ki = 0.2
+ur_normal_kd = 12.0
 md_normal_kp = 0.0
 md_normal_ki = 0.0
 md_normal_kd = 0.0
 angle_normal_kp = 0.0
-angle_normal_ki = 0.1
+angle_normal_ki = 0.2
 angle_normal_kd = 0.0
+integral_limitmax = 3000
+pwmout_limitmax = 6000 
+# A设置为B的2倍左右
+A = 350
+# B大致为最大静差的1.5倍
+B = 165
+kp_mid = 0.75
+kp_low = 0.5
 
 # 机械参数
 wheel_radius = 5.8
@@ -25,3 +33,4 @@ gyro_z_bias = 0
 # 时间
 motor_control_T = 5
 collect_dt = 0.005
+
