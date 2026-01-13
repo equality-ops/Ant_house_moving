@@ -303,6 +303,7 @@ def show_speed_PID_test():
     motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
     motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
     motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+    # 输出波形图调参
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
     ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
@@ -321,7 +322,6 @@ my_car = CarPose()
 # 定时器1中断回调函数
 def time_pit1_handler(time):
     pose_data.update_data()
-    #test_imu()
     #my_car.update_pose()
     # 测试角度闭环
     complete_angle_circle()
