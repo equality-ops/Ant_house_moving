@@ -16,6 +16,7 @@ from ant_flash import find_aimed_value as find_value
 import ant_menu
 import ant_plan
 
+
 # 包含 gc 与 time 类
 import gc
 import time
@@ -51,6 +52,7 @@ def detect_if_normal() -> None:
 def voltage_detect(limit_min: float) -> None:
     power_adc_value = power_adc.read_u16()
     power_voltage = power_adc_value / 65535 * 3.3 * 11
+    print(f"The current power supply voltage is {power_voltage}!")
     if power_voltage <= limit_min:
         print(f"The power supply voltage: {power_voltage} is too low!")
         ant_beep.beep_warn()

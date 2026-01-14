@@ -27,16 +27,26 @@ wheel_radius = 5.8
 car_radius = 10.5
 
 # 系数
-conversion_gamma = 1.779418
+speed_conversion_gamma = 0.01
+position_conversion_gamma = 0.03
 gkd = -1.2
 sensor_fuse_ratio = 0.5
-speed_fuse_ratio = 0.6
+speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
 gyro_z_supply = 1.168831
 # 电机补偿系数
-compensate_param_ul = 1.0                                     
-compensate_param_ur = 1.0
-compensate_param_md = 1.0
+compensate_param_ul_right = 0.9
+compensate_param_ur_right = 1.0
+compensate_param_md_right = 1.1
+compensate_param_ul_left = 1.1
+compensate_param_ur_left = 1.0
+compensate_param_md_left = 1.0
+compensate_param_ul_up = 1.0
+compensate_param_ur_up = 1.0
+compensate_param_md_up = 1.0
+compensate_param_ul_down = 0.9
+compensate_param_ur_down = 1.0
+compensate_param_md_down = 1.0
 
 # 时间
 motor_control_T = 5
@@ -45,3 +55,9 @@ plan_calculate_T = 5
 
 # 路径规划
 plan_arrive_threshold = 0.5
+
+# 四个角的坐标分别为(0, 0), (0, 63), (66, 0), (66, 63)
+# 速度为400时，小车回比预设距离多走2.7个单位长度
+# 速度为300时，小车回比预设距离多走1.4个单位长度
+
+

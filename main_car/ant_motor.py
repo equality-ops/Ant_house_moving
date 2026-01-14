@@ -7,7 +7,7 @@ from ant_math import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 import ant_pose
 import ant_uart
-
+import time
 
 ###################################【文件读取】###################################
 # 从config.txt中读取保存所有的参数并保存到config字典中
@@ -15,15 +15,29 @@ config = ant_flash.phase_config("/flash/config.txt")
 
 class PID_data:
     def __init__(self):
-        self.ul_normal_kp = find_value(config, "ul_normal_kp")
-        self.ul_normal_ki = find_value(config, "ul_normal_ki")
-        self.ul_normal_kd = find_value(config, "ul_normal_kd")
-        self.ur_normal_kp = find_value(config, "ur_normal_kp")
-        self.ur_normal_ki = find_value(config, "ur_normal_ki")
-        self.ur_normal_kd = find_value(config, "ur_normal_kd")
-        self.md_normal_kp = find_value(config, "md_normal_kp")
-        self.md_normal_ki = find_value(config, "md_normal_ki")
-        self.md_normal_kd = find_value(config, "md_normal_kd")
+        self.ul_normal_kp = find_value(config, "ul_normal_kp")  # type: float
+        self.ul_normal_ki = find_value(config, "ul_normal_ki")  # type: float
+        self.ul_normal_kd = find_value(config, "ul_normal_kd")  # type: float
+        self.ur_normal_kp = find_value(config, "ur_normal_kp")  # type: float
+        self.ur_normal_ki = find_value(config, "ur_normal_ki")  # type: float
+        self.ur_normal_kd = find_value(config, "ur_normal_kd")  # type: float
+        self.md_normal_kp = find_value(config, "md_normal_kp")  # type: float
+        self.md_normal_ki = find_value(config, "md_normal_ki")  # type: float
+        self.md_normal_kd = find_value(config, "md_normal_kd")  # type: float
+        # 电机补偿系数
+        self.compensate_param_ul_right = find_value(config, "compensate_param_ul_right")	# type: float
+        self.compensate_param_ur_right = find_value(config, "compensate_param_ur_right")	# type: float
+        self.compensate_param_md_right = find_value(config, "compensate_param_md_right")	# type: float
+        self.compensate_param_ul_left = find_value(config, "compensate_param_ul_left")	# type: float
+        self.compensate_param_ur_left = find_value(config, "compensate_param_ur_left")	# type: float
+        self.compensate_param_md_left = find_value(config, "compensate_param_md_left")	# type: float
+        self.compensate_param_ul_up = find_value(config, "compensate_param_ul_up")	# type: float
+        self.compensate_param_ur_up = find_value(config, "compensate_param_ur_up")	# type: float
+        self.compensate_param_md_up = find_value(config, "compensate_param_md_up")	# type: float
+        self.compensate_param_ul_down = find_value(config, "compensate_param_ul_down")	# type: float
+        self.compensate_param_ur_down = find_value(config, "compensate_param_ur_down")	# type: float
+        self.compensate_param_md_down = find_value(config, "compensate_param_md_down")	# type: float
+
 
 # 创建pid参数对象
 pid_data = PID_data()
@@ -64,6 +78,11 @@ diff_filter_ul = SlipAveragingFilter(2)    # 滤波窗口为2个
 diff_filter_ur = SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
 diff_filter_gyroz = SlipAveragingFilter(5)  # 滤波窗口为5个
+
+# 创建小车x和y方向上的速度的卡尔曼滤波器
+speed_x_fil = KalmanFilter(P = 1.0, Q = 0.05, R = 1.0)
+speed_y_fil = KalmanFilter(P = 1.0, Q = 0.05, R = 1.0)
+speed_x_fil2 = SlipAveragingFilter(5)  
 
 # 创建姿态数据对象
 pose_data = ant_pose.PoseData(diff_filter_gyroz)
@@ -225,7 +244,7 @@ class CarPose:
         self.real_speed_y_target = 0.0  # type: float
         self.real_speed_w_target = 0.0  # type: float
         # 速度系数
-        self.conversion_gamma = find_value(config, "conversion_gamma")    # 一个脉冲在一个周期(0.005s)内的速度转换系数，单位：cm/s
+        self.speed_conversion_gamma = find_value(config, "speed_conversion_gamma")   # 适当减小速度数量级
         self.gkd = find_value(config, "gkd")  # type: float  # 角速度补偿系数
         self.sensor_fuse_ratio = find_value(config, "sensor_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
         self.speed_fuse_ratio = find_value(config, "speed_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
@@ -235,14 +254,16 @@ class CarPose:
         self.beta_x = 1.0  # type: float
         self.beta_y = 1.0  # type: float
         self.beta_z = 1.0  # type: float
-        # 电机补偿系数
-        self.compensate_param_ul = find_value(config, "compensate_param_ul")	# type: float
-        self.compensate_param_ur = find_value(config, "compensate_param_ur")	# type: float
-        self.compensate_param_md = find_value(config, "compensate_param_md")	# type: float
+        # 电机补偿参数
+        self.compensate_param_ul = 1.0  # type: float
+        self.compensate_param_ur = 1.0  # type: float
+        self.compensate_param_md = 1.0  # type: float
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
         self.now_yaw = 0.0  # type: float
+        # 位置系数
+        self.position_conversion_gamma = find_value(config, "position_conversion_gamma")	# 调整合适的坐标范围
         # 采集周期
         self.collect_dt = find_value(config, "collect_dt")     # type: float  # 单位：秒
 
@@ -255,8 +276,11 @@ class CarPose:
         self.last_car_speed_w = self.car_speed_w
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * ((MATH.SIN30 * (pose_data.encoder_data_ur + pose_data.encoder_data_ul) - pose_data.encoder_data_md) * self.conversion_gamma)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.conversion_gamma)
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * ((MATH.SIN30 * (pose_data.encoder_data_ur + pose_data.encoder_data_ul) - pose_data.encoder_data_md) * self.speed_conversion_gamma)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.speed_conversion_gamma)
+        # 对小车x,y速度卡尔曼滤波
+        self.car_speed_x = speed_x_fil.update(self.car_speed_x)
+        self.car_speed_y = speed_y_fil.update(self.car_speed_y)
         # 计算小车当前角速度
         # car_speed_w单位：度每秒
         self.car_speed_w = pose_data.gyro_z
@@ -275,22 +299,48 @@ class CarPose:
         
         ###################【位置计算】###################
         # 计算小车当前位置
-        self.x_current += self.real_speed_x * self.collect_dt
-        self.y_current += self.real_speed_y * self.collect_dt
+        self.x_current += self.real_speed_x * self.position_conversion_gamma
+        self.y_current += self.real_speed_y * self.position_conversion_gamma
 
     # 全向移动控制函数
-    # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：弧度， turn_angle_target单位：度
-    def move_ctrl(self, move_speed_target: int, move_angle_target: int, turn_angle_target: int):
-       # 计算目标转角，限定在-180到180度之间
+    # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
+    def move_ctrl(self, move_speed_target: int, move_angle_target: float, turn_angle_target: int):
+       # 将目标转角和目标航向角限定在-180到180度之间
         if turn_angle_target > 180:
             turn_angle_target -= 360        
         elif turn_angle_target < -180:   
             turn_angle_target += 360
+        
+        if move_angle_target > 180.0:
+            move_angle_target -= 360.0
+        elif move_angle_target < -180.0:
+            move_angle_target += 360.0
 
         # 计算z轴的目标速度
         angle_pid.compute_pid(turn_angle_target, int(self.now_yaw * 180 / MATH.PI))
         speed_w = angle_pid.pwm_output
 
+        # 选择合适的电机补偿参数
+        if move_angle_target >= 45.0 and move_angle_target < 135.0:
+            self.compensate_param_ul = pid_data.compensate_param_ul_right
+            self.compensate_param_ur = pid_data.compensate_param_ur_right
+            self.compensate_param_md = pid_data.compensate_param_md_right
+        elif move_angle_target >= 135.0 or move_angle_target < -135.0:
+            self.compensate_param_ul = pid_data.compensate_param_ul_down
+            self.compensate_param_ur = pid_data.compensate_param_ur_down
+            self.compensate_param_md = pid_data.compensate_param_md_down
+        elif move_angle_target >= -135.0 and move_angle_target < -45.0:
+            self.compensate_param_ul = pid_data.compensate_param_ul_left
+            self.compensate_param_ur = pid_data.compensate_param_ur_left
+            self.compensate_param_md = pid_data.compensate_param_md_left
+        else:
+            self.compensate_param_ul = pid_data.compensate_param_ul_up
+            self.compensate_param_ur = pid_data.compensate_param_ur_up
+            self.compensate_param_md = pid_data.compensate_param_md_up
+
+        # 将move_angle_target转换为弧度
+        move_angle_target = move_angle_target * MATH.PI / 180
+        
         # 设置小车在世界坐标系下的目标速度
         self.real_speed_w_target = speed_w
         self.real_speed_x_target = move_speed_target * math.sin(move_angle_target)
@@ -341,38 +391,79 @@ def complete_angle_circle():
     my_car.move_ctrl(0, 0, 0)
     ant_uart.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
     
-# 全向移动转圈测试程序
+# 全向移动转圈测试函数
 target_yaw = 0
 def all_around_circle():
     global target_yaw
-    target_yaw += 0.1
+    target_yaw += 1
     if target_yaw >= 180:
         target_yaw = -180
     my_car.move_ctrl(250, target_yaw, 0)
     ant_uart.wireless.send_str("{:<f},{:<f}\n".format(target_yaw, angle_pid.actual))
-    
+
+
 # 多路复用器（用于测试）
 count = 0
+def test_simble_displacement():
+    global count
+    count += 1
+    if count <= 600:
+        my_car.move_ctrl(400, 180, 0)
+    else:
+        my_car.move_ctrl(0, 90, 90)
+        
+# 里程计测试函数
+stage = 0	# 当前模式
+def test_odometer():
+    global stage
+    global count
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
+    
+    if count == 0:
+        if my_car.x_current <= 63.3 and stage == 0:
+            my_car.move_ctrl(300, 90, 0)
+            return
+        elif my_car.y_current <= 60.3 and stage == 1:
+            my_car.move_ctrl(300, 0, 0)
+            return
+        elif my_car.x_current >= 2.7 and stage == 2:
+            my_car.move_ctrl(300, -90, 0)
+            return
+        elif my_car.y_current >= 2.7 and stage == 3:
+            my_car.move_ctrl(300, 180, 0)
+            return
+        elif stage == 4:
+            my_car.move_ctrl(0, 0, 0)
+            return
+     
+    my_car.move_ctrl(0, 0, 0)
+    count += 1
+    if count == 200:
+        stage += 1
+        count = 0
+    
+        
+    
+
 
 # 定时器1中断回调函数
 def time_pit1_handler(time):
-    global count
-    count += 1
     pose_data.update_data()
     # 初始化pid参数
     motor_ul_pid.set_pid_params(pid_data.ul_normal_kp, pid_data.ul_normal_ki, pid_data.ul_normal_kd)
     motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
     motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
     my_car.update_pose()
-    if count <= 1000:
-        my_car.move_ctrl(400, -90, 0)
-    else:
-        my_car.move_ctrl(0, 90, 90)
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(my_car.car_speed_x_target, my_car.car_speed_y_target, my_car.car_speed_w_target))
+    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(my_car.car_speed_x, speed_x_fil.update(my_car.car_speed_x), speed_x_fil2.filtering(my_car.car_speed_x)))
+    
     # 全向移动转圈测试程序
     #all_around_circle()
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
+    # 里程计测试程序
+    test_odometer()
+    
+    #test_simble_displacement()
     # 测试角度闭环
     #complete_angle_circle()
     # 里程计测试
@@ -387,6 +478,3 @@ def time_pit1_handler(time):
     #show_speed_PID_test()
     
     my_car.set_motor_pwm()
-
-
-
