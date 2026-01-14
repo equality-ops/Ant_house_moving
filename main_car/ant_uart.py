@@ -8,3 +8,5 @@ my_uart6.write("Motor test begins!\r\n")
 
 # 无线串口初始化
 wireless = WIRELESS_UART(115200)
+
+
