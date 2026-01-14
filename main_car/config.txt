@@ -31,12 +31,17 @@ conversion_gamma = 1.779418
 gkd = -1.2
 sensor_fuse_ratio = 0.5
 speed_fuse_ratio = 0.6
+# 陀螺仪补偿系数
 gyro_z_supply = 1.168831
-gyro_z_bias = 0
+# 电机补偿系数
+compensate_param_ul = 1.0                                     
+compensate_param_ur = 1.0
+compensate_param_md = 1.0
 
 # 时间
-motor_control_T = 2
-collect_dt = 0.002
+motor_control_T = 5
+collect_dt = 0.005
 plan_calculate_T = 5
 
-
+# 路径规划
+plan_arrive_threshold = 0.5
