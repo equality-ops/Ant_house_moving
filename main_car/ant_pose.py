@@ -8,7 +8,7 @@ from ant_flash import find_aimed_value as find_value
 # 编码器初始化
 encoder_ul = encoder("C2" , "C3" , True)
 encoder_ur = encoder("C0" , "C1" , True)
-encoder_md = encoder("D15", "D16", False)
+encoder_md = encoder("D15", "D16", True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -32,6 +32,7 @@ class PoseData:
         self.gyro_x_bias = 0.0       # type: float
         self.gyro_y_bias = 0.0       # type: float
         self.gyro_z_bias = 0.0       # type: float
+        self.gyro_z_supply = find_value(ant_motor.config, "gyro_z_supply")
         self.diff_filter = diff_filter
 
     # 初始零偏计算函数
@@ -72,7 +73,6 @@ class PoseData:
         self.gyro_x = imu_data[3] - self.gyro_x_bias
         self.gyro_y = imu_data[4] - self.gyro_y_bias
         # 去零漂后滑动平均滤波（单位：角度每秒）
-        self.gyro_z = self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4
+        self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
 
     
-

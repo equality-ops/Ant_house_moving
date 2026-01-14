@@ -14,6 +14,7 @@ from smartcar import ticker
 import ant_pose  
 from ant_flash import find_aimed_value as find_value
 import ant_menu
+import ant_plan
 
 # 包含 gc 与 time 类
 import gc
@@ -72,17 +73,23 @@ def pit2_start():
     pit2.callback(ant_menu.time_pit2_handler)
     pit2.start(20)
 
+# 定时器3初始化（中断回调函数在 ant_plan 中）
+def pit3_start():
+    pit3 = ticker(3)
+    pit3.callback(ant_plan.time_pit3_handler)
+    pit3.start(find_value(ant_motor.config, "plan_calculate_T"))
+
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
 voltage_detect(11.7)
 
-# 进行零篇校准
+# 进行陀螺仪零漂校准
 ant_motor.pose_data.init_bias()
 
 # 打开定时器
 pit1_start()
 pit2_start()
-
+pit3_start()
 
 # 屏幕测试程序
 ant_menu.Menu_First()
@@ -108,6 +115,7 @@ while True:
         break
 
     gc.collect()
+
 
 
 
