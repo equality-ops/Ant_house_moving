@@ -55,6 +55,7 @@ plan_calculate_T = 5
 
 # 路径规划
 plan_arrive_threshold = 0.5
+plan_point_transition_T = 100
 
 # 四个角的坐标分别为(0, 0), (0, 63), (66, 0), (66, 63)
 # 速度为400时，小车回比预设距离多走2.7个单位长度

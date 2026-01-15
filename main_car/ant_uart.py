@@ -10,7 +10,7 @@ my_uart6.write("Motor test begins!\r\n")
 wireless = WIRELESS_UART(115200)
 
 def uart_receive():
-    rx_data = uart.readline()
+    rx_data = my_uart6.readline()
 
     if rx_data:
         rx_str = rx_data.decode('utf-8', errors='ignore')
