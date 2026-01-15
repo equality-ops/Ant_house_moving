@@ -183,11 +183,17 @@ class AnglePositionPID(ControlPID):
         self.__pwmout_limitmax = find_value(config, "angle_pwmout_limitmax")    # type: float
         
 
-    def compute_pid(self, target: int, actual: int):
+    def compute_pid(self, target: float, actual: float):
         self.target = target
         self.actual = actual
         self.preError = self.nowError
         self.nowError = self.target - self.actual
+        # 对误差限幅
+        if self.nowError > 180:
+            self.nowError -= 360
+        elif self.nowError < -180:
+            self.nowError += 360
+            
         self.integral += self.nowError
         self.derivative = self.nowError - self.preError
 
@@ -289,8 +295,8 @@ class CarPose:
         # now_yaw单位：弧度
         self.now_yaw += pose_data.gyro_z * self.collect_dt * MATH.PI / 180
         # 限定now_yaw在-180到180度之间
-        if self.now_yaw >= MATH.PI:  self.now_yaw -= 2 * MATH.PI
-        elif self.now_yaw <= -MATH.PI:  self.now_yaw += 2 * MATH.PI
+        if self.now_yaw > MATH.PI:  self.now_yaw -= 2 * MATH.PI
+        elif self.now_yaw < -MATH.PI:  self.now_yaw += 2 * MATH.PI
         # 转换到世界坐标系下的速度
         self.real_speed_x = self.car_speed_x * math.cos(self.now_yaw) + self.car_speed_y * math.sin(self.now_yaw)
         self.real_speed_y = -self.car_speed_x * math.sin(self.now_yaw) + self.car_speed_y * math.cos(self.now_yaw)
@@ -304,12 +310,12 @@ class CarPose:
 
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
-    def move_ctrl(self, move_speed_target: int, move_angle_target: float, turn_angle_target: int):
+    def move_ctrl(self, move_speed_target: int, move_angle_target: float, turn_angle_target: float):
        # 将目标转角和目标航向角限定在-180到180度之间
-        if turn_angle_target > 180:
-            turn_angle_target -= 360        
-        elif turn_angle_target < -180:   
-            turn_angle_target += 360
+        if turn_angle_target > 180.0:
+            turn_angle_target -= 360.0        
+        elif turn_angle_target < -180.0:   
+            turn_angle_target += 360.0
         
         if move_angle_target > 180.0:
             move_angle_target -= 360.0
@@ -317,7 +323,7 @@ class CarPose:
             move_angle_target += 360.0
 
         # 计算z轴的目标速度
-        angle_pid.compute_pid(turn_angle_target, int(self.now_yaw * 180 / MATH.PI))
+        angle_pid.compute_pid(turn_angle_target, self.now_yaw * 180 / MATH.PI)
         speed_w = angle_pid.pwm_output
 
         # 选择合适的电机补偿参数
@@ -373,13 +379,13 @@ my_car = CarPose()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(60, pose_data.encoder_data_md)
     # 输出波形图调参
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
+    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
     
 # 测试陀螺仪函数
 def test_imu():
@@ -417,20 +423,20 @@ stage = 0	# 当前模式
 def test_odometer():
     global stage
     global count
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
-    
+    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
+    ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
-        if my_car.x_current <= 63.3 and stage == 0:
-            my_car.move_ctrl(300, 90, 0)
+        if my_car.x_current <= 59.3 and stage == 0:
+            my_car.move_ctrl(200, 90, 0)
             return
-        elif my_car.y_current <= 60.3 and stage == 1:
-            my_car.move_ctrl(300, 0, 0)
+        elif my_car.y_current <= 58.7 and stage == 1:
+            my_car.move_ctrl(200, 0, 0)
             return
         elif my_car.x_current >= 2.7 and stage == 2:
-            my_car.move_ctrl(300, -90, 0)
+            my_car.move_ctrl(200, -90, 0)
             return
-        elif my_car.y_current >= 2.7 and stage == 3:
-            my_car.move_ctrl(300, 180, 0)
+        elif my_car.y_current >= 3.3 and stage == 3:
+            my_car.move_ctrl(200, 180, 0)
             return
         elif stage == 4:
             my_car.move_ctrl(0, 0, 0)
@@ -461,11 +467,11 @@ def time_pit1_handler(time):
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    #test_odometer()
     
     #test_simble_displacement()
     # 测试角度闭环
-    #complete_angle_circle()
+    complete_angle_circle()
     # 里程计测试
     
     #ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
@@ -475,6 +481,7 @@ def time_pit1_handler(time):
     #ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
     
     # 速度环测试
-    #show_speed_PID_test()
+    # show_speed_PID_test()
     
     my_car.set_motor_pwm()
+

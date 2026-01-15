@@ -75,4 +75,3 @@ class PoseData:
         # 去零漂后滑动平均滤波（单位：角度每秒）
         self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
 
-    
