@@ -115,6 +115,18 @@ def filter_all_blobs(blobs):
             filtered.append(item)
     return filtered
 
+# 串口发送函数
+def send_coordinate(x, y):
+    global uart
+    data = ustruct.pack("<BBBBB",
+                        0xA5,
+                        0xA6,
+                        x,
+                        y,
+                        0x5B
+                        )
+    uart.write(data)
+
 ############################主部分###########################
 while(True):
     clock.tick()
@@ -173,8 +185,7 @@ while(True):
     if center and send_flag:
         target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
         target_x, target_y = target
-        uart_data = f"X : {target_x} Y : {target_y}\n"
-        uart.write(uart_data)
+        send_coordinate(target_x, target_y)
     """
 
     print(f"FPS: {clock.fps()}")
