@@ -15,6 +15,7 @@ import ant_pose
 from ant_flash import find_aimed_value as find_value
 import ant_menu
 import ant_plan
+import ant_uart
 
 
 # 包含 gc 与 time 类
@@ -109,6 +110,9 @@ while True:
     # ant_menu.lcd.clear(0x07E0)
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0x001F)
+    recv_str = ant_uart.uart_receive()
+    if recv_str:
+        ant_uart.wireless.send_str(recv_str)
 
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
