@@ -1,26 +1,26 @@
 # PID参数
-ul_normal_kp = 10.0
-ul_normal_ki = 0.2
+ul_normal_kp = 20.0
+ul_normal_ki = 0.24
 ul_normal_kd = 10.0
-ur_normal_kp = 10.0
-ur_normal_ki = 0.2
-ur_normal_kd = 12.0
-md_normal_kp = 10.0
-md_normal_ki = 0.2
-md_normal_kd = 10.0
-angle_normal_kp = 20.0
+ur_normal_kp = 20.0
+ur_normal_ki = 0.25
+ur_normal_kd = 16.0
+md_normal_kp = 20.0
+md_normal_ki = 0.24
+md_normal_kd = 12.0
+angle_normal_kp = 10.0
 angle_normal_ki = 0.0
-angle_normal_kd = 70.0
+angle_normal_kd = 60.0
 integral_limitmax = 8000
 pwmout_limitmax = 6000 
-angle_integral_limitmax = 2000
-angle_pwmout_limitmax = 1000
+angle_integral_limitmax = 800
+angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 350
 # B大致为最大静差的1.5倍
 B = 165
-kp_mid = 0.7
-kp_low = 0.4
+kp_mid = 0.9
+kp_low = 0.8
 
 # 机械参数（单位：cm）
 wheel_radius = 5.8
@@ -29,28 +29,28 @@ car_radius = 10.5
 # 系数
 speed_conversion_gamma = 0.01
 position_conversion_gamma = 0.03
-gkd = -1.2
+gkd = -0.6
 sensor_fuse_ratio = 0.5
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
 gyro_z_supply = 1.168831
 # 电机补偿系数
 compensate_param_ul_right = 0.9
-compensate_param_ur_right = 1.0
+compensate_param_ur_right = 1.05
 compensate_param_md_right = 1.1
-compensate_param_ul_left = 1.1
+compensate_param_ul_left = 1.2
 compensate_param_ur_left = 1.0
 compensate_param_md_left = 1.0
 compensate_param_ul_up = 1.0
 compensate_param_ur_up = 1.0
 compensate_param_md_up = 1.0
-compensate_param_ul_down = 0.9
+compensate_param_ul_down = 1.0
 compensate_param_ur_down = 1.0
 compensate_param_md_down = 1.0
 
 # 时间
-motor_control_T = 5
-collect_dt = 0.005
+motor_control_T = 2
+collect_dt = 0.002
 plan_calculate_T = 5
 
 # 路径规划
@@ -59,5 +59,6 @@ plan_arrive_threshold = 0.5
 # 四个角的坐标分别为(0, 0), (0, 63), (66, 0), (66, 63)
 # 速度为400时，小车回比预设距离多走2.7个单位长度
 # 速度为300时，小车回比预设距离多走1.4个单位长度
+
 
 
