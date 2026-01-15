@@ -5,13 +5,16 @@ import math
 import ant_flash
 from ant_math import MATH as MATH
 from ant_flash import find_aimed_value as find_value
-import ant_pose
 import ant_uart
 import time
 
 ###################################【文件读取】###################################
 # 从config.txt中读取保存所有的参数并保存到config字典中
 config = ant_flash.phase_config("/flash/config.txt")
+
+# 读取完再导入
+import ant_plan
+import ant_pose
 
 class PID_data:
     def __init__(self):
@@ -382,10 +385,6 @@ def show_speed_PID_test():
     motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
     motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
     motor_md_pid.compute_pid(60, pose_data.encoder_data_md)
-    # 输出波形图调参
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
     
 # 测试陀螺仪函数
 def test_imu():
@@ -395,7 +394,7 @@ def test_imu():
 def complete_angle_circle():
     my_car.update_pose()
     my_car.move_ctrl(0, 0, 0)
-    ant_uart.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
+    #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
     
 # 全向移动转圈测试函数
 target_yaw = 0
@@ -424,19 +423,19 @@ def test_odometer():
     global stage
     global count
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
-    ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
+    #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
-        if my_car.x_current <= 59.3 and stage == 0:
-            my_car.move_ctrl(200, 90, 0)
+        if my_car.x_current <= 12.4 and stage == 0:
+            my_car.move_ctrl(50, 90, 0)
             return
-        elif my_car.y_current <= 58.7 and stage == 1:
-            my_car.move_ctrl(200, 0, 0)
+        elif my_car.x_current >= 0.6 and stage == 1:
+            my_car.move_ctrl(50, -90, 0)
             return
-        elif my_car.x_current >= 2.7 and stage == 2:
-            my_car.move_ctrl(200, -90, 0)
+        elif my_car.x_current >= -99.0 and stage == 2:
+            my_car.move_ctrl(0, 0, 0)
             return
-        elif my_car.y_current >= 3.3 and stage == 3:
-            my_car.move_ctrl(200, 180, 0)
+        elif my_car.y_current >= 1.0 and stage == 3:
+            my_car.move_ctrl(50, 180, 0)
             return
         elif stage == 4:
             my_car.move_ctrl(0, 0, 0)
@@ -449,7 +448,10 @@ def test_odometer():
         count = 0
     
         
-    
+# 全向定位测试函数
+def test_global_localization():
+    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
 
 
 # 定时器1中断回调函数
@@ -460,6 +462,7 @@ def time_pit1_handler(time):
     motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
     motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
     my_car.update_pose()
+    
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(my_car.car_speed_x, speed_x_fil.update(my_car.car_speed_x), speed_x_fil2.filtering(my_car.car_speed_x)))
     
     # 全向移动转圈测试程序
@@ -467,13 +470,21 @@ def time_pit1_handler(time):
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
-    #test_odometer()
+    # test_odometer()
     
-    #test_simble_displacement()
+    # test_simble_displacement()
+    
     # 测试角度闭环
-    complete_angle_circle()
-    # 里程计测试
+    # complete_angle_circle()
     
+    # 全向定位测试程序
+    test_global_localization()
+    
+    #if my_car.x_current <= 8.4:
+     #   my_car.move_ctrl(60, 90, 0)
+    #else:
+     #   my_car.move_ctrl(0, 90, 0)
+    # 里程计测试
     #ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
     
     # 陀螺仪测试
@@ -484,4 +495,5 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     my_car.set_motor_pwm()
+
 

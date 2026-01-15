@@ -1,6 +1,9 @@
 from machine import *
 from display import *
 from smartcar import ticker,encoder
+import ant_motor
+import ant_plan
+import ant_uart
 
 # 新建LCD实例并初始化
 cs = Pin('B29' , Pin.OUT, pull=Pin.PULL_UP_47K, value=1)
@@ -21,6 +24,17 @@ def time_pit2_handler(time):
     # ant_beep.Beep_Operate() # 函数：响应蜂鸣器操作(后续要补)
     # ant_motor.encl_data, ant_motor.encr_data = encoder_l.get(), -encoder_r.get()
     # 这部分操作需结合后续其他文件情况！！！！
+    
+    # 用于无线串口调试
+    
+    # 速度环输出波形图调参
+    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ul_pid.target, ant_motor.motor_ul_pid.actual, ant_motor.motor_ul_pid.pwm_output, ant_motor.motor_ul_pid.derivative * ant_motor.motor_ul_pid.kd))
+    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ur_pid.target, ant_motor.motor_ur_pid.actual, ant_motor.motor_ur_pid.pwm_output, ant_motor.motor_ur_pid.derivative * ant_motor.motor_ur_pid.kd))
+    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_md_pid.target, ant_motor.motor_md_pid.actual, ant_motor.motor_md_pid.pwm_output, ant_motor.motor_md_pid.derivative * ant_motor.motor_md_pid.kd))
+    
+    # 里程计：
+    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.ideal_target_x, ant_plan.my_plan.ideal_target_y))
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, ant_motor.my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
     pass
 
 # 当前菜单项

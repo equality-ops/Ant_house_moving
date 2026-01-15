@@ -28,17 +28,17 @@ car_radius = 10.5
 
 # 系数
 speed_conversion_gamma = 0.01
-position_conversion_gamma = 0.03
-gkd = -0.6
+position_conversion_gamma = 0.0135
+gkd = -0.7
 sensor_fuse_ratio = 0.5
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
 gyro_z_supply = 1.168831
 # 电机补偿系数
-compensate_param_ul_right = 0.9
-compensate_param_ur_right = 1.05
-compensate_param_md_right = 1.1
-compensate_param_ul_left = 1.2
+compensate_param_ul_right = 1.0
+compensate_param_ur_right = 1.0
+compensate_param_md_right = 1.0
+compensate_param_ul_left = 1.0
 compensate_param_ur_left = 1.0
 compensate_param_md_left = 1.0
 compensate_param_ul_up = 1.0
@@ -52,14 +52,27 @@ compensate_param_md_down = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 5
+uart_and_menu_T = 100
 
 # 路径规划
-plan_arrive_threshold = 0.5
+plan_arrive_threshold = 0.1
 plan_point_transition_T = 100
+# 坐标误差修正量
+error_correct_x_50_1 = 0.0
+error_correct_y_50_1 = -0.6
+error_correct_x_50_2 = -0.474
+error_correct_y_50_2 = -0.49
+error_correct_x_50_3 = -0.6
+error_correct_y_50_3 = 0.0
+error_correct_x_50_4 = 0.0
+error_correct_y_50_4 = 0.0
+error_correct_x_50_5 = 0.0
+error_correct_y_50_5 = 0.6
+error_correct_x_50_6 = 0.0
+error_correct_y_50_6 = 0.0
+error_correct_x_50_7 = 1.2
+error_correct_y_50_7 = 0.0
+error_correct_x_50_8 = 0.0
+error_correct_y_50_8 = 0.0
 
-# 四个角的坐标分别为(0, 0), (0, 63), (66, 0), (66, 63)
-# 速度为400时，小车回比预设距离多走2.7个单位长度
-# 速度为300时，小车回比预设距离多走1.4个单位长度
-
-
-
+# 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)

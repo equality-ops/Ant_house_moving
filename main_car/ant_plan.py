@@ -13,12 +13,26 @@ import ant_uart
 class Plan_data:
     def __init__(self):
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 63.0], [63.0, 0.0], [63.0, 63.0], [36.5, 36.5]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [0.0, 13.5], [13, 0.0], [13, 13.5], [8.8, 9.1]]  # type: list
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
-        self.error_correct_x_400 = 2.7  # type: float
-        self.error_correct_y_400 = 2.7  # type: float
+        self.error_correct_x_50_1 = find_value(ant_motor.config, "error_correct_x_50_1") # type: float
+        self.error_correct_y_50_1 = find_value(ant_motor.config, "error_correct_y_50_1")  # type: float
+        self.error_correct_x_50_2 = find_value(ant_motor.config, "error_correct_x_50_2") # type: float
+        self.error_correct_y_50_2 = find_value(ant_motor.config, "error_correct_y_50_2")  # type: float
+        self.error_correct_x_50_3 = find_value(ant_motor.config, "error_correct_x_50_3") # type: float
+        self.error_correct_y_50_3 = find_value(ant_motor.config, "error_correct_y_50_3")  # type: float
+        self.error_correct_x_50_4 = find_value(ant_motor.config, "error_correct_x_50_4") # type: float  
+        self.error_correct_y_50_4 = find_value(ant_motor.config, "error_correct_y_50_4")  # type: float
+        self.error_correct_x_50_5 = find_value(ant_motor.config, "error_correct_x_50_5") # type: float
+        self.error_correct_y_50_5 = find_value(ant_motor.config, "error_correct_y_50_5")  # type: float
+        self.error_correct_x_50_6 = find_value(ant_motor.config, "error_correct_x_50_6") # type: float
+        self.error_correct_y_50_6 = find_value(ant_motor.config, "error_correct_y_50_6")  # type: float
+        self.error_correct_x_50_7 = find_value(ant_motor.config, "error_correct_x_50_7") # type: float
+        self.error_correct_y_50_7 = find_value(ant_motor.config, "error_correct_y_50_7")  # type: float
+        self.error_correct_x_50_8 = find_value(ant_motor.config, "error_correct_x_50_8") # type: float
+        self.error_correct_y_50_8 = find_value(ant_motor.config, "error_correct_y_50_8")  # type: float
         # 时间计数器
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
@@ -63,12 +77,62 @@ class Plan:
         # 理想条件下的目标坐标
         self.ideal_target_x = x
         self.ideal_target_y = y
+        # 计算大致航向
+        dx = self.ideal_target_x - ant_motor.my_car.x_current
+        dy = self.ideal_target_y - ant_motor.my_car.y_current
+        # 计算目标角度，单位：度（注意避免除以0）
+        if dy == 0.0:
+            if dx > 0.0:
+                blurry_yaw = 90.0
+            elif dx < 0.0:
+                blurry_yaw = -90.0
+        elif dx == 0.0:
+            if dy > 0.0:
+                blurry_yaw = 0.0
+            elif dy < 0.0:
+                blurry_yaw = 180.0
+        else:  
+            if dx > 0.0 and dy < 0.0:
+                blurry_yaw = math.atan(dx / dy) * 180.0 / MATH.PI + 180.0
+            elif dx < 0.0 and dy < 0.0:
+                blurry_yaw = math.atan(dx / dy) * 180.0 / MATH.PI - 180.0
+            else:
+                blurry_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
+                
+        # 根据大致航向角选择合适的坐标修正量
+        if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
+            self.error_correct_x = plan_data.error_correct_x_50_1
+            self.error_correct_y = plan_data.error_correct_y_50_1
+        elif blurry_yaw >= 30.0 and blurry_yaw < 60.0:
+            self.error_correct_x = plan_data.error_correct_x_50_2
+            self.error_correct_y = plan_data.error_correct_y_50_2
+        elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
+            self.error_correct_x = plan_data.error_correct_x_50_3
+            self.error_correct_y = plan_data.error_correct_y_50_3
+        elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
+            self.error_correct_x = plan_data.error_correct_x_50_4
+            self.error_correct_y = plan_data.error_correct_y_50_4
+        elif blurry_yaw >= 150.0 and blurry_yaw <= 180.0 or blurry_yaw >= -180.0 and blurry_yaw < -150.0:
+            self.error_correct_x = plan_data.error_correct_x_50_5
+            self.error_correct_y = plan_data.error_correct_y_50_5
+        elif blurry_yaw >= -150.0 and blurry_yaw < -120.0:
+            self.error_correct_x = plan_data.error_correct_x_50_6
+            self.error_correct_y = plan_data.error_correct_y_50_6
+        elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
+            self.error_correct_x = plan_data.error_correct_x_50_7
+            self.error_correct_y = plan_data.error_correct_y_50_7
+        elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
+            self.error_correct_x = plan_data.error_correct_x_50_8
+            self.error_correct_y = plan_data.error_correct_y_50_8
+        
         # 实际条件下的目标坐标
-        self.real_target_x = self.ideal_target_x + plan_data.error_correct_x_400
-        self.real_target_y = self.ideal_target_y + plan_data.error_correct_y_400
+        self.real_target_x = self.ideal_target_x + self.error_correct_x
+        self.real_target_y = self.ideal_target_y + self.error_correct_y
         # 实际距离坐标点的总距离
         self.total_distance = math.sqrt((self.real_target_x - ant_motor.my_car.x_current) ** 2 + (self.real_target_y - ant_motor.my_car.y_current) ** 2)
         self.arrive_flag = False
+        # 设置目标速度
+        self.v_target = 50
 
     # 更新已完成和剩余距离并判断是否到达目标点
     def update_distance(self):
@@ -90,23 +154,23 @@ class Plan:
         dx = self.real_target_x - ant_motor.my_car.x_current
         dy = self.real_target_y - ant_motor.my_car.y_current
         # 计算目标角度，单位：度（注意避免除以0）
-        if dy == 0:
-            if dx > 0:
+        if dy == 0.0:
+            if dx > 0.0:
                 self.target_yaw = 90.0
-            elif dx < 0:
+            elif dx < 0.0:
                 self.target_yaw = -90.0
-        if dx == 0:
-            if dy > 0:
+        elif dx == 0.0:
+            if dy > 0.0:
                 self.target_yaw = 0.0
-            elif dy < 0:
+            elif dy < 0.0:
                 self.target_yaw = 180.0
         else:  
-            if dx > 0 and dy < 0:
-                self.target_yaw = math.atan2(dx, dy) * 180 / MATH.PI + 180.0
-            elif dx < 0 and dy < 0:
-                self.target_yaw = math.atan2(dx, dy) * 180 / MATH.PI - 180.0
+            if dx > 0.0 and dy < 0.0:
+                self.target_yaw = math.atan(dx / dy) * 180.0 / MATH.PI + 180.0
+            elif dx < 0.0 and dy < 0.0:
+                self.target_yaw = math.atan(dx / dy) * 180.0 / MATH.PI - 180.0
             else:
-                self.target_yaw = math.atan2(dx, dy) * 180 / MATH.PI
+                self.target_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
 
     # 计算小车需要转向的角度（一般为0）
     def compute_turn_angle_target(self, turn_angle_target: int):
@@ -119,7 +183,7 @@ class Plan:
         # 最终的过渡时间为 plan_point_transition_T * plan_calculate_T(单位：ms)
         if plan_data.time_counter >=  plan_data.plan_point_transition_T:
             plan_data.time_counter = 0
-            self.arrive_flag = True
+            self.transition_flag = True
 
     def stop(self):
         self.v_target = 0
@@ -132,6 +196,11 @@ my_plan = Plan()
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
+    # 测试MCU与openart通信
+    recv_str = ant_uart.uart_receive()
+    if recv_str:
+        ant_uart.wireless.send_str(recv_str)
+    
     # 判断是否还有未到达的目标点
     if plan_data.aimed_point_index < len(my_plan.path_points):
         # 判断是否到达下一个目标点
@@ -157,6 +226,12 @@ def time_pit3_handler(time) -> None:
                     my_plan.set_target_point(next_point[0], next_point[1])
                 else:
                     my_plan.stop()
+                
     
     else:
         my_plan.stop()
+        ant_motor.my_car.x_current = my_plan.ideal_target_x
+        ant_motor.my_car.y_current = my_plan.ideal_target_y
+        
+
+

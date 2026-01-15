@@ -11,6 +11,7 @@ import ant_motor   # 先导入 ant_motor 模块以确保配置文件被加载
 from machine import *
 from display import *
 from smartcar import ticker
+import ant_plan
 import ant_pose  
 from ant_flash import find_aimed_value as find_value
 import ant_menu
@@ -74,13 +75,13 @@ def pit1_start():
 def pit2_start():
     pit2 = ticker(2)
     pit2.callback(ant_menu.time_pit2_handler)
-    pit2.start(20)
+    pit2.start(find_value(ant_motor.config, "uart_and_menu_T"))
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
     # 路径初始化
-    ant_plan.my_plan.path_points.extend([ant_plan.plan_data.fixed_point[0], ant_plan.plan_data.fixed_point[1], ant_plan.plan_data.fixed_point[0]])
+    ant_plan.my_plan.path_points.extend([ant_plan.plan_data.fixed_point[4], ant_plan.plan_data.fixed_point[2], ant_plan.plan_data.fixed_point[0], ant_plan.plan_data.fixed_point[1], ant_plan.plan_data.fixed_point[0]])
     first_point = ant_plan.my_plan.path_points[0]
     ant_plan.my_plan.set_target_point(first_point[0], first_point[1])
     pit3.callback(ant_plan.time_pit3_handler)
@@ -88,7 +89,7 @@ def pit3_start():
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
-voltage_detect(11.7)
+voltage_detect(11.6)
 
 # 进行陀螺仪零漂校准
 ant_motor.pose_data.init_bias()
@@ -114,10 +115,7 @@ while True:
     # ant_menu.lcd.clear(0x07E0)
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0x001F)
-    recv_str = ant_uart.uart_receive()
-    if recv_str:
-        ant_uart.wireless.send_str(recv_str)
-
+    
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
     if switch2.value() != state2:
@@ -125,3 +123,4 @@ while True:
         break
 
     gc.collect()
+
