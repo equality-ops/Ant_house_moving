@@ -60,7 +60,8 @@ p_value = [10 for _ in range(6)] # 状态误差的初始值 p 是状态误差的
 #输出 x_hat：更新后的状态估计，包括位置（x, y）、宽度（w, h）、速度（dx, dy）。该值是通过卡尔
     #曼滤波器的预测和校正步骤计算得到的最优估计。
 def Kalman_Filter(Z,Ts):
-    global C,Q,R,x_hat,x_hat_minus,p
+    global C,Q,R,x_hat,x_hat_minus
+    p = np.diag(p_value)
     A = np.array([
         [1, 0, 0, 0, Ts, 0],
         [0, 1, 0, 0, 0, Ts],
@@ -248,8 +249,8 @@ while(True):
         x_hat = Kalman_Filter(Z, Ts)
         last_frame_x, last_frame_y = x, y
         brown_detected = True
-        img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
-        img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
+        img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
+        img.draw_cross(target_brown.cx(), target_brown.cy(), color=draw_colors['brown'])  # 画中心点
 
     if not brown_detected:
         A_pred = np.array([
@@ -265,8 +266,8 @@ while(True):
     prev_cx = int(x_hat[0] + x_hat[2] / 2)
     prev_cy = int(x_hat[1] + x_hat[3] / 2)
     center.append((prev_cx, prev_cy))
-    img.draw_rectangle(blob.rect(), color=draw_colors["grey"])  # 画矩形框
-    img.draw_cross(blob.cx(), blob.cy(), color=draw_colors['grey'])  # 画中心点  
+    img.draw_rectangle(int(x_hat[0]), int(x_hat[1]), int(x_hat[2]), int(x_hat[3]), color=draw_colors["grey"])  # 画矩形框
+    img.draw_cross(prev_cx, prev_cy, color=draw_colors['grey'])  # 画中心点  
 
     for item in other_blobs:
         # 绘制该颜色的所有筛选后色块
