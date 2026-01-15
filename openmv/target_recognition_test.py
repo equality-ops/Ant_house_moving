@@ -131,14 +131,6 @@ def send_coordinate(x, y):
 while(True):
     clock.tick()
     img = sensor.snapshot()
-    """
-    uart_num = uart.any()
-    if uart_num:
-        uart_str = uart.read(uart_num)
-        uart.write(uart_str)
-        if uart_str:
-            send_flag = True
-    """
     # white.on() # 可以补光
     # white.off()
 
@@ -181,11 +173,11 @@ while(True):
         center_x = blob.cx()
         center_y = blob.cy()
         center.append((center_x, center_y))
-    """
+
     if center and send_flag:
         target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
         target_x, target_y = target
         send_coordinate(target_x, target_y)
-    """
+    
 
     print(f"FPS: {clock.fps()}")
