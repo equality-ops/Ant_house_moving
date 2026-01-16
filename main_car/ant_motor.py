@@ -288,8 +288,8 @@ class CarPose:
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
         self.now_yaw = 0.0  # type: float
-        # 位置系数
-        self.position_conversion_gamma = find_value(config, "position_conversion_gamma")	# 调整合适的坐标范围
+        # 位置转换系数
+        self.position_conversion_gamma = find_value(config, "position_conversion_gamma")   # 适当减小位置数量级
         # 采集周期
         self.collect_dt = find_value(config, "collect_dt")     # type: float  # 单位：秒
 
@@ -350,7 +350,7 @@ class CarPose:
             self.alpha_y = self.alpha_y_8
 
         # 计算小车当前位置
-        self.x_current += self.real_speed_x * self.position_conversion_gamma * self.alpha_x
+        self.x_current += self.real_speed_x * self.position_conversion_gamma * self.alpha_x 
         self.y_current += self.real_speed_y * self.position_conversion_gamma * self.alpha_y
 
     # 全向移动控制函数

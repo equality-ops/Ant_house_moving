@@ -27,7 +27,7 @@ wheel_radius = 5.8
 car_radius = 10.5
 
 ###################【系数】####################
-# 速度与位置转换系数
+# 速度转换系数
 speed_conversion_gamma = 0.01
 position_conversion_gamma = 0.0135
 # 角速度负反馈系数
