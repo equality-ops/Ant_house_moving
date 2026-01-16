@@ -7,7 +7,8 @@ import ustruct
 my_uart6 = UART(5)
 my_uart6.init(115200)
 my_uart6.write("Motor test begins!\r\n")
-
+my_uart6.write("hello\r\n")
+my_uart6.write("hello\r\n")
 # 无线串口初始化
 wireless = WIRELESS_UART(115200)
 
@@ -30,5 +31,6 @@ def uart_receive(timeout_ms = 100):
             return None
     except Exception:
         return None
+
 
 

@@ -35,7 +35,7 @@ gkd = -0.7
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
-gyro_z_supply = 1.168831
+gyro_z_supply = 1.237585
 # 电机补偿系数
 compensate_param_ul_right = 1.0
 compensate_param_ur_right = 1.0
@@ -50,32 +50,35 @@ compensate_param_ul_down = 1.0
 compensate_param_ur_down = 1.0
 compensate_param_md_down = 1.0
 # 依据角度的位置修正系数
-self.alpha_x_1 = 1.0
-self.alpha_y_1 = 1.0
-self.alpha_x_2 = 1.0
-self.alpha_y_2 = 1.0
-self.alpha_x_3 = 1.0
-self.alpha_y_3 = 1.0
-self.alpha_x_4 = 1.0
-self.alpha_y_4 = 1.0
-self.alpha_x_5 = 1.0
-self.alpha_y_5 = 1.0
-self.alpha_x_6 = 1.0
-self.alpha_y_6 = 1.0
-self.alpha_x_7 = 1.0
-self.alpha_y_7 = 1.0
-self.alpha_x_8 = 1.0
-self.alpha_y_8 = 1.0
+alpha_x_1 = 1.0
+alpha_y_1 = 1.0
+alpha_x_2 = 1.0
+alpha_y_2 = 1.0
+alpha_x_3 = 1.0
+alpha_y_3 = 1.0
+alpha_x_4 = 1.0
+alpha_y_4 = 1.0
+alpha_x_5 = 1.0
+alpha_y_5 = 1.0
+alpha_x_6 = 1.0
+alpha_y_6 = 1.0
+alpha_x_7 = 1.0
+alpha_y_7 = 1.0
+alpha_x_8 = 1.0
+alpha_y_8 = 1.0
 
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 5
-uart_and_menu_T = 100
+uart_and_menu_T = 50
+boost_time_threshold = 100
 
 ###################【路径规划】####################
 plan_arrive_threshold = 0.1
-plan_point_transition_T = 400
+plan_point_transition_T = 200
+# 减速段占据总路程的比例
+dec_ratio = 0.2	
 # 坐标误差修正量
 error_correct_x_50_1 = 0.0
 error_correct_y_50_1 = -0.6

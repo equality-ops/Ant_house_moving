@@ -80,7 +80,7 @@ class KalmanFilter:
 diff_filter_ul = SlipAveragingFilter(2)    # 滤波窗口为2个
 diff_filter_ur = SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
-diff_filter_gyroz = SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_gyroz = SlipAveragingFilter(6)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = KalmanFilter(P = 1.0, Q = 0.05, R = 1.0)
@@ -432,8 +432,8 @@ def show_speed_PID_test():
     
 # 测试陀螺仪函数
 def test_imu():
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, ant_pose.imu_data[5], pose_data.gyro_z_bias))
-                               
+    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, ant_pose.imu_data[5], pose_data.gyro_z_bias))           
+    
 # 测试角度闭环函数
 def complete_angle_circle():
     my_car.update_pose()
@@ -533,12 +533,13 @@ def time_pit1_handler(time):
     
     # 陀螺仪测试
     # test_imu()
-    #ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
+    # ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
     # show_speed_PID_test()
     
     my_car.set_motor_pwm()
+
 
 
 

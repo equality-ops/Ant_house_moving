@@ -44,7 +44,7 @@ class PoseData:
         gyro_y_sum = 0
         gyro_z_sum = 0
 
-        sample_count = 200
+        sample_count = 10000
         for i in range(sample_count):
             imu_data = imu.read()
             acc_x_sum += imu_data[0]
@@ -74,3 +74,4 @@ class PoseData:
         self.gyro_y = imu_data[4] - self.gyro_y_bias
         # 去零漂后滑动平均滤波（单位：角度每秒）
         self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+
