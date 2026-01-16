@@ -255,7 +255,6 @@ class CarPose:
         # 速度系数
         self.speed_conversion_gamma = find_value(config, "speed_conversion_gamma")   # 适当减小速度数量级
         self.gkd = find_value(config, "gkd")  # type: float  # 角速度补偿系数
-        self.sensor_fuse_ratio = find_value(config, "sensor_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
         self.speed_fuse_ratio = find_value(config, "speed_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
         # 依据角度的位置修正系数（常量）
         self.alpha_x_1 = find_value(config, "alpha_x_1")  # type: float

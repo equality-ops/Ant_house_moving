@@ -27,10 +27,12 @@ wheel_radius = 5.8
 car_radius = 10.5
 
 ###################【系数】####################
+# 速度与位置转换系数
 speed_conversion_gamma = 0.01
 position_conversion_gamma = 0.0135
+# 角速度负反馈系数
 gkd = -0.7
-sensor_fuse_ratio = 0.5
+# 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
 gyro_z_supply = 1.168831
