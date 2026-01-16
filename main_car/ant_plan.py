@@ -99,7 +99,7 @@ class Plan:
             else:
                 blurry_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
                 
-        # 根据大致航向角选择合适的坐标修正量
+        # 根据大致航向角选择合适的坐标修正量（解决因惯性造成的打滑问题）
         if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
             self.error_correct_x = plan_data.error_correct_x_50_1
             self.error_correct_y = plan_data.error_correct_y_50_1

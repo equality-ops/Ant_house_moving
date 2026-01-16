@@ -175,10 +175,10 @@ class AnglePositionPID(ControlPID):
         self.kp = kp        # type: float
         self.ki = ki        # type: float
         self.kd = kd        # type: float
-        self.target = 0     # type: int
-        self.actual = 0     # type: int
-        self.nowError = 0   # type: int
-        self.preError = 0   # type: int
+        self.target = 0     # type: float
+        self.actual = 0     # type: float
+        self.nowError = 0   # type: float
+        self.preError = 0   # type: float
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
@@ -257,9 +257,27 @@ class CarPose:
         self.gkd = find_value(config, "gkd")  # type: float  # 角速度补偿系数
         self.sensor_fuse_ratio = find_value(config, "sensor_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
         self.speed_fuse_ratio = find_value(config, "speed_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
+        # 依据角度的位置修正系数（常量）
+        self.alpha_x_1 = find_value(config, "alpha_x_1")  # type: float
+        self.alpha_y_1 = find_value(config, "alpha_y_1")  # type: float
+        self.alpha_x_2 = find_value(config, "alpha_x_2")  # type: float
+        self.alpha_y_2 = find_value(config, "alpha_y_2")  # type: float
+        self.alpha_x_3 = find_value(config, "alpha_x_3")  # type: float
+        self.alpha_y_3 = find_value(config, "alpha_y_3")  # type: float
+        self.alpha_x_4 = find_value(config, "alpha_x_4")  # type: float
+        self.alpha_y_4 = find_value(config, "alpha_y_4")  # type: float
+        self.alpha_x_5 = find_value(config, "alpha_x_5")  # type: float
+        self.alpha_y_5 = find_value(config, "alpha_y_5")  # type: float
+        self.alpha_x_6 = find_value(config, "alpha_x_6")  # type: float
+        self.alpha_y_6 = find_value(config, "alpha_y_6")  # type: float
+        self.alpha_x_7 = find_value(config, "alpha_x_7")  # type: float
+        self.alpha_y_7 = find_value(config, "alpha_y_7")  # type: float
+        self.alpha_x_8 = find_value(config, "alpha_x_8")  # type: float
+        self.alpha_y_8 = find_value(config, "alpha_y_8")  # type: float
+        # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
-        self.alpha_w = 1.0  # type: float
+
         self.beta_x = 1.0  # type: float
         self.beta_y = 1.0  # type: float
         self.beta_z = 1.0  # type: float
@@ -290,10 +308,9 @@ class CarPose:
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
-        # 计算小车当前角速度
+        # 计算小车当r_correct_y = plan_data.error_correct_y_50_1前角速度
         # car_speed_w单位：度每秒
         self.car_speed_w = pose_data.gyro_z
-        # 编码器和陀螺仪融合： self.car_speed_w = self.sensor_fuse_ratio * (pose_data.encoder_data_ur + pose_data.encoder_data_ul + pose_data.encoder_data_md) * self.conversion_gamma / self.car_radius + (1 - self.sensor_fuse_ratio) * pose_data.gyro_z * MATH.PI / 180
         # 计算小车在世界坐标系下的偏航角
         # now_yaw单位：弧度
         self.now_yaw += pose_data.gyro_z * self.collect_dt * MATH.PI / 180
@@ -307,9 +324,35 @@ class CarPose:
     
         
         ###################【位置计算】###################
+        # 依据当前航向角调整位置修正系数（解决小车在不同方向上的编码器积分结果不一致问题）
+        if ant_plan.my_plan.target_yaw >= -30.0 and ant_plan.my_plan.target_yaw < 30.0:
+            self.alpha_x = self.alpha_x_1
+            self.alpha_y = self.alpha_y_1
+        elif ant_plan.my_plan.target_yaw >= 30.0 and ant_plan.my_plan.target_yaw < 60.0:
+            self.alpha_x = self.alpha_x_2
+            self.alpha_y = self.alpha_y_2
+        elif ant_plan.my_plan.target_yaw >= 60.0 and ant_plan.my_plan.target_yaw < 120.0:
+            self.alpha_x = self.alpha_x_3
+            self.alpha_y = self.alpha_y_3
+        elif ant_plan.my_plan.target_yaw >= 120.0 and ant_plan.my_plan.target_yaw < 150.0:
+            self.alpha_x = self.alpha_x_4
+            self.alpha_y = self.alpha_y_4
+        elif ant_plan.my_plan.target_yaw >= 150.0 and ant_plan.my_plan.target_yaw <= 180.0 or ant_plan.my_plan.target_yaw >= -180.0 and ant_plan.my_plan.target_yaw < -150.0:
+            self.alpha_x = self.alpha_x_5
+            self.alpha_y = self.alpha_y_5
+        elif ant_plan.my_plan.target_yaw >= -150.0 and ant_plan.my_plan.target_yaw < -120.0:
+            self.alpha_x = self.alpha_x_6
+            self.alpha_y = self.alpha_y_6
+        elif ant_plan.my_plan.target_yaw >= -120.0 and ant_plan.my_plan.target_yaw < -60.0:
+            self.alpha_x = self.alpha_x_7
+            self.alpha_y = self.alpha_y_7
+        elif ant_plan.my_plan.target_yaw >= -60.0 and ant_plan.my_plan.target_yaw < -30.0:
+            self.alpha_x = self.alpha_x_8
+            self.alpha_y = self.alpha_y_8
+
         # 计算小车当前位置
-        self.x_current += self.real_speed_x * self.position_conversion_gamma
-        self.y_current += self.real_speed_y * self.position_conversion_gamma
+        self.x_current += self.real_speed_x * self.position_conversion_gamma * self.alpha_x
+        self.y_current += self.real_speed_y * self.position_conversion_gamma * self.alpha_y
 
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度

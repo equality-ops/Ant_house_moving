@@ -1,4 +1,4 @@
-# PID参数
+###################【PID参数】####################
 ul_normal_kp = 20.0
 ul_normal_ki = 0.24
 ul_normal_kd = 10.0
@@ -22,11 +22,11 @@ B = 165
 kp_mid = 0.9
 kp_low = 0.8
 
-# 机械参数（单位：cm）
+###################【机械参数（单位：cm）】####################
 wheel_radius = 5.8
 car_radius = 10.5
 
-# 系数
+###################【系数】####################
 speed_conversion_gamma = 0.01
 position_conversion_gamma = 0.0135
 gkd = -0.7
@@ -47,14 +47,31 @@ compensate_param_md_up = 1.0
 compensate_param_ul_down = 1.0
 compensate_param_ur_down = 1.0
 compensate_param_md_down = 1.0
+# 依据角度的位置修正系数
+self.alpha_x_1 = 1.0
+self.alpha_y_1 = 1.0
+self.alpha_x_2 = 1.0
+self.alpha_y_2 = 1.0
+self.alpha_x_3 = 1.0
+self.alpha_y_3 = 1.0
+self.alpha_x_4 = 1.0
+self.alpha_y_4 = 1.0
+self.alpha_x_5 = 1.0
+self.alpha_y_5 = 1.0
+self.alpha_x_6 = 1.0
+self.alpha_y_6 = 1.0
+self.alpha_x_7 = 1.0
+self.alpha_y_7 = 1.0
+self.alpha_x_8 = 1.0
+self.alpha_y_8 = 1.0
 
-# 时间
+###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 5
 uart_and_menu_T = 100
 
-# 路径规划
+###################【路径规划】####################
 plan_arrive_threshold = 0.1
 plan_point_transition_T = 400
 # 坐标误差修正量
@@ -75,5 +92,5 @@ error_correct_y_50_7 = 0.0
 error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
-# 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)
 
+# 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)
