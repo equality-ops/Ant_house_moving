@@ -243,6 +243,7 @@ class CarPose:
         # 小车在世界坐标系下的速度
         self.real_speed_x = 0.0  # type: float
         self.real_speed_y = 0.0  # type: float
+        self.real_speed = 0.0    # type: float
         self.real_speed_w = 0.0  # type: float
         # 小车坐标系下的目标速度
         self.car_speed_x_target = 0.0  # type: float
@@ -319,6 +320,7 @@ class CarPose:
         # 转换到世界坐标系下的速度
         self.real_speed_x = self.car_speed_x * math.cos(self.now_yaw) + self.car_speed_y * math.sin(self.now_yaw)
         self.real_speed_y = -self.car_speed_x * math.sin(self.now_yaw) + self.car_speed_y * math.cos(self.now_yaw)
+        self.real_speed = math.sqrt(self.real_speed_x ** 2 + self.real_speed_y ** 2)
         self.real_speed_w = self.car_speed_w
     
         

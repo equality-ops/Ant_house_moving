@@ -42,6 +42,27 @@ plan_data = Plan_data()
 
 class Plan:
     def __init__(self):
+        # 速度规划相关常量
+        self.min_start_v = 30           # type: int  # 最小启动速度
+        self.long_v_max = 90            # type: int  # 长距离时的最大速度
+        self.short_v_max = 60           # type: int  # 短距离时的最大速度
+        self.BOOST = 1                  # type: int  # 死区启动标志位
+        self.TRANSIT = 2                # type: int  # 过渡阶段标志位
+        self.DEC = 3                    # type: int  # 减速阶段标志位
+        self.STOP = 4                   # type: int  # 停止标志位
+        # 速度规划阶段变量
+        self.v_max = 0                  # type: int  # 本次移动规划的最大速度
+        self.j = 0                      # type: float  # 加加速度    
+        self.dec_distance = 0.0         # type: float  # 减速距离
+        self.dec_steps = 0              # type: int    # 减速距离对应的步数
+        self.stage = 0                  # type: int  # 速度规划阶段标志位
+        # 死区启动相关变量
+        self.elapsed_time = 0           # type: int   # 死区启动已用时间计数器
+        self.boost_duration = 0         # type: int   # 死区启动持续时间计数器
+        self.boost_time_threshold = find_value(ant_motor.config, "boost_time_threshold")  # type: int  # 死区启动时间阈值
+        self.dec_speed_list = []        # type: list  # 减速阶段目标速度表
+        self.dec_speed_index = 0        # type: int   # 减速速度表索引
+        # 路径规划相关变量
         self.last_target_x = 0.0         # type: float
         self.last_target_y = 0.0         # type: float
         self.last_target_yaw = 0.0       # type: float
@@ -58,7 +79,7 @@ class Plan:
         # 判断是否到达目标点标志位
         self.arrive_flag = False        # type: bool
         # 判断是否过渡完成标志位
-        self.transition_flag = True    # type: bool
+        self.transition_flag = True     # type: bool
         self.total_distance = 0.0       # type: float
         self.finished_distance = 0.0    # type: float
         self.rest_distance = 0.0        # type: float
@@ -68,6 +89,66 @@ class Plan:
 
         # 速度规划相关变量
         self.v_target = 0       # type: int
+
+    def _ease_out_quad(self, t):
+        """二次缓出曲线，用于快速启动"""
+        return -t * (t - 2)
+    
+    # 构建减速速度表
+    def build_dec_speed_list(self):
+        self.dec_speed_list = []
+        real_dec_distance = self.dec_distance / ant_motor.my_car.position_conversion_gamma
+        # 计算加加速度
+        self.j = (self.v_max ** 3) / (real_dec_distance ** 2) 
+        # 计算减速总时间
+        half_time = math.sqrt(self.v_max / self.j) / 2
+        total_time = 2 * half_time
+        # 计算减速距离对应的速度点个数
+        self.dec_lenth = int(real_dec_distance) * 30 + 1 
+        for i in range(self.dec_lenth):
+            if i >= self.dec_lenth / 2:
+                v = int(-0.5 * self.j * ((i / self.dec_lenth * total_time) ** 2) + 2 * self.j * (i / self.dec_lenth * total_time) * half_time - self.j * (half_time ** 2))
+            else:
+                v = int(0.5 * self.j * ((i / self.dec_lenth * total_time) ** 2))
+            self.dec_speed_list.append(v)
+
+
+    # 速度规划函数
+    def planning_speed(self):
+        if self.arrive_flag == False:
+            if self.stage == self.STOP:
+                self.stage = self.BOOST
+                # 根据总距离选择最大速度
+                if self.total_distance >= 8.0:
+                    self.v_max = self.long_v_max
+                else:
+                    self.v_max = self.short_v_max
+                
+            elif self.stage == self.BOOST:
+                self.elapsed_time += 1
+                if self.elapsed_time <= self.boost_time_threshold:
+                    # 计算目标速度
+                    self.v_target = self.min_start_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.long_v_max - self.min_start_v))
+                else:
+                    self.v_target = self.long_v_max
+                    self.stage = self.TRANSIT
+                    self.elapsed_time = 0
+            elif self.stage == self.TRANSIT:
+                self.v_target = self.v_max
+                if self.rest_distance < self.dec_distance:
+                    self.stage = self.DEC
+            elif self.stage == self.DEC:
+                self.dec_speed_index = int((self.rest_distance / self.dec_distance) * self.dec_lenth)
+                if self.dec_speed_index < len(self.dec_speed_list) and self.dec_speed_list[self.dec_speed_index] >= self.min_start_v:
+                    self.v_target = self.dec_speed_list[self.dec_speed_index]
+                else:
+                    self.v_target = 0
+                    self.stage = self.STOP
+                    self.dec_speed_index = 0
+        else:
+            self.v_target = 0
+            self.stage = self.STOP
+
 
     # 设置目标点坐标
     def set_target_point(self, x: float, y: float):
@@ -130,9 +211,10 @@ class Plan:
         self.real_target_y = self.ideal_target_y + self.error_correct_y
         # 实际距离坐标点的总距离
         self.total_distance = math.sqrt((self.real_target_x - ant_motor.my_car.x_current) ** 2 + (self.real_target_y - ant_motor.my_car.y_current) ** 2)
+        # 计算减速距离
+        self.dec_distance = self.total_distance * 0.4
+        self.build_dec_speed_list()
         self.arrive_flag = False
-        # 设置目标速度
-        self.v_target = 50
 
     # 更新已完成和剩余距离并判断是否到达目标点
     def update_distance(self):
@@ -147,6 +229,10 @@ class Plan:
             ant_uart.wireless.send_str("arrive_point: {:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current))
             self.finished_distance = 0.0
             self.rest_distance = 0.0
+            self.dec_distance = 0.0
+
+        # 每次更新距离后进行速度规划计算
+        self.planning_speed
 
     # 计算目标航向角
     def compute_target_yaw(self):
@@ -189,7 +275,6 @@ class Plan:
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
-
 
 
 # 创建规划（路径和速度）对象
