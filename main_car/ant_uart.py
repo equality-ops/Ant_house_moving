@@ -12,9 +12,9 @@ my_uart6.write("Motor test begins!\r\n")
 wireless = WIRELESS_UART(115200)
 
 def uart_receive(timeout_ms = 100):
-    start = time.tick_ms()
+    start = time.ticks_ms()
     while my_uart6.any() < 5:
-        if time.ticks_diff(time.tick_ms(), start) >= timeout_ms:
+        if time.ticks_diff(time.ticks_ms(), start) >= timeout_ms:
             return None
         time.sleep_ms(1)
     

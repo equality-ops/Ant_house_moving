@@ -56,7 +56,7 @@ uart_and_menu_T = 100
 
 # 路径规划
 plan_arrive_threshold = 0.1
-plan_point_transition_T = 100
+plan_point_transition_T = 400
 # 坐标误差修正量
 error_correct_x_50_1 = 0.0
 error_correct_y_50_1 = -0.6
@@ -70,9 +70,10 @@ error_correct_x_50_5 = 0.0
 error_correct_y_50_5 = 0.6
 error_correct_x_50_6 = 0.0
 error_correct_y_50_6 = 0.0
-error_correct_x_50_7 = 1.2
+error_correct_x_50_7 = 0.6
 error_correct_y_50_7 = 0.0
 error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
 # 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)
+

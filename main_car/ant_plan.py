@@ -13,7 +13,7 @@ import ant_uart
 class Plan_data:
     def __init__(self):
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 13.5], [13, 0.0], [13, 13.5], [8.8, 9.1]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [0.0, 13.5], [13, 0.0], [13, 13.5], [8.8, 9.1], [-8.8, -9.1]]  # type: list
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -144,8 +144,7 @@ class Plan:
             self.arrive_flag = True
             self.transition_flag = False
             # 将当前位置修正为目标点位置
-            ant_motor.my_car.x_current = self.ideal_target_x
-            ant_motor.my_car.y_current = self.ideal_target_y
+            ant_uart.wireless.send_str("arrive_point: {:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current))
             self.finished_distance = 0.0
             self.rest_distance = 0.0
 
@@ -183,6 +182,8 @@ class Plan:
         # 最终的过渡时间为 plan_point_transition_T * plan_calculate_T(单位：ms)
         if plan_data.time_counter >=  plan_data.plan_point_transition_T:
             plan_data.time_counter = 0
+            ant_motor.my_car.x_current = self.ideal_target_x
+            ant_motor.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
 
     def stop(self):
@@ -197,9 +198,9 @@ my_plan = Plan()
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 测试MCU与openart通信
-    recv_str = ant_uart.uart_receive()
-    if recv_str:
-        ant_uart.wireless.send_str(recv_str)
+    target_point = ant_uart.uart_receive()
+    if target_point:
+        ant_uart.wireless.send_str("x: {:<f}, y: {:<f}\n".format(target_point[0], target_point[1]))
     
     # 判断是否还有未到达的目标点
     if plan_data.aimed_point_index < len(my_plan.path_points):
@@ -233,5 +234,3 @@ def time_pit3_handler(time) -> None:
         ant_motor.my_car.x_current = my_plan.ideal_target_x
         ant_motor.my_car.y_current = my_plan.ideal_target_y
         
-
-

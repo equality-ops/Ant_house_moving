@@ -23,7 +23,3 @@ def beep_warn() -> None:
         return 
     elif BeepState.beep_state == BeepState.BEEP_ON:
         return 
-
-
-
-
