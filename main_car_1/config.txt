@@ -1,7 +1,7 @@
 ###################【PID参数】####################
-ul_normal_kp = 20.0
-ul_normal_ki = 0.24
-ul_normal_kd = 10.0
+ul_normal_kp = 16.0
+ul_normal_ki = 0.22
+ul_normal_kd = 18.0
 ur_normal_kp = 20.0
 ur_normal_ki = 0.25
 ur_normal_kd = 16.0
@@ -35,7 +35,7 @@ gkd = -0.7
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数
-gyro_z_supply = 1.237585
+gyro_z_supply = 1.183567
 # 电机补偿系数
 compensate_param_ul_right = 1.0
 compensate_param_ur_right = 1.0
@@ -71,7 +71,7 @@ alpha_y_8 = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 5
-uart_and_menu_T = 50
+uart_and_menu_T = 150
 boost_time_threshold = 100
 
 ###################【路径规划】####################
@@ -84,7 +84,7 @@ error_correct_x_50_1 = 0.0
 error_correct_y_50_1 = -0.6
 error_correct_x_50_2 = -0.474
 error_correct_y_50_2 = -0.49
-error_correct_x_50_3 = -0.6
+error_correct_x_50_3 = -0.1
 error_correct_y_50_3 = 0.0
 error_correct_x_50_4 = 0.0
 error_correct_y_50_4 = 0.0
@@ -92,10 +92,11 @@ error_correct_x_50_5 = 0.0
 error_correct_y_50_5 = 0.6
 error_correct_x_50_6 = 0.0
 error_correct_y_50_6 = 0.0
-error_correct_x_50_7 = 0.6
+error_correct_x_50_7 = 0.0
 error_correct_y_50_7 = 0.0
 error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
 
 # 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)
+

@@ -10,7 +10,7 @@ uart.write("uart test\r\n")
 ##########################摄像头初始化########################
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
-sensor.set_framesize(sensor.QQVGA)
+sensor.set_framesize(sensor.QQVGA)  
 sensor.set_framerate(60)
 # sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(False)
