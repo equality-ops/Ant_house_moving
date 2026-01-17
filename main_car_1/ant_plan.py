@@ -44,7 +44,7 @@ class Plan:
     def __init__(self):
         # 速度规划相关常量
         self.min_start_v = 30           # type: int  # 最小启动速度
-        self.long_v_max = 90            # type: int  # 长距离时的最大速度
+        self.long_v_max = 80            # type: int  # 长距离时的最大速度
         self.short_v_max = 60           # type: int  # 短距离时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
@@ -328,4 +328,5 @@ def time_pit3_handler(time) -> None:
         ant_motor.my_car.x_current = my_plan.ideal_target_x
         ant_motor.my_car.y_current = my_plan.ideal_target_y
         
+
 

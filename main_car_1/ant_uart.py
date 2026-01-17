@@ -31,6 +31,3 @@ def uart_receive(timeout_ms = 100):
             return None
     except Exception:
         return None
-
-
-

@@ -426,9 +426,9 @@ my_car = CarPose()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(60, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(80, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(80, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(80, pose_data.encoder_data_md)
     
 # 测试陀螺仪函数
 def test_imu():
@@ -522,7 +522,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_current <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -539,6 +539,7 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     my_car.set_motor_pwm()
+
 
 
 
