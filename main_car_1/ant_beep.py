@@ -23,3 +23,14 @@ def beep_warn() -> None:
         return 
     elif BeepState.beep_state == BeepState.BEEP_ON:
         return 
+
+def key_test() -> None:
+    if BeepState.beep_state == BeepState.BEEP_OFF:
+        BeepState.beep_state = BeepState.BEEP_ON
+        beep.high()
+        time.sleep_ms(100)
+        beep.low()
+        BeepState.beep_state = BeepState.BEEP_OFF
+        return
+    elif BeepState.beep_state == BeepState.BEEP_ON:
+        return
