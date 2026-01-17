@@ -14,7 +14,7 @@ sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
 # sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(True)
-sensor.set_brightness(1500) # 阴暗条件下蓝色识别受阻 调至2000
+sensor.set_brightness(500) # 阴暗条件下蓝色识别受阻 调至2000
 # sensor.set_contrast(2) # 对比度
 sensor.skip_frames(time = 200)
 clock = time.clock()
