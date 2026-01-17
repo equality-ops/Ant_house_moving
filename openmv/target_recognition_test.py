@@ -8,14 +8,18 @@ uart = UART(2, baudrate=115200)
 uart.write("uart test\r\n")
 
 ##########################摄像头初始化########################
+# 初始化感光原件
 sensor.reset()
+# 设置图像格式为 RGB565 彩色模式
 sensor.set_pixformat(sensor.RGB565)
+# 设置分辨率为 QQVGA 160x120
 sensor.set_framesize(sensor.QQVGA)  
 sensor.set_framerate(60)
 # sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(True)
 sensor.set_brightness(500) # 阴暗条件下蓝色识别受阻 调至2000
 # sensor.set_contrast(2) # 对比度
+# 跳过一些帧， 等待感光元件稳定
 sensor.skip_frames(time = 200)
 clock = time.clock()
 white = LED(4)
