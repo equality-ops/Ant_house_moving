@@ -16,7 +16,7 @@ sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)  
 sensor.set_framerate(60)
 # sensor.set_auto_gain(False) # 自动增益
-sensor.set_auto_whitebal(False)
+sensor.set_auto_whitebal(True)
 sensor.set_brightness(500) # 阴暗条件下蓝色识别受阻 调至2000
 # sensor.set_contrast(2) # 对比度
 # 跳过一些帧， 等待感光元件稳定
@@ -28,21 +28,13 @@ white = LED(4)
 
 # 四种主要颜色的阈值
 RED_THRESHOLD   = [(0, 57, 27, 127, 7, 127),
-                   (0, 56, 9, 85, -2, 53),
-                   (5, 24, 12, 41, -5, 37),
-                   (30, 58, 39, 83, 10, 51)]# 红
-GREEN_THRESHOLD = [#(32, 100, -128, -12, -128, 127),
-                   #(42, 100, -128, -19, -128, 127),
-                   (17, 67, -33, 30, 4, 68),
-                   (53, 100, -51, -3, 3, 95)]# 绿(后两组暗，亮)
+                   (0, 56, 9, 85, -2, 53)]# 红
+GREEN_THRESHOLD = [(32, 100, -128, -12, -128, 127),
+                   (42, 100, -128, -19, -128, 127)]# 绿
 BLUE_THRESHOLD  = [(34, 64, -18, 10, -128, -39),
-                   (30, 100, -30, -5, -48, -9),
-                   (13, 35, -24, -9, -18, -7),
-                   (37, 77, -31, -4, -54, -26)]# 蓝
+                   (30, 100, -30, -5, -48, -9)]# 蓝
 BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
-                   (0, 100, -128, 23, -7, 127),
-                   (12, 43, -14, 14, 8, 46),
-                   (51, 92, -23, 20, -16, 70)]# 棕
+                   (0, 100, -128, 23, -7, 127)]# 棕
 
 
 # 感兴趣的区域
@@ -74,7 +66,7 @@ def detect_colors(img):
     pixels_threshold=30, area_threshold=30, merge=False)
     green_blobs   = img.find_blobs(GREEN_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
-    blue_blobs   = img.find_blobs(BLUE_THRESHOLD,
+    blue_blobs   = img.find_blobs(BLUE_THRESHOLD,   
     pixels_threshold=30, area_threshold=30, merge=False)
 
     all_blobs_with_color = []
@@ -163,7 +155,7 @@ while(True):
         time.sleep_ms(500)
         break
     """
-    #获取图像并进行预处理
+    #获取图像并进行预处理（寻找色块并筛选）
     all_blobs_with_color = detect_colors(img)
     filtered_blobs_with_color = filter_all_blobs(all_blobs_with_color)
 

@@ -83,8 +83,8 @@ diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
 diff_filter_gyroz = SlipAveragingFilter(6)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
-speed_x_fil = KalmanFilter(P = 1.0, Q = 0.05, R = 1.0)
-speed_y_fil = KalmanFilter(P = 1.0, Q = 0.05, R = 1.0)
+speed_x_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+speed_y_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_x_fil2 = SlipAveragingFilter(5)  
 
 # 创建姿态数据对象
@@ -308,6 +308,8 @@ class CarPose:
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
+        #speed_x_fil.update(self.car_speed_x)
+        #speed_y_fil.update(self.car_speed_y)
         # 计算小车当r_correct_y = plan_data.error_correct_y_50_1前角速度
         # car_speed_w单位：度每秒
         self.car_speed_w = pose_data.gyro_z
@@ -426,9 +428,9 @@ my_car = CarPose()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(80, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(80, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(80, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(70, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(70, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(70, pose_data.encoder_data_md)
     
 # 测试陀螺仪函数
 def test_imu():
@@ -507,8 +509,6 @@ def time_pit1_handler(time):
     motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
     my_car.update_pose()
     
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(my_car.car_speed_x, speed_x_fil.update(my_car.car_speed_x), speed_x_fil2.filtering(my_car.car_speed_x)))
-    
     # 全向移动转圈测试程序
     #all_around_circle()
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
@@ -522,7 +522,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_current <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -539,8 +539,3 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     my_car.set_motor_pwm()
-
-
-
-
-

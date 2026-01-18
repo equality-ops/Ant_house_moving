@@ -13,7 +13,7 @@ import ant_uart
 class Plan_data:
     def __init__(self):
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 13.5], [13, 0.0], [13, 13.5], [8.8, 9.1], [-8.8, -9.1]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [0.0, 14.0], [14.0, 0.0], [14.0, 14.0], [8.9, 8.0], [-8.8, -9.1]]  # type: list
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -43,9 +43,9 @@ plan_data = Plan_data()
 class Plan:
     def __init__(self):
         # 速度规划相关常量
-        self.min_start_v = 30           # type: int  # 最小启动速度
-        self.long_v_max = 80            # type: int  # 长距离时的最大速度
-        self.short_v_max = 60           # type: int  # 短距离时的最大速度
+        self.min_start_v = find_value(ant_motor.config, "min_start_v")           # type: int  # 最小启动速度
+        self.long_v_max = find_value(ant_motor.config, "long_v_max")           # type: int  # 长距离时的最大速度
+        self.short_v_max = find_value(ant_motor.config, "short_v_max")          # type: int  # 短距离时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
         self.DEC = 3                    # type: int  # 减速阶段标志位
@@ -276,6 +276,7 @@ class Plan:
         # 最终的过渡时间为 plan_point_transition_T * plan_calculate_T(单位：ms)
         if plan_data.time_counter >=  plan_data.plan_point_transition_T:
             plan_data.time_counter = 0
+            ant_uart.wireless.send_str("real_arrive_point: {:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current))	
             ant_motor.my_car.x_current = self.ideal_target_x
             ant_motor.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
@@ -284,9 +285,19 @@ class Plan:
         self.v_target = 0
         self.target_yaw = 0.0
 
-
 # 创建规划（路径和速度）对象
 my_plan = Plan()
+
+
+
+class VisionManager:
+    def __init__(self):
+        # 单应性矩阵，用于将像素坐标转化为世界坐标
+        self.convert_matrix = []  # type: list
+        self.x_rel = 0.0          # type: float  # 目标相对于小车的x坐标
+        self.y_rel = 0.0          # type: float  # 目标相对于小车的y坐标
+
+    def cord_trans(self, )
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
@@ -305,7 +316,7 @@ def time_pit3_handler(time) -> None:
                 # 到达目标点后，更新目标点索引
                 plan_data.aimed_point_index += 1
                 # 进行路径过渡
-                my_plan.path_transition()
+                my_plan.path_transition()   
             else:
                 # 计算目标航向角
                 my_plan.compute_target_yaw()
@@ -319,6 +330,9 @@ def time_pit3_handler(time) -> None:
                 if plan_data.aimed_point_index < len(my_plan.path_points):
                     next_point = my_plan.path_points[plan_data.aimed_point_index]
                     my_plan.set_target_point(next_point[0], next_point[1])
+                    # 计算目标航向角
+                    my_plan.compute_target_yaw()
+                    my_plan.compute_turn_angle_target(0)
                 else:
                     my_plan.stop()
                 
@@ -327,6 +341,4 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
         ant_motor.my_car.x_current = my_plan.ideal_target_x
         ant_motor.my_car.y_current = my_plan.ideal_target_y
-        
-
-
+    

@@ -1,6 +1,6 @@
 ###################【PID参数】####################
-ul_normal_kp = 16.0
-ul_normal_ki = 0.22
+ul_normal_kp = 18.0
+ul_normal_ki = 0.25
 ul_normal_kd = 18.0
 ur_normal_kp = 20.0
 ur_normal_ki = 0.25
@@ -33,20 +33,20 @@ position_conversion_gamma = 0.0135
 # 角速度负反馈系数
 gkd = -0.7
 # 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.1
+speed_fuse_ratio = 0.6
 # 陀螺仪补偿系数
 gyro_z_supply = 1.183567
 # 电机补偿系数
 compensate_param_ul_right = 1.0
 compensate_param_ur_right = 1.0
-compensate_param_md_right = 1.0
+compensate_param_md_right = 1.2
 compensate_param_ul_left = 1.0
 compensate_param_ur_left = 1.0
 compensate_param_md_left = 1.0
 compensate_param_ul_up = 1.0
 compensate_param_ur_up = 1.0
 compensate_param_md_up = 1.0
-compensate_param_ul_down = 1.0
+compensate_param_ul_down = 1.1
 compensate_param_ur_down = 1.0
 compensate_param_md_down = 1.0
 # 依据角度的位置修正系数
@@ -71,32 +71,38 @@ alpha_y_8 = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 5
-uart_and_menu_T = 150
+uart_and_menu_T = 100
 boost_time_threshold = 100
 
 ###################【路径规划】####################
-plan_arrive_threshold = 0.1
+plan_arrive_threshold = 0.3
 plan_point_transition_T = 200
 # 减速段占据总路程的比例
-dec_ratio = 0.2	
+dec_ratio = 0.2
 # 坐标误差修正量
 error_correct_x_50_1 = 0.0
-error_correct_y_50_1 = -0.6
-error_correct_x_50_2 = -0.474
-error_correct_y_50_2 = -0.49
+error_correct_y_50_1 = -0.1	
+error_correct_x_50_2 = 0.0
+error_correct_y_50_2 = 0.0
 error_correct_x_50_3 = -0.1
 error_correct_y_50_3 = 0.0
-error_correct_x_50_4 = 0.0
-error_correct_y_50_4 = 0.0
+error_correct_x_50_4 = -0.3
+error_correct_y_50_4 = 0.3
 error_correct_x_50_5 = 0.0
-error_correct_y_50_5 = 0.6
-error_correct_x_50_6 = 0.0
-error_correct_y_50_6 = 0.0
+error_correct_y_50_5 = 0.1
+error_correct_x_50_6 = 0.1
+error_correct_y_50_6 = 0.1
 error_correct_x_50_7 = 0.0
-error_correct_y_50_7 = 0.0
+error_correct_y_50_7 = -0.1
 error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
+###################【速度规划】####################
+min_start_v = 30
+# 低电量调大了一些，一般为60
+long_v_max = 65 
+short_v_max = 60	
 
-# 四个角的坐标分别为(0, 0), (0, 27), (26, 0), (26, 27)
+# 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
+
 
