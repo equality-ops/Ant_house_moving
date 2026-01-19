@@ -34,3 +34,19 @@ def key_test() -> None:
         return
     elif BeepState.beep_state == BeepState.BEEP_ON:
         return
+
+# 检测是否完成视觉伺服的蜂鸣器提示函数  
+def finish_servo() -> None:
+    if BeepState.beep_state == BeepState.BEEP_OFF:
+        BeepState.beep_state = BeepState.BEEP_ON
+        beep.high()
+        time.sleep_ms(100)
+        beep.low()
+        time.sleep_ms(300)
+        beep.high()
+        time.sleep_ms(100)
+        beep.low()
+        BeepState.beep_state = BeepState.BEEP_OFF
+        return
+    elif BeepState.beep_state == BeepState.BEEP_ON:
+        return

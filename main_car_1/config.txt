@@ -28,12 +28,12 @@ car_radius = 10.5
 
 ###################【系数】####################
 # 速度转换系数
-speed_conversion_gamma = 0.01
+speed_conversion_gamma = 2.454904
 position_conversion_gamma = 0.0135
 # 角速度负反馈系数
 gkd = -0.7
 # 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.6
+speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
 gyro_z_supply = 1.183567
 # 电机补偿系数
@@ -103,6 +103,15 @@ min_start_v = 30
 long_v_max = 65 
 short_v_max = 60	
 
+###################【视觉伺服】####################
+target_offset_x = 0.0
+target_offset_y = 0.0
+rel_dis_threshold = 0.1
+kp_rel = 0.0
+kd_rel = 0.0
+min_rel_speed = 20
+
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
+
 
 

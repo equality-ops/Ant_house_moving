@@ -80,10 +80,6 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    # 路径初始化
-    ant_plan.my_plan.path_points.extend([ant_plan.plan_data.fixed_point[4], ant_plan.plan_data.fixed_point[2], ant_plan.plan_data.fixed_point[0], ant_plan.plan_data.fixed_point[1], ant_plan.plan_data.fixed_point[4], ant_plan.plan_data.fixed_point[0]])
-    first_point = ant_plan.my_plan.path_points[0]
-    ant_plan.my_plan.set_target_point(first_point[0], first_point[1])
     pit3.callback(ant_plan.time_pit3_handler)
     pit3.start(find_value(ant_motor.config, "plan_calculate_T"))
 

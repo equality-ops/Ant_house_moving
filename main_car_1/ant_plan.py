@@ -8,12 +8,29 @@ from ant_math import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 import ant_pose
 import ant_uart
+import ant_beep
+
+# 状态机制
+class StateMachine:
+    def __init__(self):
+        self.NAVIGATE = 1    # 导航状态
+        self.SERVO = 2       # 视觉伺服状态
+        self.MOVE = 3        # 搬运状态
+        self.RETURN = 4      # 返回状态
+        self.STOP = 5        # 停止状态
+        self.state = self.NAVIGATE  # 初始状态为导航状态
+
+# 创建状态机对象
+my_state = StateMachine()
+
 
 # 路径和速度规划相关常量
 class Plan_data:
     def __init__(self):
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 14.0], [14.0, 0.0], [14.0, 14.0], [8.9, 8.0], [-8.8, -9.1]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [0.0, 150.0], [150.0, 0.0], [150.0, 150.0], [8.9, 8.0], [-8.8, -9.1]]  # type: list
+        # 路径1
+        self.path_1 = [[[8.9, 8.0]]]     # type: list
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -51,6 +68,7 @@ class Plan:
         self.DEC = 3                    # type: int  # 减速阶段标志位
         self.STOP = 4                   # type: int  # 停止标志位
         self.dec_ratio = find_value(ant_motor.config, "dec_ratio")	# type: float  # 减速段占据的比例
+        self.v_target = 0               # type: int  # 目标速度
         # 速度规划阶段变量
         self.v_max = 0                  # type: int    # 本次移动规划的最大速度
         self.j = 0                      # type: float  # 加加速度    
@@ -72,24 +90,22 @@ class Plan:
         self.real_target_x = 0.0         # type: float
         self.real_target_y = 0.0         # type: float
         self.target_yaw = 0.0            # type: float
-        self.turn_angle_target = 0       # type: int
+        self.turn_angle_target = 0       # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = find_value(ant_motor.config, "plan_arrive_threshold")  # type: float
-        # 判断是否到达目标点标志位
-        self.arrive_flag = False        # type: bool
-        # 判断是否过渡完成标志位
-        self.transition_flag = True     # type: bool
         self.total_distance = 0.0       # type: float
         self.finished_distance = 0.0    # type: float
         self.rest_distance = 0.0        # type: float
-
         # 目标路径
         self.path_points = []      # type: list
-
-        # 速度规划相关变量
-        self.v_target = 0       # type: int
+        # 标志位
+        self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
+        self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
+        self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
+        self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
+        
 
     def _ease_out_quad(self, t):
         """二次缓出曲线，用于快速启动"""
@@ -98,9 +114,8 @@ class Plan:
     # 构建减速速度表
     def build_dec_speed_list(self, i):
         if self.finish_building == False:
-            real_dec_distance = self.dec_distance / ant_motor.my_car.position_conversion_gamma
             # 计算加加速度
-            self.j = (self.v_max ** 3) / (real_dec_distance ** 2) 
+            self.j = (self.v_max ** 3) / (self.dec_distance ** 2) 
             # 计算减速总时间
             if self.j == 0:
                 self.half_time = 0
@@ -108,7 +123,7 @@ class Plan:
                 self.half_time = math.sqrt(self.v_max / self.j)
             self.total_time = 2 * self.half_time
             # 计算减速距离对应的速度点个数
-            self.dec_lenth = int(real_dec_distance) + 1
+            self.dec_lenth = int(self.dec_distance) * 10 + 1
             # 将标志位设为True
             self.finish_building = True
         else:
@@ -266,7 +281,7 @@ class Plan:
                 self.target_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
 
     # 计算小车需要转向的角度（一般为0）
-    def compute_turn_angle_target(self, turn_angle_target: int):
+    def compute_turn_angle_target(self, turn_angle_target: float):
         self.turn_angle_target = turn_angle_target
 
     # 用于路径之间的过渡，保证小车平稳
@@ -281,9 +296,63 @@ class Plan:
             ant_motor.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
 
+    # 停止小车运动
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
+        self.turn_angle_target = ant_motor.my_car.now_yaw
+
+    # 按照传入路径及进行惯性导航
+    def navigate(self, path: list):
+        if self.if_set_path == False:
+            # 路径初始化
+            self.path_points = path
+            self.if_set_path = True
+            self.finish_navigate = False
+            plan_data.aimed_point_index = 0
+            # 设置第一个目标点
+            first_point = self.path_points[0]
+            self.set_target_point(first_point[0], first_point[1])
+            self.compute_target_yaw()
+            self.compute_turn_angle_target(0)
+
+        # 判断是否还有未到达的目标点
+        if plan_data.aimed_point_index < len(my_plan.path_points):
+            # 判断是否到达下一个目标点
+            if my_plan.arrive_flag == False:
+                my_plan.update_distance()
+                if my_plan.arrive_flag == True:
+                    # 到达目标点后，更新目标点索引
+                    plan_data.aimed_point_index += 1
+                    # 进行路径过渡
+                    my_plan.path_transition()   
+                else:
+                    # 计算目标航向角
+                    my_plan.compute_target_yaw()
+                    my_plan.compute_turn_angle_target(0.0)
+            else:
+                # 判断此时是否完成路径过渡
+                if my_plan.transition_flag == False:
+                    my_plan.path_transition()
+                else:
+                    # 如果还有下一个目标点，设置下一个目标点坐标
+                    if plan_data.aimed_point_index < len(my_plan.path_points):
+                        next_point = my_plan.path_points[plan_data.aimed_point_index]
+                        my_plan.set_target_point(next_point[0], next_point[1])
+                        # 计算目标航向角
+                        my_plan.compute_target_yaw()
+                        my_plan.compute_turn_angle_target(0.0)
+                    else:
+                        my_plan.stop()
+        else:
+            my_plan.stop()
+            ant_motor.my_car.x_current = my_plan.ideal_target_x
+            ant_motor.my_car.y_current = my_plan.ideal_target_y
+            self.dec_speed_index = 0
+            self.path_points.clear()
+            self.if_set_path = False
+            self.finish_navigate = True
+
 
 # 创建规划（路径和速度）对象
 my_plan = Plan()
@@ -292,12 +361,109 @@ my_plan = Plan()
 
 class VisionManager:
     def __init__(self):
-        # 单应性矩阵，用于将像素坐标转化为世界坐标
-        self.convert_matrix = []  # type: list
-        self.x_rel = 0.0          # type: float  # 目标相对于小车的x坐标
-        self.y_rel = 0.0          # type: float  # 目标相对于小车的y坐标
+        # 位置校准相关变量
+        self.convert_matrix = []  # type: list  # 单应性矩阵，用于将像素坐标转化为世界坐标
+        self.x_rel_target = 0.0          # type: float  # 世界坐标系下的物体坐标
+        self.y_rel_target = 0.0          # type: float  # 世界坐标系下的物体坐标
+        self.target_offset_x = find_value(ant_motor.config, "target_offset_x")  # type: float  # 目标相对于小车中心的x偏移量
+        self.target_offset_y = find_value(ant_motor.config, "target_offset_y")  # type: float  # 目标相对于小车中心的y偏移量
+        self.finish_servo = False        # type: bool   # 是否完成视觉伺服控制标志位
+        self.rel_dis_threshold = find_value(ant_motor.config, "rel_dis_threshold")  # type: float  # 视觉伺服控制距离阈值
+        self.target_rel_yaw = 0.0           # type: float   # 目标航向角
+        self.target_rel_turn_angle = 0.0    # type: float   # 目标转角
+        # PD控制相关变量
+        self.kp_rel = find_value(ant_motor.config, "kp_rel")         # type: float   # 视觉伺服控制x轴比例系数
+        self.kd_rel = find_value(ant_motor.config, "kd_rel")         # type: float   # 视觉伺服控制x轴微分系数
+        self.last_rel_dis = 0.0            # type: float   # 上一次目标距离
+        self.rel_dis = 0.0                 # type: float   # 当前目标距离
+        self.target_rel_speed = 0         # type: int   # 目标速度
+        self.min_rel_speed = find_value(ant_motor.config, "min_rel_speed")   # type: int   # 最小视觉伺服速度
 
-    def cord_trans(self, )
+    def cord_trans(self, x, y): 
+        """将像素坐标转换为世界坐标"""
+        a = self.convert_matrix
+        denom = a[2][0] * x + a[2][1] * y + a[2][2]
+        x_world = (a[0][0] * x + a[0][1] * y + a[0][2]) / denom
+        y_world = (a[1][0] * x + a[1][1] * y + a[1][2]) / denom
+        return (x_world, y_world)
+    
+    # 计算目标航向角
+    def compute_target_rel_yaw(self):
+        dx = self.x_rel_target - ant_motor.my_car.x_current
+        dy = self.y_rel_target - ant_motor.my_car.y_current
+        # 计算目标角度，单位：度（注意避免除以0）
+        if dy == 0.0:
+            if dx > 0.0:
+                self.target_rel_yaw = 90.0
+            elif dx < 0.0:
+                self.target_rel_yaw = -90.0
+        elif dx == 0.0:
+            if dy > 0.0:
+                self.target_rel_yaw = 0.0
+            elif dy < 0.0:
+                self.target_rel_yaw = 180.0
+        else:  
+            if dx > 0.0 and dy < 0.0:
+                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI + 180.0
+            elif dx < 0.0 and dy < 0.0:
+                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI - 180.0
+            else:
+                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
+
+    def update_target_rel_dis(self):
+        """更新目标距离"""
+        self.last_rel_dis = self.rel_dis
+        self.rel_dis= math.sqrt((self.x_rel_target - ant_motor.my_car.x_current) ** 2 + (self.y_rel_target - ant_motor.my_car.y_current) ** 2)
+        # 判断是否完成视觉伺服控制
+        if self.rel_dis <= self.rel_dis_threshold:
+            self.finish_servo = True
+    
+    # 计算小车需要转向的角度（一般为0）
+    def compute_target_rel_turn_angle(self, turn_angle_target: float):
+        self.target_rel_turn_angle = turn_angle_target
+
+    def visual_servo_control(self, x: float, y: float):
+        """视觉伺服控制"""
+        # 将像素坐标转换为世界坐标
+        (x_world, y_world) = self.cord_trans(x, y)
+        # 计算目标相对于坐标系原点的世界坐标
+        self.x_rel_target = ant_motor.my_car.x_current + x_world + self.target_offset_x
+        self.y_rel_target = ant_motor.my_car.y_current + y_world + self.target_offset_y
+        self.update_target_rel_dis()
+        if self.finish_servo == False:
+            self.compute_target_rel_yaw()
+            self.compute_target_rel_turn_angle(0.0)
+            # PD控制计算目标速度
+            self.target_rel_speed = int(self.kp_rel * self.rel_dis + self.kd_rel * (self.rel_dis - self.last_rel_dis))
+            if self.target_rel_speed < self.min_rel_speed:
+                self.target_rel_speed = self.min_rel_speed
+        else:
+            self.target_rel_speed = 0
+            self.target_rel_yaw = 0.0
+            ant_beep.finish_servo()
+            self.finish_servo = False
+            # 测试
+            my_state.state = my_state.STOP
+
+# 创建视觉伺服管理对象
+my_vision_manager = VisionManager()
+
+
+# 视觉伺服测试函数
+def test_vision_servo():
+    if my_state.state == my_state.NAVIGATE:
+        # 按照路径1进行导航
+        my_plan.navigate(plan_data.path_1)
+        if my_plan.finish_navigate == True:
+            my_state.state = my_state.SERVO
+    elif my_state.state == my_state.SERVO:
+        # 接收openart发送的目标点坐标
+        target_point = ant_uart.uart_receive()
+        if target_point:
+            my_vision_manager.visual_servo_control(target_point[0], target_point[1])
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
+
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
@@ -307,38 +473,6 @@ def time_pit3_handler(time) -> None:
     #    ant_uart.wireless.send_str("x: {:<f}, y: {:<f}\n".format(target_point[0], target_point[1]))
     
     #ant_uart.my_uart6.write("hello\r\n")
-    # 判断是否还有未到达的目标点
-    if plan_data.aimed_point_index < len(my_plan.path_points):
-        # 判断是否到达下一个目标点
-        if my_plan.arrive_flag == False:
-            my_plan.update_distance()
-            if my_plan.arrive_flag == True:
-                # 到达目标点后，更新目标点索引
-                plan_data.aimed_point_index += 1
-                # 进行路径过渡
-                my_plan.path_transition()   
-            else:
-                # 计算目标航向角
-                my_plan.compute_target_yaw()
-                my_plan.compute_turn_angle_target(0)
-        else:
-            # 判断此时是否完成路径过渡
-            if my_plan.transition_flag == False:
-                my_plan.path_transition()
-            else:
-                # 如果还有下一个目标点，设置下一个目标点坐标
-                if plan_data.aimed_point_index < len(my_plan.path_points):
-                    next_point = my_plan.path_points[plan_data.aimed_point_index]
-                    my_plan.set_target_point(next_point[0], next_point[1])
-                    # 计算目标航向角
-                    my_plan.compute_target_yaw()
-                    my_plan.compute_turn_angle_target(0)
-                else:
-                    my_plan.stop()
-                
-    
-    else:
-        my_plan.stop()
-        ant_motor.my_car.x_current = my_plan.ideal_target_x
-        ant_motor.my_car.y_current = my_plan.ideal_target_y
-    
+
+    # my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[0]])
+    pass
