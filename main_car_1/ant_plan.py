@@ -329,7 +329,7 @@ class Plan:
                 else:
                     # 计算目标航向角
                     my_plan.compute_target_yaw()
-                    my_plan.compute_turn_angle_target(0.0)
+                    my_plan.compute_turn_angle_target(90.0)
             else:
                 # 判断此时是否完成路径过渡
                 if my_plan.transition_flag == False:
@@ -341,7 +341,7 @@ class Plan:
                         my_plan.set_target_point(next_point[0], next_point[1])
                         # 计算目标航向角
                         my_plan.compute_target_yaw()
-                        my_plan.compute_turn_angle_target(0.0)
+                        my_plan.compute_turn_angle_target(90.0)
                     else:
                         my_plan.stop()
         else:
@@ -350,7 +350,8 @@ class Plan:
             ant_motor.my_car.y_current = my_plan.ideal_target_y
             self.dec_speed_index = 0
             self.path_points.clear()
-            self.if_set_path = False
+            # 用于测试
+            # self.if_set_path = False
             self.finish_navigate = True
 
 
@@ -456,6 +457,7 @@ def test_vision_servo():
         my_plan.navigate(plan_data.path_1)
         if my_plan.finish_navigate == True:
             my_state.state = my_state.SERVO
+            my_plan.finish_navigate = False
     elif my_state.state == my_state.SERVO:
         # 接收openart发送的目标点坐标
         target_point = ant_uart.uart_receive()
@@ -474,5 +476,6 @@ def time_pit3_handler(time) -> None:
     
     #ant_uart.my_uart6.write("hello\r\n")
 
-    # my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[0]])
+    my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[0]])
     pass
+

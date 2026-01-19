@@ -313,15 +313,14 @@ class CarPose:
         self.encouder_ur += 2.454904 * pose_data.encoder_data_ur / 1000
         self.encouder_md += 2.454904 * pose_data.encoder_data_md / 1000
         # 计算小车当前x,y速度（互补融合）
-        # car_speed_x, car_speed_y
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * ( - pose_data.encoder_data_md  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur) / 2) * self.speed_conversion_gamma / 1000)
+        # car_speed_x, car_speed_y 单位：厘米每2ms
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * ((MATH.SIN30 * (pose_data.encoder_data_ur + pose_data.encoder_data_ul) - pose_data.encoder_data_md)  * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
         #speed_x_fil.update(self.car_speed_x)
         #speed_y_fil.update(self.car_speed_y)
-        # 计算小车当r_correct_y = plan_data.error_correct_y_50_1前角速度
         # car_speed_w单位：度每秒
         self.car_speed_w = pose_data.gyro_z
         # 计算小车在世界坐标系下的偏航角
@@ -483,8 +482,8 @@ def test_odometer():
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
-        if my_car.x_current <= 30.0 and stage == 0:
-            my_car.move_ctrl(50, 0, 0)
+        if my_car.x_current <= 50.0 and stage == 0:
+            my_car.move_ctrl(65, 90, 0)
             return
         elif my_car.x_current >= 0.6 and stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -527,7 +526,7 @@ def time_pit1_handler(time):
     #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    # test_odometer()
     
     # test_simble_displacement()
     
@@ -535,7 +534,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_current <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -552,3 +551,4 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     my_car.set_motor_pwm()
+
