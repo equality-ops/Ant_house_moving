@@ -2,7 +2,7 @@ from machine import *
 from seekfree import IMU660RX
 from smartcar import ticker, encoder
 import ant_motor
-from ant_math import MATH as MATH
+from ant_flash import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 
 # 编码器初始化
@@ -74,3 +74,4 @@ class PoseData:
         self.gyro_y = imu_data[4] - self.gyro_y_bias
         # 去零漂后滑动平均滤波（单位：角度每秒）
         self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+

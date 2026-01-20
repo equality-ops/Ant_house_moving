@@ -1,5 +1,18 @@
 import ant_beep
 
+class Math:
+    def __init__(self):
+        self.PI = 3.1415926      # type: float
+        self.SIN30 = 0.5000000   # type: float
+        self.SIN60 = 0.8660254   # type: float
+        self.COS30 = 0.8660254   # type: float
+        self.COS60 = 0.5000000   # type: float
+        self.TwoThirdS = 0.6666667 # type: float
+        self.OneThird = 0.3333333  # type: float
+        self.SQRT3 = 1.7320508   # type: float
+
+MATH = Math()
+
 # 将字符串解析为整数或浮点数，如果无法解析则返回原始字符串
 def phase_num_string(s: str):
 
@@ -78,6 +91,7 @@ if __name__ == "__main__":
     # 检测phase_config函数
     print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
     print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
+
 
 
 

@@ -4,7 +4,7 @@ from smartcar import ticker
 import ant_motor
 import math
 import ant_flash
-from ant_math import MATH as MATH
+from ant_flash import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 import ant_pose
 import ant_uart
@@ -359,8 +359,8 @@ class Plan:
 my_plan = Plan()
 
 
-
-class VisionManager:
+# 视觉伺服控制类1
+class VisionManager_1:
     def __init__(self):
         # 位置校准相关变量
         self.convert_matrix = []  # type: list  # 单应性矩阵，用于将像素坐标转化为世界坐标
@@ -447,11 +447,77 @@ class VisionManager:
             my_state.state = my_state.STOP
 
 # 创建视觉伺服管理对象
-my_vision_manager = VisionManager()
+my_vision_manager_1 = VisionManager_1()
 
+
+ # 视觉伺服控制类2(PD控制器)
+class VisionManager_2:
+    def __init__(self):
+        # PD控制相关变量
+        self.finish_threshold = find_value(ant_motor.config, "finish_threshold")  # type: float  # 视觉伺服控制距离阈值
+        self.target_rel_speed_x = 0          # type: int   # 伺服控制目标x速度
+        self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
+        self.target_x = find_value(ant_motor.config, "target_x")         # type: int   # 物体中心点的目标像素x坐标
+        self.target_y = find_value(ant_motor.config, "target_y")         # type: int   # 物体中心点的目标像素y坐标
+        self.max_rel_speed = find_value(ant_motor.config, "max_rel_speed")   # type: int   # 最小视觉伺服速度
+        self.min_rel_speed = find_value(ant_motor.config, "min_rel_speed")   # type: int   # 最小视觉伺服速度
+        self.target_rel_speed = 0                   # type: int   # 目标速度
+        self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
+        self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
+
+        # 计算目标航向角
+    def compute_target_rel_yaw(self):
+        # 计算目标角度，单位：度（注意避免除以0）
+        if self.target_rel_speed_y == 0.0:
+            if self.target_rel_speed_x > 0.0:
+                self.target_rel_yaw = 90.0
+            elif self.target_rel_speed_x < 0.0:
+                self.target_rel_yaw = -90.0
+        elif self.target_rel_speed_x == 0.0:
+            if self.target_rel_speed_y > 0.0:
+                self.target_rel_yaw = 0.0
+            elif self.target_rel_speed_y < 0.0:
+                self.target_rel_yaw = 180.0
+        else:  
+            if self.target_rel_speed_x > 0.0 and self.target_rel_speed_y < 0.0:
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI + 180.0
+            elif self.target_rel_speed_x < 0.0 and self.target_rel_speed_y < 0.0:
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI - 180.0
+            else:
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI
+
+    # 计算小车需要转向的角度（一般为0）
+    def compute_target_rel_turn_angle(self, turn_angle_target: float):
+        self.target_rel_turn_angle = turn_angle_target
+
+
+    # 传入物体中心点的实际像素坐标，计算目标速度
+    def visual_servo_control(self, x: int, y: int):
+        self.target_rel_speed_x = -ant_motor.servo_pid_x.compute_pid(self.target_x, x)
+        self.target_rel_speed_y = ant_motor.servo_pid_y.compute_pid(self.target_y, y)
+        # 判断是否完成视觉伺服控制
+        if abs(ant_motor.servo_pid_x.nowError) < self.finish_threshold and abs(ant_motor.servo_pid_y.nowError) < self.finish_threshold:
+            self.target_rel_speed = 0
+            self.target_rel_yaw = 0.0
+            ant_beep.finish_servo()
+            # 测试
+            my_state.state = my_state.STOP
+        else:
+            # 计算综合目标速度和航向角
+            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+            # 伺服速度限幅
+            if self.target_rel_speed < self.min_rel_speed:
+                self.target_rel_speed = self.min_rel_speed
+            elif self.target_rel_speed > self.max_rel_speed:
+                self.target_rel_speed = self.max_rel_speed
+            self.compute_target_rel_yaw()
+            self.compute_target_rel_turn_angle(0.0)
+    
+# 创建视觉伺服管理对象2
+my_vision_manager_2 = VisionManager_2()
 
 # 视觉伺服测试函数
-def test_vision_servo():
+def test_vision_servo_1():
     if my_state.state == my_state.NAVIGATE:
         # 按照路径1进行导航
         my_plan.navigate(plan_data.path_1)
@@ -462,9 +528,22 @@ def test_vision_servo():
         # 接收openart发送的目标点坐标
         target_point = ant_uart.uart_receive()
         if target_point:
-            my_vision_manager.visual_servo_control(target_point[0], target_point[1])
+            my_vision_manager_1.visual_servo_control(target_point[0], target_point[1])
     elif my_state.state == my_state.STOP:
-        my_plan.stop()
+        pass
+
+# 视觉伺服测试函数
+def test_vision_servo_2():
+    if my_state.state == my_state.NAVIGATE:
+        my_state.state = my_state.SERVO
+    elif my_state.state == my_state.SERVO:
+        # 接收openart发送的目标点坐标
+        target_point = ant_uart.uart_receive()
+        if target_point:
+            ant_uart.wireless.send_str("x: {:<f}, y: {:<f}\n".format(my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw))
+            my_vision_manager_2.visual_servo_control(target_point[0], target_point[1])
+    elif my_state.state == my_state.STOP:
+        pass 
 
 
 # 定时器3中断处理函数：路径规划与速度规划计算
@@ -475,7 +554,9 @@ def time_pit3_handler(time) -> None:
     #    ant_uart.wireless.send_str("x: {:<f}, y: {:<f}\n".format(target_point[0], target_point[1]))
     
     #ant_uart.my_uart6.write("hello\r\n")
-
-    my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[0]])
+    
+    # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[0]])
+    # test_vision_servo_2()
     pass
+
 

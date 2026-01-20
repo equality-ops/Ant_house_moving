@@ -3,7 +3,7 @@ from seekfree import MOTOR_CONTROLLER
 from smartcar import ticker
 import math
 import ant_flash
-from ant_math import MATH as MATH
+from ant_flash import MATH as MATH
 from ant_flash import find_aimed_value as find_value
 import ant_uart
 import time
@@ -209,6 +209,37 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
+
+# 视觉伺服PD
+class ServoPID(ControlPID):
+    def __init__(self, kp: float, kd: float):
+        self.kp = kp        # type: float
+        self.kd = kd        # type: float
+        self.target = 0     # type: float
+        self.actual = 0     # type: float
+        self.nowError = 0   # type: int
+        self.preError = 0   # type: int
+        self.derivative = 0 # type: int
+        self.pwm_output = 0 # type: int
+        self.__pwmout_limitmax = find_value(config, "servo_pwmout_limitmax")    # type: int
+        
+
+    def compute_pid(self, target: int, actual: int):
+        self.target = target
+        self.actual = actual
+        self.preError = self.nowError
+        self.nowError = self.target - self.actual
+        # 计算微分项
+        self.derivative = self.nowError - self.preError
+
+        # 计算pwm_output
+        self.pwm_output = int(self.kp * self.nowError + self.kd * self.derivative)
+
+        # pwm_output限幅
+        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
+
+        return self.pwm_output
+
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = SpeedPositionPID(diff_filter = diff_filter_ul)
 
@@ -220,6 +251,9 @@ motor_md_pid = SpeedPositionPID(diff_filter = diff_filter_md)
 angle_pid = AnglePositionPID(kp = find_value(config, "angle_normal_kp"), 
                             ki = find_value(config, "angle_normal_ki"), 
                             kd = find_value(config, "angle_normal_kd"))
+
+servo_pid_x = ServoPID(kp = find_value(config, "servo_kp_x"), kd = find_value(config, "servo_kd_x"))
+servo_pid_y = ServoPID(kp = find_value(config, "servo_kp_y"), kd = find_value(config, "servo_kd_y"))
 
 # 创建MOTOR_CONTROLLER对象
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
@@ -511,14 +545,24 @@ def test_global_localization():
     #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
     my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
 
+# 测试伺服控制函数
+def test_servo_control():
+    if ant_plan.my_state.state == ant_plan.my_state.NAVIGATE:
+        my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
+    elif ant_plan.my_state.state == ant_plan.my_state.SERVO:
+        my_car.move_ctrl(ant_plan.my_vision_manager_2.target_rel_speed_x, ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_turn_angle)
+    elif ant_plan.my_state.state == ant_plan.my_state.STOP:
+        my_car.move_ctrl(0, 0, 0)
 
 # 定时器1中断回调函数
 def time_pit1_handler(time):
+    # 更新传感器数据
     pose_data.update_data()
     # 初始化pid参数
     motor_ul_pid.set_pid_params(pid_data.ul_normal_kp, pid_data.ul_normal_ki, pid_data.ul_normal_kd)
     motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
     motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
+    # 更新小车姿态
     my_car.update_pose()
     
     # 全向移动转圈测试程序
@@ -531,10 +575,10 @@ def time_pit1_handler(time):
     # test_simble_displacement()
     
     # 测试角度闭环
-    # complete_angle_circle()
+    complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_current <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -550,5 +594,9 @@ def time_pit1_handler(time):
     # 速度环测试
     # show_speed_PID_test()
     
+    # 测试伺服控制函数
+    # test_servo_control()
+    
     my_car.set_motor_pwm()
+
 

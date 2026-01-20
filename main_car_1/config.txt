@@ -22,7 +22,7 @@ B = 165
 kp_mid = 0.9
 kp_low = 0.8
 
-###################【机械参数（单位：cm）】####################
+###################【机械参数（单位：cm）】###################
 wheel_radius = 5.8
 car_radius = 10.5
 
@@ -109,6 +109,15 @@ target_offset_y = 0.0
 rel_dis_threshold = 0.1
 kp_rel = 0.0
 kd_rel = 0.0
+servo_kp_x = 2.0
+servo_kd_x = 10.0
+servo_kp_y = 2.0
+servo_kd_y = 10.0
+target_x = 80
+target_y = 90
 min_rel_speed = 20
+max_rel_speed = 65
+finish_threshold = 2
+servo_pwmout_limitmax = 70
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)

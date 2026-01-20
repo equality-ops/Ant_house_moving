@@ -2,7 +2,7 @@ from machine import *
 from display import *
 from smartcar import ticker,encoder
 from ant_flash import find_aimed_value as find_value
-from ant_math import MATH as MATH
+from ant_flash import MATH as MATH
 import time
 import ant_motor
 import ant_plan
