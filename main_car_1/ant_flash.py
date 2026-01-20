@@ -1,4 +1,4 @@
-import ant_beep
+import ant_else
 
 class Math:
     def __init__(self):
@@ -67,7 +67,7 @@ def find_aimed_value(config: dict, var_name: str):
         return var_value
     except KeyError as e:
         print(f"Failure to find {var_name.strip()} in config.txt!")
-        ant_beep.beep_warn()
+        ant_else.beep_warn()
         return 0
     
     
@@ -91,8 +91,4 @@ if __name__ == "__main__":
     # 检测phase_config函数
     print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
     print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
-
-
-
-
 

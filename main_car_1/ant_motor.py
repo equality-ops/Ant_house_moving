@@ -1,12 +1,12 @@
 from machine import *
 from seekfree import MOTOR_CONTROLLER
-from smartcar import ticker
+from smartcar import ticker, encoder
+from seekfree import IMU660RX
 import math
 import ant_flash
 from ant_flash import MATH as MATH
 from ant_flash import find_aimed_value as find_value
-import ant_uart
-import time
+import ant_else
 
 ###################################【文件读取】###################################
 # 从config.txt中读取保存所有的参数并保存到config字典中
@@ -14,7 +14,16 @@ config = ant_flash.phase_config("/flash/config.txt")
 
 # 读取完再导入
 import ant_plan
-import ant_pose
+
+# 编码器初始化
+encoder_ul = encoder("C2" , "C3" , True)
+encoder_ur = encoder("C0" , "C1" , True)
+encoder_md = encoder("D15", "D16", True)
+
+# IMU初始化
+imu = IMU660RX()
+# 定时器1采集已经与imu_data相连
+imu_data = []   # type: list
 
 class PID_data:
     def __init__(self):
@@ -44,6 +53,8 @@ class PID_data:
 
 # 创建pid参数对象
 pid_data = PID_data()
+
+
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
@@ -87,8 +98,70 @@ speed_x_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_x_fil2 = SlipAveragingFilter(5)  
 
+
+class PoseData:
+    def __init__(self, diff_filter: SlipAveragingFilter):
+        self.encoder_data_ul = 0    # type: int
+        self.encoder_data_ur = 0    # type: int
+        self.encoder_data_md = 0    # type: int
+        self.acc_x = 0              # type: int
+        self.acc_y = 0              # type: int
+        self.acc_z = 0              # type: int
+        self.gyro_x = 0             # type: int
+        self.gyro_y = 0             # type: int
+        self.gyro_z = 0             # type: float
+        self.acc_x_bias = 0.0        # type: float
+        self.acc_y_bias = 0.0        # type: float
+        self.acc_z_bias = 0.0        # type: float
+        self.gyro_x_bias = 0.0       # type: float
+        self.gyro_y_bias = 0.0       # type: float
+        self.gyro_z_bias = 0.0       # type: float
+        self.gyro_z_supply = find_value(config, "gyro_z_supply")
+        self.diff_filter = diff_filter
+
+    # 初始零偏计算函数
+    def init_bias(self):
+        acc_x_sum = 0
+        acc_y_sum = 0
+        acc_z_sum = 0
+        gyro_x_sum = 0
+        gyro_y_sum = 0
+        gyro_z_sum = 0
+
+        sample_count = 1000
+        for i in range(sample_count):
+            imu_data = imu.read()
+            acc_x_sum += imu_data[0]
+            acc_y_sum += imu_data[1]
+            acc_z_sum += imu_data[2]
+            gyro_x_sum += imu_data[3]
+            gyro_y_sum += imu_data[4]
+            gyro_z_sum += imu_data[5]
+
+        self.acc_x_bias = acc_x_sum / sample_count
+        self.acc_y_bias = acc_y_sum / sample_count
+        self.acc_z_bias = acc_z_sum / sample_count
+        self.gyro_x_bias = gyro_x_sum / sample_count
+        self.gyro_y_bias = gyro_y_sum / sample_count
+        self.gyro_z_bias = gyro_z_sum / sample_count
+
+    # 传感器数据更新函数
+    def update_data(self):
+        self.encoder_data_ul = encoder_ul.get()
+        self.encoder_data_ur = encoder_ur.get()
+        self.encoder_data_md = encoder_md.get()
+
+        self.acc_x = imu_data[0] - self.acc_x_bias
+        self.acc_y = imu_data[1] - self.acc_y_bias
+        self.acc_z = imu_data[2] - self.acc_z_bias
+        self.gyro_x = imu_data[3] - self.gyro_x_bias
+        self.gyro_y = imu_data[4] - self.gyro_y_bias
+        # 去零漂后滑动平均滤波（单位：角度每秒）
+        self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+
+
 # 创建姿态数据对象
-pose_data = ant_pose.PoseData(diff_filter_gyroz)
+pose_data = PoseData(diff_filter_gyroz)
 
 
 # 定义一个抽象类用于顶层设计
@@ -479,13 +552,13 @@ def show_speed_PID_test():
     
 # 测试陀螺仪函数
 def test_imu():
-    ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, ant_pose.imu_data[5], pose_data.gyro_z_bias))           
+    ant_else.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, ant_pose.imu_data[5], pose_data.gyro_z_bias))           
     
 # 测试角度闭环函数
 def complete_angle_circle():
     my_car.update_pose()
     my_car.move_ctrl(0, 0, 0)
-    #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
+    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
     
 # 全向移动转圈测试函数
 target_yaw = 0
@@ -495,7 +568,7 @@ def all_around_circle():
     if target_yaw >= 180:
         target_yaw = -180
     my_car.move_ctrl(250, target_yaw, 0)
-    ant_uart.wireless.send_str("{:<f},{:<f}\n".format(target_yaw, angle_pid.actual))
+    ant_else.wireless.send_str("{:<f},{:<f}\n".format(target_yaw, angle_pid.actual))
 
 
 # 多路复用器（用于测试）
@@ -513,8 +586,8 @@ stage = 0	# 当前模式
 def test_odometer():
     global stage
     global count
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
-    #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
+    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
+    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
         if my_car.x_current <= 50.0 and stage == 0:
             my_car.move_ctrl(65, 90, 0)
@@ -542,7 +615,7 @@ def test_odometer():
         
 # 全向定位测试函数
 def test_global_localization():
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
     my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
 
 # 测试伺服控制函数
@@ -550,7 +623,7 @@ def test_servo_control():
     if ant_plan.my_state.state == ant_plan.my_state.NAVIGATE:
         my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
     elif ant_plan.my_state.state == ant_plan.my_state.SERVO:
-        my_car.move_ctrl(ant_plan.my_vision_manager_2.target_rel_speed_x, ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_turn_angle)
+        my_car.move_ctrl(ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_turn_angle)
     elif ant_plan.my_state.state == ant_plan.my_state.STOP:
         my_car.move_ctrl(0, 0, 0)
 
@@ -567,7 +640,7 @@ def time_pit1_handler(time):
     
     # 全向移动转圈测试程序
     #all_around_circle()
-    #ant_uart.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
+    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
     # test_odometer()
@@ -575,7 +648,7 @@ def time_pit1_handler(time):
     # test_simble_displacement()
     
     # 测试角度闭环
-    complete_angle_circle()
+    # complete_angle_circle()
     
     # 全向定位测试程序
     # test_global_localization()
@@ -585,18 +658,16 @@ def time_pit1_handler(time):
     #else:
      #   my_car.move_ctrl(0, 90, 0)
     # 里程计测试
-    #ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
+    #ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
     
     # 陀螺仪测试
     # test_imu()
-    # ant_uart.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     my_car.set_motor_pwm()
-
-

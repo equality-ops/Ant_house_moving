@@ -70,7 +70,8 @@ alpha_y_8 = 1.0
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
-plan_calculate_T = 5
+# 测试
+plan_calculate_T = 10
 uart_and_menu_T = 100
 boost_time_threshold = 100
 

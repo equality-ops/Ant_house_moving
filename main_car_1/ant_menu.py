@@ -6,8 +6,8 @@ from ant_flash import MATH as MATH
 import time
 import ant_motor
 import ant_plan
-import ant_uart
-import ant_beep
+import ant_else
+import ant_else
 
 ##########################硬件初始化##########################
 # 新建LCD实例并初始化
@@ -42,24 +42,27 @@ ur_normal_kd = find_value(ant_motor.config, "ur_normal_kd")  # type: float
 def time_pit2_handler(time):
     # 用于无线串口调试
     
+    # 视觉伺服
+    ant_else.wireless.send_str("speed: {:<f}, yaw: {:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw))
+    
     # 速度环输出波形图调参
-    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ul_pid.target, ant_motor.motor_ul_pid.actual, ant_motor.motor_ul_pid.pwm_output, ant_motor.motor_ul_pid.derivative * ant_motor.motor_ul_pid.kd))
-    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ur_pid.target, ant_motor.motor_ur_pid.actual, ant_motor.motor_ur_pid.pwm_output, ant_motor.motor_ur_pid.derivative * ant_motor.motor_ur_pid.kd))
-    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_md_pid.target, ant_motor.motor_md_pid.actual, ant_motor.motor_md_pid.pwm_output, ant_motor.motor_md_pid.derivative * ant_motor.motor_md_pid.kd))
+    # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ul_pid.target, ant_motor.motor_ul_pid.actual, ant_motor.motor_ul_pid.pwm_output, ant_motor.motor_ul_pid.derivative * ant_motor.motor_ul_pid.kd))
+    # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ur_pid.target, ant_motor.motor_ur_pid.actual, ant_motor.motor_ur_pid.pwm_output, ant_motor.motor_ur_pid.derivative * ant_motor.motor_ur_pid.kd))
+    # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_md_pid.target, ant_motor.motor_md_pid.actual, ant_motor.motor_md_pid.pwm_output, ant_motor.motor_md_pid.derivative * ant_motor.motor_md_pid.kd))
     
     # 里程计：
-    # ant_uart.wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
-    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_motor.my_car.car_x, ant_motor.my_car.car_y, ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
-    # ant_uart.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, ant_motor.my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    # ant_else.wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
+    # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_motor.my_car.car_x, ant_motor.my_car.car_y, ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
+    # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, ant_motor.my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
     
     # 速度规划
-    #ant_uart.wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
+    #ant_else.wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
     
     # 检测偏航角是否准确
-    # ant_uart.wireless.send_str("x:{:<f}   y:{:<f}   target_yaw:{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.target_yaw))
+    # ant_else.wireless.send_str("x:{:<f}   y:{:<f}   target_yaw:{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.target_yaw))
     
     #卡尔曼滤波（速度）
-    #ant_uart.wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
+    #ant_else.wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     
     key = read_key()
     if key == None:
@@ -182,22 +185,22 @@ def read_key(debounce_ms = 40):
     if key_left.value() == 0:
         time.sleep_ms(debounce_ms)  # 消抖延时
         if key_left.value() == 0:   # 再次确认
-            ant_beep.key_test()
+            ant_else.key_test()
             return LEFT
     elif key_right.value() == 0:
         time.sleep_ms(debounce_ms)
         if key_right.value() == 0:
-            ant_beep.key_test()
+            ant_else.key_test()
             return RIGHT
     elif key_up.value() == 0:
         time.sleep_ms(debounce_ms)
         if key_up.value() == 0:
-            ant_beep.key_test()
+            ant_else.key_test()
             return UP
     elif key_down.value() == 0:
         time.sleep_ms(debounce_ms)
         if key_down.value() == 0:
-            ant_beep.key_test()
+            ant_else.key_test()
             return DOWN
     
     return None  # 无按键按下
@@ -322,3 +325,5 @@ while True:
     
     time.sleep_ms(50)
 """
+
+
