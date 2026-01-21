@@ -423,8 +423,8 @@ class CarPose:
         self.encouder_md += 2.454904 * pose_data.encoder_data_md / 1000
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每2ms
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * ((MATH.SIN30 * (pose_data.encoder_data_ur + pose_data.encoder_data_ul) - pose_data.encoder_data_md)  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.COS30 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (MATH.OneThird * (pose_data.encoder_data_ur + pose_data.encoder_data_ul - pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((pose_data.encoder_data_ul - pose_data.encoder_data_ur) / MATH.SQRT3 * self.speed_conversion_gamma / 1000)
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
@@ -527,9 +527,9 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = ((self.car_speed_w_target + self.car_speed_x_target) * MATH.OneThird + self.car_speed_y_target / MATH.SQRT3 + pose_data.gyro_z * self.gkd) * self.compensate_param_ul
-        motor_ur_speed_target = ((self.car_speed_w_target + self.car_speed_x_target) * MATH.OneThird - self.car_speed_y_target / MATH.SQRT3 + pose_data.gyro_z * self.gkd) * self.compensate_param_ur
-        motor_md_speed_target = (self.car_speed_w_target * MATH.OneThird - self.car_speed_x_target * MATH.TwoThirdS + pose_data.gyro_z * self.gkd) * self.compensate_param_md
+        motor_ul_speed_target = (self.car_speed_w_target * MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * MATH.SQRT3) * 0.5 + pose_data.gyro_z * self.gkd) * self.compensate_param_ul
+        motor_ur_speed_target = (self.car_speed_w_target * MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * MATH.SQRT3) * 0.5 + pose_data.gyro_z * self.gkd) * self.compensate_param_ur
+        motor_md_speed_target = (self.car_speed_w_target * MATH.OneThird - self.car_speed_x_target + pose_data.gyro_z * self.gkd) * self.compensate_param_md
 
         # 计算各个电机的pid得到pwm输出
         motor_ul_pid.compute_pid(int(motor_ul_speed_target), pose_data.encoder_data_ul)
@@ -591,8 +591,8 @@ def test_odometer():
     #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
-        if my_car.x_current <= 50.0 and stage == 0:
-            my_car.move_ctrl(65, 90, 0)
+        if my_car.y_current <= 50.0 and stage == 0:
+            my_car.move_ctrl(65, 0, 0)
             return
         elif my_car.x_current >= 0.6 and stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -608,7 +608,7 @@ def test_odometer():
             return
      
     my_car.move_ctrl(0, 0, 0)
-    ant_uart.wireless.send_str("Finial: {:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.car_x, my_car.car_y, my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+    ant_else.wireless.send_str("Finial: {:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.car_x, my_car.car_y, my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     count += 1
     if count == 200:
         stage += 1
@@ -645,7 +645,7 @@ def time_pit1_handler(time):
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
-    # test_odometer()
+    test_odometer()
     
     # test_simble_displacement()
     
@@ -670,6 +670,6 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    test_servo_control()
+    #test_servo_control()
     
     my_car.set_motor_pwm()
