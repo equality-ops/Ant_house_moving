@@ -450,7 +450,8 @@ my_vision_manager_1 = VisionManager_1()
 class VisionManager_2:
     def __init__(self):
         # PD控制相关变量
-        self.finish_threshold = find_value(ant_motor.config, "finish_threshold")  # type: float  # 视觉伺服控制距离阈值
+        self.finish_threshold_x = find_value(ant_motor.config, "finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
+        self.finish_threshold_y = find_value(ant_motor.config, "finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
         self.target_rel_speed_x = 0          # type: int   # 伺服控制目标x速度
         self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
         self.target_x = find_value(ant_motor.config, "target_x")         # type: int   # 物体中心点的目标像素x坐标
@@ -492,9 +493,9 @@ class VisionManager_2:
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
         self.target_rel_speed_x = -ant_motor.servo_pid_x.compute_pid(self.target_x, x)
-        self.target_rel_speed_y = ant_motor.servo_pid_y.compute_pid(self.target_y, y) * 2
+        self.target_rel_speed_y = ant_motor.servo_pid_y.compute_pid(self.target_y, y) * 1.414
         # 判断是否完成视觉伺服控制
-        if abs(ant_motor.servo_pid_x.nowError) < self.finish_threshold and abs(ant_motor.servo_pid_y.nowError) < self.finish_threshold:
+        if abs(ant_motor.servo_pid_x.nowError) <= self.finish_threshold_x and abs(ant_motor.servo_pid_y.nowError) <= self.finish_threshold_y:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
             ant_else.finish_servo()
@@ -541,7 +542,7 @@ def test_vision_servo_2():
         my_state.state = my_state.SERVO
     elif my_state.state == my_state.SERVO:
         # 接收openart发送的目标点坐标
-        my_vision_manager_2.target_point = ant_else.uart_receive()
+        my_vision_manager_2.target_point = ant_else.protocol.coordinate_receive()
         if my_vision_manager_2.target_point:
             my_vision_manager_2.visual_servo_control(my_vision_manager_2.target_point[0], my_vision_manager_2.target_point[1])
     elif my_state.state == my_state.STOP:
@@ -560,3 +561,5 @@ def time_pit3_handler(time) -> None:
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[0]])
     test_vision_servo_2()
     pass
+
+

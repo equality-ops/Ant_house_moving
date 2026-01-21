@@ -424,7 +424,7 @@ class CarPose:
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每2ms
         self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (MATH.OneThird * (pose_data.encoder_data_ur + pose_data.encoder_data_ul - pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((pose_data.encoder_data_ul - pose_data.encoder_data_ur) / MATH.SQRT3 * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.OneThird * MATH.SQRT3 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
@@ -592,7 +592,7 @@ def test_odometer():
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
         if my_car.y_current <= 50.0 and stage == 0:
-            my_car.move_ctrl(65, 0, 0)
+            my_car.move_ctrl(65, 45, 0)
             return
         elif my_car.x_current >= 0.6 and stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -645,7 +645,7 @@ def time_pit1_handler(time):
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    #test_odometer()
     
     # test_simble_displacement()
     
@@ -670,6 +670,6 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    #test_servo_control()
+    test_servo_control()
     
     my_car.set_motor_pwm()
