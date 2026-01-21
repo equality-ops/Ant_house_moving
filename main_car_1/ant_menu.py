@@ -43,13 +43,17 @@ def time_pit2_handler(time):
     # 用于无线串口调试
     
     # 视觉伺服
-    ant_else.wireless.send_str("speed: {:<f}, yaw: {:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw))
+    # ant_else.wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}, now_yaw: {:<f}\n".format(ant_motor.servo_pid_x.actual, ant_motor.servo_pid_y.actual, ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw, ant_motor.my_car.now_yaw * 180 / MATH.PI))
+    # ant_else.wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
     # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ul_pid.target, ant_motor.motor_ul_pid.actual, ant_motor.motor_ul_pid.pwm_output, ant_motor.motor_ul_pid.derivative * ant_motor.motor_ul_pid.kd))
     # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_ur_pid.target, ant_motor.motor_ur_pid.actual, ant_motor.motor_ur_pid.pwm_output, ant_motor.motor_ur_pid.derivative * ant_motor.motor_ur_pid.kd))
     # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.motor_md_pid.target, ant_motor.motor_md_pid.actual, ant_motor.motor_md_pid.pwm_output, ant_motor.motor_md_pid.derivative * ant_motor.motor_md_pid.kd))
     
+    #ant_else.wireless.send_str("acc = {:>6d}, {:>6d}, {:>6d}\n".format(ant_motor.imu_data[0], ant_motor.imu_data[1], ant_motor.imu_data[2]))
+    #ant_else.wireless.send_str("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(ant_motor.imu_data[3], ant_motor.imu_data[4], ant_motor.imu_data[5]))
+                                                                          
     # 里程计：
     # ant_else.wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
     # ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_motor.my_car.car_x, ant_motor.my_car.car_y, ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
@@ -325,5 +329,3 @@ while True:
     
     time.sleep_ms(50)
 """
-
-

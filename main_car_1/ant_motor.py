@@ -98,6 +98,8 @@ speed_x_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_x_fil2 = SlipAveragingFilter(5)  
 
+# 视觉伺服自身转角的卡尔曼滤波器
+servo_turn_angle_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 
 class PoseData:
     def __init__(self, diff_filter: SlipAveragingFilter):

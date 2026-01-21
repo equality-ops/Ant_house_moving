@@ -460,6 +460,7 @@ class VisionManager_2:
         self.target_point = []						# type: list  	# 目标像素点
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
+        self.target_rel_yaw_fil = 0.0				# type: float   # 滤波后的目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
 
         # 计算目标航向角
@@ -491,7 +492,7 @@ class VisionManager_2:
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
         self.target_rel_speed_x = -ant_motor.servo_pid_x.compute_pid(self.target_x, x)
-        self.target_rel_speed_y = ant_motor.servo_pid_y.compute_pid(self.target_y, y)
+        self.target_rel_speed_y = ant_motor.servo_pid_y.compute_pid(self.target_y, y) * 2
         # 判断是否完成视觉伺服控制
         if abs(ant_motor.servo_pid_x.nowError) < self.finish_threshold and abs(ant_motor.servo_pid_y.nowError) < self.finish_threshold:
             self.target_rel_speed = 0
@@ -508,9 +509,10 @@ class VisionManager_2:
             elif self.target_rel_speed > self.max_rel_speed:
                 self.target_rel_speed = self.max_rel_speed
             # 测试
-            self.target_rel_speed = 0
+            #self.target_rel_speed = 0
             self.compute_target_rel_yaw()
-            self.compute_target_rel_turn_angle(self.target_rel_yaw)
+            self.target_rel_yaw = ant_motor.servo_turn_angle_fil.update(self.target_rel_yaw)
+            self.compute_target_rel_turn_angle(0.0)
     
 # 创建视觉伺服管理对象2
 my_vision_manager_2 = VisionManager_2()

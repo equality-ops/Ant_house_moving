@@ -73,6 +73,7 @@ def find_aimed_value(config: dict, var_name: str):
     
 
 # 调试程序
+"""
 if __name__ == "__main__":
     test_strings = ["123", "45.67", "hello", "-89", "3.14159", "world123"]
 
@@ -91,4 +92,5 @@ if __name__ == "__main__":
     # 检测phase_config函数
     print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
     print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
+"""
 

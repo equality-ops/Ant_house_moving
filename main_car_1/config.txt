@@ -71,7 +71,7 @@ alpha_y_8 = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 # 测试
-plan_calculate_T = 10
+plan_calculate_T = 5
 uart_and_menu_T = 100
 boost_time_threshold = 100
 
@@ -110,15 +110,15 @@ target_offset_y = 0.0
 rel_dis_threshold = 0.1
 kp_rel = 0.0
 kd_rel = 0.0
-servo_kp_x = 2.0
+servo_kp_x = 1.0
 servo_kd_x = 10.0
-servo_kp_y = 2.0
+servo_kp_y = 1.0
 servo_kd_y = 10.0
 target_x = 80
 target_y = 90
 min_rel_speed = 20
-max_rel_speed = 65
-finish_threshold = 2
+max_rel_speed = 60
+finish_threshold = 5
 servo_pwmout_limitmax = 70
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)

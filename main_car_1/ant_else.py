@@ -67,7 +67,8 @@ def uart_receive():
     """读取一个完整的数据帧（5字节）"""
     if my_uart6.any() >= 5:
         raw = my_uart6.read(5)  # 只读取5个字节
-        
+        # 测试
+        #wireless.send_str(f"{raw}\n")
         try:
             header1, header2, x, y, tail = ustruct.unpack("<BBBBB", raw)
             if header1 == 0xA5 and header2 == 0xA6 and tail == 0x5B:
