@@ -16,9 +16,10 @@ config = ant_flash.phase_config("/flash/config.txt")
 import ant_plan
 
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , True)
-encoder_ur = encoder("C0" , "C1" , True)
-encoder_md = encoder("D15", "D16", True)
+encoder_lf = encoder("C2" , "C3" , True)
+encoder_rf = encoder("C0" , "C1" , True)
+encoder_lb = encoder("D15", "D16", True)
+encoder_rb = encoder("D13", "D14", True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -27,34 +28,22 @@ imu_data = []   # type: list
 
 class PID_data:
     def __init__(self):
-        self.ul_normal_kp = find_value(config, "ul_normal_kp")  # type: float
-        self.ul_normal_ki = find_value(config, "ul_normal_ki")  # type: float
-        self.ul_normal_kd = find_value(config, "ul_normal_kd")  # type: float
-        self.ur_normal_kp = find_value(config, "ur_normal_kp")  # type: float
-        self.ur_normal_ki = find_value(config, "ur_normal_ki")  # type: float
-        self.ur_normal_kd = find_value(config, "ur_normal_kd")  # type: float
-        self.md_normal_kp = find_value(config, "md_normal_kp")  # type: float
-        self.md_normal_ki = find_value(config, "md_normal_ki")  # type: float
-        self.md_normal_kd = find_value(config, "md_normal_kd")  # type: float
-        # 电机补偿系数
-        self.compensate_param_ul_right = find_value(config, "compensate_param_ul_right")	# type: float
-        self.compensate_param_ur_right = find_value(config, "compensate_param_ur_right")	# type: float
-        self.compensate_param_md_right = find_value(config, "compensate_param_md_right")	# type: float
-        self.compensate_param_ul_left = find_value(config, "compensate_param_ul_left")	# type: float
-        self.compensate_param_ur_left = find_value(config, "compensate_param_ur_left")	# type: float
-        self.compensate_param_md_left = find_value(config, "compensate_param_md_left")	# type: float
-        self.compensate_param_ul_up = find_value(config, "compensate_param_ul_up")	# type: float
-        self.compensate_param_ur_up = find_value(config, "compensate_param_ur_up")	# type: float
-        self.compensate_param_md_up = find_value(config, "compensate_param_md_up")	# type: float
-        self.compensate_param_ul_down = find_value(config, "compensate_param_ul_down")	# type: float
-        self.compensate_param_ur_down = find_value(config, "compensate_param_ur_down")	# type: float
-        self.compensate_param_md_down = find_value(config, "compensate_param_md_down")	# type: float
-
+        self.lf_normal_kp = find_value(config, "lf_normal_kp")  # type: float
+        self.lf_normal_ki = find_value(config, "lf_normal_ki")  # type: float
+        self.lf_normal_kd = find_value(config, "lf_normal_kd")  # type: float
+        self.rf_normal_kp = find_value(config, "rf_normal_kp")  # type: float
+        self.rf_normal_ki = find_value(config, "rf_normal_ki")  # type: float
+        self.rf_normal_kd = find_value(config, "rf_normal_kd")  # type: float
+        self.lb_normal_kp = find_value(config, "lb_normal_kp")  # type: float
+        self.lb_normal_ki = find_value(config, "lb_normal_ki")  # type: float
+        self.lb_normal_kd = find_value(config, "lb_normal_kd")  # type: float
+        self.rf_normal_kd = find_value(config, "rf_normal_kd")  # type: float
+        self.rb_normal_kp = find_value(config, "rb_normal_kp")  # type: float
+        self.rb_normal_ki = find_value(config, "rb_normal_ki")  # type: float
+        self.rb_normal_kd = find_value(config, "rb_normal_kd")  # type: float
 
 # 创建pid参数对象
 pid_data = PID_data()
-
-
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
@@ -69,7 +58,7 @@ class SlipAveragingFilter:
         self.buffer[self.index] = data
         self.index = (self.index + 1) % self.filter_size
         return sum(self.buffer) / self.filter_size
-    
+
     
 # 一维卡尔曼滤波器
 class KalmanFilter:
@@ -88,24 +77,28 @@ class KalmanFilter:
 
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = SlipAveragingFilter(2)    # 滤波窗口为2个
-diff_filter_ur = SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_md = SlipAveragingFilter(2)    # 滤波窗口为2个
-diff_filter_gyroz = SlipAveragingFilter(6)  # 滤波窗口为5个
+diff_filter_lf = SlipAveragingFilter(3)    # 滤波窗口为2个
+diff_filter_rf = SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_lb = SlipAveragingFilter(3)    # 滤波窗口为2个
+diff_filter_rb = SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_gyroz = SlipAveragingFilter(6)  # 滤波窗口为6个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-speed_x_fil2 = SlipAveragingFilter(5)  
 
 # 视觉伺服自身转角的卡尔曼滤波器
 servo_turn_angle_fil = KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 
 class PoseData:
-    def __init__(self, diff_filter: SlipAveragingFilter):
-        self.encoder_data_ul = 0    # type: int
-        self.encoder_data_ur = 0    # type: int
-        self.encoder_data_md = 0    # type: int
+    def __init__(self):
+        self.encoder_data_lf = 0    # type: int
+        self.encoder_data_rf = 0    # type: int
+        self.encoder_data_lb = 0    # type: int
+        self.encoder_data_rb = 0    # type: int
+        self.gyro_z_bias = 0.0       # type: float
+        self.gyro_z_supply = find_value(config, "gyro_z_supply")
+        """暂时不需要这些数据
         self.acc_x = 0              # type: int
         self.acc_y = 0              # type: int
         self.acc_z = 0              # type: int
@@ -117,54 +110,59 @@ class PoseData:
         self.acc_z_bias = 0.0        # type: float
         self.gyro_x_bias = 0.0       # type: float
         self.gyro_y_bias = 0.0       # type: float
-        self.gyro_z_bias = 0.0       # type: float
-        self.gyro_z_supply = find_value(config, "gyro_z_supply")
-        self.diff_filter = diff_filter
+        """
 
     # 初始零偏计算函数
     def init_bias(self):
+        """暂时不需要这些数据
         acc_x_sum = 0
         acc_y_sum = 0
         acc_z_sum = 0
         gyro_x_sum = 0
         gyro_y_sum = 0
-        gyro_z_sum = 0
+        """
 
-        sample_count = 1000
+        gyro_z_sum = 0
+        sample_count = 2000
+
         for i in range(sample_count):
             imu_data = imu.read()
+            gyro_z_sum += imu_data[5]
+            """暂时不需要处理这些数据
             acc_x_sum += imu_data[0]
             acc_y_sum += imu_data[1]
             acc_z_sum += imu_data[2]
             gyro_x_sum += imu_data[3]
             gyro_y_sum += imu_data[4]
-            gyro_z_sum += imu_data[5]
-
+            """
+        """时不需要处理这些数据
         self.acc_x_bias = acc_x_sum / sample_count
         self.acc_y_bias = acc_y_sum / sample_count
         self.acc_z_bias = acc_z_sum / sample_count
         self.gyro_x_bias = gyro_x_sum / sample_count
         self.gyro_y_bias = gyro_y_sum / sample_count
+        """
         self.gyro_z_bias = gyro_z_sum / sample_count
 
     # 传感器数据更新函数
     def update_data(self):
-        self.encoder_data_ul = encoder_ul.get()
-        self.encoder_data_ur = encoder_ur.get()
-        self.encoder_data_md = encoder_md.get()
-
+        self.encoder_data_lf = encoder_lf.get()
+        self.encoder_data_rf = encoder_rf.get()
+        self.encoder_data_lb = encoder_lb.get()
+        self.encoder_data_rb = encoder_rb.get()
+        """暂时不需要处理这些数据
         self.acc_x = imu_data[0] - self.acc_x_bias
         self.acc_y = imu_data[1] - self.acc_y_bias
         self.acc_z = imu_data[2] - self.acc_z_bias
         self.gyro_x = imu_data[3] - self.gyro_x_bias
         self.gyro_y = imu_data[4] - self.gyro_y_bias
+        """
         # 去零漂后滑动平均滤波（单位：角度每秒）
-        self.gyro_z = -self.diff_filter.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_z = -diff_filter_gyroz.filtering(imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
 
 
 # 创建姿态数据对象
-pose_data = PoseData(diff_filter_gyroz)
-
+pose_data = PoseData()
 
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
@@ -316,12 +314,13 @@ class ServoPID(ControlPID):
         return self.pwm_output
 
 # 创建电机pid对象和角度pid对象
-motor_ul_pid = SpeedPositionPID(diff_filter = diff_filter_ul)
+motor_lf_pid = SpeedPositionPID(diff_filter = diff_filter_lf)
 
-motor_ur_pid = SpeedPositionPID(diff_filter = diff_filter_ur)
+motor_rf_pid = SpeedPositionPID(diff_filter = diff_filter_rf)
 
-motor_md_pid = SpeedPositionPID(diff_filter = diff_filter_md)
+motor_lb_pid = SpeedPositionPID(diff_filter = diff_filter_lb)
 
+motor_rb_pid = SpeedPositionPID(diff_filter = diff_filter_rb)
 
 angle_pid = AnglePositionPID(kp = find_value(config, "angle_normal_kp"), 
                             ki = find_value(config, "angle_normal_ki"), 
@@ -331,9 +330,10 @@ servo_pid_x = ServoPID(kp = find_value(config, "servo_kp_x"), kd = find_value(co
 servo_pid_y = ServoPID(kp = find_value(config, "servo_kp_y"), kd = find_value(config, "servo_kd_y"))
 
 # 创建MOTOR_CONTROLLER对象
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
+motor_lf = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
+motor_rf = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_lb = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
+motor_rb = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
 
 # 小车姿态控制
 class CarPose:
@@ -363,52 +363,25 @@ class CarPose:
         self.real_speed_y_target = 0.0  # type: float
         self.real_speed_w_target = 0.0  # type: float
         # 速度系数
-        self.speed_conversion_gamma = find_value(config, "speed_conversion_gamma")   # 适当减小速度数量级
+        self.speed_conversion_gamma = find_value(config, "speed_conversion_gamma")   # 将速度单位转化为cm每秒
         self.gkd = find_value(config, "gkd")  # type: float  # 角速度补偿系数
-        self.speed_fuse_ratio = find_value(config, "speed_fuse_ratio")  # type: float  # 编码器和陀螺仪融合系数
-        # 依据角度的位置修正系数（常量）
-        self.alpha_x_1 = find_value(config, "alpha_x_1")  # type: float
-        self.alpha_y_1 = find_value(config, "alpha_y_1")  # type: float
-        self.alpha_x_2 = find_value(config, "alpha_x_2")  # type: float
-        self.alpha_y_2 = find_value(config, "alpha_y_2")  # type: float
-        self.alpha_x_3 = find_value(config, "alpha_x_3")  # type: float
-        self.alpha_y_3 = find_value(config, "alpha_y_3")  # type: float
-        self.alpha_x_4 = find_value(config, "alpha_x_4")  # type: float
-        self.alpha_y_4 = find_value(config, "alpha_y_4")  # type: float
-        self.alpha_x_5 = find_value(config, "alpha_x_5")  # type: float
-        self.alpha_y_5 = find_value(config, "alpha_y_5")  # type: float
-        self.alpha_x_6 = find_value(config, "alpha_x_6")  # type: float
-        self.alpha_y_6 = find_value(config, "alpha_y_6")  # type: float
-        self.alpha_x_7 = find_value(config, "alpha_x_7")  # type: float
-        self.alpha_y_7 = find_value(config, "alpha_y_7")  # type: float
-        self.alpha_x_8 = find_value(config, "alpha_x_8")  # type: float
-        self.alpha_y_8 = find_value(config, "alpha_y_8")  # type: float
+        self.speed_fuse_ratio = find_value(config, "speed_fuse_ratio")  # type: float  # 速度融合系数
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
-
         self.beta_x = 1.0  # type: float
         self.beta_y = 1.0  # type: float
         self.beta_z = 1.0  # type: float
-        # 电机补偿参数
-        self.compensate_param_ul = 1.0  # type: float
-        self.compensate_param_ur = 1.0  # type: float
-        self.compensate_param_md = 1.0  # type: float
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
         self.now_yaw = 0.0  # type: float
-        # 位置转换系数
-        self.position_conversion_gamma = find_value(config, "position_conversion_gamma")   # 适当减小位置数量级
-        # 采集周期
-        self.collect_dt = find_value(config, "collect_dt")     # type: float  # 单位：秒
+        # 采集周期，单位：秒
+        self.collect_dt = find_value(config, "collect_dt")  # type: float  
         # 测试一个电机的里程
-        self.encouder_ul = 0.0
-        self.encouder_ur = 0.0
-        self.encouder_md = 0.0
-        # 测试汽车的x和y
-        self.car_x = 0.0
-        self.car_y = 0.0
+        # self.encouder_lf = 0.0
+        # self.encouder_rf = 0.0
+        # self.encouder_lb = 0.0
         
     # 小车姿态更新
     def update_pose(self):
@@ -418,13 +391,13 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        self.encouder_ul += 2.454904 * pose_data.encoder_data_ul / 1000
-        self.encouder_ur += 2.454904 * pose_data.encoder_data_ur / 1000
-        self.encouder_md += 2.454904 * pose_data.encoder_data_md / 1000
+        # self.encouder_lf += self.speed_conversion_gamma * pose_data.encoder_data_lf / 1000
+        # self.encouder_rf += self.speed_conversion_gamma * pose_data.encoder_data_rf / 1000
+        # self.encouder_lb += self.speed_conversion_gamma * pose_data.encoder_data_lb / 1000
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每2ms
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (MATH.OneThird * (pose_data.encoder_data_ur + pose_data.encoder_data_ul - pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((MATH.OneThird * MATH.SQRT3 * (pose_data.encoder_data_ul - pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (pose_data.encoder_data_lf + pose_data.encoder_data_rb - pose_data.encoder_data_rf - pose_data.encoder_data_lb) * 0.25 * self.speed_conversion_gamma
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (pose_data.encoder_data_lf + pose_data.encoder_data_rb + pose_data.encoder_data_rf + pose_data.encoder_data_lb) * 0.25 * self.speed_conversion_gamma
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = speed_y_fil.update(self.car_speed_y)
@@ -441,42 +414,17 @@ class CarPose:
         # 转换到世界坐标系下的速度
         self.real_speed_x = self.car_speed_x * math.cos(self.now_yaw) + self.car_speed_y * math.sin(self.now_yaw)
         self.real_speed_y = -self.car_speed_x * math.sin(self.now_yaw) + self.car_speed_y * math.cos(self.now_yaw)
-        self.real_speed = math.sqrt(self.real_speed_x ** 2 + self.real_speed_y ** 2)
         self.real_speed_w = self.car_speed_w
     
         
         ###################【位置计算】###################
         # 依据当前航向角调整位置修正系数（解决小车在不同方向上的编码器积分结果不一致问题）
-        if ant_plan.my_plan.target_yaw >= -30.0 and ant_plan.my_plan.target_yaw < 30.0:
-            self.alpha_x = self.alpha_x_1
-            self.alpha_y = self.alpha_y_1
-        elif ant_plan.my_plan.target_yaw >= 30.0 and ant_plan.my_plan.target_yaw < 60.0:
-            self.alpha_x = self.alpha_x_2
-            self.alpha_y = self.alpha_y_2
-        elif ant_plan.my_plan.target_yaw >= 60.0 and ant_plan.my_plan.target_yaw < 120.0:
-            self.alpha_x = self.alpha_x_3
-            self.alpha_y = self.alpha_y_3
-        elif ant_plan.my_plan.target_yaw >= 120.0 and ant_plan.my_plan.target_yaw < 150.0:
-            self.alpha_x = self.alpha_x_4
-            self.alpha_y = self.alpha_y_4
-        elif ant_plan.my_plan.target_yaw >= 150.0 and ant_plan.my_plan.target_yaw <= 180.0 or ant_plan.my_plan.target_yaw >= -180.0 and ant_plan.my_plan.target_yaw < -150.0:
-            self.alpha_x = self.alpha_x_5
-            self.alpha_y = self.alpha_y_5
-        elif ant_plan.my_plan.target_yaw >= -150.0 and ant_plan.my_plan.target_yaw < -120.0:
-            self.alpha_x = self.alpha_x_6
-            self.alpha_y = self.alpha_y_6
-        elif ant_plan.my_plan.target_yaw >= -120.0 and ant_plan.my_plan.target_yaw < -60.0:
-            self.alpha_x = self.alpha_x_7
-            self.alpha_y = self.alpha_y_7
-        elif ant_plan.my_plan.target_yaw >= -60.0 and ant_plan.my_plan.target_yaw < -30.0:
-            self.alpha_x = self.alpha_x_8
-            self.alpha_y = self.alpha_y_8
 
         # 计算小车当前位置
         self.x_current += self.real_speed_x
         self.y_current += self.real_speed_y
-        # 测试
-        self.car_x += self.car_speed_x
+
+
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
     def move_ctrl(self, move_speed_target: int, move_angle_target: float, turn_angle_target: float):
@@ -495,24 +443,6 @@ class CarPose:
         angle_pid.compute_pid(turn_angle_target, self.now_yaw * 180 / MATH.PI)
         speed_w = angle_pid.pwm_output
 
-        # 选择合适的电机补偿参数
-        if move_angle_target >= 45.0 and move_angle_target < 135.0:
-            self.compensate_param_ul = pid_data.compensate_param_ul_right
-            self.compensate_param_ur = pid_data.compensate_param_ur_right
-            self.compensate_param_md = pid_data.compensate_param_md_right
-        elif move_angle_target >= 135.0 or move_angle_target < -135.0:
-            self.compensate_param_ul = pid_data.compensate_param_ul_down
-            self.compensate_param_ur = pid_data.compensate_param_ur_down
-            self.compensate_param_md = pid_data.compensate_param_md_down
-        elif move_angle_target >= -135.0 and move_angle_target < -45.0:
-            self.compensate_param_ul = pid_data.compensate_param_ul_left
-            self.compensate_param_ur = pid_data.compensate_param_ur_left
-            self.compensate_param_md = pid_data.compensate_param_md_left
-        else:
-            self.compensate_param_ul = pid_data.compensate_param_ul_up
-            self.compensate_param_ur = pid_data.compensate_param_ur_up
-            self.compensate_param_md = pid_data.compensate_param_md_up
-
         # 将move_angle_target转换为弧度
         move_angle_target = move_angle_target * MATH.PI / 180
         
@@ -527,50 +457,50 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = (self.car_speed_w_target * MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * MATH.SQRT3) * 0.5 + pose_data.gyro_z * self.gkd) * self.compensate_param_ul
-        motor_ur_speed_target = (self.car_speed_w_target * MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * MATH.SQRT3) * 0.5 + pose_data.gyro_z * self.gkd) * self.compensate_param_ur
-        motor_md_speed_target = (self.car_speed_w_target * MATH.OneThird - self.car_speed_x_target + pose_data.gyro_z * self.gkd) * self.compensate_param_md
+        motor_lf_speed_target = self.car_speed_x_target + self.car_speed_y_target + self.car_speed_w_target + pose_data.gyro_z * self.gkd
+        motor_rf_speed_target = -self.car_speed_x_target + self.car_speed_y_target - self.car_speed_w_target + pose_data.gyro_z * self.gkd
+        motor_lb_speed_target = -self.car_speed_x_target + self.car_speed_y_target + self.car_speed_w_target + pose_data.gyro_z * self.gkd
+        motor_rb_speed_target = self.car_speed_x_target + self.car_speed_y_target - self.car_speed_w_target + pose_data.gyro_z * self.gkd
 
         # 计算各个电机的pid得到pwm输出
-        motor_ul_pid.compute_pid(int(motor_ul_speed_target), pose_data.encoder_data_ul)
-        motor_ur_pid.compute_pid(int(motor_ur_speed_target), pose_data.encoder_data_ur)
-        motor_md_pid.compute_pid(int(motor_md_speed_target), pose_data.encoder_data_md)
+        motor_lf_pid.compute_pid(int(motor_lf_speed_target), pose_data.encoder_data_lf)
+        motor_rf_pid.compute_pid(int(motor_rf_speed_target), pose_data.encoder_data_rf)
+        motor_lb_pid.compute_pid(int(motor_lb_speed_target), pose_data.encoder_data_lb)
+        motor_rb_pid.compute_pid(int(motor_rb_speed_target), pose_data.encoder_data_rb)
 
     # 设置电机pwm输出函数
     def set_motor_pwm(self):
-        motor_ul.duty(int(motor_ul_pid.pwm_output))
-        motor_ur.duty(int(motor_ur_pid.pwm_output))
-        motor_md.duty(int(motor_md_pid.pwm_output))
-
+        motor_lf.duty(int(motor_lf_pid.pwm_output))
+        motor_rf.duty(int(motor_rf_pid.pwm_output))
+        motor_lb.duty(int(motor_lb_pid.pwm_output))
+        motor_rb.duty(int(motor_rb_pid.pwm_output))
 
 # 创建小车姿态对象
 my_car = CarPose()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(60, pose_data.encoder_data_md)
+    motor_lf_pid.compute_pid(60, pose_data.encoder_data_lf)
+    motor_rf_pid.compute_pid(60, pose_data.encoder_data_rf)
+    motor_lb_pid.compute_pid(60, pose_data.encoder_data_lb)
     
 # 测试陀螺仪函数
 def test_imu():
-    ant_else.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, ant_pose.imu_data[5], pose_data.gyro_z_bias))           
+    ant_else.wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, imu_data[5], pose_data.gyro_z_bias))           
     
 # 测试角度闭环函数
 def complete_angle_circle():
     my_car.update_pose()
     my_car.move_ctrl(0, 0, 0)
-    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(angle_pid.target, angle_pid.actual))
     
 # 全向移动转圈测试函数
 target_yaw = 0
 def all_around_circle():
     global target_yaw
-    target_yaw += 1
+    target_yaw += 0.1
     if target_yaw >= 180:
         target_yaw = -180
-    my_car.move_ctrl(250, target_yaw, 0)
-    ant_else.wireless.send_str("{:<f},{:<f}\n".format(target_yaw, angle_pid.actual))
+    my_car.move_ctrl(60, target_yaw, 0)
 
 
 # 多路复用器（用于测试）
@@ -588,8 +518,6 @@ stage = 0	# 当前模式
 def test_odometer():
     global stage
     global count
-    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x, my_car.y_current, my_car.car_speed_y))
-    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     if count == 0:
         if my_car.y_current <= 50.0 and stage == 0:
             my_car.move_ctrl(65, 45, 0)
@@ -608,7 +536,6 @@ def test_odometer():
             return
      
     my_car.move_ctrl(0, 0, 0)
-    ant_else.wireless.send_str("Finial: {:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.car_x, my_car.car_y, my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     count += 1
     if count == 200:
         stage += 1
@@ -617,15 +544,15 @@ def test_odometer():
         
 # 全向定位测试函数
 def test_global_localization():
-    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
-    my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
+    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.y_crfrent, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.trfn_angle_target)
 
 # 测试伺服控制函数
 def test_servo_control():
     if ant_plan.my_state.state == ant_plan.my_state.NAVIGATE:
-        my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.turn_angle_target)
+        my_car.move_ctrl(ant_plan.my_plan.v_target, ant_plan.my_plan.target_yaw, ant_plan.my_plan.trfn_angle_target)
     elif ant_plan.my_state.state == ant_plan.my_state.SERVO:
-        my_car.move_ctrl(ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_turn_angle)
+        my_car.move_ctrl(ant_plan.my_vision_manager_2.target_rel_speed, ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_trfn_angle)
     elif ant_plan.my_state.state == ant_plan.my_state.STOP:
         my_car.move_ctrl(0, 0, 0)
 
@@ -633,16 +560,19 @@ def test_servo_control():
 def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
+
     # 初始化pid参数
-    motor_ul_pid.set_pid_params(pid_data.ul_normal_kp, pid_data.ul_normal_ki, pid_data.ul_normal_kd)
-    motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
-    motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
+    motor_lf_pid.set_pid_params(pid_data.lf_normal_kp, pid_data.lf_normal_ki, pid_data.lf_normal_kd)
+    motor_rf_pid.set_pid_params(pid_data.rf_normal_kp, pid_data.rf_normal_ki, pid_data.rf_normal_kd)
+    motor_lb_pid.set_pid_params(pid_data.lb_normal_kp, pid_data.lb_normal_ki, pid_data.lb_normal_kd)
+    motor_rb_pid.set_pid_params(pid_data.rb_normal_kp, pid_data.rb_normal_ki, pid_data.rb_normal_kd)
+    
     # 更新小车姿态
     my_car.update_pose()
     
     # 全向移动转圈测试程序
     #all_around_circle()
-    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_current, my_car.car_speed_x))
+    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
     #test_odometer()
@@ -655,7 +585,7 @@ def time_pit1_handler(time):
     # 全向定位测试程序
     # test_global_localization()
     
-    #if my_car.x_current <= 8.4:
+    #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
     #else:
      #   my_car.move_ctrl(0, 90, 0)
@@ -672,4 +602,5 @@ def time_pit1_handler(time):
     # 测试伺服控制函数
     test_servo_control()
     
+    # 设置电机pwm输出
     my_car.set_motor_pwm()

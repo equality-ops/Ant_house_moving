@@ -1,13 +1,16 @@
 ###################【PID参数】####################
-ul_normal_kp = 18.0
-ul_normal_ki = 0.25
-ul_normal_kd = 18.0
-ur_normal_kp = 20.0
-ur_normal_ki = 0.25
-ur_normal_kd = 16.0
-md_normal_kp = 20.0
-md_normal_ki = 0.24
-md_normal_kd = 12.0
+lf_normal_kp = 18.0
+lf_normal_ki = 0.25
+lf_normal_kd = 18.0
+rf_normal_kp = 20.0
+rf_normal_ki = 0.25
+rf_normal_kd = 16.0
+lb_normal_kp = 20.0
+lb_normal_ki = 0.24
+lb_normal_kd = 12.0
+rb_normal_kp = 20.0
+rb_normal_ki = 0.24
+rb_normal_kd = 12.0
 angle_normal_kp = 10.0
 angle_normal_ki = 0.0
 angle_normal_kd = 60.0
@@ -29,43 +32,12 @@ car_radius = 10.5
 ###################【系数】####################
 # 速度转换系数
 speed_conversion_gamma = 2.454904
-position_conversion_gamma = 0.0135
 # 角速度负反馈系数
 gkd = -1.2
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
 gyro_z_supply = 1.183567
-# 电机补偿系数
-compensate_param_ul_right = 1.0
-compensate_param_ur_right = 1.0
-compensate_param_md_right = 1.2
-compensate_param_ul_left = 1.0
-compensate_param_ur_left = 1.0
-compensate_param_md_left = 1.0
-compensate_param_ul_up = 1.0
-compensate_param_ur_up = 1.0
-compensate_param_md_up = 1.0
-compensate_param_ul_down = 1.1
-compensate_param_ur_down = 1.0
-compensate_param_md_down = 1.0
-# 依据角度的位置修正系数
-alpha_x_1 = 1.0
-alpha_y_1 = 1.0
-alpha_x_2 = 1.0
-alpha_y_2 = 1.0
-alpha_x_3 = 1.0
-alpha_y_3 = 1.0
-alpha_x_4 = 1.0
-alpha_y_4 = 1.0
-alpha_x_5 = 1.0
-alpha_y_5 = 1.0
-alpha_x_6 = 1.0
-alpha_y_6 = 1.0
-alpha_x_7 = 1.0
-alpha_y_7 = 1.0
-alpha_x_8 = 1.0
-alpha_y_8 = 1.0
 
 ###################【时间规划】####################
 motor_control_T = 2
@@ -121,5 +93,5 @@ finish_threshold_x = 5
 finish_threshold_y = 10
 servo_pwmout_limitmax = 70
 
-# 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
+# 四个角的坐标分别为(0, 0)
 

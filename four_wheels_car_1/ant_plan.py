@@ -112,7 +112,8 @@ class Plan:
     def build_dec_speed_list(self, i):
         if self.finish_building == False:
             # 计算加加速度
-            self.j = (self.v_max ** 3) / (self.dec_distance ** 2) 
+            temp_dec_distance = self.dec_distance / ant_motor.my_car.speed_conversion_gamma
+            self.j = (self.v_max ** 3) / (temp_dec_distance ** 2) 
             # 计算减速总时间
             if self.j == 0:
                 self.half_time = 0
@@ -120,7 +121,7 @@ class Plan:
                 self.half_time = math.sqrt(self.v_max / self.j)
             self.total_time = 2 * self.half_time
             # 计算减速距离对应的速度点个数
-            self.dec_lenth = int(self.dec_distance) * 10 + 1
+            self.dec_lenth = int(temp_dec_distance) * 10 + 1
             # 将标志位设为True
             self.finish_building = True
         else:
@@ -240,7 +241,6 @@ class Plan:
     def update_distance(self):
         self.finished_distance = math.sqrt((ant_motor.my_car.x_current - self.last_target_x) ** 2 + (ant_motor.my_car.y_current - self.last_target_y) ** 2)
         self.rest_distance = math.sqrt((self.real_target_x - ant_motor.my_car.x_current) ** 2 + (self.real_target_y - ant_motor.my_car.y_current) ** 2)
-    
         # 当剩余距离小于阈值时，推断小车已经到达目标点
         if self.rest_distance <= self.plan_arrive_threshold:
             self.arrive_flag = True
@@ -250,7 +250,6 @@ class Plan:
             self.finished_distance = 0.0
             self.rest_distance = 0.0
             self.dec_distance = 0.0
-
         # 每次更新距离后进行速度规划计算
         self.planning_speed()
 
@@ -458,7 +457,7 @@ class VisionManager_2:
         self.target_y = find_value(ant_motor.config, "target_y")         # type: int   # 物体中心点的目标像素y坐标
         self.max_rel_speed = find_value(ant_motor.config, "max_rel_speed")   # type: int   # 最小视觉伺服速度
         self.min_rel_speed = find_value(ant_motor.config, "min_rel_speed")   # type: int   # 最小视觉伺服速度
-        self.target_point = []						# type: list  	# 目标像素点
+        self.target_point = []					# 目标像素点
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_yaw_fil = 0.0				# type: float   # 滤波后的目标航向角
