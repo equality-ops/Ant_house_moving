@@ -11,6 +11,11 @@ class Menu:
         self.key_down = key_down
         self.key_left = key_left
         self.key_right = key_right
+        # 每个按键上次低电平时间
+        self.last_left_time = 0
+        self.last_right_time = 0
+        self.last_up_time = 0
+        self.last_down_time = 0
         # 注入 LCD 对象
         self.lcd = lcd
 
@@ -115,28 +120,48 @@ class Menu:
 
     # 检测按键状态
     # 记得不要写阻塞
-    def read_key(self, debounce_ms = 2):
+    def read_key(self, debounce_ms = 40):
+        current_time = time.ticks_ms()
         # 检测是否按下（低电平有效）
         if self.key_left.value() == 0:
-            time.sleep_ms(debounce_ms)  # 消抖延时
-        if self.key_left.value() == 0:   # 再次确认
-            self.beep.key_test()
-            return self.LEFT
-        elif self.key_right.value() == 0:
-            time.sleep_ms(debounce_ms)
-            if self.key_right.value() == 0:
+            if self.last_left_time == 0:
+                self.last_left_time = current_time
+            elif time.ticks_diff(current_time, self.last_left_time) >= debounce_ms:
                 self.beep.key_test()
+                self.last_left_time = 0
+                return self.LEFT
+            else:
+                self.last_left_time = 0
+
+        if self.key_right.value() == 0:
+            if self.last_right_time == 0:
+                self.last_right_time = current_time
+            elif time.ticks_diff(current_time, self.last_right_time) >= debounce_ms:
+                self.beep.key_test()
+                self.last_right_time = 0
                 return self.RIGHT
-        elif self.key_up.value() == 0:
-            time.sleep_ms(debounce_ms)
-            if self.key_up.value() == 0:
+            else:
+                self.last_right_time = 0
+
+        if self.key_up.value() == 0:
+            if self.last_up_time == 0:
+                self.last_up_time = current_time
+            elif time.ticks_diff(current_time, self.last_up_time) >= debounce_ms:
                 self.beep.key_test()
+                self.last_up_time = 0
                 return self.UP
-        elif self.key_down.value() == 0:
-            time.sleep_ms(debounce_ms)
-            if self.key_down.value() == 0:
+            else:
+                self.last_up_time = 0
+
+        if self.key_down.value() == 0:
+            if self.last_down_time == 0:
+                self.last_down_time = current_time
+            elif time.ticks_diff(current_time, self.last_down_time) >= debounce_ms:
                 self.beep.key_test()
+                self.last_down_time = 0
                 return self.DOWN
+            else:
+                self.last_down_time = 0
     
         return None  # 无按键按下
 
