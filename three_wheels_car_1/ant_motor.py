@@ -5,19 +5,15 @@ class PID_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
 
-        self.lf_normal_kp = self.flash_sys.find_value("lf_normal_kp")  # type: float
-        self.lf_normal_ki = self.flash_sys.find_value("lf_normal_ki")  # type: float
-        self.lf_normal_kd = self.flash_sys.find_value("lf_normal_kd")  # type: float
-        self.rf_normal_kp = self.flash_sys.find_value("rf_normal_kp")  # type: float
-        self.rf_normal_ki = self.flash_sys.find_value("rf_normal_ki")  # type: float
-        self.rf_normal_kd = self.flash_sys.find_value("rf_normal_kd")  # type: float
-        self.lb_normal_kp = self.flash_sys.find_value("lb_normal_kp")  # type: float
-        self.lb_normal_ki = self.flash_sys.find_value("lb_normal_ki")  # type: float
-        self.lb_normal_kd = self.flash_sys.find_value("lb_normal_kd")  # type: float
-        self.rf_normal_kd = self.flash_sys.find_value("rf_normal_kd")  # type: float
-        self.rb_normal_kp = self.flash_sys.find_value("rb_normal_kp")  # type: float
-        self.rb_normal_ki = self.flash_sys.find_value("rb_normal_ki")  # type: float
-        self.rb_normal_kd = self.flash_sys.find_value("rb_normal_kd")  # type: float
+        self.ul_normal_kp = self.flash_sys.find_value("ul_normal_kp")  # type: float
+        self.ul_normal_ki = self.flash_sys.find_value("ul_normal_ki")  # type: float
+        self.ul_normal_kd = self.flash_sys.find_value("ul_normal_kd")  # type: float
+        self.ur_normal_kp = self.flash_sys.find_value("ur_normal_kp")  # type: float
+        self.ur_normal_ki = self.flash_sys.find_value("ur_normal_ki")  # type: float
+        self.ur_normal_kd = self.flash_sys.find_value("ur_normal_kd")  # type: float
+        self.md_normal_kp = self.flash_sys.find_value("md_normal_kp")  # type: float
+        self.md_normal_ki = self.flash_sys.find_value("md_normal_ki")  # type: float
+        self.md_normal_kd = self.flash_sys.find_value("md_normal_kd")  # type: float
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
@@ -51,24 +47,22 @@ class KalmanFilter:
 
 
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_lf, encoder_rf, encoder_lb, encoder_rb, diff_filter_gyroz):
+    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器对象
         self.imu = imu
-        self.encoder_lf = encoder_lf
-        self.encoder_rf = encoder_rf
-        self.encoder_lb = encoder_lb
-        self.encoder_rb = encoder_rb
+        self.encoder_ul = encoder_ul
+        self.encoder_ur = encoder_ur
+        self.encoder_md = encoder_md
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
         # IMU数据列表
         self.imu_data = []   # type: list
 
-        self.encoder_data_lf = 0    # type: int
-        self.encoder_data_rf = 0    # type: int
-        self.encoder_data_lb = 0    # type: int
-        self.encoder_data_rb = 0    # type: int
+        self.encoder_data_ul = 0    # type: int
+        self.encoder_data_ur = 0    # type: int
+        self.encoder_data_md = 0    # type: int
         self.gyro_z_bias = 0.0       # type: float
         self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")
         """暂时不需要这些数据
@@ -119,10 +113,9 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
-        self.encoder_data_lf = self.encoder_lf.get()
-        self.encoder_data_rf = self.encoder_rf.get()
-        self.encoder_data_lb = self.encoder_lb.get()
-        self.encoder_data_rb = self.encoder_rb.get()
+        self.encoder_data_ul = self.encoder_ul.get()
+        self.encoder_data_ur = self.encoder_ur.get()
+        self.encoder_data_md = self.encoder_md.get()
         """暂时不需要处理这些数据
         self.acc_x = imu_data[0] - self.acc_x_bias
         self.acc_y = imu_data[1] - self.acc_y_bias
@@ -295,8 +288,7 @@ class ServoPID(ControlPID):
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, angle_pid: AnglePositionPID,
-                 motor_lf_pid: SpeedPositionPID, motor_rf_pid: SpeedPositionPID, motor_lb_pid: SpeedPositionPID, motor_rb_pid: SpeedPositionPID,
-                 motor_lf, motor_rf, motor_lb, motor_rb):
+                 motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入姿态数据对象
@@ -309,15 +301,13 @@ class CarPose:
         # 注入角度pid对象
         self.angle_pid = angle_pid
         # 注入电机pid对象
-        self.motor_lf_pid = motor_lf_pid
-        self.motor_rf_pid = motor_rf_pid
-        self.motor_lb_pid = motor_lb_pid
-        self.motor_rb_pid = motor_rb_pid
+        self.motor_ul_pid = motor_ul_pid
+        self.motor_ur_pid = motor_ur_pid
+        self.motor_md_pid = motor_md_pid
         # 注入电机对象
-        self.motor_lf = motor_lf
-        self.motor_rf = motor_rf
-        self.motor_lb = motor_lb
-        self.motor_rb = motor_rb
+        self.motor_ul = motor_ul
+        self.motor_ur = motor_ur
+        self.motor_md = motor_md
 
         # 机械参数
         self.wheel_radius = self.flash_sys.find_value("wheel_radius")  # type: float  # 轮半径，单位：cm
@@ -333,7 +323,6 @@ class CarPose:
         # 小车在世界坐标系下的速度
         self.real_speed_x = 0.0  # type: float
         self.real_speed_y = 0.0  # type: float
-        self.real_speed = 0.0    # type: float
         self.real_speed_w = 0.0  # type: float
         # 小车坐标系下的目标速度
         self.car_speed_x_target = 0.0  # type: float
@@ -361,8 +350,8 @@ class CarPose:
         self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
         # 测试一个电机的里程
         # self.encouder_lf = 0.0
-        # self.encouder_rf = 0.0
-        # self.encouder_lb = 0.0
+        # self.encouder_ur = 0.0
+        # self.encouder_md = 0.0
         
     # 小车姿态更新
     def update_pose(self):
@@ -373,12 +362,12 @@ class CarPose:
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
         # self.encouder_lf += self.speed_conversion_gamma * pose_data.encoder_data_lf / 1000
-        # self.encouder_rf += self.speed_conversion_gamma * pose_data.encoder_data_rf / 1000
-        # self.encouder_lb += self.speed_conversion_gamma * pose_data.encoder_data_lb / 1000
+        # self.encouder_ur += self.speed_conversion_gamma * pose_data.encoder_data_ur / 1000
+        # self.encouder_md += self.speed_conversion_gamma * pose_data.encoder_data_md / 1000
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每2ms
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.pose_data.encoder_data_lf + self.pose_data.encoder_data_rb - self.pose_data.encoder_data_rf - self.pose_data.encoder_data_lb) * 0.25 * self.speed_conversion_gamma
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (self.pose_data.encoder_data_lf + self.pose_data.encoder_data_rb + self.pose_data.encoder_data_rf + self.pose_data.encoder_data_lb) * 0.25 * self.speed_conversion_gamma
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
         # 对小车x,y速度卡尔曼滤波
         self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
         self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
@@ -438,20 +427,17 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_lf_speed_target = self.car_speed_x_target + self.car_speed_y_target + self.car_speed_w_target + self.pose_data.gyro_z * self.gkd
-        motor_rf_speed_target = -self.car_speed_x_target + self.car_speed_y_target - self.car_speed_w_target + self.pose_data.gyro_z * self.gkd
-        motor_lb_speed_target = -self.car_speed_x_target + self.car_speed_y_target + self.car_speed_w_target + self.pose_data.gyro_z * self.gkd
-        motor_rb_speed_target = self.car_speed_x_target + self.car_speed_y_target - self.car_speed_w_target + self.pose_data.gyro_z * self.gkd
+        motor_ul_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
+        motor_ur_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
+        motor_md_speed_target = self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd
 
         # 计算各个电机的pid得到pwm输出
-        self.motor_lf_pid.compute_pid(int(motor_lf_speed_target), self.pose_data.encoder_data_lf)
-        self.motor_rf_pid.compute_pid(int(motor_rf_speed_target), self.pose_data.encoder_data_rf)
-        self.motor_lb_pid.compute_pid(int(motor_lb_speed_target), self.pose_data.encoder_data_lb)
-        self.motor_rb_pid.compute_pid(int(motor_rb_speed_target), self.pose_data.encoder_data_rb)
+        self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
+        self.motor_ur_pid.compute_pid(int(motor_ur_speed_target), self.pose_data.encoder_data_ur)
+        self.motor_md_pid.compute_pid(int(motor_md_speed_target), self.pose_data.encoder_data_md)
 
     # 设置电机pwm输出函数
     def set_motor_pwm(self):
-        self.motor_lf.duty(int(self.motor_lf_pid.pwm_output))
-        self.motor_rf.duty(int(self.motor_rf_pid.pwm_output))
-        self.motor_lb.duty(int(self.motor_lb_pid.pwm_output))
-        self.motor_rb.duty(int(self.motor_rb_pid.pwm_output))
+        self.motor_ul.duty(int(self.motor_ul_pid.pwm_output))
+        self.motor_ur.duty(int(self.motor_ur_pid.pwm_output))
+        self.motor_md.duty(int(self.motor_md_pid.pwm_output))

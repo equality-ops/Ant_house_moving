@@ -10,8 +10,7 @@ from machine import *
 from display import *
 from seekfree import MOTOR_CONTROLLER, IMU660RX, WIRELESS_UART
 from smartcar import ticker, encoder
-import ant_else    # 先导入 ant_else 模块以确保确保配置文件被加载
-from ant_else import find_aimed_value as find_value
+import ant_else
 import ant_motor
 import ant_plan
 import ant_menu
@@ -51,17 +50,15 @@ wireless = WIRELESS_UART(115200)
 
 
 """电机初始化"""
-motor_lf = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
-motor_rf = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_lb = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
-motor_rb = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_lf = encoder("C2" , "C3" , True)
-encoder_rf = encoder("C0" , "C1" , True)
-encoder_lb = encoder("D15", "D16", True)
-encoder_rb = encoder("D13", "D14", True)
+encoder_ul = encoder("C2" , "C3" , True)
+encoder_ur = encoder("C0" , "C1" , True)
+encoder_md = encoder("D15", "D16", True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -103,10 +100,9 @@ MATH = ant_else.Math()
 pid_data = ant_motor.PID_data(my_flash_sys)
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_lf = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_rf = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_lb = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_rb = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
+diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_md = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(6)  # 滤波窗口为6个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
@@ -116,20 +112,19 @@ speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_lf, encoder_rf, encoder_lb, encoder_rb, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
 # 创建电机pid对象和角度pid对象
-motor_lf_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_lf)
-motor_rf_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_rf)
-motor_lb_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_lb)
-motor_rb_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_rb)
+motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
+motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
+motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
 angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid_x = ant_motor.ServoPID(my_flash_sys)
 servo_pid_y = ant_motor.ServoPID(my_flash_sys)
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, pose_data, MATH, speed_x_fil, speed_y_fil, angle_pid,
-                           motor_lf_pid, motor_rf_pid, motor_lb_pid, motor_rb_pid,
-                           motor_lf, motor_rf, motor_lb, motor_rb)
+                           motor_ul_pid, motor_ur_pid, motor_md_pid,
+                           motor_ul, motor_ur, motor_md)
 
 # 创建状态机对象
 my_state = ant_plan.StateMachine()
@@ -171,11 +166,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_lf_pid.compute_pid(60, pose_data.encoder_data_lf)
-    motor_rf_pid.compute_pid(60, pose_data.encoder_data_rf)
-    motor_lb_pid.compute_pid(60, pose_data.encoder_data_lb)
-    motor_rb_pid.compute_pid(60, pose_data.encoder_data_rb)
-
+    motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(60, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -272,10 +265,9 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    motor_lf_pid.set_pid_params(pid_data.lf_normal_kp, pid_data.lf_normal_ki, pid_data.lf_normal_kd)
-    motor_rf_pid.set_pid_params(pid_data.rf_normal_kp, pid_data.rf_normal_ki, pid_data.rf_normal_kd)
-    motor_lb_pid.set_pid_params(pid_data.lb_normal_kp, pid_data.lb_normal_ki, pid_data.lb_normal_kd)
-    motor_rb_pid.set_pid_params(pid_data.rb_normal_kp, pid_data.rb_normal_ki, pid_data.rb_normal_kd)
+    motor_ul_pid.set_pid_params(pid_data.ul_normal_kp, pid_data.ul_normal_ki, pid_data.ul_normal_kd)
+    motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
+    motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
     
     # 更新小车姿态
     my_car.update_pose()
@@ -389,7 +381,7 @@ def time_pit2_handler(time):
 def pit1_start():
     global imu_data
     pit1 = ticker(1)
-    pit1.capture_list(encoder_lf, encoder_rf, encoder_lb, encoder_rb, imu)
+    pit1.capture_list(encoder_ul, encoder_ur, encoder_md, imu)
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)
