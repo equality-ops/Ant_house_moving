@@ -492,11 +492,11 @@ class VisionManager_2:
                 self.target_rel_yaw = 180.0
         else:  
             if self.target_rel_speed_x > 0.0 and self.target_rel_speed_y < 0.0:
-                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI + 180.0
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / self.MATH.PI + 180.0
             elif self.target_rel_speed_x < 0.0 and self.target_rel_speed_y < 0.0:
-                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI - 180.0
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / self.MATH.PI - 180.0
             else:
-                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / MATH.PI
+                self.target_rel_yaw = math.atan(self.target_rel_speed_x / self.target_rel_speed_y) * 180.0 / self.MATH.PI
 
     # 计算小车需要转向的角度（一般为0）
     def compute_target_rel_turn_angle(self, turn_angle_target: float):
@@ -512,7 +512,6 @@ class VisionManager_2:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
             self.beep.finish_servo()
-            self.finish_servo = True
         else:
             # 计算综合目标速度和航向角
             self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
