@@ -446,7 +446,7 @@ my_vision_manager_1 = VisionManager_1()
 
  # 视觉伺服控制类2(PD控制器)
 class VisionManager_2:
-    def __init__(self, flash_sys, beep, math, servo_pid_x, servo_pid_y, servo_yaw_fil):
+    def __init__(self, flash_sys, beep, math, servo_pid_x, servo_pid_y, servo_yaw_fil, wireless):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -458,6 +458,8 @@ class VisionManager_2:
         self.beep = beep
         # 注入航向角滤波器对象
         self.servo_yaw_fil = servo_yaw_fil
+        # 注入无线串口对象，用于调试
+        self.wireless = wireless
 
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
@@ -486,7 +488,7 @@ class VisionManager_2:
             elif self.target_rel_speed_x < 0.0:
                 self.target_rel_yaw = -90.0
         elif self.target_rel_speed_x == 0.0:
-            if self.target_rel_speed_y > 0.0:
+            if self.target_rel_speed_y > 0.0:	
                 self.target_rel_yaw = 0.0
             elif self.target_rel_speed_y < 0.0:
                 self.target_rel_yaw = 180.0
@@ -505,14 +507,18 @@ class VisionManager_2:
 
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
-        self.target_rel_speed_x = -self.servo_pid_x.compute_pid(self.target_x, x)
-        self.target_rel_speed_y = self.servo_pid_y.compute_pid(self.target_y, y) * 1.414
+        self.target_rel_speed_x = -self.servo_pid_x.compute_pid(self.target_x, x) * 2
+        self.target_rel_speed_y = self.servo_pid_y.compute_pid(self.target_y, y) 
         # 判断是否完成视觉伺服控制
         if abs(self.servo_pid_x.nowError) <= self.finish_threshold_x and abs(self.servo_pid_y.nowError) <= self.finish_threshold_y:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
             self.beep.finish_servo()
+            self.finish_servo = True
         else:
+            if self.servo_pid_y.nowError < 30:
+                self.target_rel_speed_y = -self.max_rel_speed
+                
             # 计算综合目标速度和航向角
             self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
             # 伺服速度限幅
@@ -524,7 +530,7 @@ class VisionManager_2:
             #self.target_rel_speed = 0
             self.compute_target_rel_yaw()
             self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
-            self.compute_target_rel_turn_angle(0.0)
+            self.compute_target_rel_turn_angle(0.0)	
     
 """
 # 视觉伺服测试函数
