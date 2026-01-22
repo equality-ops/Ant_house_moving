@@ -50,15 +50,15 @@ wireless = WIRELESS_UART(115200)
 
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , True)
-encoder_ur = encoder("C0" , "C1" , True)
-encoder_md = encoder("D15", "D16", True)
+encoder_ul = encoder("D13", "D14", True)
+encoder_ur = encoder("D15", "D16", False)
+encoder_md = encoder("C2" , "C3" , True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -170,9 +170,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(200, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(150, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(150, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(150, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -286,7 +286,7 @@ def time_pit1_handler(time):
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    # test_odometer()
     
     # test_simble_displacement()
     
@@ -308,10 +308,10 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # show_speed_PID_test()
+    show_speed_PID_test()
     
     # 测试伺服控制函数
-    test_servo_control()
+    # test_servo_control()
     
     # 设置电机pwm输出
     my_car.set_motor_pwm()
