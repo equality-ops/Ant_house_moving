@@ -1,23 +1,20 @@
 ###################【PID参数】####################
-lf_normal_kp = 18.0
-lf_normal_ki = 0.25
-lf_normal_kd = 18.0
-rf_normal_kp = 20.0
-rf_normal_ki = 0.25
-rf_normal_kd = 16.0
-lb_normal_kp = 20.0
-lb_normal_ki = 0.24
-lb_normal_kd = 12.0
-rb_normal_kp = 20.0
-rb_normal_ki = 0.24
-rb_normal_kd = 12.0
+ul_normal_kp = 18.0
+ul_normal_ki = 0.25
+ul_normal_kd = 18.0
+ur_normal_kp = 20.0
+ur_normal_ki = 0.25
+ur_normal_kd = 16.0
+md_normal_kp = 17.0
+md_normal_ki = 0.24
+md_normal_kd = 15.0
 angle_normal_kp = 10.0
 angle_normal_ki = 0.0
 angle_normal_kd = 60.0
 integral_limitmax = 8000
 pwmout_limitmax = 6000 
-angle_integral_limitmax = 600
-angle_pwmout_limitmax = 300
+angle_integral_limitmax = 1200
+angle_pwmout_limitmax = 600
 # A设置为B的2倍左右
 A = 350
 # B大致为最大静差的1.5倍
@@ -32,6 +29,7 @@ car_radius = 10.5
 ###################【系数】####################
 # 速度转换系数
 speed_conversion_gamma = 2.454904
+position_conversion_gamma = 0.0135
 # 角速度负反馈系数
 gkd = -1.2
 # 速度互补滤波系数（可修改）
@@ -41,9 +39,9 @@ gyro_z_supply = 1.183567
 
 ###################【时间规划】####################
 motor_control_T = 5
-collect_dt = 0.002
+collect_dt = 0.005
 plan_calculate_T = 10
-uart_and_menu_T = 150
+uart_and_menu_T = 50
 boost_time_threshold = 100
 
 ###################【路径规划】####################
@@ -70,10 +68,9 @@ error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
 ###################【速度规划】####################
-min_start_v = 20
-# 低电量调大了一些，一般为60
-long_v_max = 65 
-short_v_max = 60	
+min_start_v = 60
+long_v_max = 120
+short_v_max = 100	
 
 ###################【视觉伺服】####################
 target_offset_x = 0.0
@@ -93,5 +90,4 @@ finish_threshold_x = 5
 finish_threshold_y = 10
 servo_pwmout_limitmax = 70
 
-# 四个角的坐标分别为(0, 0)
-
+# 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)

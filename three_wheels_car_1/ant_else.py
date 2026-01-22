@@ -117,7 +117,7 @@ class Math:
 
 ##############################【flash系统操作】##############################
 class flash_system:
-    def __init__(self, file_path, beep):
+    def __init__(self, beep, file_path: str):
         # 注入蜂鸣器对象，用于警报
         self.beep = beep
         # 传入文件路径

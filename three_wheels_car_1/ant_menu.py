@@ -114,10 +114,11 @@ class Menu:
 
 
     # 检测按键状态
-    def read_key(self, debounce_ms = 10):
+    # 记得不要写阻塞
+    def read_key(self, debounce_ms = 2):
         # 检测是否按下（低电平有效）
         if self.key_left.value() == 0:
-        time.sleep_ms(debounce_ms)  # 消抖延时
+            time.sleep_ms(debounce_ms)  # 消抖延时
         if self.key_left.value() == 0:   # 再次确认
             self.beep.key_test()
             return self.LEFT

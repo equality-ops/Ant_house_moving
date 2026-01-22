@@ -18,7 +18,7 @@ class Plan_data:
         self.flash_sys = flash_sys
 
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 150.0], [150.0, 0.0], [150.0, 150.0], [8.9, 8.0], [-8.8, -9.1]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [0.0, 150.0], [150.0, 0.0], [150.0, 150.0]]  # type: list
         # 路径1
         self.path_1 = [[[8.9, 8.0]]]     # type: list
         # 已到达的目标点索引
@@ -327,7 +327,7 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw()
-                    self.compute_turn_angle_target(90.0)
+                    self.compute_turn_angle_target(0.0)
             else:
                 # 判断此时是否完成路径过渡
                 if self.transition_flag == False:
@@ -339,7 +339,7 @@ class Plan:
                         self.set_target_point(next_point[0], next_point[1])
                         # 计算目标航向角
                         self.compute_target_yaw()
-                        self.compute_turn_angle_target(90.0)
+                        self.compute_turn_angle_target(0.0)
                     else:
                         self.stop()
         else:

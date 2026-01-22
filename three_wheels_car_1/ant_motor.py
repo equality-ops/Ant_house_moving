@@ -254,11 +254,11 @@ class AnglePositionPID(ControlPID):
 
 # 视觉伺服PD
 class ServoPID(ControlPID):
-    def __init__(self, flash_sys):
+    def __init__(self, flash_sys, kp: float = 0.0, kd: float = 0.0):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        self.kp = self.flash_sys.find_value("servo_kp")        # type: float
-        self.kd = self.flash_sys.find_value("servo_kd")        # type: float
+        self.kp = kp        # type: float
+        self.kd = kd        # type: float
         self.target = 0     # type: float
         self.actual = 0     # type: float
         self.nowError = 0   # type: int
