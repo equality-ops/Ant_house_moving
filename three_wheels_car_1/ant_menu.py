@@ -120,7 +120,7 @@ class Menu:
 
     # 检测按键状态
     # 记得不要写阻塞
-    def read_key(self, debounce_ms = 1):
+    def read_key(self, debounce_ms = 40):
         current_time = time.ticks_ms()
         # 检测是否按下（低电平有效）
         if self.key_left.value() == 0:
