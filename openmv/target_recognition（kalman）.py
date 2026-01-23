@@ -12,9 +12,9 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
-sensor.set_auto_gain(False) # 自动增益
-sensor.set_auto_whitebal(True)
-sensor.set_brightness(1500)
+# sensor.set_auto_gain(False) # 自动增益
+sensor.set_auto_whitebal(False)
+sensor.set_brightness(1000)
 # sensor.set_contrast(2) # 对比度
 sensor.skip_frames(time = 200)
 clock = time.clock()
@@ -22,20 +22,36 @@ clock = time.clock()
 ######################最小变化阈值滤波#######################
 position_threshold = 4 # 位置变化的最小阈值 值越小位置识别更新的越频繁，值越大小球的细微运动越不会更新识别
 MAX_CHANGE_THRESHOLD = 80 # 最大变化阈值（位置和半径超过此值时不更新）
-# 上一帧的矩形中心坐标
-prev_x, prev_y = None, None
+prev_x, prev_y = None, None # 上一帧的矩形中心坐标
 
-#######################卡尔曼滤波##########################
+#######################卡尔曼滤波配置##########################
 last_time = time.ticks_ms()
 # 观测矩阵 C，描述从状态到观测值的映射关系 C 是观测矩阵，它将状态向量（位置、速度）与观测量（图像中的矩形框信息）联系起来。这里假设观测量是位置和速度。
 C = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0],[0,0,0,1,0,0],
 [0,0,0,0,1,0],[0,0,0,0,0,1]])
+"""
 # 过程噪声协方差矩阵 Q，用于描述过程的随机噪声
-Q_value = [1e-6 for _ in range(6)]
+Q_value = [
+    10,   # x 位置的过程噪声（像素²）
+    10,   # y 位置
+    5,    # w 宽度
+    5,    # h 高度
+    100,  # dx 速度（像素²/s²）
+    100   # dy 速度
+]
 Q = np.diag(Q_value) # 更新过程噪声协方差矩阵
+"""
 # 观测噪声协方差矩阵 R 是观测噪声协方差矩阵，表示观测过程中测量误差的大小。
-R_value = [1e-6 for _ in range(6)]
+R_value = [
+    5,   # x 测量噪声
+    5,   # y
+    2,    # w
+    2,    # h
+    50,   # dx
+    50    # dy
+]
 R = np.diag(R_value)
+"""
 # 定义观测量Z
 x = 0 # 左顶点x坐标
 y = 0 # 左顶点y坐标
@@ -47,61 +63,87 @@ dx = 0 # 左顶点x坐标移动速度
 dy = 0 # 左顶点y坐标移动速度
 Z = np.array([x, y, w, h, dx, dy])
 # 初始状态估计
+"""
 x_hat = np.array([80, 60, 30, 30, 2, 2]) #初始估计的状态值（位置，速度）
 x_hat_minus = np.array([0,0,0,0,0,0]) # 初始预测的状态值
-p_value = [10 for _ in range(6)] # 状态误差的初始值 p 是状态误差的初始协方差矩阵。
+p_value = [100.0, 100.0, 50.0, 50.0, 300.0, 300.0] # 状态误差的初始值 p 是状态误差的初始协方差矩阵。
+p = np.diag(p_value)
+# 丢失计数器
+lost_count = 0
+MAX_LOST_FRAMES = 10
 
-# 卡尔曼滤波函数
-#预测阶段：利用状态转移矩阵和上一状态估计预测当前状态。
-#校正阶段：通过卡尔曼增益对预测状态进行校正，使得估计值接近真实值。
-#输入 Z：观测值（或测量值），通常是来自外部传感器（例如相机、雷达等）的数据。在这个代码中，Z 是
+# 定义卡尔曼滤波函数
+# 预测阶段：利用状态转移矩阵和上一状态估计预测当前状态。
+# 校正阶段：通过卡尔曼增益对预测状态进行校正，使得估计值接近真实值。
+# 输入 Z：观测值（或测量值），通常是来自外部传感器（例如相机、雷达等）的数据。在这个代码中，Z 是
     #一个包含目标的位置信息（如矩形框的四个角坐标）的向量，格式为 [x, y, w, h, dx, dy]，其中 x 和
     #y 是目标的中心位置，w 和 h 是目标的宽度和高度，dx 和 dy 是目标的速度。
-#输出 x_hat：更新后的状态估计，包括位置（x, y）、宽度（w, h）、速度（dx, dy）。该值是通过卡尔
-    #曼滤波器的预测和校正步骤计算得到的最优估计。
-def Kalman_Filter(Z,Ts):
-    global C,Q,R,x_hat,x_hat_minus
-    p = np.diag(p_value)
+# 输出 x_hat：更新后的状态估计，包括位置（x, y）、宽度（w, h）、速度（dx, dy）。该值是通过卡尔曼滤波器的预测和校正步骤计算得到的最优估计。
+def Kalman_Filter(Z, Ts, is_detected):
+    global C, Q, R, p, x_hat, x_hat_minus, lost_count
+    damping = 0.9
+
+    # 动态调整Q
+    if is_detected:
+        Q_value = [2.0, 5.0, 2.0, 2.0, 50.0, 50.0]
+        lost_count = 0
+    else:
+        Q_value = [20.0, 30.0, 10.0, 10.0, 150.0, 150.0]
+        lost_count += 1
+    Q = np.diag(Q_value)
+
     A = np.array([
         [1, 0, 0, 0, Ts, 0],
         [0, 1, 0, 0, 0, Ts],
         [0, 0, 1, 0, 0, 0],
         [0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0, 1]
+        [0, 0, 0, 0, damping, 0],
+        [0, 0, 0, 0, 0, damping]
     ])
     # 预测部分
     x_hat_minus = np.dot(A,x_hat)
     p_minus = np.dot(A,np.dot(p,A.T)) + Q
-    # 校正部分
-    S = np.dot(np.dot(C,p_minus),C.T) + R
-    # 选择一个小的正则化项
-    regularization_term = 1e-4
-    # 正则化S矩阵
-    S_regularized = S + regularization_term * np.eye(S.shape[0])
-    # 计算正则化后的S矩阵的逆
-    S_inv = np.linalg.inv(S_regularized)
-    # 计算卡尔曼增益
-    K = np.dot(np.dot(p_minus,C.T),S_inv)
-    x_hat = x_hat_minus + np.dot(K,(Z - np.dot(C,x_hat_minus)))
-    p = np.dot((np.eye(6) - np.dot(K,C)),p_minus)
+
+    if is_detected:
+        # 校正部分
+        S = np.dot(np.dot(C,p_minus),C.T) + R
+        # 选择一个小的正则化项
+        regularization_term = 1e-4
+        # 正则化S矩阵
+        S_regularized = S + regularization_term * np.eye(S.shape[0])
+        # 计算正则化后的S矩阵的逆
+        S_inv = np.linalg.inv(S_regularized)
+        # 计算卡尔曼增益
+        K = np.dot(np.dot(p_minus,C.T),S_inv)
+        x_hat = x_hat_minus + np.dot(K,(Z - np.dot(C,x_hat_minus)))
+        p = np.dot((np.eye(6) - np.dot(K,C)),p_minus)
+    else:
+        # 无观测：只预测，不校正
+        x_hat = x_hat_minus
+        p = p_minus
+
     return x_hat
 
-last_frame_location = [0 for _ in range(4)] #用于存储上一帧的目标位置，这通常用于目标跟踪和计算目标移动等任务。一个长度为4的列表 last_frame_location，其中每个元素的初始值为 0
-last_frame_rect = [0 for _ in range(4)] #存储上一帧检测到的矩形框坐标 成了一个长度为4的列表 last_frame_rect，并且每个元素的初始值为 0。
-box = [0 for _ in range(4)]
 
 ########################变量定义##########################
 
 # 四种主要颜色的阈值
-RED_THRESHOLD   = [(0, 57, 27, 127, 7, 127),
-                   (0, 56, 9, 85, -2, 53)]# 红
-GREEN_THRESHOLD = [(32, 100, -128, -12, -128, 127),
-                   (42, 100, -128, -19, -128, 127)]# 绿
-BLUE_THRESHOLD  = [(34, 64, -18, 10, -128, -39),
-                   (30, 100, -30, -5, -48, -9)]# 蓝
+RED_THRESHOLD   = [#(0, 57, 27, 127, 7, 127),
+                   #(0, 56, 9, 85, -2, 53),
+                   (5, 24, 12, 41, -5, 37),
+                   (30, 58, 39, 83, 10, 51)]# 红
+GREEN_THRESHOLD = [#(32, 100, -128, -12, -128, 127),
+                   #(42, 100, -128, -19, -128, 127),
+                   (17, 67, -33, -15, -15, 68),
+                   (53, 100, -51, -15, -20, 95)]# 绿(后两组暗，亮)
+BLUE_THRESHOLD  = [#(34, 64, -18, 10, -128, -39),
+                   #(30, 100, -30, -5, -48, -9),
+                   (13, 35, -24, -9, -18, -7),
+                   (37, 77, -31, -4, -54, -26)]# 蓝
 BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
-                   (0, 100, -128, 23, -7, 127)]# 棕
+                   #(0, 100, -128, 23, -7, 127),
+                   (12, 43, -14, 14, 8, 46),
+                   (51, 92, -23, 20, -16, 70)]# 棕
 
 
 # 感兴趣的区域
@@ -120,6 +162,9 @@ fps_count = 0;
 # 坐标距离阈值（两个框的中心距离小于此值，就认为是“过近”，只保留一个）
 DISTANCE_THRESHOLD = 30  # 可根据实际调整
 
+# 用于标记是否已经首次检测到小熊
+first_brown_detected = False
+
 ##########################函数定义##########################
 # 计算两个坐标的距离
 def calculate_distance(x1, y1, x2, y2):
@@ -132,7 +177,7 @@ def detect_colors(img):
     red_blobs   = img.find_blobs(RED_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
     green_blobs   = img.find_blobs(GREEN_THRESHOLD,
-    pixels_threshold=30, area_threshold=30, merge=False)
+    pixels_threshold=40, area_threshold=40, merge=False)
     blue_blobs   = img.find_blobs(BLUE_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
 
@@ -153,22 +198,30 @@ def filter_all_blobs(blobs):
     for item in blobs:
         blob = item[0]
         color = item[1]
+
+        # 密度滤波 + 动态面积阈值
+        if blob.density() < 0.3:
+            continue
+        min_pixels = 50 * (blob.density() + 0.5)
+        if blob.pixels() < min_pixels:
+            continue
+
         # 过滤宽度过大的色块
         if (
             # 长大于120，宽大于100，直接舍弃
-            blob.w() > 120
-            or blob.h() > 100
+            blob.w() > 140
+            or blob.h() > 110
 
-            # 棕色规则：边长比超过1.2:1
+            # 棕色规则：边长比超过3:1
             or (
                 color == 'brown'
-                and (blob.w() > 1.2 * blob.h() or blob.h() > 1.2 * blob.w())
+                and ((blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()))
             )
 
             # 绿/蓝规则：边长比超过1.5:1
             or (
                 color in ('green', 'blue')
-                and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w())
+                and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10)
             )
         ):
             continue
@@ -189,9 +242,11 @@ def filter_all_blobs(blobs):
 while(True):
     clock.tick()
     img = sensor.snapshot()
+    # white.on() # 可以补光
+    # white.off()
     current_time = time.ticks_ms()
     delta_time = time.ticks_diff(current_time,last_time)
-    Ts = max(delta_time / 1000.0, 1 / 100)
+    Ts = max(delta_time / 1000.0, 0.01)
     last_time = current_time
 
     # 录像
@@ -243,31 +298,39 @@ while(True):
     if brown_blobs:
         target_brown = max(brown_blobs, key = lambda b:b.area())
         x, y, w, h = target_brown.rect()
-        dx = (x - last_frame_x) / Ts
-        dy = (y - last_frame_y) / Ts
+        max_speed = 80
+        dx_raw = (x - last_frame_x) / Ts
+        dx = max(-max_speed, min(max_speed, dx_raw))
+        dy_raw = (y - last_frame_y) / Ts
+        dy = max(-max_speed, min(max_speed, dy_raw))
         Z = np.array([x, y, w, h, dx, dy], dtype = np.float)
-        x_hat = Kalman_Filter(Z, Ts)
+        # 如果是第一次检测到小熊，则初始化卡尔曼滤波器
+        if not first_brown_detected:
+            # 初始化卡尔曼滤波器的状态和协方差矩阵
+            last_frame_x, last_frame_y = x, y
+            x_hat = np.array([x, y, w, h, 0, 0])  # 初始估计的状态值（位置，速度）
+            p_value = [10.0, 10.0, 5.0, 5.0, 100.0, 100.0]  # 状态误差的初始值
+            p = np.diag(p_value)
+            first_brown_detected = True  # 标记为已首次检测过
+        x_hat = Kalman_Filter(Z, Ts, is_detected=True)
         last_frame_x, last_frame_y = x, y
         brown_detected = True
         img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
         img.draw_cross(target_brown.cx(), target_brown.cy(), color=draw_colors['brown'])  # 画中心点
 
-    if not brown_detected:
-        A_pred = np.array([
-            [1, 0, 0, 0, Ts, 0],
-            [0, 1, 0, 0, 0, Ts],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1]
-        ])
-        x_hat = np.dot(A_pred, x_hat)
+    # 无检测时预测
+    if not brown_detected and first_brown_detected:
+        x_hat = Kalman_Filter(None, Ts, is_detected=False)
 
-    prev_cx = int(x_hat[0] + x_hat[2] / 2)
-    prev_cy = int(x_hat[1] + x_hat[3] / 2)
-    center.append((prev_cx, prev_cy))
-    img.draw_rectangle(int(x_hat[0]), int(x_hat[1]), int(x_hat[2]), int(x_hat[3]), color=draw_colors["grey"])  # 画矩形框
-    img.draw_cross(prev_cx, prev_cy, color=draw_colors['grey'])  # 画中心点  
+    # 绘制卡尔曼预测框（灰色）
+    if first_brown_detected:
+        kx, ky = int(x_hat[0]), int(x_hat[1])
+        kw, kh = max(1, int(x_hat[2])), max(1, int(x_hat[3]))
+        kcx, kcy = kx + kw // 2, ky + kh // 2
+
+        img.draw_rectangle(kx, ky, kw, kh, color=draw_colors['grey'])
+        img.draw_cross(kcx, kcy, color=draw_colors['grey'])
+        center.append((kcx, kcy))
 
     for item in other_blobs:
         # 绘制该颜色的所有筛选后色块
