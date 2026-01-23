@@ -40,7 +40,7 @@ beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
-my_uart6.init(115200)
+my_uart6.init(460800)
 my_uart6.write("Motor test begins!\r\n")
 my_uart6.write("hello\r\n")
 my_uart6.write("hello\r\n")
@@ -50,15 +50,15 @@ wireless = WIRELESS_UART(115200)
 
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D6_DIR_D7, 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , True)
-encoder_ur = encoder("C0" , "C1" , True)
-encoder_md = encoder("D15", "D16", True)
+encoder_ul = encoder("D13", "D14", True)
+encoder_ur = encoder("D15", "D16", False)
+encoder_md = encoder("C2" , "C3" , True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -110,9 +110,13 @@ speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 视觉伺服自身转角的卡尔曼滤波器
 servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+# 创建编码器卡尔曼滤波器对象
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -137,10 +141,13 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, wireless)
 
 # 创建视觉伺服管理对象2
-my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid_x, servo_pid_y, servo_yaw_fil)
+my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid_x, servo_pid_y, servo_yaw_fil, wireless)
 
 # 创建串口解析对象
 my_protocol = ant_else.UARTProtocol(my_uart6)
+
+# 创建指令管理对象
+my_order_manager = ant_else.order_manager(my_uart6)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, beep, key_up, key_down, key_left, key_right, lcd)
@@ -168,8 +175,8 @@ def voltage_detect(limit_min: float) -> None:
 # 调试电机速度环pid函数
 def show_speed_PID_test():
     motor_ul_pid.compute_pid(200, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
+    motor_ur_pid.compute_pid(0, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -207,7 +214,7 @@ def test_odometer():
     global count
     if count == 0:
         if my_car.x_current <= 50.0 and test_stage == 0:
-            my_car.move_ctrl(100, 90, 0)
+            my_car.move_ctrl(100, 45, 0)
             return
         elif my_car.x_current >= 0.6 and test_stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -248,15 +255,20 @@ def test_vision_servo_2():
     if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.SERVO
     elif my_state.state == my_state.SERVO:
+        # 向openart发送指令
+        my_order_manager.gain_coordinate()
         # 接收openart发送的目标点坐标
         my_vision_manager_2.target_point = my_protocol.coordinate_receive()
         if my_vision_manager_2.target_point:
             my_vision_manager_2.visual_servo_control(my_vision_manager_2.target_point[0], my_vision_manager_2.target_point[1])
+            # 测试
+            # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
         if my_vision_manager_2.finish_servo == True:
             my_state.state = my_state.STOP
             my_vision_manager_2.finish_servo = False
     elif my_state.state == my_state.STOP:
-        pass 
+        # 测试
+        wireless.send_str(f"now: {my_state.state}\n")
 
 
 """ 定时器类 """
@@ -300,10 +312,10 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # show_speed_PID_test()
+    show_speed_PID_test()
     
     # 测试伺服控制函数
-    test_servo_control()
+    # test_servo_control()
     
     # 设置电机pwm输出
     my_car.set_motor_pwm()
@@ -329,11 +341,12 @@ def time_pit2_handler(time):
     # 用于无线串口调试
     
     # 视觉伺服
-    wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}, now_yaw: {:<f}\n".format(servo_pid_x.actual, servo_pid_y.actual, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, my_car.now_yaw * 180 / MATH.PI))
+    # wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid_x.actual, servo_pid_y.actual, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid_x.pwm_output, servo_pid_y.pwm_output))
+    # wireless.send_str(f"{my_vision_manager_2.target_rel_yaw}\r\n")
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output))
+    wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output))
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output))
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output))
     
@@ -354,7 +367,8 @@ def time_pit2_handler(time):
     
     # 卡尔曼滤波（速度）
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    
+    # wireless.send_str("{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2))
+
     key = my_menu.read_key()
     if key == None:
         return

@@ -83,11 +83,11 @@ servo_kd_x = 20.0
 servo_kp_y = 0.5
 servo_kd_y = 20.0
 target_x = 80
-target_y = 70
-min_rel_speed = 15
-max_rel_speed = 25
+target_y = 60
+min_rel_speed = 40
+max_rel_speed = 65
 finish_threshold_x = 5
-finish_threshold_y = 10
-servo_pwmout_limitmax = 70
+finish_threshold_y = 8
+servo_pwmout_limitmax = 75
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)

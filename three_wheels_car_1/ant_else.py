@@ -40,11 +40,7 @@ class beep:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON
             self.beep.high()
-            time.sleep_ms(100)
-            self.beep.low()
-            time.sleep_ms(300)
-            self.beep.high()
-            time.sleep_ms(100)
+            time.sleep_ms(50)
             self.beep.low()
             self.beep_state = self.BEEP_OFF
             return
@@ -53,6 +49,15 @@ class beep:
 
 
 ##############################【uart串口解析数据】##############################
+# 指令管理类
+class order_manager:
+    def __init__(self, uart):
+        # 注入串口对象
+        self.my_uart = uart
+    
+    # 获取目标的像素点坐标
+    def gain_coordinate(self):
+        self.my_uart.write("6")
 
 # 状态机解析串口数据类
 class UARTProtocol:
@@ -65,7 +70,7 @@ class UARTProtocol:
 
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
-        while self.my_uart.any():
+        while self.my_uart.any():	
             byte = self.my_uart.read(1)[0]
             
             if self.state == 0:  # 等待帧头1
