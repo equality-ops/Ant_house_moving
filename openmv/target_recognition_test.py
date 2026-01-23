@@ -13,11 +13,11 @@ sensor.reset()
 # 设置图像格式为 RGB565 彩色模式
 sensor.set_pixformat(sensor.RGB565)
 # 设置分辨率为 QQVGA 160x120
-sensor.set_framesize(sensor.QQVGA)  
+sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
 # sensor.set_auto_gain(False) # 自动增益
-sensor.set_auto_whitebal(True)
-sensor.set_brightness(500) # 阴暗条件下蓝色识别受阻 调至2000
+sensor.set_auto_whitebal(False)
+sensor.set_brightness(1000) # 阴暗条件下蓝色识别受阻 调至2000
 # sensor.set_contrast(2) # 对比度
 # 跳过一些帧， 等待感光元件稳定
 sensor.skip_frames(time = 200)
@@ -27,18 +27,30 @@ white = LED(4)
 ################# #######变量定义##########################
 
 # 四种主要颜色的阈值
-RED_THRESHOLD   = [(0, 57, 27, 127, 7, 127),
-                   (0, 56, 9, 85, -2, 53)]# 红
-GREEN_THRESHOLD = [(32, 100, -128, -12, -128, 127),
-                   (42, 100, -128, -19, -128, 127)]# 绿
-BLUE_THRESHOLD  = [(34, 64, -18, 10, -128, -39),
-                   (30, 100, -30, -5, -48, -9)]# 蓝
+RED_THRESHOLD   = [#(0, 57, 27, 127, 7, 127),
+                   #(0, 56, 9, 85, -2, 53),
+                   (5, 24, 12, 41, -5, 37),
+                   (30, 58, 39, 83, 10, 51)]# 红
+GREEN_THRESHOLD = [#(32, 100, -128, -12, -128, 127),
+                   #(42, 100, -128, -19, -128, 127),
+                   (17, 67, -33, -15, -15, 68),
+                   (53, 100, -51, -15, -20, 95)]# 绿(后两组暗，亮) (第四个阈值影响绿色深度)
+BLUE_THRESHOLD  = [#(34, 64, -18, 10, -128, -39),
+                   #(30, 100, -30, -5, -48, -9),
+                   (13, 35, -24, -9, -18, -7),
+                   (37, 77, -31, -4, -54, -26)]# 蓝
 BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
-                   (0, 100, -128, 23, -7, 127)]# 棕
+                   #(0, 100, -128, 23, -7, 127),
+                   (12, 43, -14, 14, 8, 46),
+                   (51, 92, -23, 20, -16, 70)]# 棕
 
 
 # 感兴趣的区域
 roi = (0, 0, 160, 120)
+
+# 历史平滑参数
+alpha = 0.7
+prev_cx = prev_cy = 80
 
 # 录像
 """
@@ -58,15 +70,37 @@ DISTANCE_THRESHOLD = 30  # 可根据实际调整
 def calculate_distance(x1, y1, x2, y2):
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
+# 动态调整LAB阈值，根据图像亮度均值偏移
+def adjust_lab_threshold(base_th, img):
+    hist = img.get_histogram()
+    mean = hist.get_statistics().mean()
+    offset = mean // 6
+    adjusted = []
+    for th in base_th:
+        adjusted.append((
+            max(0, th[0] - offset),
+            min(100, th[1] + offset),
+            max(-128, th[2] - offset // 2),
+            min(127, th[3] + offset // 2),
+            max(-128, th[4] - offset // 2),
+            min(127, th[5] + offset // 2)
+        ))
+    return adjusted
+
 # 分别查找各颜色色块
 def detect_colors(img):
-    brown_blobs   = img.find_blobs(BROWN_THRESHOLD,
+    red_th = adjust_lab_threshold(RED_THRESHOLD, img)
+    green_th = adjust_lab_threshold(GREEN_THRESHOLD, img)
+    blue_th = adjust_lab_threshold(BLUE_THRESHOLD, img)
+    brown_th = adjust_lab_threshold(BROWN_THRESHOLD, img)
+
+    brown_blobs   = img.find_blobs(brown_th,
     pixels_threshold=50, area_threshold=50, merge=True)
-    red_blobs   = img.find_blobs(RED_THRESHOLD,
+    red_blobs   = img.find_blobs(red_th,
     pixels_threshold=30, area_threshold=30, merge=False)
-    green_blobs   = img.find_blobs(GREEN_THRESHOLD,
+    green_blobs   = img.find_blobs(green_th,
     pixels_threshold=30, area_threshold=30, merge=False)
-    blue_blobs   = img.find_blobs(BLUE_THRESHOLD,   
+    blue_blobs   = img.find_blobs(blue_th,
     pixels_threshold=30, area_threshold=30, merge=False)
 
     all_blobs_with_color = []
@@ -86,6 +120,13 @@ def filter_all_blobs(blobs):
     for item in blobs:
         blob = item[0]
         color = item[1]
+
+        # 密度滤波 + 动态面积阈值
+        if blob.density() < 0.3:
+            continue
+        min_pixels = 50 * (blob.density() + 0.5)
+        if blob.pixels() < min_pixels:
+            continue
         # 过滤宽度过大的色块
         if (
             # 长大于120，宽大于100，直接舍弃
@@ -95,13 +136,13 @@ def filter_all_blobs(blobs):
             # 棕色规则：边长比超过1.2:1
             or (
                 color == 'brown'
-                and (blob.w() > 1.2 * blob.h() or blob.h() > 1.2 * blob.w())
+                and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w())
             )
 
             # 绿/蓝规则：边长比超过1.5:1
             or (
                 color in ('green', 'blue')
-                and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w())
+                and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10)
             )
         ):
             continue
@@ -138,6 +179,10 @@ while(True):
     # white.on() # 可以补光
     # white.off()
 
+    # ===== 图像预处理（提升颜色识别鲁棒性）=====
+    img.median(1, percentile=0.5)                 # 中值滤波（去噪，抗椒盐噪声）
+    # =========================================
+
     # 录像
     # red.on()
     """
@@ -172,16 +217,27 @@ while(True):
         # 绘制该颜色的所有筛选后色块
         blob = item[0]
         color_name = item[1]
-        img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
-        img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
-        center_x = blob.cx()
-        center_y = blob.cy()
-        center.append((center_x, center_y))
+
+        # 历史低通滤波平滑中心点
+        cx = alpha * blob.cx() + (1 - alpha) * prev_cx
+        cy = alpha * blob.cy() + (1 - alpha) * prev_cy
+        prev_cx, prev_cy = cx, cy
+        x, y, w, h = blob.rect()
+
+        new_x = int(cx - w / 2)  # 新的x坐标基于平滑后的中心点
+        new_y = int(cy - h / 2)  # 新的y坐标基于平滑后的中心点
+
+        # 绘制矩形框，使用平滑后的中心点来确定位置
+        img.draw_rectangle(blob.rect(), color=draw_colors[color_name])
+
+        # 画平滑后的中心点
+        img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])
+        center.append((cx, cy))
 
     if center:
         target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
         target_x, target_y = target
-        send_coordinate(target_x, target_y)
+        send_coordinate(int(target_x), int(target_y))
 
 
     print(f"FPS: {clock.fps()}")
