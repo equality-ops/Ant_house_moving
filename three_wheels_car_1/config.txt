@@ -1,26 +1,58 @@
 ###################【PID参数】####################
-ul_normal_kp = 18.0
-ul_normal_ki = 0.25
-ul_normal_kd = 18.0
-ur_normal_kp = 20.0
-ur_normal_ki = 0.25
-ur_normal_kd = 16.0
-md_normal_kp = 17.0
-md_normal_ki = 0.24
-md_normal_kd = 15.0
-angle_normal_kp = 10.0
+# speed为400时
+ul_high_kp = 13.0
+ul_high_ki = 0.26
+ul_high_kd = 50.0
+ur_high_kp = 12.0
+ur_high_ki = 0.245
+ur_high_kd = 50.0
+md_high_kp = 12.0
+md_high_ki = 0.248
+md_high_kd = 50.0
+# speed为300时
+ul_mid1_kp = 12.0
+ul_mid1_ki = 0.23
+ul_mid1_kd = 50.0
+ur_mid1_kp = 12.0
+ur_mid1_ki = 0.184
+ur_mid1_kd = 50.0
+md_mid1_kp = 12.0
+md_mid1_ki = 0.19
+md_mid1_kd = 50.0
+# speed为200时
+ul_mid2_kp = 15.0
+ul_mid2_ki = 0.14
+ul_mid2_kd = 40.0
+ur_mid2_kp = 14.0
+ur_mid2_ki = 0.138
+ur_mid2_kd = 45.0
+md_mid2_kp = 13.0
+md_mid2_ki = 0.14
+md_mid2_kd = 40.0
+# speed为100时
+ul_low_kp = 12.0
+ul_low_ki = 0.1
+ul_low_kd = 50.0
+ur_low_kp = 12.0
+ur_low_ki = 0.1
+ur_low_kd = 50.0
+md_low_kp = 12.0
+md_low_ki = 0.1
+md_low_kd = 50.0
+
+angle_normal_kp = 15.0
 angle_normal_ki = 0.0
 angle_normal_kd = 60.0
 integral_limitmax = 8000
 pwmout_limitmax = 6000 
-angle_integral_limitmax = 1200
-angle_pwmout_limitmax = 600
+angle_integral_limitmax = 1800
+angle_pwmout_limitmax = 900
 # A设置为B的2倍左右
-A = 350
+A = 250
 # B大致为最大静差的1.5倍
-B = 165
-kp_mid = 0.9
-kp_low = 0.8
+B = 163.5
+kp_mid = 0.8
+kp_low = 0.5
 
 ###################【机械参数（单位：cm）】###################
 wheel_radius = 5.8
@@ -29,26 +61,25 @@ car_radius = 10.5
 ###################【系数】####################
 # 速度转换系数
 speed_conversion_gamma = 2.454904
-position_conversion_gamma = 0.0135
 # 角速度负反馈系数
-gkd = -1.2
+gkd = -2.5
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
-gyro_z_supply = 1.183567
+gyro_z_supply = 1.164164
 
 ###################【时间规划】####################
 motor_control_T = 5
 collect_dt = 0.005
 plan_calculate_T = 10
-uart_and_menu_T = 50
-boost_time_threshold = 100
+uart_and_menu_T = 13
+boost_time_threshold = 40
 
 ###################【路径规划】####################
 plan_arrive_threshold = 0.3
 plan_point_transition_T = 200
 # 减速段占据总路程的比例
-dec_ratio = 0.2
+dec_ratio = 0.4
 # 坐标误差修正量
 error_correct_x_50_1 = 0.0
 error_correct_y_50_1 = -0.1	
@@ -68,9 +99,10 @@ error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
 ###################【速度规划】####################
-min_start_v = 60
-long_v_max = 120
-short_v_max = 100	
+min_start_v = 30
+long_v_max = 380
+short_v_max = 300	
+dead_zone_v = 400
 
 ###################【视觉伺服】####################
 target_offset_x = 0.0
@@ -91,3 +123,4 @@ finish_threshold_y = 8
 servo_pwmout_limitmax = 75
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
+

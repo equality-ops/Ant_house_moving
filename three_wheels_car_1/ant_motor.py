@@ -5,15 +5,45 @@ class PID_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
 
-        self.ul_normal_kp = self.flash_sys.find_value("ul_normal_kp")  # type: float
-        self.ul_normal_ki = self.flash_sys.find_value("ul_normal_ki")  # type: float
-        self.ul_normal_kd = self.flash_sys.find_value("ul_normal_kd")  # type: float
-        self.ur_normal_kp = self.flash_sys.find_value("ur_normal_kp")  # type: float
-        self.ur_normal_ki = self.flash_sys.find_value("ur_normal_ki")  # type: float
-        self.ur_normal_kd = self.flash_sys.find_value("ur_normal_kd")  # type: float
-        self.md_normal_kp = self.flash_sys.find_value("md_normal_kp")  # type: float
-        self.md_normal_ki = self.flash_sys.find_value("md_normal_ki")  # type: float
-        self.md_normal_kd = self.flash_sys.find_value("md_normal_kd")  # type: float
+        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
+        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
+        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
+        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
+        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
+        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
+        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
+        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
+        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
+
+        self.ul_mid1_kp = self.flash_sys.find_value("ul_mid1_kp")  # type: float
+        self.ul_mid1_ki = self.flash_sys.find_value("ul_mid1_ki")  # type: float
+        self.ul_mid1_kd = self.flash_sys.find_value("ul_mid1_kd")  # type: float
+        self.ur_mid1_kp = self.flash_sys.find_value("ur_mid1_kp")  # type: float
+        self.ur_mid1_ki = self.flash_sys.find_value("ur_mid1_ki")  # type: float
+        self.ur_mid1_kd = self.flash_sys.find_value("ur_mid1_kd")  # type: float
+        self.md_mid1_kp = self.flash_sys.find_value("md_mid1_kp")  # type: float
+        self.md_mid1_ki = self.flash_sys.find_value("md_mid1_ki")  # type: float
+        self.md_mid1_kd = self.flash_sys.find_value("md_mid1_kd")  # type: float
+
+        self.ul_mid2_kp = self.flash_sys.find_value("ul_mid2_kp")  # type: float
+        self.ul_mid2_ki = self.flash_sys.find_value("ul_mid2_ki")  # type: float
+        self.ul_mid2_kd = self.flash_sys.find_value("ul_mid2_kd")  # type: float
+        self.ur_mid2_kp = self.flash_sys.find_value("ur_mid2_kp")  # type: float
+        self.ur_mid2_ki = self.flash_sys.find_value("ur_mid2_ki")  # type: float
+        self.ur_mid2_kd = self.flash_sys.find_value("ur_mid2_kd")  # type: float
+        self.md_mid2_kp = self.flash_sys.find_value("md_mid2_kp")  # type: float
+        self.md_mid2_ki = self.flash_sys.find_value("md_mid2_ki")  # type: float
+        self.md_mid2_kd = self.flash_sys.find_value("md_mid2_kd")  # type: float
+        
+        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
+        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
+        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
+        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
+        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
+        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
+        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
+        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
+        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
@@ -97,7 +127,7 @@ class PoseData:
         gyro_y_sum = 0
         """
         gyro_z_sum = 0
-        sample_count = 2000
+        sample_count = 10000
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):

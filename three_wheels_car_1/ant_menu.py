@@ -20,12 +20,12 @@ class Menu:
         self.lcd = lcd
 
         ###########################读取所需参数############################
-        self.ul_normal_kp = self.flash_sys.find_value("ul_normal_kp")  # type: float
-        self.ul_normal_ki = self.flash_sys.find_value("ul_normal_ki")  # type: float
-        self.ul_normal_kd = self.flash_sys.find_value("ul_normal_kd")  # type: float
-        self.ur_normal_kp = self.flash_sys.find_value("ur_normal_kp")  # type: float
-        self.ur_normal_ki = self.flash_sys.find_value("ur_normal_ki")  # type: float
-        self.ur_normal_kd = self.flash_sys.find_value("ur_normal_kd")  # type: float
+        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
+        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
+        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
+        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
+        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
+        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
 
 
         ###############################变量定义###########################
@@ -120,7 +120,7 @@ class Menu:
 
     # 检测按键状态
     # 记得不要写阻塞
-    def read_key(self, debounce_ms = 1):
+    def read_key(self, debounce_ms = 40):
         current_time = time.ticks_ms()
         # 检测是否按下（低电平有效）
         if self.key_left.value() == 0:
@@ -218,9 +218,9 @@ class Menu:
 
     # 第1页菜单数据显示
     def Menu_Page1_data_show(self):
-        self.lcd.str16(60, 64, f"l_p:{self.ul_normal_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"l_i:{self.ul_normal_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"l_d:{self.ul_normal_kd:.2f}", 0xFFFF)
+        self.lcd.str16(60, 64, f"l_p:{self.ul_high_kp:.2f}", 0xFFFF)
+        self.lcd.str16(60, 64 + 32 * 1, f"l_i:{self.ul_high_ki:.2f}", 0xFFFF)
+        self.lcd.str16(60, 64 + 32 * 2, f"l_d:{self.ul_high_kd:.2f}", 0xFFFF)
 
     # 第1页菜单显示
     def Menu_Page_1(self):

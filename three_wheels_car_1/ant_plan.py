@@ -60,7 +60,8 @@ class Plan:
         self.my_wireless = wireless
 
         # 速度规划相关常量
-        self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: int  # 最小启动速度
+        self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: int  # 最小制动速度
+        self.dead_zone_v = self.flash_sys.find_value("dead_zone_v")         # type: int  # 死区启动速度
         self.long_v_max = self.flash_sys.find_value("long_v_max")           # type: int  # 长距离时的最大速度
         self.short_v_max = self.flash_sys.find_value("short_v_max")          # type: int  # 短距离时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
@@ -144,9 +145,9 @@ class Plan:
                 self.elapsed_time += 1
                 if self.elapsed_time <= self.boost_time_threshold:
                     # 计算目标速度
-                    self.v_target = self.min_start_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.long_v_max - self.min_start_v))
+                    self.v_target = self.dead_zone_v - int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.dead_zone_v - self.v_max))
                 else:
-                    self.v_target = self.long_v_max
+                    self.v_target = self.v_max
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
             elif self.stage == self.TRANSIT:
@@ -229,7 +230,7 @@ class Plan:
         # 实际距离坐标点的总距离
         self.total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
         # 根据总距离设置最大速度
-        if self.total_distance >= 8.0:
+        if self.total_distance >= 5.0:
            self.v_max = self.long_v_max
         else:
           self.v_max = self.short_v_max

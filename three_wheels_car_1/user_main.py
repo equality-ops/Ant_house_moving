@@ -27,7 +27,7 @@ counter = 0      # type: int
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
 # 核心板上 C4 是 LED
-# 学习板上 D9  对应二号拨码开关
+# 学习板上 D9  对应一号拨码开关
 led = Pin('C4', Pin.OUT, value=True)
 switch2 = Pin('D9', Pin.IN, pull=Pin.PULL_UP_47K)
 state2 = switch2.value()
@@ -150,7 +150,7 @@ my_protocol = ant_else.UARTProtocol(my_uart6)
 my_order_manager = ant_else.order_manager(my_uart6)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, beep, key_up, key_down, key_left, key_right, lcd)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -174,8 +174,8 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(200, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(0, pose_data.encoder_data_ur)
+    motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(500, pose_data.encoder_data_ur)
     motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
@@ -213,8 +213,8 @@ def test_odometer():
     global test_stage
     global count
     if count == 0:
-        if my_car.x_current <= 50.0 and test_stage == 0:
-            my_car.move_ctrl(100, 45, 0)
+        if my_car.x_current <= 150.0 and test_stage == 0:
+            my_car.move_ctrl(350, 30, 0)
             return
         elif my_car.x_current >= 0.6 and test_stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -278,9 +278,32 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    motor_ul_pid.set_pid_params(pid_data.ul_normal_kp, pid_data.ul_normal_ki, pid_data.ul_normal_kd)
-    motor_ur_pid.set_pid_params(pid_data.ur_normal_kp, pid_data.ur_normal_ki, pid_data.ur_normal_kd)
-    motor_md_pid.set_pid_params(pid_data.md_normal_kp, pid_data.md_normal_ki, pid_data.md_normal_kd)
+    if motor_ul_pid.target >= 350:
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+    elif motor_ul_pid.target >= 250:
+        motor_ul_pid.set_pid_params(pid_data.ul_mid1_kp, pid_data.ul_mid1_ki, pid_data.ul_mid1_kd)
+    elif motor_ul_pid.target >= 150:
+        motor_ul_pid.set_pid_params(pid_data.ul_mid2_kp, pid_data.ul_mid2_ki, pid_data.ul_mid2_kd)
+    else:
+        motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+        
+    if motor_ur_pid.target >= 350:
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+    elif motor_ur_pid.target >= 250:
+        motor_ur_pid.set_pid_params(pid_data.ur_mid1_kp, pid_data.ur_mid1_ki, pid_data.ur_mid1_kd)
+    elif motor_ur_pid.target >= 150:
+        motor_ur_pid.set_pid_params(pid_data.ur_mid2_kp, pid_data.ur_mid2_ki, pid_data.ur_mid2_kd)
+    else:
+        motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+
+    if motor_md_pid.target >= 350:
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    elif motor_md_pid.target >= 250:
+        motor_md_pid.set_pid_params(pid_data.md_mid1_kp, pid_data.md_mid1_ki, pid_data.md_mid1_kd)
+    elif motor_md_pid.target >= 150:
+        motor_md_pid.set_pid_params(pid_data.md_mid2_kp, pid_data.md_mid2_ki, pid_data.md_mid2_kd)
+    else:
+        motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
     
     # 更新小车姿态
     my_car.update_pose()
@@ -346,9 +369,9 @@ def time_pit2_handler(time):
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
-    wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output))
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output))
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
+    wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
     
     # imu原始数据
     # wireless.send_str("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
