@@ -110,9 +110,13 @@ speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 视觉伺服自身转角的卡尔曼滤波器
 servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+# 创建编码器卡尔曼滤波器对象
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -170,9 +174,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(150, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(150, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(150, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(200, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(0, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -342,7 +346,7 @@ def time_pit2_handler(time):
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output))
+    wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output))
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output))
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output))
     
@@ -363,7 +367,8 @@ def time_pit2_handler(time):
     
     # 卡尔曼滤波（速度）
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    
+    # wireless.send_str("{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2))
+
     key = my_menu.read_key()
     if key == None:
         return

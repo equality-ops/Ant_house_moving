@@ -47,7 +47,7 @@ class KalmanFilter:
 
 
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
+    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器对象
@@ -57,12 +57,20 @@ class PoseData:
         self.encoder_md = encoder_md
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
+        # 注入编码器卡尔曼滤波器对象
+        self.encoder_ul_fil = encoder_ul_fil
+        self.encoder_ur_fil = encoder_ur_fil
+        self.encoder_md_fil = encoder_md_fil
         # IMU数据列表
         self.imu_data = []   # type: list
 
         self.encoder_data_ul = 0    # type: int
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
+        # 测试
+        # self.encoder_data_ul_2 = 0    # type: int
+        # self.encoder_data_ur_2 = 0    # type: int
+        # self.encoder_data_md_2 = 0    # type: int
         self.gyro_z_bias = 0.0       # type: float
         self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")
         """暂时不需要这些数据
@@ -116,6 +124,14 @@ class PoseData:
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
+        # 对编码器数据进行卡尔曼滤波
+        self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
+        self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
+        self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
+        # 测试
+        # self.encoder_data_ul_2 = int(self.encoder_ul_fil.update(self.encoder_data_ul))
+        # self.encoder_data_ur_2 = int(self.encoder_ur_fil.update(self.encoder_data_ur))
+        # self.encoder_data_md_2 = int(self.encoder_md_fil.update(self.encoder_data_md))
         """暂时不需要处理这些数据
         self.acc_x = imu_data[0] - self.acc_x_bias
         self.acc_y = imu_data[1] - self.acc_y_bias
