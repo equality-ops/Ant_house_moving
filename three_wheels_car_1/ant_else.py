@@ -64,8 +64,10 @@ class UARTProtocol:
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
-        self.state = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
+        self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
+        self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
         self.coordinate_buffer = [0, 0, 0, 0, 0]
+        self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
 
     # 非阻塞接收并解析物体中心的像素点坐标  
@@ -73,38 +75,71 @@ class UARTProtocol:
         while self.my_uart.any():	
             byte = self.my_uart.read(1)[0]
             
-            if self.state == 0:  # 等待帧头1
+            if self.state_coordinate == 0:  # 等待帧头1
                 if byte == 0xA5:
                     self.coordinate_buffer[0] = byte
-                    self.state = 1
+                    self.state_coordinate = 1
                 # 如果不是0xA5，继续等待（保持状态0）
                 
-            elif self.state == 1:  # 等待帧头2
+            elif self.state_coordinate == 1:  # 等待帧头2
                 if byte == 0xA6:
                     self.coordinate_buffer[1] = byte
-                    self.state = 2
+                    self.state_coordinate = 2
                 else:
-                    self.state = 0  # 状态重置
+                    self.state_coordinate = 0  # 状态重置
                     
-            elif self.state == 2:  # 接收x
+            elif self.state_coordinate == 2:  # 接收x
                 self.coordinate_buffer[2] = byte
-                self.state = 3
+                self.state_coordinate = 3
                 
-            elif self.state == 3:  # 接收y
+            elif self.state_coordinate == 3:  # 接收y
                 self.coordinate_buffer[3] = byte
-                self.state = 4
+                self.state_coordinate = 4
                 
-            elif self.state == 4:  # 等待帧尾
+            elif self.state_coordinate == 4:  # 等待帧尾
                 if byte == 0x5B:
                     self.coordinate_buffer[4] = byte
                     # 完整帧接收完成
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
-                    self.state = 0  # 重置状态
+                    self.state_coordinate = 0  # 重置状态
                     return (x, y)
                 else:
-                    self.state = 0  # 帧尾错误，重新同步
+                    self.state_coordinate = 0  # 帧尾错误，重新同步
         
         return None  # 没有完整帧
+    
+    # 非阻塞接收并解析边界的斜率
+    def angle_receive(self):
+        while self.my_uart.any():
+            byte = self.my_uart.read(1)[0]
+
+            if self.state_angle == 0:  # 等待帧头1
+                if byte == 0xA5:
+                    self.angle_buffer[0] = byte
+                    self.state_angle = 1
+                # 如果不是0xA5，继续等待（保持状态0）
+            
+            elif self.state_angle == 1:  # 等待帧头2
+                if byte == 0xA7:
+                    self.angle_buffer[1] = byte
+                    self.state_angle = 2
+                else:
+                    self.state_angle = 0  # 状态重置
+
+            elif self.state_angle == 2:
+                self.angle_buffer[2] = byte
+                self.state_angle = 3
+
+            elif self.state_angle == 3:
+                if byte == 0x5B:
+                    self.angle_buffer[3] = byte
+                    angle = self.angle_buffer[2]  
+                    self.state_coordinate = 0
+                    return angle
+                else:
+                    self.state_coordinate = 0
+
+        return None       
 
 
 # 数学常量类

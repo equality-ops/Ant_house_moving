@@ -262,7 +262,7 @@ def send_angle(angle):
     global uart
     data = ustruct.pack("<BBbB",
                         0xA5,
-                        0xA6,
+                        0xA7,
                         angle,
                         0x5B
                         )
