@@ -18,6 +18,7 @@ sensor.set_brightness(1000)
 # sensor.set_contrast(2) # 对比度
 sensor.skip_frames(time = 200)
 clock = time.clock()
+# LED(4).on
 
 ######################最小变化阈值滤波#######################
 position_threshold = 4 # 位置变化的最小阈值 值越小位置识别更新的越频繁，值越大小球的细微运动越不会更新识别
@@ -127,7 +128,7 @@ def Kalman_Filter(Z, Ts, is_detected):
 
 ########################变量定义##########################
 
-# 四种主要颜色的阈值
+# 目标识别中四种主要颜色的阈值
 RED_THRESHOLD   = [#(0, 57, 27, 127, 7, 127),
                    #(0, 56, 9, 85, -2, 53),
                    (5, 24, 12, 41, -5, 37),
@@ -145,8 +146,11 @@ BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
                    (12, 43, -14, 14, 8, 46),
                    (51, 92, -23, 20, -16, 70)]# 棕
 
+# 边界识别中黄色赛道的阈值
+YELLOW_THRESHOLD = (57, 90, -26, -2, 50, 91)
 
-# 感兴趣的区域
+
+# 目标识别感兴趣的区域
 roi = (0, 0, 160, 120)
 
 # 录像
@@ -165,7 +169,7 @@ DISTANCE_THRESHOLD = 30  # 可根据实际调整
 # 用于标记是否已经首次检测到小熊
 first_brown_detected = False
 
-##########################函数定义##########################
+##########################目标识别函数定义##########################
 # 计算两个坐标的距离
 def calculate_distance(x1, y1, x2, y2):
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
@@ -237,6 +241,68 @@ def filter_all_blobs(blobs):
         if keep:
             filtered.append(item)
     return filtered
+
+# 目标识别串口发送函数
+def send_coordinate(x, y):
+    global uart
+    data = ustruct.pack("<BBBBB",
+                        0xA5,
+                        0xA6,
+                        x,
+                        y,
+                        0x5B
+                        )
+    uart.write(data)
+    # print(x,y)
+
+#######################边界识别函数定义#######################
+
+# 边界识别串口发送函数
+def send_angle(angle):
+    global uart
+    data = ustruct.pack("<BBbB",
+                        0xA5,
+                        0xA6,
+                        angle,
+                        0x5B
+                        )
+    uart.write(data)
+# 边界识别
+def boundary_correction(mode):
+    blobs = []
+    center = 0
+    img = sensor.snapshot()
+
+    if mode == 'row': #行
+        num = [0, 26, 52, 80, 106, 132]
+    if mode == 'column': #列
+        num = [0,20,40,60,80,100]
+    for x in num:
+        if mode == 'row': # 从左到右找色块
+            result = img.find_blobs([YELLOW_THRESHOLD], roi = [x,0,26,120] ,pixels_threshold=400, area_threshold=400, margin=1, merge=True, invert=0)
+        if mode == 'column':# 从上到下找色块
+            result = img.find_blobs([YELLOW_THRESHOLD], roi = [0,x,160,20] ,pixels_threshold=400, area_threshold=400, margin=1, merge=True, invert=0)
+        if result:
+            result = min(result, key= lambda b: abs(b.area() - 1250))
+            blobs.append(result)
+            center += 1
+            img.draw_rectangle(result.rect(), color = (255, 0, 0), scale = 1, thickness = 1)
+        else:
+            break
+    if center >= 4:
+        l = img.get_regression([YELLOW_THRESHOLD])
+        if l:
+            img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
+            theta = l.theta()
+            if theta > 90:
+                angle = -(theta - 180)
+            else:
+                angle = -theta
+            send_angle(angle)
+        # else:
+            # print("no found") # 调试用
+    # else:
+        # print("insufficient blobs") # 调试用
 
 ############################主部分###########################
 while(True):
@@ -344,6 +410,13 @@ while(True):
     if center:
         target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
         target_x, target_y = target
-        uart_data = f"X : {target_x} Y : {target_y}\n"
-        uart.write(uart_data)
+        if uart.read(1) == b'6':  # 等待接收指令
+            send_coordinate(target_x, target_y)
+
+    #########边界识别##########
+    """
+    boundary_correction('row')
+    boundary_correction('column')
+    """
+
     print(f"FPS: {clock.fps()}")
