@@ -533,7 +533,7 @@ class VisionManager_2:
             elif self.target_rel_speed > self.max_rel_speed:
                 self.target_rel_speed = self.max_rel_speed
             # 测试
-            #self.target_rel_speed = 0
+            #a self.target_rel_speed = 0
             self.compute_target_rel_yaw()
             self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
             self.compute_target_rel_turn_angle(0.0)	

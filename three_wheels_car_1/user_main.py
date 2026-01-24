@@ -321,7 +321,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -338,7 +338,7 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     # 设置电机pwm输出
     my_car.set_motor_pwm()
@@ -354,9 +354,9 @@ def time_pit3_handler(time) -> None:
     
     #ant_else.my_uart6.write("hello\r\n")
     
-    my_plan.navigate([[300.0, 0.0]])
+    # my_plan.navigate([[300.0, 0.0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    # test_vision_servo_2()
+    test_vision_servo_2()
     pass
 
 
@@ -365,7 +365,7 @@ def time_pit2_handler(time):
     # 用于无线串口调试
     
     # 视觉伺服
-    # wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid_x.actual, servo_pid_y.actual, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid_x.pwm_output, servo_pid_y.pwm_output))
+    wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid_x.actual, servo_pid_y.actual, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid_x.pwm_output, servo_pid_y.pwm_output))
     # wireless.send_str(f"{my_vision_manager_2.target_rel_yaw}\r\n")
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
@@ -381,7 +381,7 @@ def time_pit2_handler(time):
     # 里程计：
     # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag, my_plan.transition_flag))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag, my_plan.transition_flag))
     
     # 速度规划
     # wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))

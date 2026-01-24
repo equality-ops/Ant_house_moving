@@ -111,15 +111,16 @@ target_offset_y = 0.0
 rel_dis_threshold = 0.1
 kp_rel = 0.0
 kd_rel = 0.0
-servo_kp_x = 0.5
-servo_kd_x = 20.0
-servo_kp_y = 0.5
-servo_kd_y = 20.0
+servo_kp_x = 10.0
+servo_kd_x = 60.0
+servo_kp_y = 10.0
+servo_kd_y = 60.0
 target_x = 80
 target_y = 60
-min_rel_speed = 40
-max_rel_speed = 65
+min_rel_speed = 300
+max_rel_speed = 380
 finish_threshold_x = 5
+# 测试
 finish_threshold_y = 8
 servo_pwmout_limitmax = 75
 
