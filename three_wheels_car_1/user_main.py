@@ -111,9 +111,9 @@ speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 视觉伺服自身转角的卡尔曼滤波器
 servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 3.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 2.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 2.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 2.0)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -175,8 +175,8 @@ def voltage_detect(limit_min: float) -> None:
 # 调试电机速度环pid函数
 def show_speed_PID_test():
     motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(500, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
+    motor_ur_pid.compute_pid(0, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(500, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -214,7 +214,7 @@ def test_odometer():
     global count
     if count == 0:
         if my_car.x_current <= 150.0 and test_stage == 0:
-            my_car.move_ctrl(350, 30, 0)
+            my_car.move_ctrl(0, 0, 180)
             return
         elif my_car.x_current >= 0.6 and test_stage == 1:
             my_car.move_ctrl(0, 0, 0)
@@ -321,7 +321,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -335,7 +335,7 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    show_speed_PID_test()
+    # show_speed_PID_test()
     
     # 测试伺服控制函数
     # test_servo_control()
@@ -354,8 +354,9 @@ def time_pit3_handler(time) -> None:
     
     #ant_else.my_uart6.write("hello\r\n")
     
+    my_plan.navigate([[300.0, 0.0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    test_vision_servo_2()
+    # test_vision_servo_2()
     pass
 
 
@@ -370,7 +371,7 @@ def time_pit2_handler(time):
     
     # 速度环输出波形图调参
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
-    wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
     
     # imu原始数据
@@ -378,9 +379,9 @@ def time_pit2_handler(time):
     # wireless.send_str("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                           
     # 里程计：
-    # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(ant_motor.my_car.encouder_ul, ant_motor.my_car.encouder_ur, ant_motor.my_car.encouder_md))
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.x_current, ant_motor.my_car.y_current, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, ant_motor.my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+    # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
+    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag, my_plan.transition_flag))
     
     # 速度规划
     # wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
