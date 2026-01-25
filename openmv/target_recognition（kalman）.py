@@ -2,6 +2,8 @@ import sensor, image, time, math, mjpeg
 from pyb import LED
 from machine import UART
 from ulab import numpy as np
+import seekfree
+import ustruct
 
 ##########################串口初始化#########################
 uart = UART(2, baudrate=115200)
@@ -19,6 +21,10 @@ sensor.set_brightness(1000)
 sensor.skip_frames(time = 200)
 clock = time.clock()
 # LED(4).on
+
+#####################LCD初始化#########################
+lcd = seekfree.IPS200(3)
+lcd.full()
 
 ######################最小变化阈值滤波#######################
 position_threshold = 4 # 位置变化的最小阈值 值越小位置识别更新的越频繁，值越大小球的细微运动越不会更新识别
@@ -44,15 +50,14 @@ Q = np.diag(Q_value) # 更新过程噪声协方差矩阵
 """
 # 观测噪声协方差矩阵 R 是观测噪声协方差矩阵，表示观测过程中测量误差的大小。
 R_value = [
-    5,   # x 测量噪声
-    5,   # y
+    3,   # x 测量噪声
+    3,   # y
     2,    # w
     2,    # h
     50,   # dx
     50    # dy
 ]
 R = np.diag(R_value)
-"""
 # 定义观测量Z
 x = 0 # 左顶点x坐标
 y = 0 # 左顶点y坐标
@@ -64,14 +69,13 @@ dx = 0 # 左顶点x坐标移动速度
 dy = 0 # 左顶点y坐标移动速度
 Z = np.array([x, y, w, h, dx, dy])
 # 初始状态估计
-"""
 x_hat = np.array([80, 60, 30, 30, 2, 2]) #初始估计的状态值（位置，速度）
 x_hat_minus = np.array([0,0,0,0,0,0]) # 初始预测的状态值
 p_value = [100.0, 100.0, 50.0, 50.0, 300.0, 300.0] # 状态误差的初始值 p 是状态误差的初始协方差矩阵。
 p = np.diag(p_value)
 # 丢失计数器
 lost_count = 0
-MAX_LOST_FRAMES = 10
+MAX_LOST_FRAMES = 30
 
 # 定义卡尔曼滤波函数
 # 预测阶段：利用状态转移矩阵和上一状态估计预测当前状态。
@@ -82,14 +86,14 @@ MAX_LOST_FRAMES = 10
 # 输出 x_hat：更新后的状态估计，包括位置（x, y）、宽度（w, h）、速度（dx, dy）。该值是通过卡尔曼滤波器的预测和校正步骤计算得到的最优估计。
 def Kalman_Filter(Z, Ts, is_detected):
     global C, Q, R, p, x_hat, x_hat_minus, lost_count
-    damping = 0.9
-
     # 动态调整Q
     if is_detected:
         Q_value = [2.0, 5.0, 2.0, 2.0, 50.0, 50.0]
+        damping = 0.92
         lost_count = 0
     else:
-        Q_value = [20.0, 30.0, 10.0, 10.0, 150.0, 150.0]
+        Q_value = [20.0, 30.0, 10.0, 10.0, 40.0, 40.0]
+        damping = 0.8
         lost_count += 1
     Q = np.diag(Q_value)
 
@@ -147,7 +151,7 @@ BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
                    (51, 92, -23, 20, -16, 70)]# 棕
 
 # 边界识别中黄色赛道的阈值
-YELLOW_THRESHOLD = (57, 90, -26, -2, 50, 91)
+YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
 
 
 # 目标识别感兴趣的区域
@@ -177,7 +181,7 @@ def calculate_distance(x1, y1, x2, y2):
 # 分别查找各颜色色块
 def detect_colors(img):
     brown_blobs   = img.find_blobs(BROWN_THRESHOLD,
-    pixels_threshold=50, area_threshold=50, merge=True)
+    pixels_threshold=200, area_threshold=200, merge=True)
     red_blobs   = img.find_blobs(RED_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
     green_blobs   = img.find_blobs(GREEN_THRESHOLD,
@@ -386,10 +390,11 @@ while(True):
 
     # 无检测时预测
     if not brown_detected and first_brown_detected:
-        x_hat = Kalman_Filter(None, Ts, is_detected=False)
+        if lost_count < MAX_LOST_FRAMES:
+            x_hat = Kalman_Filter(None, Ts, is_detected=False)
 
     # 绘制卡尔曼预测框（灰色）
-    if first_brown_detected:
+    if first_brown_detected and lost_count < MAX_LOST_FRAMES:
         kx, ky = int(x_hat[0]), int(x_hat[1])
         kw, kh = max(1, int(x_hat[2])), max(1, int(x_hat[3]))
         kcx, kcy = kx + kw // 2, ky + kh // 2
@@ -419,4 +424,5 @@ while(True):
     boundary_correction('column')
     """
 
+    lcd.show_image(img, 160, 120, zoom=0) # 外接LCD屏幕
     print(f"FPS: {clock.fps()}")
