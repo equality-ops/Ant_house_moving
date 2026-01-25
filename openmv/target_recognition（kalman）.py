@@ -155,7 +155,7 @@ YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
 
 
 # 目标识别感兴趣的区域
-roi = (0, 0, 160, 120)
+roi = (0, 0, 160, 110)
 
 # 录像
 """
@@ -180,8 +180,12 @@ last_brown_area = 0
 # 模式切换
 MODE_TARGET = 0
 MODE_BOUNDARY_UD = 1 # U
-MODE_BOUNDARY_LR = 2 # L 
+MODE_BOUNDARY_LR = 2 # L
 current_mode = MODE_TARGET
+
+# 上一次发送的坐标
+last_sent_x = 80
+last_sent_y = 60
 
 
 ##########################目标识别函数定义##########################
@@ -271,12 +275,18 @@ def is_brown_valid(blob):
 
 # 目标识别串口发送函数
 def send_coordinate(x, y):
-    global uart
+    global uart, last_sent_x, last_sent_y
+    dx_coord = min(30, max(-30, x - last_sent_x))
+    dy_coord = min(30, max(-30, y - last_sent_y))
+    x_limited = last_sent_x + dx_coord
+    y_limited = last_sent_y + dy_coord
+    last_sent_x = x_limited
+    last_sent_y = y_limited
     data = ustruct.pack("<BBBBB",
                         0xA5,
                         0xA6,
-                        x,
-                        y,
+                        x_limited,
+                        y_limited,
                         0x5B
                         )
     uart.write(data)
@@ -337,7 +347,7 @@ def handle_uart_commands():
     global current_mode
     if not uart.any():
         return None
-    
+
     cmd = uart.read(1)
 
     if cmd == b'T':
@@ -349,12 +359,12 @@ def handle_uart_commands():
     elif cmd == b'L':
         current_mode = MODE_BOUNDARY_LR
         return None
-    
+
     elif cmd == b'C' and current_mode == MODE_TARGET:
         return 'send_coord'
     elif cmd == b'A' and current_mode in (MODE_BOUNDARY_UD, MODE_BOUNDARY_LR):
         return 'send_angle'
-    
+
     return None
 
 ############################主部分###########################
@@ -387,6 +397,7 @@ while(True):
     """
     action = handle_uart_commands()
     if current_mode == MODE_TARGET:
+        # print("1")
         # 获取图像并进行预处理
         all_blobs_with_color = detect_colors(img)
         filtered_blobs_with_color = filter_all_blobs(all_blobs_with_color)
@@ -471,14 +482,16 @@ while(True):
             if action == 'send_coord':
                 send_coordinate(target_x, target_y)
     elif current_mode == MODE_BOUNDARY_UD:
+        # print("2")
         angle = boundary_correction('row', img)
         if angle and action == 'send_angle':
             send_angle(angle)
     elif current_mode == MODE_BOUNDARY_LR:
+        # print("3")
         angle = boundary_correction('column', img)
         if angle and action == 'send_angle':
             send_angle(angle)
-    
+
 
     lcd.show_image(img, 160, 120, zoom=0) # 外接LCD屏幕
     print(f"FPS: {clock.fps()}")
