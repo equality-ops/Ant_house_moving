@@ -158,9 +158,7 @@ def set_motor(motor, duty) -> None:
 
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
-    for i in range(4):
-        time.sleep_ms(200)
-        led.toggle()
+    led.toggle()
 
 # 检测电源电压函数
 def voltage_detect(limit_min: float) -> None:
@@ -278,30 +276,24 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 350:
+    if motor_ul_pid.target >= 170:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif motor_ul_pid.target >= 250:
-        motor_ul_pid.set_pid_params(pid_data.ul_mid1_kp, pid_data.ul_mid1_ki, pid_data.ul_mid1_kd)
-    elif motor_ul_pid.target >= 150:
-        motor_ul_pid.set_pid_params(pid_data.ul_mid2_kp, pid_data.ul_mid2_ki, pid_data.ul_mid2_kd)
+    elif motor_ul_pid.target >= 100:
+        motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 350:
+    if motor_ur_pid.target >= 170:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif motor_ur_pid.target >= 250:
-        motor_ur_pid.set_pid_params(pid_data.ur_mid1_kp, pid_data.ur_mid1_ki, pid_data.ur_mid1_kd)
-    elif motor_ur_pid.target >= 150:
-        motor_ur_pid.set_pid_params(pid_data.ur_mid2_kp, pid_data.ur_mid2_ki, pid_data.ur_mid2_kd)
+    elif motor_ur_pid.target >= 100:
+        motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 350:
+    if motor_md_pid.target >= 170:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif motor_md_pid.target >= 250:
-        motor_md_pid.set_pid_params(pid_data.md_mid1_kp, pid_data.md_mid1_ki, pid_data.md_mid1_kd)
-    elif motor_md_pid.target >= 150:
-        motor_md_pid.set_pid_params(pid_data.md_mid2_kp, pid_data.md_mid2_ki, pid_data.md_mid2_kd)
+    elif motor_md_pid.target >= 100:
+        motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
     else:
         motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
     
