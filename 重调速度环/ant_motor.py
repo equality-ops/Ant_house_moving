@@ -88,7 +88,7 @@ class PoseData:
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
         # 测试
-        self.encoder_data_ul_2 = 0    # type: int
+        # self.encoder_data_ul_2 = 0    # type: int
         # self.encoder_data_ur_2 = 0    # type: int
         # self.encoder_data_md_2 = 0    # type: int
         self.gyro_z_bias = 0.0       # type: float

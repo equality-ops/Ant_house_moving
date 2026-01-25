@@ -6,7 +6,7 @@ class StateMachine:
         self.NAVIGATE = 1    # 导航状态
         self.SERVO = 2       # 视觉伺服状态
         self.MOVE = 3        # 搬运状态
-        self.CALIBRATE = 4   # 校准状态
+        self.RETURN = 4      # 返回状态
         self.STOP = 5        # 停止状态
         self.state = self.NAVIGATE  # 初始状态为导航状态
 
@@ -94,7 +94,6 @@ class Plan:
         self.turn_angle_target = 0       # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
-        self.callibrate_angle = 0.0      # type: float # 摄像头识别到的矫正角度
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
@@ -238,7 +237,7 @@ class Plan:
           self.v_max = self.short_v_max
         # 计算减速距离
         # 测试，设置为恒定距离
-        self.dec_distance = 20.0
+        self.dec_distance = 10.0
         self.build_dec_speed_list(0)
         self.arrive_flag = False
         # 测试
@@ -303,6 +302,7 @@ class Plan:
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
+        self.compute_turn_angle_target(self.my_car.now_yaw * 180 / self.MATH.PI)
 
     # 按照传入路径及进行惯性导航
     def navigate(self, path: list):
