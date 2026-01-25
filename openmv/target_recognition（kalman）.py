@@ -173,6 +173,17 @@ DISTANCE_THRESHOLD = 30  # 可根据实际调整
 # 用于标记是否已经首次检测到小熊
 first_brown_detected = False
 
+# 玩具熊最小持续帧数
+brown_visible_frames = 0
+last_brown_area = 0
+
+# 模式切换
+MODE_TARGET = 0
+MODE_BOUNDARY_UD = 1 # U
+MODE_BOUNDARY_LR = 2 # L 
+current_mode = MODE_TARGET
+
+
 ##########################目标识别函数定义##########################
 # 计算两个坐标的距离
 def calculate_distance(x1, y1, x2, y2):
@@ -246,6 +257,18 @@ def filter_all_blobs(blobs):
             filtered.append(item)
     return filtered
 
+# 判断玩具熊有效性
+def is_brown_valid(blob):
+    global last_brown_area, brown_visible_frames
+    current_area = blob.area()
+    if last_brown_area > 0:
+        area_change_rate = abs(current_area - last_brown_area) / last_brown_area
+        if area_change_rate > 0.7:
+            return False
+    last_brown_area = current_area
+    brown_visible_frames += 1
+    return True
+
 # 目标识别串口发送函数
 def send_coordinate(x, y):
     global uart
@@ -272,10 +295,9 @@ def send_angle(angle):
                         )
     uart.write(data)
 # 边界识别
-def boundary_correction(mode):
+def boundary_correction(mode, img):
     blobs = []
     center = 0
-    img = sensor.snapshot()
 
     if mode == 'row': #行
         num = [0, 26, 52, 80, 106, 132]
@@ -302,11 +324,38 @@ def boundary_correction(mode):
                 angle = -(theta - 180)
             else:
                 angle = -theta
-            send_angle(angle)
+        return angle
+    else:
+        return None
         # else:
             # print("no found") # 调试用
     # else:
         # print("insufficient blobs") # 调试用
+
+########################指令解析函数定义###########################
+def handle_uart_commands():
+    global current_mode
+    if not uart.any():
+        return None
+    
+    cmd = uart.read(1)
+
+    if cmd == b'T':
+        current_mode = MODE_TARGET
+        return None
+    elif cmd == b'U':
+        current_mode = MODE_BOUNDARY_UD
+        return None
+    elif cmd == b'L':
+        current_mode = MODE_BOUNDARY_LR
+        return None
+    
+    elif cmd == b'C' and current_mode == MODE_TARGET:
+        return 'send_coord'
+    elif cmd == b'A' and current_mode in (MODE_BOUNDARY_UD, MODE_BOUNDARY_LR):
+        return 'send_angle'
+    
+    return None
 
 ############################主部分###########################
 while(True):
@@ -336,93 +385,100 @@ while(True):
         time.sleep_ms(500)
         break
     """
-    # 获取图像并进行预处理
-    all_blobs_with_color = detect_colors(img)
-    filtered_blobs_with_color = filter_all_blobs(all_blobs_with_color)
+    action = handle_uart_commands()
+    if current_mode == MODE_TARGET:
+        # 获取图像并进行预处理
+        all_blobs_with_color = detect_colors(img)
+        filtered_blobs_with_color = filter_all_blobs(all_blobs_with_color)
 
-    # 分离棕色与其它
-    brown_blobs = []
-    other_blobs = []
+        # 分离棕色与其它
+        brown_blobs = []
+        other_blobs = []
 
-    for item in filtered_blobs_with_color:
-        blob = item[0]
-        color = item[1]
-        if color == 'brown':
-            brown_blobs.append(blob)
+        for item in filtered_blobs_with_color:
+            blob = item[0]
+            color = item[1]
+            if color == 'brown':
+                brown_blobs.append(blob)
+            else:
+                other_blobs.append((blob, color))
+
+        # 绘制筛选后的色块（不同颜色用不同框区分）
+        draw_colors = {
+            'red': (255, 0, 0),
+            'green': (0, 255, 0),
+            'blue': (0, 0, 255),
+            'brown': (255, 255, 255),
+            'grey': (100, 100, 100)
+        }
+
+        center = []
+
+        # 处理棕色
+        brown_detected = False
+        if brown_blobs:
+            target_brown = max(brown_blobs, key = lambda b:b.area())
+            if is_brown_valid(target_brown):
+                x, y, w, h = target_brown.rect()
+                max_speed = 80
+                dx_raw = (x - last_frame_x) / Ts
+                dx = max(-max_speed, min(max_speed, dx_raw))
+                dy_raw = (y - last_frame_y) / Ts
+                dy = max(-max_speed, min(max_speed, dy_raw))
+                Z = np.array([x, y, w, h, dx, dy], dtype = np.float)
+                # 如果是第一次检测到小熊，则初始化卡尔曼滤波器
+                if not first_brown_detected:
+                    # 初始化卡尔曼滤波器的状态和协方差矩阵
+                    last_frame_x, last_frame_y = x, y
+                    x_hat = np.array([x, y, w, h, 0, 0])  # 初始估计的状态值（位置，速度）
+                    p_value = [10.0, 10.0, 5.0, 5.0, 100.0, 100.0]  # 状态误差的初始值
+                    p = np.diag(p_value)
+                    first_brown_detected = True  # 标记为已首次检测过
+                x_hat = Kalman_Filter(Z, Ts, is_detected=True)
+                last_frame_x, last_frame_y = x, y
+                brown_detected = True
+                img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
+                img.draw_cross(target_brown.cx(), target_brown.cy(), color=draw_colors['brown'])  # 画中心点
         else:
-            other_blobs.append((blob, color))
+            brown_visible_frames = 0
+        # 无检测时预测
+        if not brown_detected and first_brown_detected:
+            if lost_count < MAX_LOST_FRAMES:
+                x_hat = Kalman_Filter(None, Ts, is_detected=False)
 
-    # 绘制筛选后的色块（不同颜色用不同框区分）
-    draw_colors = {
-        'red': (255, 0, 0),
-        'green': (0, 255, 0),
-        'blue': (0, 0, 255),
-        'brown': (255, 255, 255),
-        'grey': (100, 100, 100)
-    }
+        # 绘制卡尔曼预测框（灰色）
+        if first_brown_detected and lost_count < MAX_LOST_FRAMES:
+            kx, ky = int(x_hat[0]), int(x_hat[1])
+            kw, kh = max(1, int(x_hat[2])), max(1, int(x_hat[3]))
+            kcx, kcy = kx + kw // 2, ky + kh // 2
 
-    center = []
+            img.draw_rectangle(kx, ky, kw, kh, color=draw_colors['grey'])
+            img.draw_cross(kcx, kcy, color=draw_colors['grey'])
+            center.append((kcx, kcy))
 
-    # 处理棕色
-    brown_detected = False
-    if brown_blobs:
-        target_brown = max(brown_blobs, key = lambda b:b.area())
-        x, y, w, h = target_brown.rect()
-        max_speed = 80
-        dx_raw = (x - last_frame_x) / Ts
-        dx = max(-max_speed, min(max_speed, dx_raw))
-        dy_raw = (y - last_frame_y) / Ts
-        dy = max(-max_speed, min(max_speed, dy_raw))
-        Z = np.array([x, y, w, h, dx, dy], dtype = np.float)
-        # 如果是第一次检测到小熊，则初始化卡尔曼滤波器
-        if not first_brown_detected:
-            # 初始化卡尔曼滤波器的状态和协方差矩阵
-            last_frame_x, last_frame_y = x, y
-            x_hat = np.array([x, y, w, h, 0, 0])  # 初始估计的状态值（位置，速度）
-            p_value = [10.0, 10.0, 5.0, 5.0, 100.0, 100.0]  # 状态误差的初始值
-            p = np.diag(p_value)
-            first_brown_detected = True  # 标记为已首次检测过
-        x_hat = Kalman_Filter(Z, Ts, is_detected=True)
-        last_frame_x, last_frame_y = x, y
-        brown_detected = True
-        img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
-        img.draw_cross(target_brown.cx(), target_brown.cy(), color=draw_colors['brown'])  # 画中心点
-
-    # 无检测时预测
-    if not brown_detected and first_brown_detected:
-        if lost_count < MAX_LOST_FRAMES:
-            x_hat = Kalman_Filter(None, Ts, is_detected=False)
-
-    # 绘制卡尔曼预测框（灰色）
-    if first_brown_detected and lost_count < MAX_LOST_FRAMES:
-        kx, ky = int(x_hat[0]), int(x_hat[1])
-        kw, kh = max(1, int(x_hat[2])), max(1, int(x_hat[3]))
-        kcx, kcy = kx + kw // 2, ky + kh // 2
-
-        img.draw_rectangle(kx, ky, kw, kh, color=draw_colors['grey'])
-        img.draw_cross(kcx, kcy, color=draw_colors['grey'])
-        center.append((kcx, kcy))
-
-    for item in other_blobs:
-        # 绘制该颜色的所有筛选后色块
-        blob = item[0]
-        color_name = item[1]
-        img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
-        img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
-        center_x = blob.cx()
-        center_y = blob.cy()
-        center.append((center_x, center_y))
-    if center:
-        target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
-        target_x, target_y = target
-        if uart.read(1) == b'6':  # 等待接收指令
-            send_coordinate(target_x, target_y)
-
-    #########边界识别##########
-    """
-    boundary_correction('row')
-    boundary_correction('column')
-    """
+        for item in other_blobs:
+            # 绘制该颜色的所有筛选后色块
+            blob = item[0]
+            color_name = item[1]
+            img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
+            img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
+            center_x = blob.cx()
+            center_y = blob.cy()
+            center.append((center_x, center_y))
+        if center:
+            target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
+            target_x, target_y = target
+            if action == 'send_coord':
+                send_coordinate(target_x, target_y)
+    elif current_mode == MODE_BOUNDARY_UD:
+        angle = boundary_correction('row', img)
+        if angle and action == 'send_angle':
+            send_angle(angle)
+    elif current_mode == MODE_BOUNDARY_LR:
+        angle = boundary_correction('column', img)
+        if angle and action == 'send_angle':
+            send_angle(angle)
+    
 
     lcd.show_image(img, 160, 120, zoom=0) # 外接LCD屏幕
     print(f"FPS: {clock.fps()}")

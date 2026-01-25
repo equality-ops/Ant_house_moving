@@ -55,10 +55,26 @@ class order_manager:
         # 注入串口对象
         self.my_uart = uart
     
-    # 获取目标的像素点坐标
+    # 切换到目标识别模式
+    def mode_target(self):
+        self.my_uart.write("T")
+    
+    # 在目标识别模式下获取目标的像素点坐标
     def gain_coordinate(self):
-        self.my_uart.write("6")
+        self.my_uart.write("C")
 
+    # 切换到上下边界识别模式
+    def mode_boundary_ud(self):
+        self.my_uart.write("U")
+
+    # 切换到左右边界识别模式
+    def mode_boundary_ud(self):
+        self.my_uart.write("L")
+
+    # 上下或左右边界识别模式下获取角度
+    def gain_angle(self):
+        self.my_uart.write("A")
+        
 # 状态机解析串口数据类
 class UARTProtocol:
     def __init__(self, uart):
