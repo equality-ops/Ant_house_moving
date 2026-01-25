@@ -150,10 +150,11 @@ class Plan:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
+                    self.my_wireless.send_str("boost_finish\n")
             elif self.stage == self.TRANSIT:
                 self.v_target = self.v_max
-                #if self.rest_distance < self.dec_distance:
-                self.stage = self.DEC
+                if self.rest_distance < self.dec_distance:
+                    self.stage = self.DEC
             elif self.stage == self.DEC:
                 if self.rest_distance < self.dec_distance:
                     self.dec_speed_index = int((self.rest_distance / self.dec_distance) * self.dec_lenth)
@@ -235,11 +236,12 @@ class Plan:
         else:
           self.v_max = self.short_v_max
         # 计算减速距离
-        self.dec_distance = self.total_distance * self.dec_ratio
+        # 测试，设置为恒定距离
+        self.dec_distance = 10.0
         self.build_dec_speed_list(0)
         self.arrive_flag = False
         # 测试
-        self.v_target = 50
+        # self.v_target = 320
 
     # 更新已完成和剩余距离并判断是否到达目标点
     def update_distance(self):
@@ -255,6 +257,7 @@ class Plan:
             self.rest_distance = 0.0
             self.dec_distance = 0.0
         # 每次更新距离后进行速度规划计算
+        # 测试
         self.planning_speed()
 
     # 计算目标航向角
@@ -299,7 +302,7 @@ class Plan:
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
-        self.turn_angle_target = self.my_car.now_yaw
+        self.compute_turn_angle_target(self.my_car.now_yaw * 180 / self.MATH.PI)
 
     # 按照传入路径及进行惯性导航
     def navigate(self, path: list):
@@ -343,12 +346,14 @@ class Plan:
                         self.compute_turn_angle_target(0.0)
                     else:
                         self.stop()
+                        self.dec_speed_index = 0
+                        self.path_points.clear()
         else:
             self.stop()
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y
-            self.dec_speed_index = 0
-            self.path_points.clear()
+            # 测试
+            # self.my_wireless.send_str("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
+            # self.my_car.x_current = self.ideal_target_x
+            # self.my_car.y_current = self.ideal_target_y
             # 用于测试
             # self.if_set_path = False
             self.finish_navigate = True
@@ -528,7 +533,7 @@ class VisionManager_2:
             elif self.target_rel_speed > self.max_rel_speed:
                 self.target_rel_speed = self.max_rel_speed
             # 测试
-            #self.target_rel_speed = 0
+            #a self.target_rel_speed = 0
             self.compute_target_rel_yaw()
             self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
             self.compute_target_rel_turn_angle(0.0)	

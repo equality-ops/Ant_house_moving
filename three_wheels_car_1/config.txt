@@ -1,13 +1,13 @@
 ###################【PID参数】####################
-# speed为400时
-ul_high_kp = 13.0
-ul_high_ki = 0.26
+# speed为500时
+ul_high_kp = 13.5
+ul_high_ki = 0.27
 ul_high_kd = 50.0
-ur_high_kp = 12.0
-ur_high_ki = 0.245
+ur_high_kp = 13.0
+ur_high_ki = 0.28
 ur_high_kd = 50.0
-md_high_kp = 12.0
-md_high_ki = 0.248
+md_high_kp = 13.0
+md_high_ki = 0.29
 md_high_kd = 50.0
 # speed为300时
 ul_mid1_kp = 12.0
@@ -40,7 +40,7 @@ md_low_kp = 12.0
 md_low_ki = 0.1
 md_low_kd = 50.0
 
-angle_normal_kp = 15.0
+angle_normal_kp = 70.0
 angle_normal_ki = 0.0
 angle_normal_kd = 60.0
 integral_limitmax = 8000
@@ -60,7 +60,7 @@ car_radius = 10.5
 
 ###################【系数】####################
 # 速度转换系数
-speed_conversion_gamma = 2.454904
+speed_conversion_gamma = 1.6128514149772
 # 角速度负反馈系数
 gkd = -2.5
 # 速度互补滤波系数（可修改）
@@ -72,37 +72,38 @@ gyro_z_supply = 1.164164
 motor_control_T = 5
 collect_dt = 0.005
 plan_calculate_T = 10
-uart_and_menu_T = 13
-boost_time_threshold = 40
+# 测试一般为53
+uart_and_menu_T = 53
+boost_time_threshold = 30
 
 ###################【路径规划】####################
-plan_arrive_threshold = 0.3
-plan_point_transition_T = 200
+plan_arrive_threshold = 0.5
+plan_point_transition_T = 50
 # 减速段占据总路程的比例
-dec_ratio = 0.4
+dec_ratio = 0.3
 # 坐标误差修正量
-error_correct_x_50_1 = 0.0
-error_correct_y_50_1 = -0.1	
+error_correct_x_50_1 = 1.5
+error_correct_y_50_1 = -4.2
 error_correct_x_50_2 = 0.0
 error_correct_y_50_2 = 0.0
-error_correct_x_50_3 = -0.1
-error_correct_y_50_3 = 0.0
-error_correct_x_50_4 = -0.3
-error_correct_y_50_4 = 0.3
+error_correct_x_50_3 = -2.0
+error_correct_y_50_3 = 0.1
+error_correct_x_50_4 = 0.0
+error_correct_y_50_4 = 0.0
 error_correct_x_50_5 = 0.0
-error_correct_y_50_5 = 0.1
-error_correct_x_50_6 = 0.1
-error_correct_y_50_6 = 0.1
+error_correct_y_50_5 = 4.1
+error_correct_x_50_6 = 0.0
+error_correct_y_50_6 = 0.0
 error_correct_x_50_7 = 0.0
-error_correct_y_50_7 = -0.1
+error_correct_y_50_7 = 0.0
 error_correct_x_50_8 = 0.0
 error_correct_y_50_8 = 0.0
 
 ###################【速度规划】####################
-min_start_v = 30
-long_v_max = 380
+min_start_v = 70
+long_v_max = 330
 short_v_max = 300	
-dead_zone_v = 400
+dead_zone_v = 380
 
 ###################【视觉伺服】####################
 target_offset_x = 0.0
@@ -110,17 +111,17 @@ target_offset_y = 0.0
 rel_dis_threshold = 0.1
 kp_rel = 0.0
 kd_rel = 0.0
-servo_kp_x = 0.5
-servo_kd_x = 20.0
-servo_kp_y = 0.5
-servo_kd_y = 20.0
+servo_kp_x = 10.0
+servo_kd_x = 60.0
+servo_kp_y = 10.0
+servo_kd_y = 60.0
 target_x = 80
 target_y = 60
-min_rel_speed = 40
-max_rel_speed = 65
+min_rel_speed = 300
+max_rel_speed = 380
 finish_threshold_x = 5
+# 测试
 finish_threshold_y = 8
 servo_pwmout_limitmax = 75
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
-

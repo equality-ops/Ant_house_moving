@@ -395,9 +395,9 @@ class CarPose:
         # 采集周期，单位：秒
         self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
         # 测试一个电机的里程
-        # self.encouder_lf = 0.0
-        # self.encouder_ur = 0.0
-        # self.encouder_md = 0.0
+        self.encouder_ul = 0.0
+        self.encouder_ur = 0.0
+        self.encouder_md = 0.0
         
     # 小车姿态更新
     def update_pose(self):
@@ -407,9 +407,9 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        # self.encouder_lf += self.speed_conversion_gamma * pose_data.encoder_data_lf / 1000
-        # self.encouder_ur += self.speed_conversion_gamma * pose_data.encoder_data_ur / 1000
-        # self.encouder_md += self.speed_conversion_gamma * pose_data.encoder_data_md / 1000
+        self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
+        self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
+        self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每2ms
         self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
@@ -437,7 +437,11 @@ class CarPose:
         # 依据当前航向角调整位置修正系数（解决小车在不同方向上的编码器积分结果不一致问题）
 
         # 计算小车当前位置
-        self.x_current += self.real_speed_x
+        # 测试
+        # self.x_current += self.real_speed_x * 0.899303  巡航速度为330  沿x轴正方向
+        # self.y_current += self.real_speed_y * 0.928489  巡航速度为330  沿y轴正方向
+        # self.y_current += self.real_speed_y * 0.932707  巡航速度为330  沿y轴负方向
+        self.x_current += self.real_speed_x * 0.899303
         self.y_current += self.real_speed_y
 
 
