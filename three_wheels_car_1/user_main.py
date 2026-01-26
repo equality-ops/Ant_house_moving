@@ -50,8 +50,8 @@ wireless = WIRELESS_UART(115200)
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
@@ -171,9 +171,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(99, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(99, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(99, pose_data.encoder_data_md)
+    # motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -209,17 +209,17 @@ def test_odometer():
     global test_stage
     global count
     if count == 0:
-        if my_car.x_current <= 150.0 and test_stage == 0:
-            my_car.move_ctrl(120, 90, 0)
+        if my_car.x_current <= 300.0 and test_stage == 0:
+            my_car.move_ctrl(300, 90, 0)
             return
-        elif my_car.x_current >= 0.6 and test_stage == 1:
-            my_car.move_ctrl(0, 0, 0)
+        elif my_car.y_current >= -300.0 and test_stage == 1:
+            my_car.move_ctrl(300, 180, 0)
             return
-        elif my_car.x_current >= -99.0 and test_stage == 2:
-            my_car.move_ctrl(0, 0, 0)
+        elif my_car.x_current >= 0.0 and test_stage == 2:
+            my_car.move_ctrl(300, -90, 0)
             return
-        elif my_car.y_current >= 1.0 and test_stage == 3:
-            my_car.move_ctrl(50, 180, 0)
+        elif my_car.y_current <= 0.0 and test_stage == 3:
+            my_car.move_ctrl(300, 0, 0)
             return
         elif test_stage == 4:
             my_car.move_ctrl(0, 0, 0)
@@ -227,7 +227,7 @@ def test_odometer():
      
     my_car.move_ctrl(0, 0, 0)
     count += 1
-    if count == 200:
+    if count == 50:
         test_stage += 1
         count = 0
     
@@ -248,10 +248,16 @@ def test_servo_control():
 
 # 视觉伺服测试函数
 def test_vision_servo_2():
+    global counter
     if my_state.state == my_state.NAVIGATE:
-        my_state.state = my_state.SERVO
-        # 切换为目标识别模式
-        my_order_manager.mode_target()
+        counter += 1
+        # 等待十秒后向openart发送指令获取目标点坐标
+        if counter >= 1000:
+            counter = 0
+            my_state.state = my_state.SERVO
+            # 切换为目标识别模式
+            my_order_manager.mode_target()
+            my_beep.finish_servo()
     elif my_state.state == my_state.SERVO:
         # 接收openart发送的目标点坐标
         my_vision_manager_2.target_point = my_protocol.coordinate_receive()
@@ -276,23 +282,56 @@ def test_boundary_calibration():
             counter = 0
             my_state.state = my_state.CALIBRATE
             # 切换为上下边界识别模式
-            my_order_manager.mode_boundary_ud()
+            # my_order_manager.mode_boundary_ud()
             # 切换为左右边界识别模式
-            # my_order_manager.mode_boundary_lf()
+            my_order_manager.mode_boundary_lf()
+            # 测试是否成功发送指令
+            my_beep.finish_servo()
     elif my_state.state == my_state.CALIBRATE:
-        my_protocol.angle_receive()          
-        # 连续获取多次角度数据后取平均值进行边线校准
-        if my_protocol.angle_list and len(my_protocol.angle_list) >= 10:
+        my_protocol.angle_receive()
+        if len(my_protocol.angle_list) >= 10:
             # 进行边线校准处理
             my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
             my_order_manager.finish()
-            my_protocol.angle_list.clear()
             # 测试
             my_beep.finish_servo()
-            wireless.send_str(f"angle: {my_plan.calibrate_angle}\n")
+            for i in range(0, len(my_protocol.angle_list)):
+                wireless.send_str(f"{my_protocol.angle_list[i]}\n")
+            wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+            my_protocol.angle_list.clear()
             my_state.state = my_state.STOP
 
-
+# 测试openart不同模式切换函数
+def test_change_mode():
+    global counter
+    if my_state.state == my_state.NAVIGATE:
+        counter += 1
+        # 等待十秒后向openart发送指令获取边界角度
+        if counter >= 1000:
+            counter = 0
+            my_state.state = my_state.CALIBRATE
+            my_order_manager.mode_boundary_ud()
+            my_beep.finish_servo()
+    elif my_state.state == my_state.CALIBRATE:
+        counter += 1
+        if counter >= 50:
+            counter = 0
+            my_state.state = my_state.SERVO
+            my_order_manager.mode_target()
+            my_beep.finish_servo()
+    elif my_state.state == my_state.SERVO:
+        counter += 1
+        if counter >= 50:
+            counter = 0
+            my_state.state = my_state.STOP
+            my_order_manager.finish()
+            my_beep.finish_servo()
+    elif my_state.state == my_state.STOP:
+        counter += 1
+        if counter >= 50:
+            counter = 0
+            my_state.state = my_state.NAVIGATE
+            my_beep.finish_servo()
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -301,23 +340,23 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 170:
+    if motor_ul_pid.target >= 240:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif motor_ul_pid.target >= 100:
+    elif motor_ul_pid.target > 100:
         motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 170:
+    if motor_ur_pid.target >= 240:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif motor_ur_pid.target >= 100:
+    elif motor_ur_pid.target > 100:
         motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 170:
+    if motor_md_pid.target >= 240:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif motor_md_pid.target >= 100:
+    elif motor_md_pid.target > 100:
         motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
     else:
         motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
@@ -330,7 +369,7 @@ def time_pit1_handler(time):
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
-    # test_odometer()
+    test_odometer()
     
     # test_simble_displacement()
     
@@ -352,7 +391,7 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # show_speed_PID_test()
+    #show_speed_PID_test()
     
     # 测试伺服控制函数
     # test_servo_control()
@@ -375,7 +414,10 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo_2()
 
     # 边线校准测试程序
-    test_boundary_calibration()
+    # test_boundary_calibration()
+
+    # 测试openart不同模式切换程序
+    # test_change_mode()
     pass
 
 
@@ -391,7 +433,7 @@ def time_pit2_handler(time):
     # 速度环输出波形图调参
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd))
+    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
@@ -415,7 +457,7 @@ def time_pit2_handler(time):
     # wireless.send_str(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    # wireless.send_str(f"{pose_data.gyro_z * my_car.gkd}, {my_car.now_yaw * 180 / MATH.PI}\n")
+    #wireless.send_str(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
     # 卡尔曼滤波（速度）
     # wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))

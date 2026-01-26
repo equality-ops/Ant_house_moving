@@ -204,7 +204,6 @@ class SpeedPositionPID(ControlPID):
         self.actual = actual
         self.preError = self.nowError
         self.nowError = self.target - self.actual
-        self.integral += self.nowError
 
         abs_nowerror = abs(self.nowError)
         coefficient = 1.0   # type: float
@@ -221,7 +220,7 @@ class SpeedPositionPID(ControlPID):
                 coefficient = (self.__A - abs_nowerror) / (self.__A - self.__B)
             else:
                 coefficient = 1.0
-
+        
         # 根据误差大小调整积分项
         self.integral += coefficient * self.nowError
 

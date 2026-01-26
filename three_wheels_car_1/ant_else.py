@@ -148,8 +148,8 @@ class UARTProtocol:
             elif self.state_angle == 3:
                 if byte == 0x5B:
                     self.angle_buffer[3] = byte
-                    # 记录接收到的角度值到列表中
-                    self.angle_list.append(self.angle_buffer[2])  
+                    # 记录接收到的角度值进行解算后到列表中
+                    self.angle_list.append(self.angle_buffer[2] - 90)
                     self.state_angle = 0   
                     # 若解析成功清空缓冲区
                     byte = self.my_uart.read(self.my_uart.any())

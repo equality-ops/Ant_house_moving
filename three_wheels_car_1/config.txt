@@ -1,44 +1,44 @@
 ###################【PID参数】####################
-# speed大于170时
-ul_high_kp = 50.0
-ul_high_ki = 0.25
-ul_high_kd = 100.0
+# speed大于240时
+ul_high_kp = 45.0
+ul_high_ki = 0.175
+ul_high_kd = 50.0
 ur_high_kp = 50.0
-ur_high_ki = 0.25
-ur_high_kd = 100.0
+ur_high_ki = 0.175
+ur_high_kd = 40.0
 md_high_kp = 50.0
-md_high_ki = 0.25
-md_high_kd = 100.0
-# speed大于100，小于170时
+md_high_ki = 0.175	
+md_high_kd = 45.0
+# speed大于100，小于240时
 ul_mid_kp = 40.0
-ul_mid_ki = 0.16
-ul_mid_kd = 50.0
-ur_mid_kp = 80.0
-ur_mid_ki = 0.16
-ur_mid_kd = 80.0
+ul_mid_ki = 0.13
+ul_mid_kd = 40.0
+ur_mid_kp = 40.0
+ur_mid_ki = 0.13
+ur_mid_kd = 40.0
 md_mid_kp = 40.0
-md_mid_ki = 0.16
-md_mid_kd = 80.0
+md_mid_ki = 0.13
+md_mid_kd = 40.0
 # speed小于100时
 ul_low_kp = 30.0
-ul_low_ki = 0.2
-ul_low_kd = 120.0
-ur_low_kp = 30.0
-ur_low_ki = 0.2
-ur_low_kd = 120.0
-md_low_kp = 30.0
-md_low_ki = 0.18
-md_low_kd = 120.0
+ul_low_ki = 0.15
+ul_low_kd = 40.0
+ur_low_kp = 32.0
+ur_low_ki = 0.14
+ur_low_kd = 40.0
+md_low_kp = 35.0
+md_low_ki = 0.14
+md_low_kd = 42.0
 
 angle_normal_kp = 20.0
 angle_normal_ki = 0.0
-angle_normal_kd = 80.0
+angle_normal_kd = 70.0
 integral_limitmax = 14000
-pwmout_limitmax = 7000
+pwmout_limitmax = 6000
 angle_integral_limitmax = 1200
 angle_pwmout_limitmax = 600
 # A设置为B的2倍左右
-A = 150
+A = 100
 # B大致为最大静差的1.5倍
 B = 50
 kp_mid = 0.9
@@ -52,7 +52,7 @@ car_radius = 10.5
 # 速度转换系数
 speed_conversion_gamma = 1.6128514149772
 # 角速度负反馈系数（gyro_z顺时针为负，gkd应为正）
-gkd = 0.0
+gkd = -0.2
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
