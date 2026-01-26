@@ -4,6 +4,81 @@ from machine import UART
 from ulab import numpy as np
 import seekfree
 import ustruct
+###########################通信模块########################
+class Communicator:
+    def __init__(self, uart):
+        self.uart = uart
+        self.last_sent_x = 80
+        self.last_sent_y = 60
+
+    def send_coordinate(self, x, y):
+        dx_coord = min(30, max(-30, x - self.last_sent_x))
+        dy_coord = min(30, max(-30, y - self.last_sent_y))
+        x_limited = self.last_sent_x + dx_coord
+        y_limited = self.last_sent_y + dy_coord
+        self.last_sent_x = x_limited
+        self.last_sent_y = y_limited
+        data = ustruct.pack("<BBBBB", 0xA5, 0xA6, x_limited, y_limited, 0x5B)
+        self.uart.write(data)
+
+    def send_angle(self, angle):
+        angle_mapped = angle + 90  # 映射到 0～180
+        data = ustruct.pack("<BBBB", 0xA5, 0xA7, angle_mapped, 0x5B)
+        self.uart.write(data)
+
+#######################颜色检测模块########################
+class ColorDetector:
+    # 颜色阈值（类变量，共享）
+    RED_THRESHOLD = [(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)]
+    GREEN_THRESHOLD = [(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)]
+    BLUE_THRESHOLD = [(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)]
+    BROWN_THRESHOLD = [(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)]
+
+    # 距离阈值
+    DISTANCE_THRESHOLD = 30
+
+    @staticmethod
+    def calculate_distance(x1, y1, x2, y2):
+        return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+    def detect_colors(self, img):
+        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
+        red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
+        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=40,  area_threshold=40,  merge=False)
+        blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
+
+        all_blobs = []
+        for blob in brown_blobs: all_blobs.append((blob, 'brown'))
+        for blob in red_blobs:   all_blobs.append((blob, 'red'))
+        for blob in green_blobs: all_blobs.append((blob, 'green'))
+        for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
+        return all_blobs
+
+    def filter_all_blobs(self, blobs):
+        filtered = []
+        for blob, color in blobs:
+            if blob.density() < 0.3:
+                continue
+            min_pixels = 50 * (blob.density() + 0.5)
+            if blob.pixels() < min_pixels:
+                continue
+            if (blob.w() > 140 or blob.h() > 110):
+                continue
+            if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
+                continue
+            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
+                continue
+
+            cx, cy = blob.cx(), blob.cy()
+            keep = True
+            for saved_blob, _ in filtered:
+                d = self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy())
+                if d < self.DISTANCE_THRESHOLD:
+                    keep = False
+                    break
+            if keep:
+                filtered.append((blob, color))
+        return filtered
 
 ##########################串口初始化#########################
 uart = UART(2, baudrate=460800)
@@ -347,21 +422,24 @@ def boundary_correction(mode, img):
 def handle_uart_commands():
     global current_mode
     if not uart.any():
-        return
+        return None
 
     cmd = uart.read(1)
 
     if cmd == b'T':
         current_mode = MODE_TARGET
+        return None
     elif cmd == b'U':
         current_mode = MODE_BOUNDARY_UD
+        return None
     elif cmd == b'L':
         current_mode = MODE_BOUNDARY_LR
+        return None
     elif cmd == b'F':
         current_mode = MODE_WAITING
+        return None
 
-    return
-
+    return None
 
 ############################主部分###########################
 while(True):
@@ -391,7 +469,8 @@ while(True):
         time.sleep_ms(500)
         break
     """
-    handle_uart_commands()
+    action = None
+    action = handle_uart_commands()
     if current_mode == MODE_WAITING:
         LED(1).on()
         LED(1).off()
