@@ -55,22 +55,10 @@ class order_manager:
         # 注入串口对象
         self.my_uart = uart
     
-    # 切换到目标识别模式
-    def mode_target(self):
-        self.my_uart.write("T")
+    # 获取目标的像素点坐标
+    def gain_coordinate(self):
+        self.my_uart.write("6")
 
-    # 切换到上下边界识别模式
-    def mode_boundary_ud(self):
-        self.my_uart.write("U")
-
-    # 切换到左右边界识别模式
-    def mode_boundary_lf(self):
-        self.my_uart.write("L")
-
-    # 当前模式结束
-    def finish(self):
-        self.my_uart.write("F")    
-        
 # 状态机解析串口数据类
 class UARTProtocol:
     def __init__(self, uart):
@@ -78,7 +66,6 @@ class UARTProtocol:
         self.my_uart = uart
         self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
         self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
-        self.angle_list = []  # 用于缓存矫正角度信息
         self.coordinate_buffer = [0, 0, 0, 0, 0]
         self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
@@ -115,8 +102,6 @@ class UARTProtocol:
                     # 完整帧接收完成
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
                     self.state_coordinate = 0  # 重置状态
-                    # 若解析成功清空缓冲区
-                    byte = self.my_uart.read(self.my_uart.any()) 
                     return (x, y)
                 else:
                     self.state_coordinate = 0  # 帧尾错误，重新同步
@@ -148,13 +133,11 @@ class UARTProtocol:
             elif self.state_angle == 3:
                 if byte == 0x5B:
                     self.angle_buffer[3] = byte
-                    # 记录接收到的角度值到列表中
-                    self.angle_list.append(self.angle_buffer[2])  
-                    self.state_angle = 0   
-                    # 若解析成功清空缓冲区
-                    byte = self.my_uart.read(self.my_uart.any())
+                    angle = self.angle_buffer[2]  
+                    self.state_coordinate = 0
+                    return angle
                 else:
-                    self.state_angle = 0
+                    self.state_coordinate = 0
 
         return None       
 

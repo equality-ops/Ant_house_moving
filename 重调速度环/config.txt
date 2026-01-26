@@ -2,38 +2,39 @@
 # speed大于170时
 ul_high_kp = 50.0
 ul_high_ki = 0.25
-ul_high_kd = 100.0
+ul_high_kd = 60.0
 ur_high_kp = 50.0
 ur_high_ki = 0.25
-ur_high_kd = 100.0
+ur_high_kd = 60.0
 md_high_kp = 50.0
 md_high_ki = 0.25
-md_high_kd = 100.0
+md_high_kd = 60.0
 # speed大于100，小于170时
 ul_mid_kp = 40.0
-ul_mid_ki = 0.16
+ul_mid_ki = 0.12
 ul_mid_kd = 50.0
-ur_mid_kp = 80.0
-ur_mid_ki = 0.16
-ur_mid_kd = 80.0
+ur_mid_kp = 40.0
+ur_mid_ki = 0.12
+ur_mid_kd = 50.0
 md_mid_kp = 40.0
-md_mid_ki = 0.16
-md_mid_kd = 80.0
+md_mid_ki = 0.12
+md_mid_kd = 50.0
 # speed小于100时
 ul_low_kp = 30.0
-ul_low_ki = 0.2
-ul_low_kd = 120.0
+ul_low_ki = 0.18
+ul_low_kd = 80.0
 ur_low_kp = 30.0
-ur_low_ki = 0.2
-ur_low_kd = 120.0
+ur_low_ki = 0.22
+ur_low_kd = 80.0
 md_low_kp = 30.0
 md_low_ki = 0.18
-md_low_kd = 120.0
+md_low_kd = 80.0
 
-angle_normal_kp = 20.0
+angle_normal_kp = 1.0
 angle_normal_ki = 0.0
-angle_normal_kd = 80.0
+angle_normal_kd = 10.0
 integral_limitmax = 14000
+pwm_compensate = 3000
 pwmout_limitmax = 7000
 angle_integral_limitmax = 1200
 angle_pwmout_limitmax = 600
@@ -51,8 +52,8 @@ car_radius = 10.5
 ###################【系数】####################
 # 速度转换系数
 speed_conversion_gamma = 1.6128514149772
-# 角速度负反馈系数（gyro_z顺时针为负，gkd应为正）
-gkd = 0.0
+# 角速度负反馈系数
+gkd = -0.1
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
@@ -67,10 +68,10 @@ uart_and_menu_T = 53
 boost_time_threshold = 30
 
 ###################【路径规划】####################
-plan_arrive_threshold = 0.8
+plan_arrive_threshold = 1.0
 plan_point_transition_T = 50
 # 减速段占据总路程的比例
-dec_ratio = 0.0
+dec_ratio = 0.3
 # 坐标误差修正量
 error_correct_x_50_1 = 1.5
 error_correct_y_50_1 = -4.2
@@ -91,9 +92,9 @@ error_correct_y_50_8 = 0.0
 
 ###################【速度规划】####################
 min_start_v = 70
-long_v_max = 120
+long_v_max = 330
 short_v_max = 300	
-dead_zone_v = 150
+dead_zone_v = 380
 
 ###################【视觉伺服】####################
 target_offset_x = 0.0
@@ -115,3 +116,4 @@ finish_threshold_y = 8
 servo_pwmout_limitmax = 75
 
 # 四个角的坐标分别为(0, 0), (0, 28), (28, 28), (28, 28)
+

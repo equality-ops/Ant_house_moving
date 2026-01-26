@@ -88,7 +88,7 @@ class PoseData:
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
         # 测试
-        self.encoder_data_ul_2 = 0    # type: int
+        # self.encoder_data_ul_2 = 0    # type: int
         # self.encoder_data_ur_2 = 0    # type: int
         # self.encoder_data_md_2 = 0    # type: int
         self.gyro_z_bias = 0.0       # type: float
@@ -186,6 +186,7 @@ class SpeedPositionPID(ControlPID):
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
         self.__integral_limitmax = self.flash_sys.find_value("integral_limitmax")      # type: float
+        self.__pwm_compensate = self.flash_sys.find_value("pwm_compensate")      # type: float
         self.__pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")          # type: float
         # 注入微分项滤波器对象
         self.diff_filter = diff_filter
@@ -222,6 +223,20 @@ class SpeedPositionPID(ControlPID):
             else:
                 coefficient = 1.0
 
+        # 设置pwm前馈
+        pwm_compensate = 0
+        
+        if self.target > 0:
+            if self.target <= 100:
+                pwm_compensate = self.__pwm_compensate  
+            elif self.target > 100 and self.target < 200:
+                pwm_compensate = self.__pwm_compensate - (self.target - 100) / 100 * self.__pwm_compensate             
+        elif self.target < 0:
+            if self.target >= -100:
+                pwm_compensate = -self.__pwm_compensate  
+            elif self.target < -100 and self.target > -200:
+                pwm_compensate = -self.__pwm_compensate + (abs(self.target) - 100) / 100 * self.__pwm_compensate
+
         # 根据误差大小调整积分项
         self.integral += coefficient * self.nowError
 
@@ -232,7 +247,7 @@ class SpeedPositionPID(ControlPID):
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
         # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative
+        self.pwm_output = pwm_compensate + self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative
         
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
