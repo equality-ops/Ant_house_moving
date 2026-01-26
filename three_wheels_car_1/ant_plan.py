@@ -94,7 +94,7 @@ class Plan:
         self.turn_angle_target = 0       # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
-        self.callibrate_angle = 0.0      # type: float # 摄像头识别到的矫正角度
+        self.calibrate_angle = 0.0      # type: float # 摄像头识别到的矫正角度
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float

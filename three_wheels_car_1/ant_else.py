@@ -58,10 +58,6 @@ class order_manager:
     # 切换到目标识别模式
     def mode_target(self):
         self.my_uart.write("T")
-    
-    # 在目标识别模式下获取目标的像素点坐标
-    def gain_coordinate(self):
-        self.my_uart.write("C")
 
     # 切换到上下边界识别模式
     def mode_boundary_ud(self):
@@ -70,10 +66,6 @@ class order_manager:
     # 切换到左右边界识别模式
     def mode_boundary_lf(self):
         self.my_uart.write("L")
-
-    # 上下或左右边界识别模式下获取角度
-    def gain_angle(self):
-        self.my_uart.write("A")
 
     # 当前模式结束
     def finish(self):
@@ -86,6 +78,7 @@ class UARTProtocol:
         self.my_uart = uart
         self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
         self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
+        self.angle_list = []  # 用于缓存矫正角度信息
         self.coordinate_buffer = [0, 0, 0, 0, 0]
         self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
@@ -153,11 +146,10 @@ class UARTProtocol:
             elif self.state_angle == 3:
                 if byte == 0x5B:
                     self.angle_buffer[3] = byte
-                    angle = self.angle_buffer[2]  
-                    self.state_coordinate = 0
-                    return angle
+                    self.angle_list.append(self.angle_buffer[2])  
+                    self.state_angle = 0   
                 else:
-                    self.state_coordinate = 0
+                    self.state_angle = 0
 
         return None       
 
