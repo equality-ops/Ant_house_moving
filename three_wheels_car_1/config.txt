@@ -34,7 +34,6 @@ angle_normal_kp = 20.0
 angle_normal_ki = 0.0
 angle_normal_kd = 80.0
 integral_limitmax = 14000
-pwm_compensate = 500
 pwmout_limitmax = 7000
 angle_integral_limitmax = 1200
 angle_pwmout_limitmax = 600

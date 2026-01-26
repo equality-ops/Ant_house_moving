@@ -115,6 +115,8 @@ class UARTProtocol:
                     # 完整帧接收完成
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
                     self.state_coordinate = 0  # 重置状态
+                    # 若解析成功清空缓冲区
+                    byte = self.my_uart.read(self.my_uart.any()) 
                     return (x, y)
                 else:
                     self.state_coordinate = 0  # 帧尾错误，重新同步
@@ -146,8 +148,11 @@ class UARTProtocol:
             elif self.state_angle == 3:
                 if byte == 0x5B:
                     self.angle_buffer[3] = byte
+                    # 记录接收到的角度值到列表中
                     self.angle_list.append(self.angle_buffer[2])  
                     self.state_angle = 0   
+                    # 若解析成功清空缓冲区
+                    byte = self.my_uart.read(self.my_uart.any())
                 else:
                     self.state_angle = 0
 
