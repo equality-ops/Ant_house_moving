@@ -182,7 +182,7 @@ MODE_TARGET = 0
 MODE_BOUNDARY_UD = 1 # U
 MODE_BOUNDARY_LR = 2 # L
 MODE_WAITING = 3
-current_mode = MODE_WAITING
+current_mode = MODE_TARGET
 
 # 上一次发送的坐标
 last_sent_x = 80
