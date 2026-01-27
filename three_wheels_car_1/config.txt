@@ -96,7 +96,7 @@ short_v_max = 300
 dead_zone_v = 150
 
 ###################【视觉伺服】####################
-servo_kp_x = 10.0
+servo_kp_x = 15.0
 servo_kd_x = 70.0
 servo_kp_y = 35.0
 servo_kd_y = 70.0

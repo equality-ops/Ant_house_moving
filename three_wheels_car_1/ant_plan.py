@@ -511,8 +511,7 @@ class VisionManager_2:
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
         self.servo_pid.compute_pid(x, y)
-        # 乘一个大于1的系数便于其快速向物体横移
-        self.target_rel_speed_x = self.servo_pid.pwm_output_x * 1.1
+        self.target_rel_speed_x = self.servo_pid.pwm_output_x
         self.target_rel_speed_y = self.servo_pid.pwm_output_y
         # 判断是否完成视觉伺服控制
         if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
