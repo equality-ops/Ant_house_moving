@@ -14,7 +14,7 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
-# sensor.set_auto_gain(False) # 自动增益
+sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(False)
 sensor.set_brightness(1000)
 # sensor.set_contrast(2) # 对比度
@@ -201,7 +201,7 @@ def detect_colors(img):
     red_blobs   = img.find_blobs(RED_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
     green_blobs   = img.find_blobs(GREEN_THRESHOLD,
-    pixels_threshold=40, area_threshold=40, merge=False)
+    pixels_threshold=30, area_threshold=30, merge=False)
     blue_blobs   = img.find_blobs(BLUE_THRESHOLD,
     pixels_threshold=30, area_threshold=30, merge=False)
 
@@ -233,13 +233,13 @@ def filter_all_blobs(blobs):
         # 过滤宽度过大的色块
         if (
             # 长大于120，宽大于100，直接舍弃
-            blob.w() > 140
-            or blob.h() > 110
+            blob.w() > 160
+            or blob.h() > 120
 
-            # 棕色规则：边长比超过3:1
+            # 棕色规则：边长比超过5:1
             or (
                 color == 'brown'
-                and ((blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()))
+                and ((blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()))
             )
 
             # 绿/蓝规则：边长比超过1.5:1

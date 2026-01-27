@@ -16,6 +16,17 @@ class Communicator:
         dy_coord = min(30, max(-30, y - self.last_sent_y))
         x_limited = self.last_sent_x + dx_coord
         y_limited = self.last_sent_y + dy_coord
+
+        if x_limited < 0:
+            x_limited = 0
+        elif x_limited > 160:
+            x_limited = 160
+
+        if y_limited < 0:
+            y_limited = 0
+        elif y_limited > 120:
+            y_limited = 120
+
         self.last_sent_x = x_limited
         self.last_sent_y = y_limited
         data = ustruct.pack("<BBBBB", 0xA5, 0xA6, x_limited, y_limited, 0x5B)
@@ -44,7 +55,7 @@ class ColorDetector:
     def detect_colors(self, img):
         brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
-        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=40,  area_threshold=40,  merge=False)
+        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
         blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
 
         all_blobs = []
@@ -62,8 +73,10 @@ class ColorDetector:
             min_pixels = 50 * (blob.density() + 0.5)
             if blob.pixels() < min_pixels:
                 continue
+            """
             if (blob.w() > 140 or blob.h() > 110):
                 continue
+            """
             if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
                 continue
             if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
@@ -106,7 +119,7 @@ class BoundaryDetector:
                 img.draw_rectangle(best_blob.rect(), color = (255, 0, 0), scale = 1, thickness = 1)
 
         if center >= 3:
-            l = img.get_regression([YELLOW_THRESHOLD])
+            l = img.get_regression([self.YELLOW_THRESHOLD])
             if l:
                 img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
                 theta = l.theta()
@@ -120,12 +133,12 @@ class BoundaryDetector:
 
 ######################棕色目标跟踪模块######################
 class BrownTracker:
-    MAX_LOST_FRAMES = 30
+    MAX_LOST_FRAMES = 20
 
     def __init__(self):
         self.C = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0],
                            [0,0,0,1,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1]])
-        self.R = np.diag([8, 8, 5, 5, 80, 80])
+        self.R = np.diag([5, 5, 2, 2, 50, 50])
 
         # 状态
         self.reset()
@@ -133,12 +146,12 @@ class BrownTracker:
     def reset(self):
         self.first_detected = False
         self.lost_count = 0
-        self.brown_visible_frames = 0
+        # self.brown_visible_frames = 0
         self.last_brown_area = 0
         self.last_cx, self.last_cy = 80, 60
         self.x_hat = np.array([80, 60, 30, 30, 2, 2], dtype=np.float)
         self.p = np.diag([100.0, 100.0, 50.0, 50.0, 300.0, 300.0])
-
+    """
     def is_valid(self, blob):
         current_area = blob.area()
         if self.last_brown_area > 0:
@@ -148,7 +161,7 @@ class BrownTracker:
         self.last_brown_area = current_area
         self.brown_visible_frames += 1
         return True
-
+    """
     def kalman_filter(self, Z, Ts, is_detected):
         if is_detected:
             Q_value = [2.0, 5.0, 2.0, 2.0, 50.0, 50.0]
@@ -196,7 +209,7 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
-# sensor.set_auto_gain(False) # 自动增益
+sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(False)
 sensor.set_brightness(1000)
 # sensor.set_contrast(2) # 对比度
@@ -290,29 +303,29 @@ while True:
         brown_detected = False
         if brown_blobs:
             target_brown = max(brown_blobs, key = lambda b:b.area())
-            if brown_tracker.is_valid(target_brown):
-                cx, cy = target_brown.cx(), target_brown.cy()
-                w, h = target_brown.w(), target_brown.h()
-                max_speed = 80
-                dx_raw = (cx - brown_tracker.last_cx) / Ts
-                dx = max(-max_speed, min(max_speed, dx_raw))
-                dy_raw = (cy - brown_tracker.last_cy) / Ts
-                dy = max(-max_speed, min(max_speed, dy_raw))
-                Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
+            # if not brown_tracker.first_detected: # or brown_tracker.is_valid(target_brown)
+            cx, cy = target_brown.cx(), target_brown.cy()
+            w, h = target_brown.w(), target_brown.h()
+            max_speed = 80
+            dx_raw = (cx - brown_tracker.last_cx) / Ts
+            dx = max(-max_speed, min(max_speed, dx_raw))
+            dy_raw = (cy - brown_tracker.last_cy) / Ts
+            dy = max(-max_speed, min(max_speed, dy_raw))
+            Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
                 # 如果是第一次检测到小熊，则初始化卡尔曼滤波器
-                if not brown_tracker.first_detected:
-                    # 初始化卡尔曼滤波器的状态和协方差矩阵
-                    brown_tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
-                    brown_tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
-                    brown_tracker.first_detected = True  # 标记为已首次检测过
-                brown_tracker.kalman_filter(Z, Ts, True)
-                brown_tracker.last_cx = cx
-                brown_tracker.last_cy = cy
-                brown_detected = True
-                img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
-                img.draw_cross(cx, cy, color=draw_colors['brown'])  # 画中心点
-        else:
-            brown_tracker.brown_visible_frames = 0
+            if not brown_tracker.first_detected:
+                # 初始化卡尔曼滤波器的状态和协方差矩阵
+                brown_tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
+                brown_tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+                brown_tracker.first_detected = True  # 标记为已首次检测过
+            brown_tracker.kalman_filter(Z, Ts, True)
+            brown_tracker.last_cx = cx
+            brown_tracker.last_cy = cy
+            brown_detected = True
+            img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
+            img.draw_cross(cx, cy, color=draw_colors['brown'])  # 画中心点
+        # else:
+            # brown_tracker.brown_visible_frames = 0
         # 无检测时预测
         if not brown_detected and brown_tracker.first_detected:
             if brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
