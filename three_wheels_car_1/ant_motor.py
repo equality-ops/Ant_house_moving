@@ -282,35 +282,51 @@ class AnglePositionPID(ControlPID):
 
 # 视觉伺服PD
 class ServoPID(ControlPID):
-    def __init__(self, flash_sys, kp: float = 0.0, kd: float = 0.0):
+    def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        self.kp = kp        # type: float
-        self.kd = kd        # type: float
-        self.target = 0     # type: float
-        self.actual = 0     # type: float
-        self.nowError = 0   # type: int
-        self.preError = 0   # type: int
-        self.derivative = 0 # type: int
-        self.pwm_output = 0 # type: int
+        self.servo_kp_x = self.flash_sys.find_value("servo_kp_x")        # type: float
+        self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")        # type: float
+        self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")        # type: float
+        self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
+        self.target_x = self.flash_sys.find_value("servo_target_x")     # type: int
+        self.actual_x = 0     # type: float
+        self.target_y = self.flash_sys.find_value("servo_target_y")     # type: float
+        self.actual_y = 0     # type: float
+        self.nowError_x = 0   # type: float
+        self.preError_x = 0   # type: float
+        self.nowError_y = 0   # type: float
+        self.preError_y = 0   # type: float
+        self.derivative_x = 0 # type: float
+        self.derivative_y = 0 # type: float
+        self.pwm_output_x = 0 # type: int
+        self.pwm_output_y = 0 # type: int
+        self.current_x = 0  # type: float
+        self.current_y = 0  # type: float
         self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
         
 
-    def compute_pid(self, target: int, actual: int):
-        self.target = target
-        self.actual = actual
-        self.preError = self.nowError
-        self.nowError = self.target - self.actual
+    def compute_pid(self, actual_x: int, actual_y: int):
+        self.actual_x = actual_x
+        self.actual_y = actual_y    
+        # 根据拟合公式计算出当前物体中心所在图片宽度与高度的实际距离(cm)
+        self.current_x = 1 / (2.99 * 0.0001 * self.actual_y + 7.72 * 0.001)  # type: float
+        self.current_y = (-24.824 * self.actual_y + 2826.1) / (self.actual_y + 26.881)  # type: float
+        self.preError_x = self.nowError_x
+        self.preError_y = self.nowError_y
+        self.nowError_x = -(self.target_x - self.actual_x) / 160 * self.current_x  # 将像素差转换为实际距离差(cm)
+        self.nowError_y = -(self.target_y - self.current_y)
         # 计算微分项
-        self.derivative = self.nowError - self.preError
-
+        self.derivative_x = self.nowError_x - self.preError_x
+        self.derivative_y = self.nowError_y - self.preError_y
         # 计算pwm_output
-        self.pwm_output = int(self.kp * self.nowError + self.kd * self.derivative)
+        self.pwm_output_x = int(self.servo_kp_x * self.nowError_x + self.servo_kd_x * self.derivative_x)
+        self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
 
         # pwm_output限幅
-        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
+        self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
+        self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
 
-        return self.pwm_output
 
 
 # 小车姿态控制

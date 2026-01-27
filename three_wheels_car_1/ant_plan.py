@@ -452,14 +452,13 @@ my_vision_manager_1 = VisionManager_1()
 
  # 视觉伺服控制类2(PD控制器)
 class VisionManager_2:
-    def __init__(self, flash_sys, beep, math, servo_pid_x, servo_pid_y, servo_yaw_fil, wireless):
+    def __init__(self, flash_sys, beep, math, servo_pid, servo_yaw_fil, wireless):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
         self.MATH = math
         # 注入伺服PD控制器对象
-        self.servo_pid_x = servo_pid_x
-        self.servo_pid_y = servo_pid_y
+        self.servo_pid = servo_pid
         # 注入蜂鸣器对象
         self.beep = beep
         # 注入航向角滤波器对象
@@ -472,8 +471,6 @@ class VisionManager_2:
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
         self.target_rel_speed_x = 0          # type: int   # 伺服控制目标x速度
         self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
-        self.target_x = self.flash_sys.find_value("target_x")         # type: int   # 物体中心点的目标像素x坐标
-        self.target_y = self.flash_sys.find_value("target_y")         # type: int   # 物体中心点的目标像素y坐标
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")   # type: int   # 最小视觉伺服速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")   # type: int   # 最小视觉伺服速度
         self.target_point = []					# 目标像素点
@@ -513,20 +510,20 @@ class VisionManager_2:
 
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
-        self.target_rel_speed_x = -self.servo_pid_x.compute_pid(self.target_x, x) * 2
-        self.target_rel_speed_y = self.servo_pid_y.compute_pid(self.target_y, y) 
+        self.servo_pid.compute_pid(x, y)
+        # 乘一个大于1的系数便于其快速向物体横移
+        self.target_rel_speed_x = self.servo_pid.pwm_output_x * 1.1
+        self.target_rel_speed_y = self.servo_pid.pwm_output_y
         # 判断是否完成视觉伺服控制
-        if abs(self.servo_pid_x.nowError) <= self.finish_threshold_x and abs(self.servo_pid_y.nowError) <= self.finish_threshold_y:
+        if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
-            self.beep.finish_servo()
+            # self.beep.finish_servo()
             self.finish_servo = True
         else:
-            if self.servo_pid_y.nowError < 30:
-                self.target_rel_speed_y = -self.max_rel_speed
-                
             # 计算综合目标速度和航向角
-            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+            # 目标速度放大两倍
+            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2)) * 2
             # 伺服速度限幅
             if self.target_rel_speed < self.min_rel_speed:
                 self.target_rel_speed = self.min_rel_speed

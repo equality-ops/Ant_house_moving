@@ -122,8 +122,7 @@ motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filte
 motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
 motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
 angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
-servo_pid_x = ant_motor.ServoPID(my_flash_sys, my_flash_sys.find_value("servo_kp_x"), my_flash_sys.find_value("servo_kd_x"))
-servo_pid_y = ant_motor.ServoPID(my_flash_sys, my_flash_sys.find_value("servo_kp_y"), my_flash_sys.find_value("servo_kd_y"))
+servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, pose_data, MATH, speed_x_fil, speed_y_fil, angle_pid,
@@ -140,7 +139,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, wireless)
 
 # 创建视觉伺服管理对象2
-my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid_x, servo_pid_y, servo_yaw_fil, wireless)
+my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, wireless)
 
 # 创建串口解析对象
 my_protocol = ant_else.UARTProtocol(my_uart6)
@@ -210,13 +209,13 @@ def test_odometer():
     global count
     if count == 0:
         if my_car.x_current <= 300.0 and test_stage == 0:
-            my_car.move_ctrl(300, 90, 0)
+            my_car.move_ctrl(300, 90, 90)
             return
         elif my_car.y_current >= -300.0 and test_stage == 1:
-            my_car.move_ctrl(300, 180, 0)
+            my_car.move_ctrl(300, 180, 180)
             return
         elif my_car.x_current >= 0.0 and test_stage == 2:
-            my_car.move_ctrl(300, -90, 0)
+            my_car.move_ctrl(300, -90, -90)
             return
         elif my_car.y_current <= 0.0 and test_stage == 3:
             my_car.move_ctrl(300, 0, 0)
@@ -252,7 +251,7 @@ def test_vision_servo_2():
     if my_state.state == my_state.NAVIGATE:
         counter += 1
         # 等待十秒后向openart发送指令获取目标点坐标
-        if counter >= 1000:
+        if counter >= 500:
             counter = 0
             my_state.state = my_state.SERVO
             # 切换为目标识别模式
@@ -265,9 +264,9 @@ def test_vision_servo_2():
             my_vision_manager_2.visual_servo_control(my_vision_manager_2.target_point[0], my_vision_manager_2.target_point[1])
             # 测试
             # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
-        if my_vision_manager_2.finish_servo == True:
-            my_state.state = my_state.STOP
-            my_vision_manager_2.finish_servo = False
+        # if my_vision_manager_2.finish_servo == True:
+            # my_state.state = my_state.STOP
+            # my_vision_manager_2.finish_servo = False
     elif my_state.state == my_state.STOP:
         # 测试
         wireless.send_str(f"now: {my_state.state}\n")
@@ -411,7 +410,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    # test_vision_servo_2()
+    test_vision_servo_2()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -426,14 +425,14 @@ def time_pit2_handler(time):
     # 用于无线串口调试
     
     # 视觉伺服
-    # wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid_x.actual, servo_pid_y.actual, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid_x.pwm_output, servo_pid_y.pwm_output))
+    wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # wireless.send_str(f"{my_vision_manager_2.target_rel_yaw}\r\n")
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
