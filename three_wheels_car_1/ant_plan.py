@@ -94,7 +94,9 @@ class Plan:
         self.real_target_x = 0.0         # type: float
         self.real_target_y = 0.0         # type: float
         self.target_yaw = 0.0            # type: float
-        self.turn_angle_target = 0.0     # type: float
+        # 测试，开始时给一点扰乱角度
+        self.turn_angle_target = 20.0     # type: float
+        # self.turn_angle_target = 0.0     # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
         self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
@@ -338,7 +340,6 @@ class Plan:
             first_point = self.path_points[0]
             self.set_target_point(first_point[0], first_point[1])
             self.compute_target_yaw()
-            self.compute_turn_angle_target(0)
 
         # 判断是否还有未到达的目标点
         if self.plan_data.aimed_point_index < len(self.path_points):
@@ -353,13 +354,13 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw()
-                    """测试
+        
                     # 判断是否需要进行左右边线矫正
-                    if abs(self.my_car.x_current) <= self.finished_distance and self.my_car.y_current >= 10.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
+                    if (abs(self.my_car.x_current - 30) <= 1.0 or abs(self.my_car.x_current - 270.0) <= 1.0) and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 270.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
                         self.if_finish_calibrate = False
                         self.if_gain_calibrate_angle = False
                         # 向openart发送左右边线校准指令获取校准角度
-                        self.my_order_manager.mode_calibrate_lf()
+                        self.my_order_manager.mode_boundary_lf()
                         # 测试
                         self.my_beep.test()
 
@@ -374,7 +375,6 @@ class Plan:
                             self.turn_angle_target = 0.0
                             # 测试
                             self.my_beep.test()
-                    """
 
             else:
                 # 判断此时是否完成路径过渡

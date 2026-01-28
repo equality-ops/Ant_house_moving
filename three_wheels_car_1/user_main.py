@@ -170,9 +170,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    # motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(250, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -292,7 +292,7 @@ def test_boundary_calibration():
             if len(my_protocol.angle_list) >= 10:
                 # 进行边线校准处理
                 my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
-                my_plan.turn_angle_target = my_plan.calibrate_angle
+                my_plan.turn_angle_target = my_plan.calibrate_angle 
                 my_order_manager.finish()
                 my_state.state = my_state.STOP
                 my_plan.if_gain_calibrate_angle = True
@@ -300,7 +300,7 @@ def test_boundary_calibration():
                 my_beep.test()
                 for i in range(0, len(my_protocol.angle_list)):
                     wireless.send_str(f"{my_protocol.angle_list[i]}\n")
-                wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+                wireless.send_str(f"average_angle: {my_plan.turn_angle_target}\n")
                 my_protocol.angle_list.clear()
 
 
@@ -308,17 +308,17 @@ def test_boundary_calibration():
 def test_moving_boundary_calibration():
     if my_plan.if_gain_calibrate_angle == False:
         my_protocol.angle_receive()
-        if len(my_protocol.angle_list) >= 5:
+        if len(my_protocol.angle_list) >= 1:
             # 进行边线校准处理
             my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
-            my_plan.turn_angle_target = my_plan.calibrate_angle
+            my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
             my_order_manager.finish()
             my_plan.if_gain_calibrate_angle = True
             # 测试
             my_beep.test()
             for i in range(0, len(my_protocol.angle_list)):
                 wireless.send_str(f"{my_protocol.angle_list[i]}\n")
-            wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+            wireless.send_str(f"average_angle: {my_plan.turn_angle_target}\n")
             my_protocol.angle_list.clear()
 
 # 测试openart不同模式切换函数
@@ -411,7 +411,7 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    #show_speed_PID_test()
+    # how_speed_PID_test()
     
     # 测试伺服控制函数
     # test_servo_control()
@@ -430,7 +430,7 @@ def time_pit3_handler(time) -> None:
 
     
     # 全向定位测试程序
-    my_plan.navigate([[150.0, 150.0], [0.0, 300.0], [150.0, 150.0], [0, 0]])
+    my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -438,6 +438,7 @@ def time_pit3_handler(time) -> None:
 
     # 边线校准测试程序
     # test_boundary_calibration()
+    test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
     # test_change_mode()
@@ -469,6 +470,9 @@ def time_pit2_handler(time):
     # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    
+    # 测试边线校准
+    # wireless.send_str(f"{my_plan.calibrate_angle}\n")
     
     # 速度规划
     # wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
