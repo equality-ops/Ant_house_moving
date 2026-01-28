@@ -35,8 +35,8 @@ class beep:
         elif self.beep_state == self.BEEP_ON:
             return
 
-    # 检测是否完成视觉伺服的蜂鸣器提示函数  
-    def finish_servo(self) -> None:
+    # 蜂鸣器测试函数(响一声，持续50ms)
+    def test(self) -> None:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON
             self.beep.high()

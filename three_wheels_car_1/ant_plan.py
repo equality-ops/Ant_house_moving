@@ -6,7 +6,6 @@ class StateMachine:
         self.NAVIGATE = 1    # 导航状态
         self.SERVO = 2       # 视觉伺服状态
         self.MOVE = 3        # 搬运状态
-        self.CALIBRATE = 4   # 校准状态
         self.STOP = 5        # 停止状态
         self.state = self.NAVIGATE  # 初始状态为导航状态
 
@@ -47,7 +46,7 @@ class Plan_data:
 
 
 class Plan:
-    def __init__(self, flash_sys, plan_data: Plan_data, math, car, wireless):
+    def __init__(self, flash_sys, plan_data: Plan_data, math, car, order_manager, wireless, beep):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -58,6 +57,10 @@ class Plan:
         self.my_car = car
         # 注入无线通信对象
         self.my_wireless = wireless
+        # 注入指令管理对象
+        self.my_order_manager = order_manager
+        # 注入蜂鸣器对象
+        self.my_beep = beep
 
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: int  # 最小制动速度
@@ -91,10 +94,10 @@ class Plan:
         self.real_target_x = 0.0         # type: float
         self.real_target_y = 0.0         # type: float
         self.target_yaw = 0.0            # type: float
-        self.turn_angle_target = 0       # type: float
+        self.turn_angle_target = 0.0     # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
-        self.calibrate_angle = 0.0      # type: float # 摄像头识别到的矫正角度
+        self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
@@ -107,6 +110,8 @@ class Plan:
         self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
+        self.if_gain_calibrate_angle = True  # type: bool  # 判断是否获取校准角度标志位
+        self.if_finish_calibrate = True       # type: bool  # 判断是否完成校准标志位
         
 
     def _ease_out_quad(self, t):
@@ -283,6 +288,7 @@ class Plan:
                 self.target_yaw = math.atan(dx / dy) * 180.0 / self.MATH.PI - 180.0
             else:
                 self.target_yaw = math.atan(dx / dy) * 180.0 / self.MATH.PI
+                
     # 计算小车需要转向的角度（一般为0）
     def compute_turn_angle_target(self, turn_angle_target: float):
         self.turn_angle_target = turn_angle_target
@@ -331,7 +337,27 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw()
-                    self.compute_turn_angle_target(0.0)
+                    # 判断是否需要进行左右边线矫正
+                    if abs(self.my_car.x_current) <= self.finished_distance and self.my_car.y_current >= 10.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
+                        self.if_finish_calibrate = False
+                        self.if_gain_calibrate_angle = False
+                        # 向openart发送左右边线校准指令获取校准角度
+                        self.my_order_manager.mode_calibrate_lf()
+                        # 测试
+                        self.my_beep.test()
+
+                    if self.if_finish_calibrate == False:
+                        # 判断是否完成校准（校准误差不超过2度）
+                        if self.if_gain_calibrate_angle == True and abs(self.my_car.angle_pid.nowError) <= 1.0:
+                            self.if_finish_calibrate = True
+                            # 向openart发送停止校准指令
+                            self.my_order_manager.finish()
+                            # 重置小车角度及目标转角
+                            self.my_car.now_yaw = 0.0
+                            self.turn_angle_target = 0.0
+                            # 测试
+                            self.my_beep.test()
+
             else:
                 # 判断此时是否完成路径过渡
                 if self.transition_flag == False:
@@ -343,7 +369,6 @@ class Plan:
                         self.set_target_point(next_point[0], next_point[1])
                         # 计算目标航向角
                         self.compute_target_yaw()
-                        self.compute_turn_angle_target(0.0)
                     else:
                         self.stop()
                         self.dec_speed_index = 0
@@ -517,7 +542,7 @@ class VisionManager_2:
         if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
-            # self.beep.finish_servo()
+            self.beep.test()
             self.finish_servo = True
         else:
             # 计算综合目标速度和航向角

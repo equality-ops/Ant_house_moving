@@ -256,7 +256,7 @@ def test_vision_servo_2():
             my_state.state = my_state.SERVO
             # 切换为目标识别模式
             my_order_manager.mode_target()
-            my_beep.finish_servo()
+            my_beep.test()
     elif my_state.state == my_state.SERVO:
         # 接收openart发送的目标点坐标
         my_vision_manager_2.target_point = my_protocol.coordinate_receive()
@@ -264,9 +264,9 @@ def test_vision_servo_2():
             my_vision_manager_2.visual_servo_control(my_vision_manager_2.target_point[0], my_vision_manager_2.target_point[1])
             # 测试
             # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
-        # if my_vision_manager_2.finish_servo == True:
-            # my_state.state = my_state.STOP
-            # my_vision_manager_2.finish_servo = False
+        if my_vision_manager_2.finish_servo == True:
+            my_state.state = my_state.STOP
+            my_vision_manager_2.finish_servo = False
     elif my_state.state == my_state.STOP:
         # 测试
         wireless.send_str(f"now: {my_state.state}\n")
@@ -277,28 +277,48 @@ def test_boundary_calibration():
     if my_state.state == my_state.NAVIGATE:
         counter += 1
         # 等待十秒后向openart发送指令获取边界角度
-        if counter >= 1000:
+        if counter >= 500:
             counter = 0
-            my_state.state = my_state.CALIBRATE
+            my_plan.if_finish_calibrate = False
             # 切换为上下边界识别模式
             # my_order_manager.mode_boundary_ud()
             # 切换为左右边界识别模式
             my_order_manager.mode_boundary_lf()
             # 测试是否成功发送指令
-            my_beep.finish_servo()
-    elif my_state.state == my_state.CALIBRATE:
+            my_beep.test()
+
+        if my_plan.if_finish_calibrate == False:
+            my_protocol.angle_receive()
+            if len(my_protocol.angle_list) >= 10:
+                # 进行边线校准处理
+                my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+                my_order_manager.finish()
+                my_protocol.angle_list.clear()
+                my_state.state = my_state.STOP
+                my_plan.if_finish_calibrate = True
+                # 测试
+                my_beep.test()
+                for i in range(0, len(my_protocol.angle_list)):
+                    wireless.send_str(f"{my_protocol.angle_list[i]}\n")
+                wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+
+
+# 移动中的边线校准测试函数
+def test_moving_boundary_calibration():
+    if my_plan.if_gain_calibrate_angle == False:
         my_protocol.angle_receive()
-        if len(my_protocol.angle_list) >= 10:
+        if len(my_protocol.angle_list) >= 5:
             # 进行边线校准处理
             my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+            my_plan.turn_angle_target = my_plan.calibrate_angle
             my_order_manager.finish()
+            my_protocol.angle_list.clear()
+            my_plan.if_gain_calibrate_angle = True
             # 测试
-            my_beep.finish_servo()
+            my_beep.test()
             for i in range(0, len(my_protocol.angle_list)):
                 wireless.send_str(f"{my_protocol.angle_list[i]}\n")
             wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
-            my_protocol.angle_list.clear()
-            my_state.state = my_state.STOP
 
 # 测试openart不同模式切换函数
 def test_change_mode():
@@ -310,27 +330,27 @@ def test_change_mode():
             counter = 0
             my_state.state = my_state.CALIBRATE
             my_order_manager.mode_boundary_ud()
-            my_beep.finish_servo()
+            my_beep.test()
     elif my_state.state == my_state.CALIBRATE:
         counter += 1
         if counter >= 50:
             counter = 0
             my_state.state = my_state.SERVO
             my_order_manager.mode_target()
-            my_beep.finish_servo()
+            my_beep.test()
     elif my_state.state == my_state.SERVO:
         counter += 1
         if counter >= 50:
             counter = 0
             my_state.state = my_state.STOP
             my_order_manager.finish()
-            my_beep.finish_servo()
+            my_beep.test()
     elif my_state.state == my_state.STOP:
         counter += 1
         if counter >= 50:
             counter = 0
             my_state.state = my_state.NAVIGATE
-            my_beep.finish_servo()
+            my_beep.test()
 
 """ 定时器类 """
 # 定时器1中断回调函数
