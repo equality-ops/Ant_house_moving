@@ -95,6 +95,9 @@ my_flash_sys.phase_config()
 # 创建数学常量对象
 MATH = ant_else.Math()
 
+# 创建指令管理对象
+my_order_manager = ant_else.order_manager(my_uart6)
+
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
 
@@ -136,16 +139,13 @@ my_state = ant_plan.StateMachine()
 plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, wireless)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, wireless, my_beep)
 
 # 创建视觉伺服管理对象2
 my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, wireless)
 
 # 创建串口解析对象
 my_protocol = ant_else.UARTProtocol(my_uart6)
-
-# 创建指令管理对象
-my_order_manager = ant_else.order_manager(my_uart6)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -212,7 +212,7 @@ def test_odometer():
             my_car.move_ctrl(300, 90, 90)
             return
         elif my_car.y_current >= -300.0 and test_stage == 1:
-            my_car.move_ctrl(300, 180, 180)
+            my_car.move_ctrl(300, 180, 90)
             return
         elif my_car.x_current >= 0.0 and test_stage == 2:
             my_car.move_ctrl(300, -90, -90)
@@ -279,7 +279,7 @@ def test_boundary_calibration():
         # 等待十秒后向openart发送指令获取边界角度
         if counter >= 500:
             counter = 0
-            my_plan.if_finish_calibrate = False
+            my_plan.if_gain_calibrate_angle = False
             # 切换为上下边界识别模式
             # my_order_manager.mode_boundary_ud()
             # 切换为左右边界识别模式
@@ -287,20 +287,21 @@ def test_boundary_calibration():
             # 测试是否成功发送指令
             my_beep.test()
 
-        if my_plan.if_finish_calibrate == False:
+        if my_plan.if_gain_calibrate_angle == False:
             my_protocol.angle_receive()
             if len(my_protocol.angle_list) >= 10:
                 # 进行边线校准处理
                 my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+                my_plan.turn_angle_target = my_plan.calibrate_angle
                 my_order_manager.finish()
-                my_protocol.angle_list.clear()
                 my_state.state = my_state.STOP
-                my_plan.if_finish_calibrate = True
+                my_plan.if_gain_calibrate_angle = True
                 # 测试
                 my_beep.test()
                 for i in range(0, len(my_protocol.angle_list)):
                     wireless.send_str(f"{my_protocol.angle_list[i]}\n")
                 wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+                my_protocol.angle_list.clear()
 
 
 # 移动中的边线校准测试函数
@@ -312,13 +313,13 @@ def test_moving_boundary_calibration():
             my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
             my_plan.turn_angle_target = my_plan.calibrate_angle
             my_order_manager.finish()
-            my_protocol.angle_list.clear()
             my_plan.if_gain_calibrate_angle = True
             # 测试
             my_beep.test()
             for i in range(0, len(my_protocol.angle_list)):
                 wireless.send_str(f"{my_protocol.angle_list[i]}\n")
             wireless.send_str(f"average_angle: {my_plan.calibrate_angle}\n")
+            my_protocol.angle_list.clear()
 
 # 测试openart不同模式切换函数
 def test_change_mode():
@@ -328,10 +329,10 @@ def test_change_mode():
         # 等待十秒后向openart发送指令获取边界角度
         if counter >= 1000:
             counter = 0
-            my_state.state = my_state.CALIBRATE
+            my_state.state = my_state.MOVE
             my_order_manager.mode_boundary_ud()
             my_beep.test()
-    elif my_state.state == my_state.CALIBRATE:
+    elif my_state.state == my_state.MOVE:
         counter += 1
         if counter >= 50:
             counter = 0
@@ -388,7 +389,7 @@ def time_pit1_handler(time):
     #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    # test_odometer()
     
     # test_simble_displacement()
     
@@ -396,7 +397,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -415,6 +416,9 @@ def time_pit1_handler(time):
     # 测试伺服控制函数
     # test_servo_control()
     
+    # 测试边线矫正程序
+    # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
+
     # 设置电机pwm输出
     my_car.set_motor_pwm()
 
@@ -426,11 +430,11 @@ def time_pit3_handler(time) -> None:
 
     
     # 全向定位测试程序
-    # my_plan.navigate([[50.0, 0.0]])
+    my_plan.navigate([[150.0, 150.0], [0.0, 300.0], [150.0, 150.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo_2()
+    # test_vision_servo_2()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -445,7 +449,7 @@ def time_pit2_handler(time):
     # 用于无线串口调试
     
     # 视觉伺服
-    wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
+    # wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # wireless.send_str(f"{my_vision_manager_2.target_rel_yaw}\r\n")
     # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
     
@@ -464,7 +468,7 @@ def time_pit2_handler(time):
     # 里程计：
     # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # 速度规划
     # wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))

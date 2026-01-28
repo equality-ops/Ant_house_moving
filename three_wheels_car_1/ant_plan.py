@@ -151,7 +151,7 @@ class Plan:
                 self.elapsed_time += 1
                 if self.elapsed_time <= self.boost_time_threshold:
                     # 计算目标速度
-                    self.v_target = self.dead_zone_v - int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.dead_zone_v - self.v_max))
+                    self.v_target = self.min_start_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.v_max - self.min_start_v))
                 else:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
@@ -237,13 +237,29 @@ class Plan:
         # 实际距离坐标点的总距离
         self.total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
         # 根据总距离设置最大速度
-        if self.total_distance >= 5.0:
+        if self.total_distance >= 30.0:
            self.v_max = self.long_v_max
         else:
           self.v_max = self.short_v_max
+        # 依据总距离计算里程计系数
+        if self.total_distance >= 150.0:
+            self.my_car.alpha_x = 0.967048
+        elif self.total_distance >= 100.0:
+            self.my_car.alpha_x = 0.954026
+        elif self.total_distance >= 45.0:
+            self.my_car.alpha_x = 0.944249
+
+        if self.total_distance >= 280.0:
+            self.my_car.alpha_y = 0.950677
+        elif self.total_distance >= 230.0:
+            self.my_car.alpha_y = 0.951949
+        elif self.total_distance >= 130.0:
+            self.my_car.alpha_y = 0.946843
+        elif self.total_distance >= 45.0:
+            self.my_car.alpha_y = 0.937625
         # 计算减速距离
         # 测试，设置为恒定距离
-        self.dec_distance = 20.0
+        self.dec_distance = 15.0
         self.build_dec_speed_list(0)
         self.arrive_flag = False
         # 测试
@@ -337,6 +353,7 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw()
+                    """测试
                     # 判断是否需要进行左右边线矫正
                     if abs(self.my_car.x_current) <= self.finished_distance and self.my_car.y_current >= 10.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
                         self.if_finish_calibrate = False
@@ -357,6 +374,7 @@ class Plan:
                             self.turn_angle_target = 0.0
                             # 测试
                             self.my_beep.test()
+                    """
 
             else:
                 # 判断此时是否完成路径过渡
@@ -377,8 +395,8 @@ class Plan:
             self.stop()
             # 测试
             # self.my_wireless.send_str("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            # self.my_car.x_current = self.ideal_target_x
-            # self.my_car.y_current = self.ideal_target_y
+            self.my_car.x_current = self.ideal_target_x
+            self.my_car.y_current = self.ideal_target_y
             # 用于测试
             # self.if_set_path = False
             self.finish_navigate = True

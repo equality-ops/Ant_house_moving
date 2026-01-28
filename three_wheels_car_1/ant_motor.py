@@ -436,17 +436,11 @@ class CarPose:
 
         # 计算小车当前位置，根据运动方向选择补偿系数
         # 测试
-        # self.x_current += self.real_speed_x * 0.899303  巡航速度为330  沿x轴正方向
+        # self.x_current += self.real_speed_x * 0.967048  距离超过150， 巡航速度为350  沿x轴正方向
         # self.y_current += self.real_speed_y * 0.928489  巡航速度为330  沿y轴正方向
         # self.y_current += self.real_speed_y * 0.932707  巡航速度为330  沿y轴负方向
-        if self.real_speed_x >= 0:
-            self.x_current += self.real_speed_x * 0.899303
-        else:
-            self.x_current += self.real_speed_x * 1.000000
-        if self.real_speed_y >= 0:
-            self.y_current += self.real_speed_y * 0.928489
-        else:   
-            self.y_current += self.real_speed_y * 0.932707
+        self.x_current += self.real_speed_x * self.alpha_x
+        self.y_current += self.real_speed_y * self.alpha_y
 
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
