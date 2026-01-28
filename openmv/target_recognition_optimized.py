@@ -96,6 +96,9 @@ class ColorDetector:
 ########################边界检测模块######################
 class BoundaryDetector:
     YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
+    SCREEN_WIDTH = 160
+    MIDDLE_X = SCREEN_WIDTH // 2  # 80
+    X_TOLERANCE = 5
 
     # 边界识别
     def boundary_correction(self, mode, img):
@@ -119,15 +122,24 @@ class BoundaryDetector:
                 img.draw_rectangle(best_blob.rect(), color = (255, 0, 0), scale = 1, thickness = 1)
 
         if center >= 3:
-            l = img.get_regression([self.YELLOW_THRESHOLD])
+            l = img.get_regression([self.YELLOW_THRESHOLD], robust = True)
             if l:
                 img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
-                theta = l.theta()
-                if theta > 90:
-                    angle = -(theta - 180)
+                x1, y1, x2, y2 = l.line()
+                if y1 > y2:
+                    bottom_x, bottom_y = x1, y1
                 else:
-                    angle = -theta
-            return angle
+                    bottom_x, bottom_y = x2, y2
+                
+                if abs(bottom_x - self.MIDDLE_X) <= self.X_TOLERANCE:
+                    theta = l.theta()
+                    if theta > 90:
+                        angle = theta - 180
+                    else:
+                        angle = theta
+                return angle
+            else:
+                return None
         else:
             return None
 
@@ -232,7 +244,7 @@ MODE_TARGET = 0
 MODE_BOUNDARY_UD = 1
 MODE_BOUNDARY_LR = 2
 MODE_WAITING = 3
-current_mode = MODE_TARGET
+current_mode = MODE_WAITING
 
 # 时间
 clock = time.clock()
