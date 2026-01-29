@@ -170,9 +170,9 @@ def voltage_detect(limit_min: float) -> None:
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(250, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(550, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(550, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(550, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -247,7 +247,7 @@ def test_servo_control():
 
 # 视觉伺服测试函数
 def test_vision_servo_2():
-    # global counter
+    global counter
     if my_state.state == my_state.NAVIGATE:
         # counter += 1
         my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]])
@@ -267,11 +267,17 @@ def test_vision_servo_2():
             # 测试
             # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
         if my_vision_manager_2.finish_servo == True:
-            my_car.x_current = 150.0
-            my_car.y_current = 122.6
-            my_order_manager.finish()
-            my_state.state = my_state.RETURN
-            my_vision_manager_2.finish_servo = False
+            counter += 1
+            # 过渡400ms防止惯性过冲
+            if counter >= 40:
+                counter = 0
+                my_car.x_current = 150.0
+                my_car.y_current = 122.6
+                my_order_manager.finish()
+                my_state.state = my_state.RETURN
+                my_vision_manager_2.finish_servo = False
+                # 测试
+                my_beep.test()
     elif my_state.state == my_state.RETURN:
             my_plan.navigate([[0.0, 0.0]])
             if my_plan.finish_navigate == True:
@@ -374,21 +380,27 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 240:
+    if motor_ul_pid.target >= 350:
+        motor_ul_pid.set_pid_params(pid_data.ul_extreme_kp, pid_data.ul_extreme_ki, pid_data.ul_extreme_kd)
+    elif motor_ul_pid.target >= 240:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
     elif motor_ul_pid.target > 100:
         motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 240:
+    if motor_ur_pid.target >= 350:
+        motor_ur_pid.set_pid_params(pid_data.ur_extreme_kp, pid_data.ur_extreme_ki, pid_data.ur_extreme_kd)
+    elif motor_ur_pid.target >= 240:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
     elif motor_ur_pid.target > 100:
         motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 240:
+    if motor_md_pid.target >= 350:
+        motor_md_pid.set_pid_params(pid_data.md_extreme_kp, pid_data.md_extreme_ki, pid_data.md_extreme_kd)
+    elif motor_md_pid.target >= 240:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     elif motor_md_pid.target > 100:
         motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
@@ -425,7 +437,7 @@ def time_pit1_handler(time):
     # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # how_speed_PID_test()
+    # show_speed_PID_test()
     
     # 测试伺服控制函数
     test_servo_control()
@@ -472,7 +484,7 @@ def time_pit2_handler(time):
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
     # wireless.send_str(f"{angle_pid.pwm_output}\n")
@@ -483,7 +495,7 @@ def time_pit2_handler(time):
     # 里程计：
     # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # 测试边线校准
     # wireless.send_str(f"{my_plan.calibrate_angle}\n")

@@ -1,5 +1,16 @@
 ###################【PID参数】####################
-# speed大于240时
+# speed大于350时
+ul_extreme_kp = 55.0
+ul_extreme_ki = 0.24
+ul_extreme_kd = 40.0
+ur_extreme_kp = 55.0
+ur_extreme_ki = 0.24
+ur_extreme_kd = 40.0
+md_extreme_kp = 55.0
+md_extreme_ki = 0.24
+md_extreme_kd = 40.0
+
+# speed大于240，小于350时
 ul_high_kp = 45.0
 ul_high_ki = 0.175
 ul_high_kd = 50.0
@@ -38,9 +49,9 @@ pwmout_limitmax = 6000
 angle_integral_limitmax = 1200
 angle_pwmout_limitmax = 600
 # A设置为B的2倍左右
-A = 100
+A = 200
 # B大致为最大静差的1.5倍
-B = 50
+B = 80
 kp_mid = 0.9
 kp_low = 0.7
 
@@ -91,7 +102,7 @@ error_correct_y_50_8 = 0.0
 
 ###################【速度规划】####################
 min_start_v = 100
-long_v_max = 350
+long_v_max = 550
 short_v_max = 300	
 dead_zone_v = 150
 

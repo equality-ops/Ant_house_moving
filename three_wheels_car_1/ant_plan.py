@@ -262,7 +262,7 @@ class Plan:
             self.my_car.alpha_y = 0.937625
         # 计算减速距离
         # 测试，设置为恒定距离
-        self.dec_distance = 15.0
+        self.dec_distance = 20.0
         self.build_dec_speed_list(0)
         self.arrive_flag = False
         # 测试
@@ -560,7 +560,7 @@ class VisionManager_2:
         if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0
             self.target_rel_yaw = 0.0
-            self.beep.test()
+            # self.beep.test()
             self.finish_servo = True
         else:
             # 计算综合目标速度和航向角

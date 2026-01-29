@@ -5,6 +5,16 @@ class PID_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
 
+        self.ul_extreme_kp = self.flash_sys.find_value("ul_extreme_kp")  # type: float
+        self.ul_extreme_ki = self.flash_sys.find_value("ul_extreme_ki")  # type: float
+        self.ul_extreme_kd = self.flash_sys.find_value("ul_extreme_kd")  # type: float
+        self.ur_extreme_kp = self.flash_sys.find_value("ur_extreme_kp")  # type: float
+        self.ur_extreme_ki = self.flash_sys.find_value("ur_extreme_ki")  # type: float
+        self.ur_extreme_kd = self.flash_sys.find_value("ur_extreme_kd")  # type: float
+        self.md_extreme_kp = self.flash_sys.find_value("md_extreme_kp")  # type: float
+        self.md_extreme_ki = self.flash_sys.find_value("md_extreme_ki")  # type: float
+        self.md_extreme_kd = self.flash_sys.find_value("md_extreme_kd")  # type: float
+        
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
         self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
@@ -393,9 +403,9 @@ class CarPose:
         # 采集周期，单位：秒
         self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
         # 测试一个电机的里程
-        self.encouder_ul = 0.0
-        self.encouder_ur = 0.0
-        self.encouder_md = 0.0
+        # self.encouder_ul = 0.0
+        # self.encouder_ur = 0.0
+        # self.encouder_md = 0.0
         
     # 小车姿态更新
     def update_pose(self):
@@ -405,11 +415,11 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
-        self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
-        self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
+        # self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
+        # self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
+        # self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
         # 计算小车当前x,y速度（互补融合）
-        # car_speed_x, car_speed_y 单位：厘米每2ms
+        # car_speed_x, car_speed_y 单位：厘米每5ms
         self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
         # 对小车x,y速度卡尔曼滤波
