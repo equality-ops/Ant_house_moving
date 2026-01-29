@@ -96,15 +96,15 @@ short_v_max = 300
 dead_zone_v = 150
 
 ###################【视觉伺服】####################
-servo_kp_x = 15.0
+servo_kp_x = 8.0
 servo_kd_x = 70.0
 servo_kp_y = 35.0
 servo_kd_y = 70.0
 servo_target_x = 80
-servo_target_y = 15.0
+servo_target_y = 5.0
 min_rel_speed = 80
 max_rel_speed = 300
-finish_threshold_x = 6
+finish_threshold_x = 2
 finish_threshold_y = 4
 servo_pwmout_limitmax = 75
 

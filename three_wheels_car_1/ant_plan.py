@@ -6,6 +6,7 @@ class StateMachine:
         self.NAVIGATE = 1    # 导航状态
         self.SERVO = 2       # 视觉伺服状态
         self.MOVE = 3        # 搬运状态
+        self.RETURN = 4		 # 停止状态
         self.STOP = 5        # 停止状态
         self.state = self.NAVIGATE  # 初始状态为导航状态
 
@@ -95,8 +96,8 @@ class Plan:
         self.real_target_y = 0.0         # type: float
         self.target_yaw = 0.0            # type: float
         # 测试，开始时给一点扰乱角度
-        self.turn_angle_target = 20.0     # type: float
-        # self.turn_angle_target = 0.0     # type: float
+        # self.turn_angle_target = 20.0     # type: float
+        self.turn_angle_target = 0.0     # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
         self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
@@ -356,7 +357,7 @@ class Plan:
                     self.compute_target_yaw()
         
                     # 判断是否需要进行左右边线矫正
-                    if (abs(self.my_car.x_current - 30) <= 1.0 or abs(self.my_car.x_current - 270.0) <= 1.0) and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 270.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
+                    if (self.ideal_target_x < 0.0 or self.ideal_target_x > 300.0) and (abs(self.my_car.x_current - 30) <= 1.0 or abs(self.my_car.x_current - 270.0) <= 1.0) and self.my_car.y_current >= 50.0 and self.my_car.y_current <= 250.0 and self.if_finish_calibrate == True and self.if_gain_calibrate_angle == True:
                         self.if_finish_calibrate = False
                         self.if_gain_calibrate_angle = False
                         # 向openart发送左右边线校准指令获取校准角度
@@ -397,8 +398,7 @@ class Plan:
             # self.my_wireless.send_str("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
             self.my_car.x_current = self.ideal_target_x
             self.my_car.y_current = self.ideal_target_y
-            # 用于测试
-            # self.if_set_path = False
+            self.if_set_path = False
             self.finish_navigate = True
 
 
@@ -554,7 +554,7 @@ class VisionManager_2:
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self, x: int, y: int):
         self.servo_pid.compute_pid(x, y)
-        self.target_rel_speed_x = self.servo_pid.pwm_output_x
+        self.target_rel_speed_x = self.servo_pid.pwm_output_x * 1.2
         self.target_rel_speed_y = self.servo_pid.pwm_output_y
         # 判断是否完成视觉伺服控制
         if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:

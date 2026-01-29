@@ -238,7 +238,7 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, my_vision_manager_2.target_rel_turn_angle)
@@ -247,12 +247,14 @@ def test_servo_control():
 
 # 视觉伺服测试函数
 def test_vision_servo_2():
-    global counter
+    # global counter
     if my_state.state == my_state.NAVIGATE:
-        counter += 1
+        # counter += 1
+        my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]])
         # 等待十秒后向openart发送指令获取目标点坐标
-        if counter >= 500:
-            counter = 0
+        if my_plan.finish_navigate == True:
+            # counter = 0
+            my_plan.finish_navigate == False
             my_state.state = my_state.SERVO
             # 切换为目标识别模式
             my_order_manager.mode_target()
@@ -265,12 +267,18 @@ def test_vision_servo_2():
             # 测试
             # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
         if my_vision_manager_2.finish_servo == True:
-            my_state.state = my_state.STOP
+            my_car.x_current = 150.0
+            my_car.y_current = 122.6
+            my_order_manager.finish()
+            my_state.state = my_state.RETURN
             my_vision_manager_2.finish_servo = False
-    elif my_state.state == my_state.STOP:
-        # 测试
-        wireless.send_str(f"now: {my_state.state}\n")
+    elif my_state.state == my_state.RETURN:
+            my_plan.navigate([[0.0, 0.0]])
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.STOP
 
+                
 # 边线校准测试函数
 def test_boundary_calibration():
     global counter
@@ -310,10 +318,16 @@ def test_moving_boundary_calibration():
         my_protocol.angle_receive()
         if len(my_protocol.angle_list) >= 1:
             # 进行边线校准处理
-            my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
-            my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
+            # my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+            # my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
+            # 进行里程计矫正处理
+            if my_car.x_current < 150.0:
+                my_car.x_current = 0.0
+            else:
+                my_car.x_current = 300.0
             my_order_manager.finish()
             my_plan.if_gain_calibrate_angle = True
+            
             # 测试
             my_beep.test()
             for i in range(0, len(my_protocol.angle_list)):
@@ -397,7 +411,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -414,7 +428,7 @@ def time_pit1_handler(time):
     # how_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     # 测试边线矫正程序
     # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
@@ -430,11 +444,11 @@ def time_pit3_handler(time) -> None:
 
     
     # 全向定位测试程序
-    my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
+    # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    # test_vision_servo_2()
+    test_vision_servo_2()
 
     # 边线校准测试程序
     # test_boundary_calibration()
