@@ -461,11 +461,9 @@ def time_pit3_handler(time) -> None:
     
     # 视觉伺服测试程序
     test_vision_servo_2()
-
     # 边线校准测试程序
     # test_boundary_calibration()
     test_moving_boundary_calibration()
-
     # 测试openart不同模式切换程序
     # test_change_mode()
     pass
