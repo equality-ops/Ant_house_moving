@@ -254,7 +254,7 @@ def test_vision_servo_2():
         # 等待十秒后向openart发送指令获取目标点坐标
         if my_plan.finish_navigate == True:
             # counter = 0
-            my_plan.finish_navigate == False
+            my_plan.finish_navigate = False
             my_state.state = my_state.SERVO
             # 切换为目标识别模式
             my_order_manager.mode_target()
