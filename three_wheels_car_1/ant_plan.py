@@ -5,9 +5,10 @@ class StateMachine:
     def __init__(self):
         self.NAVIGATE = 1    # 导航状态
         self.SERVO = 2       # 视觉伺服状态
-        self.MOVE = 3        # 搬运状态
-        self.RETURN = 4		 # 停止状态
-        self.STOP = 5        # 停止状态
+        self.ORBIT = 3       # 环绕状态
+        self.MOVE = 4       # 搬运状态
+        self.RETURN = 5		 # 返回状态
+        self.STOP = 6        # 停止状态
         self.state = self.NAVIGATE  # 初始状态为导航状态
 
 
@@ -401,101 +402,9 @@ class Plan:
             self.if_set_path = False
             self.finish_navigate = True
 
-
-"""
-# 视觉伺服控制类1
-class VisionManager_1:
-    def __init__(self):
-        # 位置校准相关变量
-        self.convert_matrix = []  # type: list  # 单应性矩阵，用于将像素坐标转化为世界坐标
-        self.x_rel_target = 0.0          # type: float  # 世界坐标系下的物体坐标
-        self.y_rel_target = 0.0          # type: float  # 世界坐标系下的物体坐标
-        self.target_offset_x = find_value(config, "target_offset_x")  # type: float  # 目标相对于小车中心的x偏移量
-        self.target_offset_y = find_value(config, "target_offset_y")  # type: float  # 目标相对于小车中心的y偏移量
-        self.finish_servo = False        # type: bool   # 是否完成视觉伺服控制标志位
-        self.rel_dis_threshold = find_value(config, "rel_dis_threshold")  # type: float  # 视觉伺服控制距离阈值
-        self.target_rel_yaw = 0.0           # type: float   # 目标航向角
-        self.target_rel_turn_angle = 0.0    # type: float   # 目标转角
-        # PD控制相关变量
-        self.kp_rel = find_value(config, "kp_rel")         # type: float   # 视觉伺服控制x轴比例系数
-        self.kd_rel = find_value(config, "kd_rel")         # type: float   # 视觉伺服控制x轴微分系数
-        self.last_rel_dis = 0.0            # type: float   # 上一次目标距离
-        self.rel_dis = 0.0                 # type: float   # 当前目标距离
-        self.target_rel_speed = 0         # type: int   # 目标速度
-        self.min_rel_speed = find_value(config, "min_rel_speed")   # type: int   # 最小视觉伺服速度
-
-    def cord_trans(self, x, y): 
-        a = self.convert_matrix
-        denom = a[2][0] * x + a[2][1] * y + a[2][2]
-        x_world = (a[0][0] * x + a[0][1] * y + a[0][2]) / denom
-        y_world = (a[1][0] * x + a[1][1] * y + a[1][2]) / denom
-        return (x_world, y_world)
-    
-    # 计算目标航向角
-    def compute_target_rel_yaw(self):
-        dx = self.x_rel_target - ant_motor.my_car.x_current
-        dy = self.y_rel_target - ant_motor.my_car.y_current
-        # 计算目标角度，单位：度（注意避免除以0）
-        if dy == 0.0:
-            if dx > 0.0:
-                self.target_rel_yaw = 90.0
-            elif dx < 0.0:
-                self.target_rel_yaw = -90.0
-        elif dx == 0.0:
-            if dy > 0.0:
-                self.target_rel_yaw = 0.0
-            elif dy < 0.0:
-                self.target_rel_yaw = 180.0
-        else:  
-            if dx > 0.0 and dy < 0.0:
-                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI + 180.0
-            elif dx < 0.0 and dy < 0.0:
-                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI - 180.0
-            else:
-                self.target_rel_yaw = math.atan(dx / dy) * 180.0 / MATH.PI
-    
-    # 更新目标距离
-    def update_target_rel_dis(self):
-        self.last_rel_dis = self.rel_dis
-        self.rel_dis= math.sqrt((self.x_rel_target - ant_motor.my_car.x_current) ** 2 + (self.y_rel_target - ant_motor.my_car.y_current) ** 2)
-        # 判断是否完成视觉伺服控制
-        if self.rel_dis <= self.rel_dis_threshold:
-            self.finish_servo = True
-    
-    # 计算小车需要转向的角度（一般为0）
-    def compute_target_rel_turn_angle(self, turn_angle_target: float):
-        self.target_rel_turn_angle = turn_angle_target
-    
-    # 视觉伺服控制
-    def visual_servo_control(self, x: float, y: float):
-        # 将像素坐标转换为世界坐标
-        (x_world, y_world) = self.cord_trans(x, y)
-        # 计算目标相对于坐标系原点的世界坐标
-        self.x_rel_target = ant_motor.my_car.x_current + x_world + self.target_offset_x
-        self.y_rel_target = ant_motor.my_car.y_current + y_world + self.target_offset_y
-        self.update_target_rel_dis()
-        if self.finish_servo == False:
-            self.compute_target_rel_yaw()
-            self.compute_target_rel_turn_angle(0.0)
-            # PD控制计算目标速度
-            self.target_rel_speed = int(self.kp_rel * self.rel_dis + self.kd_rel * (self.rel_dis - self.last_rel_dis))
-            if self.target_rel_speed < self.min_rel_speed:
-                self.target_rel_speed = self.min_rel_speed
-        else:
-            self.target_rel_speed = 0
-            self.target_rel_yaw = 0.0
-            ant_else.finish_servo()
-            self.finish_servo = False
-            # 测试
-            my_state.state = my_state.STOP
-
-# 创建视觉伺服管理对象
-my_vision_manager_1 = VisionManager_1()
-"""
-
  # 视觉伺服控制类2(PD控制器)
 class VisionManager_2:
-    def __init__(self, flash_sys, beep, math, servo_pid, servo_yaw_fil, wireless):
+    def __init__(self, flash_sys, beep, math, servo_pid, servo_yaw_fil, wireless, tof, tof_distance_fil, car):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -508,6 +417,13 @@ class VisionManager_2:
         self.servo_yaw_fil = servo_yaw_fil
         # 注入无线串口对象，用于调试
         self.wireless = wireless
+        # 注入TOF测距对象，用于测距
+        self.tof = tof
+        self.tof_distance = 0       # type: float # TOF测距值
+        self.tof_buffer = []        # type: list  # TOF测距缓存列表
+        self.tof_distance_fil = tof_distance_fil     # TOF测距滤波器对象
+        # 注入小车姿态控制对象
+        self.my_car = car
 
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
@@ -522,8 +438,20 @@ class VisionManager_2:
         self.target_rel_yaw_fil = 0.0				# type: float   # 滤波后的目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
 
-        # 是否完成视觉伺服标志位
-        self.finish_servo = False        # type: bool   # 是否完成视觉伺服控制标志位
+        # 环绕控制相关变量
+        self.orbit_radius = 0.0            # type: float   # 环绕半径
+        self.orbit_speed = 0               # type: int     # 环绕速度
+        self.orbit_yaw = 0.0               # type: float   # 环绕航向角
+        self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
+        self.current_dis = 0.0             # type: float   # 当前距离
+        self.total_dis = 0.0                 # type: float   # 总距离
+        self.max_orbit_speed = self.flash_sys.find_value("max_orbit_speed")   # type: int   # 最大环绕速度
+        self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")   # type: int   # 最小环绕速度
+
+        # 标志位
+        self.finish_servo = False      # type: bool   # 是否完成视觉伺服控制标志位
+        self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
+        self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
 
         # 计算目标航向角
     def compute_target_rel_yaw(self):
@@ -576,7 +504,53 @@ class VisionManager_2:
             self.compute_target_rel_yaw()
             self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
             self.compute_target_rel_turn_angle(0.0)	
-    
+
+    # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
+    def orbit_control(self, target_angle: float):
+        if self.if_gain_dis == False:
+            if len(self.tof_buffer) <= 35:          
+                # 获取TOF测距值，并添加到缓冲区
+                self.tof_buffer.append(self.tof_distance_fil.update(self.tof.get()))
+                # 测试
+                self.wireless.send_str("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
+            else:
+                # 计算最终的TOF测距值（去除前5个的平均值）
+                self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
+                # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
+                self.orbit_radius = self.tof_distance + 3.0 + 8.0
+                # 限制目标角度在-180到180度之间
+                if target_angle > 180.0:
+                    target_angle -= 360.0
+                elif target_angle < -180.0:
+                    target_angle += 360.0
+                # 确定旋转方向（顺时针还是逆时针）
+                if target_angle >= 0.0:
+                    self.orbit_yaw = -90.0
+                else:
+                    self.orbit_yaw = 90.0   
+                self.current_dis = 0.0
+                self.total_dis = self.orbit_radius * abs(target_angle) * self.MATH.PI / 180.0
+                self.if_gain_dis = True
+                self.tof_buffer.clear()
+                # 测试
+                self.beep.test()
+                self.wireless.send_str("final_tof: {:<f}, orbit_radius: {:<f}, total_dis: {:<f}\n".format(self.tof_distance, self.orbit_radius, self.total_dis))
+        else:
+            # 更新当前小车的目标转角
+            self.orbit_turn_angle = self.my_car.car_speed_x / self.orbit_radius * 180.0 / self.MATH.PI
+            # 更新当前小车的行驶距离
+            self.current_dis += self.my_car.car_speed_x
+            # 更新当前小车的速度
+            self.orbit_speed = int(self.max_orbit_speed - (self.max_orbit_speed - self.min_orbit_speed) * (self.current_dis / self.total_dis))
+            # 速度限幅
+            if self.orbit_speed < self.min_orbit_speed:
+                self.orbit_speed = self.min_orbit_speed
+            elif self.orbit_speed > self.max_orbit_speed:
+                self.orbit_speed = self.max_orbit_speed
+            # 判断是否完成环绕
+            if self.current_dis >= self.total_dis:
+                self.finish_orbit = True
+
 """
 # 视觉伺服测试函数
 def test_vision_servo_1():

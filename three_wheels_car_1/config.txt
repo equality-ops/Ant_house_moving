@@ -62,7 +62,7 @@ car_radius = 10.5
 ###################【系数】####################
 # 速度转换系数
 speed_conversion_gamma = 0.537617
-# 角速度负反馈系数（gyro_z顺时针为负，gkd应为正）
+# 角速度负反馈系数（gkd应为负）
 gkd = -0.2
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
@@ -118,5 +118,9 @@ max_rel_speed = 300
 finish_threshold_x = 2
 finish_threshold_y = 4
 servo_pwmout_limitmax = 75
+
+###################【环绕控制】####################
+max_orbit_speed = 300
+min_orbit_speed = 30
 
 # openart支架上边沿距离车底板17.7cm

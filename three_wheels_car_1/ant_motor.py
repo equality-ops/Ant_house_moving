@@ -75,7 +75,34 @@ class KalmanFilter:
         self.P = (1 - K) * self.P
         return self.Output
 
+# TOF数据滤波器
+class ToFFilter:
+    def __init__(self, window_size=5, alpha=0.3):
+        self.buffer = []
+        self.window_size = window_size
+        self.alpha = alpha
+        self.last_val = 0
 
+    def update(self, raw_val):
+        # 1. 处理错误值 (假设0是错误代码)
+        if raw_val <= 0:
+            return self.last_val
+            
+        # 2. 中值滤波 (取最近5个点排序取中点)
+        self.buffer.append(raw_val)
+        if len(self.buffer) > self.window_size:
+            self.buffer.pop(0)
+        
+        sorted_buf = sorted(self.buffer)
+        median = sorted_buf[len(sorted_buf) // 2]
+        
+        # 3. 一阶IIR滤波 (平滑处理)
+        filtered = self.alpha * median + (1 - self.alpha) * self.last_val
+        self.last_val = filtered
+        
+        return filtered
+    
+    
 class PoseData:
     def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
         # 注入flash系统对象

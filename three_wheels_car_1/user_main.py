@@ -8,7 +8,7 @@
 # 从 machine 库包含所有内容 
 from machine import *
 from display import *
-from seekfree import MOTOR_CONTROLLER, IMU660RX, WIRELESS_UART
+from seekfree import MOTOR_CONTROLLER, IMU660RX, WIRELESS_UART, DL1X
 from smartcar import ticker, encoder
 import ant_else
 import ant_motor
@@ -47,7 +47,6 @@ my_uart6.init(460800)
 """无线串口通信初始化"""
 wireless = WIRELESS_UART(115200)
 
-
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
@@ -61,6 +60,9 @@ encoder_md = encoder("C2" , "C3" , False)
 
 # IMU初始化
 imu = IMU660RX()
+
+# tof深度传感器初始化
+tof = DL1X()
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -116,6 +118,8 @@ servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+# 创建tof测距滤波器对象
+tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -142,7 +146,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, wireless, my_beep)
 
 # 创建视觉伺服管理对象2
-my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, wireless)
+my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, wireless, tof, tof_distance_fil, my_car)
 
 # 创建串口解析对象
 my_protocol = ant_else.UARTProtocol(my_uart6)
@@ -167,6 +171,11 @@ def voltage_detect(limit_min: float) -> None:
         print(f"The power supply voltage: {power_voltage} is too low!")
         my_beep.beep_warn()
 
+# tof传感器预热初始化函数
+def tof_init():
+    for i in range(0, 30):
+        tof.get()
+        time.sleep_ms(5)
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -242,6 +251,8 @@ def test_servo_control():
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, my_vision_manager_2.target_rel_turn_angle)
+    elif my_state.state == my_state.ORBIT:
+        my_car.move_ctrl(my_vision_manager_2.orbit_speed, my_vision_manager_2.orbit_yaw, my_vision_manager_2.orbit_turn_angle)
     elif my_state.state == my_state.STOP:
         my_car.move_ctrl(0, 0, 0)
 
@@ -340,6 +351,20 @@ def test_moving_boundary_calibration():
                 wireless.send_str(f"{my_protocol.angle_list[i]}\n")
             wireless.send_str(f"average_angle: {my_plan.turn_angle_target}\n")
             my_protocol.angle_list.clear()
+
+# 测试环绕控制函数
+def test_orbit_control():
+    if my_state.state == my_state.NAVIGATE:
+        my_state.state = my_state.ORBIT
+    elif my_state.state == my_state.ORBIT:
+        my_vision_manager_2.orbit_control(120.0)
+        if my_vision_manager_2.finish_orbit == True:
+            my_vision_manager_2.finish_orbit = False
+            my_state.state = my_state.STOP
+            # 测试
+            my_beep.test()
+    elif my_state.state == my_state.STOP:
+        pass
 
 # 测试openart不同模式切换函数
 def test_change_mode():
@@ -440,13 +465,13 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    test_servo_control()
+    # test_servo_control()
     
     # 测试边线矫正程序
     # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
 
     # 设置电机pwm输出
-    my_car.set_motor_pwm()
+    # my_car.set_motor_pwm()
 
 
 
@@ -454,18 +479,22 @@ def time_pit1_handler(time):
 def time_pit3_handler(time) -> None:
     # 测试MCU与openart通信
 
-    
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo_2()
+    # test_vision_servo_2()
+
     # 边线校准测试程序
     # test_boundary_calibration()
-    test_moving_boundary_calibration()
+    # test_moving_boundary_calibration()
+
     # 测试openart不同模式切换程序
     # test_change_mode()
+
+    # 环绕物体测试程序
+    test_orbit_control()
     pass
 
 
@@ -482,7 +511,7 @@ def time_pit2_handler(time):
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
     # wireless.send_str(f"{angle_pid.pwm_output}\n")
@@ -495,6 +524,9 @@ def time_pit2_handler(time):
     # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
+    # tof传感器测试
+    # wireless.send_str(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+
     # 测试边线校准
     # wireless.send_str(f"{my_plan.calibrate_angle}\n")
     
@@ -556,6 +588,8 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
+    pit3.capture_list(tof)
+    tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
