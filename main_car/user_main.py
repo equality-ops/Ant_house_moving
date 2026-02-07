@@ -8,7 +8,7 @@
 # 从 machine 库包含所有内容 
 from machine import *
 from display import *
-from seekfree import MOTOR_CONTROLLER, IMU660RX, WIRELESS_UART, DL1X
+from seekfree import MOTOR_CONTROLLER, IMU660RX, DL1X
 from smartcar import ticker, encoder
 import ant_else
 import ant_motor
@@ -41,11 +41,14 @@ beep = Pin('D24', Pin.OUT, value = False)
 """异步串口通信初始化"""
 my_uart6 = UART(5)
 my_uart6.init(460800)
-# 测试uart通信是否正常
-# my_uart6.write("hello\r\n")
 
 """无线串口通信初始化"""
-wireless = WIRELESS_UART(115200)
+my_uart3 = UART(2)
+my_uart3.init(115200)
+
+# 测试uart通信是否正常
+# my_uart6.write("hello\r\n")
+# my_uart3.write("hello\r\n")
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
@@ -100,6 +103,9 @@ MATH = ant_else.Math()
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_uart6)
 
+# 创建openart串口解析对象
+my_art_protocol = ant_else.UARTProtocol(my_uart6)
+
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
 
@@ -143,13 +149,10 @@ my_state = ant_plan.StateMachine()
 plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, wireless, my_beep)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 # 创建视觉伺服管理对象2
-my_vision_manager_2 = ant_plan.VisionManager_2(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, wireless, tof, tof_distance_fil, my_car)
-
-# 创建串口解析对象
-my_protocol = ant_else.UARTProtocol(my_uart6)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -185,7 +188,7 @@ def show_speed_PID_test():
 
 # 测试陀螺仪函数
 def test_imu():
-    wireless.send_str("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, pose_data.imu_data[5], pose_data.gyro_z_bias))           
+    my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, pose_data.imu_data[5], pose_data.gyro_z_bias))           
     
 # 测试角度闭环函数
 def complete_angle_circle():
@@ -242,7 +245,7 @@ def test_odometer():
         
 # 全向定位测试函数
 def test_global_localization():
-    #ant_else.wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.y_crfrent, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
+    #ant_else.my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.y_crfrent, ant_plan.my_plan.real_target_x, ant_plan.my_plan.real_target_y, ant_plan.my_plan.rest_distance, ant_plan.my_plan.target_yaw, my_car.now_yaw, ant_plan.my_plan.arrive_flag, ant_plan.my_plan.transition_flag))
     my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
 
 # 测试伺服控制函数
@@ -250,9 +253,9 @@ def test_servo_control():
     if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
-        my_car.move_ctrl(my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, my_vision_manager_2.target_rel_turn_angle)
+        my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
     elif my_state.state == my_state.ORBIT:
-        my_car.move_ctrl(my_vision_manager_2.orbit_speed, my_vision_manager_2.orbit_yaw, my_vision_manager_2.orbit_turn_angle)
+        my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
     elif my_state.state == my_state.STOP:
         my_car.move_ctrl(0, 0, 0)
 
@@ -261,7 +264,7 @@ def test_vision_servo_2():
     global counter
     if my_state.state == my_state.NAVIGATE:
         # counter += 1
-        my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]])
+        my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]], 0.0)
         # 等待十秒后向openart发送指令获取目标点坐标
         if my_plan.finish_navigate == True:
             # counter = 0
@@ -272,12 +275,12 @@ def test_vision_servo_2():
             my_beep.test()
     elif my_state.state == my_state.SERVO:
         # 接收openart发送的目标点坐标
-        my_vision_manager_2.target_point = my_protocol.coordinate_receive()
-        if my_vision_manager_2.target_point:
-            my_vision_manager_2.visual_servo_control(my_vision_manager_2.target_point[0], my_vision_manager_2.target_point[1])
+        my_vision_manager.target_point = my_art_protocol.coordinate_receive()
+        if my_vision_manager.target_point:
+            my_vision_manager.visual_servo_control(my_vision_manager.target_point[0], my_vision_manager.target_point[1])
             # 测试
-            # wireless.send_str(f"x: {my_vision_manager_2.target_point[0]}, y: {my_vision_manager_2.target_point[1]}, target_yaw: {my_vision_manager_2.target_rel_yaw}\r\n")
-        if my_vision_manager_2.finish_servo == True:
+            # my_uart3.write(f"x: {my_vision_manager.target_point[0]}, y: {my_vision_manager.target_point[1]}, target_yaw: {my_vision_manager.target_rel_yaw}\r\n")
+        if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡400ms防止惯性过冲
             if counter >= 40:
@@ -286,11 +289,11 @@ def test_vision_servo_2():
                 my_car.y_current = 122.6
                 my_order_manager.finish()
                 my_state.state = my_state.RETURN
-                my_vision_manager_2.finish_servo = False
+                my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
     elif my_state.state == my_state.RETURN:
-            my_plan.navigate([[0.0, 0.0]])
+            my_plan.navigate([[0.0, 0.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -313,29 +316,29 @@ def test_boundary_calibration():
             my_beep.test()
 
         if my_plan.if_gain_calibrate_angle == False:
-            my_protocol.angle_receive()
-            if len(my_protocol.angle_list) >= 10:
+            my_art_protocol.angle_receive()
+            if len(my_art_protocol.angle_list) >= 10:
                 # 进行边线校准处理
-                my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+                my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
                 my_plan.turn_angle_target = my_plan.calibrate_angle 
                 my_order_manager.finish()
                 my_state.state = my_state.STOP
                 my_plan.if_gain_calibrate_angle = True
                 # 测试
                 my_beep.test()
-                for i in range(0, len(my_protocol.angle_list)):
-                    wireless.send_str(f"{my_protocol.angle_list[i]}\n")
-                wireless.send_str(f"average_angle: {my_plan.turn_angle_target}\n")
-                my_protocol.angle_list.clear()
+                for i in range(0, len(my_art_protocol.angle_list)):
+                    my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
+                my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
+                my_art_protocol.angle_list.clear()
 
 
 # 移动中的边线校准测试函数
 def test_moving_boundary_calibration():
     if my_plan.if_gain_calibrate_angle == False:
-        my_protocol.angle_receive()
-        if len(my_protocol.angle_list) >= 1:
+        my_art_protocol.angle_receive()
+        if len(my_art_protocol.angle_list) >= 1:
             # 进行边线校准处理
-            # my_plan.calibrate_angle = sum(my_protocol.angle_list) / len(my_protocol.angle_list)
+            # my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
             # my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
             # 进行里程计矫正处理
             if my_car.x_current < 150.0:
@@ -347,19 +350,19 @@ def test_moving_boundary_calibration():
             
             # 测试
             my_beep.test()
-            for i in range(0, len(my_protocol.angle_list)):
-                wireless.send_str(f"{my_protocol.angle_list[i]}\n")
-            wireless.send_str(f"average_angle: {my_plan.turn_angle_target}\n")
-            my_protocol.angle_list.clear()
+            for i in range(0, len(my_art_protocol.angle_list)):
+                my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
+            my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
+            my_art_protocol.angle_list.clear()
 
 # 测试环绕控制函数
 def test_orbit_control():
     if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager_2.orbit_control(120.0)
-        if my_vision_manager_2.finish_orbit == True:
-            my_vision_manager_2.finish_orbit = False
+        my_vision_manager.orbit_control(120.0)
+        if my_vision_manager.finish_orbit == True:
+            my_vision_manager.finish_orbit = False
             my_state.state = my_state.STOP
             # 测试
             my_beep.test()
@@ -437,7 +440,7 @@ def time_pit1_handler(time):
     
     # 全向移动转圈测试程序
     #all_around_circle()
-    #ant_else.wireless.send_str("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
+    #ant_else.my_uart3.write("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
     # test_odometer()
@@ -455,11 +458,11 @@ def time_pit1_handler(time):
     #else:
      #   my_car.move_ctrl(0, 90, 0)
     # 里程计测试
-    #ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw))
+    #ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw))
     
     # 陀螺仪测试
     # test_imu()
-    # ant_else.wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
     # show_speed_PID_test()
@@ -501,50 +504,51 @@ def time_pit3_handler(time) -> None:
 # 闭环控制回调
 def time_pit2_handler(time):
     # 用于无线串口调试
-    
+    # my_uart3.write("debug\r\n")
+
     # 视觉伺服
-    # wireless.send_str("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager_2.target_rel_speed, my_vision_manager_2.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # wireless.send_str(f"{my_vision_manager_2.target_rel_yaw}\r\n")
-    # wireless.send_str("{:<f},{:<f}\n".format(ant_plan.my_vision_manager_2.target_rel_yaw, ant_plan.my_vision_manager_2.target_rel_yaw_fil))
+    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
+    # my_uart3.write(f"{my_vision_manager.target_rel_yaw}\r\n")
+    # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
-    # wireless.send_str(f"{angle_pid.pwm_output}\n")
+    # my_uart3.write(f"{angle_pid.pwm_output}\n")
     # imu原始数据
-    # wireless.send_str("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
-    # wireless.send_str("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
+    # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
+    # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                           
     # 里程计：
-    # wireless.send_str("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # wireless.send_str("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # wireless.send_str("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+    # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # tof传感器测试
-    # wireless.send_str(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
     # 测试边线校准
-    # wireless.send_str(f"{my_plan.calibrate_angle}\n")
+    # my_uart3.write(f"{my_plan.calibrate_angle}\n")
     
     # 速度规划
-    # wireless.send_str(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
+    # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
     
     # 检测自转角是否准确
-    # wireless.send_str("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 观察速度
-    # wireless.send_str(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
+    # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    #wireless.send_str(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
     # 卡尔曼滤波（速度）
-    # wireless.send_str("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    # wireless.send_str("{:<f}\n".format(pose_data.encoder_data_ul))
+    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
+    # my_uart3.write("{:<f}\n".format(pose_data.encoder_data_ul))
 
     key = my_menu.read_key()
     if key == None:

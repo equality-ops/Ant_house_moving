@@ -158,6 +158,91 @@ class UARTProtocol:
 
         return None       
 
+# 主从机通信类
+class LinkProtocol:
+    def __init__(self, uart3):
+        # 注入串口对象
+        self.my_uart3 = uart3
+        # 创建字节流缓冲区
+        self.raw_buffer = b''           
+        self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
+        self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
+        self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
+
+    def send_pose(self, role_prefix, x, y, yaw, state):
+        """
+        发送数据包 (非阻塞)
+        格式: #M,120.5,80.1,90.5,1!
+        :param role_prefix: 'M' (主车) 或 'S' (从车)
+        :param x, y, yaw: 浮点坐标
+        :param state: 整数状态
+        """
+        # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频率
+        packet = "#{:s},{:.1f},{:.1f},{:.1f},{:d}!".format(
+            role_prefix, x, y, yaw, state
+        )
+        self.my_uart3.write(packet.encode('utf-8'))
+
+    def get_latest_valid_data(self, target_prefix):
+        """
+        贪婪读取：只返回缓冲区中【最后一个】完整的有效包
+        :param target_prefix: 期望读取的包头 ('M' 或 'S')
+        :return: [x, y, yaw, state] 或 None
+        """
+        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
+        if self.my_uart3.any():
+            try:
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
+            except:
+                pass # 忽略读取错误
+        
+        # 如果缓冲区为空，直接返回
+        if not self.raw_buffer:
+            return None
+
+        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 3. 寻找包尾 '!' (寻找最后一个，保证最新)
+        # rfind 从右边（最新）开始找
+        self.end_idx = self.raw_buffer.rfind(b'!')
+        
+        if self.end_idx == -1:
+            return None # 没有完整的包尾，等待下次数据
+
+        # 4. 寻找匹配的包头 '#' (在包尾之前找)
+        # 构造目标头，例如 b'#M'
+        start_tag = ("#" + target_prefix).encode('utf-8')
+        self.start_idx = self.raw_buffer.rfind(start_tag, 0, self.end_idx)
+
+        if self.start_idx == -1:
+            # 有尾无头，说明数据错位或头部还在传输中
+            # 策略：保留 end_idx 之后的数据（可能是下一个包的开头），前面的全是垃圾
+            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+            return None
+
+        # 5. 提取核心负载
+        # payload_bytes 如: b',120.5,80.1,90.5,1'
+        # start_idx + len(start_tag) 跳过 "#M"
+        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
+        
+        # 6. 关键一步：消费缓冲区
+        # 我们已经拿到了最新的包，end_idx 之前的所有数据（包括旧包）都可以扔掉了
+        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+        # 7. 解析数据
+        try:
+            # 解码并按逗号分割并过滤掉可能的空字符串
+            parts = (payload_bytes.decode('utf-8')).strip(',').split(',')
+            
+            if len(parts) == 4:
+                return [float(parts[0]), float(parts[1]), float(parts[2]), int(parts[3])]
+            else:
+                return None # 字段数量不对（可能是粘包严重导致的残损）
+        except:
+            return None # 浮点转换失败或解码失败
 
 # 数学常量类
 class Math:

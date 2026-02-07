@@ -70,7 +70,7 @@ for i in range(0, 8):
 while True:
     time.sleep_ms(50)
     led.toggle()
-
+    
     # 定期进行数据解析
     data_flag = wireless.data_analysis()
     for i in range(0, 8):
