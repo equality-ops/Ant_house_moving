@@ -446,9 +446,9 @@ class Plan:
                 self.if_gain_calibrate_angle = False
             elif self.my_car.x_current >= 290.0 and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 270.0:
                 if now_yaw <= -90.0 or now_yaw > 90.0:
-                    self.navigate([[310.0, self.my_car.y_current + 5.0]], 180.0)
+                    self.navigate([[330.0, self.my_car.y_current + 5.0]], 180.0)
                 else:
-                    self.navigate([[310.0, self.my_car.y_current - 5.0]], 0.0)
+                    self.navigate([[330.0, self.my_car.y_current - 5.0]], 0.0)
                 self.car_position = self.plan_data.BOUNDARY_RIGHT
                 # 重置标志位，准备进行边线校准
                 self.if_finish_calibrate = False
@@ -464,9 +464,9 @@ class Plan:
                 self.if_gain_calibrate_angle = False
             elif self.my_car.y_current >= 290.0 and self.my_car.x_current >= 30.0 and self.my_car.x_current <= 270.0:
                 if now_yaw <= 0.0 and now_yaw > -180.0:
-                    self.navigate([[self.my_car.x_current + 5.0, 310.0]], -90.0)
+                    self.navigate([[self.my_car.x_current + 5.0, 250.0]], -90.0)
                 else:
-                    self.navigate([[self.my_car.x_current - 5.0, 310.0]], 90.0)
+                    self.navigate([[self.my_car.x_current - 5.0, 250.0]], 90.0)
                 self.car_position = self.plan_data.BOUNDARY_DOWN
                 # 重置标志位，准备进行边线校准
                 self.if_finish_calibrate = False
@@ -492,11 +492,11 @@ class Plan:
             if self.car_position == self.plan_data.BOUNDARY_LEFT:
                 self.navigate([[10.0, self.my_car.y_current]], 999.9)
             elif self.car_position == self.plan_data.BOUNDARY_RIGHT:
-                self.navigate([[290.0, self.my_car.y_current]], 999.9)
+                self.navigate([[310.0, self.my_car.y_current]], 999.9)
             elif self.car_position == self.plan_data.BOUNDARY_UP:
                 self.navigate([[self.my_car.x_current, 10.0]], 999.9)
             elif self.car_position == self.plan_data.BOUNDARY_DOWN:
-                self.navigate([[self.my_car.x_current, 290.0]], 999.9)
+                self.navigate([[self.my_car.x_current, 230.0]], 999.9)
 
             if self.finish_navigate == True:
                 # 此时仍未获得角度信息，直接退出该模式
@@ -517,12 +517,12 @@ class Plan:
                     # 进行里程计矫正处理
                     if self.my_car.x_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_LEFT:
                         self.my_car.x_current = 0.0
-                    elif self.my_car.x_current >= 250.0 and self.car_position == self.plan_data.BOUNDARY_RIGHT:
+                    elif self.my_car.x_current >= 270.0 and self.car_position == self.plan_data.BOUNDARY_RIGHT:
                         self.my_car.x_current = 300.0
                     elif self.my_car.y_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_UP:
                         self.my_car.y_current = 0.0
-                    elif self.my_car.y_current >= 250.0 and self.car_position == self.plan_data.BOUNDARY_DOWN:
-                        self.my_car.y_current = 300.0
+                    elif self.my_car.y_current >= 190.0 and self.car_position == self.plan_data.BOUNDARY_DOWN:
+                        self.my_car.y_current = 240.0
                     self.my_order_manager.finish()
                     self.if_gain_calibrate_angle = True 
                     # 若获得角度则跳过定位过渡阶段直接进行转角调整
