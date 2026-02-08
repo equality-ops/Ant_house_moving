@@ -354,6 +354,8 @@ class Plan:
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
+        # 保持当前小车转角停下
+        self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为999.9，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
@@ -598,7 +600,7 @@ class VisionManager:
         self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")   # type: int   # 最小视觉伺服速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")   # type: int   # 最小视觉伺服速度
-        self.target_point = []					# 目标像素点
+        self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_yaw_fil = 0.0				# type: float   # 滤波后的目标航向角
@@ -615,6 +617,7 @@ class VisionManager:
         self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")   # type: int   # 最小环绕速度
 
         # 标志位
+        self.if_send_servo_command = False   # type: bool   # 是否发送视觉伺服控制指令标志位
         self.finish_servo = False      # type: bool   # 是否完成视觉伺服控制标志位
         self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
         self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
@@ -646,30 +649,45 @@ class VisionManager:
 
 
     # 传入物体中心点的实际像素坐标，计算目标速度
-    def visual_servo_control(self, x: int, y: int):
-        self.servo_pid.compute_pid(x, y)
-        self.target_rel_speed_x = self.servo_pid.pwm_output_x * 1.2
-        self.target_rel_speed_y = self.servo_pid.pwm_output_y
-        # 判断是否完成视觉伺服控制
-        if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-            self.target_rel_speed = 0
-            self.target_rel_yaw = 0.0
-            # self.my_beep.test()
-            self.finish_servo = True
+    def visual_servo_control(self):
+        # 通过标志位控制只向openart发送一次视觉伺服控制指令
+        if self.if_send_servo_command == False:
+            self.my_order_manager.mode_target()
+            self.if_send_servo_command = True
         else:
-            # 计算综合目标速度和航向角
-            # 目标速度放大两倍
-            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2)) * 2
-            # 伺服速度限幅
-            if self.target_rel_speed < self.min_rel_speed:
-                self.target_rel_speed = self.min_rel_speed
-            elif self.target_rel_speed > self.max_rel_speed:
-                self.target_rel_speed = self.max_rel_speed
-            # 测试
-            #a self.target_rel_speed = 0
-            self.compute_target_rel_yaw()
-            self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
-            self.compute_target_rel_turn_angle(0.0)	
+            self.target_point = self.my_art_protocol.coordinate_receive()
+            if self.target_point:
+                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+                # 测试，可能阻塞，记得删去
+                # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
+                self.target_rel_speed_x = self.servo_pid.pwm_output_x * 1.2
+                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+
+                if self.finish_servo == False:
+                    # 判断是否完成视觉伺服控制
+                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                        self.target_rel_speed = 0
+                        self.target_rel_yaw = 0.0
+                        self.my_order_manager.finish()
+                        # 测试
+                        self.my_beep.test()
+                        self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
+                        self.finish_servo = True
+                    else:
+                        # 计算综合目标速度和航向角
+                        # 目标速度放大两倍
+                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2)) * 2
+                        # 伺服速度限幅
+                        if self.target_rel_speed < self.min_rel_speed:
+                            self.target_rel_speed = self.min_rel_speed
+                        elif self.target_rel_speed > self.max_rel_speed:
+                            self.target_rel_speed = self.max_rel_speed
+                        # 测试
+                        self.compute_target_rel_yaw()
+                        # self.target_rel_speed = 0
+                        self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
+                        # 后续需要调整该转角的计算方式，让小车面向物体进行视觉伺服控制
+                        self.compute_target_rel_turn_angle(0.0)	
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):

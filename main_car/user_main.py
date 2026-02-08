@@ -106,6 +106,9 @@ my_order_manager = ant_else.order_manager(my_uart6)
 # 创建openart串口解析对象
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
+# 创建主从车无线串口通信对象
+my_main_protocol = ant_else.LinkProtocol(my_uart3)
+
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
 
@@ -250,45 +253,35 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-    elif my_state.state == my_state.STOP:
-        my_car.move_ctrl(0, 0, 0)
 
 # 视觉伺服测试函数
-def test_vision_servo_2():
+def test_vision_servo():
     global counter
     if my_state.state == my_state.NAVIGATE:
-        # counter += 1
-        my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]], 0.0)
+        counter += 1
+        # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]], 0.0)
         # 等待十秒后向openart发送指令获取目标点坐标
-        if my_plan.finish_navigate == True:
-            # counter = 0
+        # if my_plan.finish_navigate == True:
+        if counter >= 1500:
+            counter = 0
             my_plan.finish_navigate = False
             my_state.state = my_state.SERVO
-            # 切换为目标识别模式
-            my_order_manager.mode_target()
-            my_beep.test()
     elif my_state.state == my_state.SERVO:
-        # 接收openart发送的目标点坐标
-        my_vision_manager.target_point = my_art_protocol.coordinate_receive()
-        if my_vision_manager.target_point:
-            my_vision_manager.visual_servo_control(my_vision_manager.target_point[0], my_vision_manager.target_point[1])
-            # 测试
-            # my_uart3.write(f"x: {my_vision_manager.target_point[0]}, y: {my_vision_manager.target_point[1]}, target_yaw: {my_vision_manager.target_rel_yaw}\r\n")
+        my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡400ms防止惯性过冲
             if counter >= 40:
                 counter = 0
-                my_car.x_current = 150.0
-                my_car.y_current = 122.6
-                my_order_manager.finish()
-                my_state.state = my_state.RETURN
+                my_state.state = my_state.STOP
+                # 重置标志位
+                my_vision_manager.if_send_servo_command = False
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
@@ -297,6 +290,8 @@ def test_vision_servo_2():
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
+    elif my_state.state == my_state.STOP:
+        pass
 
                 
 # 边线校准测试函数
@@ -305,7 +300,7 @@ def test_boundary_calibration():
     if my_state.state == my_state.NAVIGATE:
         counter += 1
         # 等待十秒后向openart发送指令获取边界角度
-        if counter >= 500:
+        if counter >= 1000:
             counter = 0
             my_plan.if_gain_calibrate_angle = False
             # 切换为上下边界识别模式
@@ -369,37 +364,14 @@ def test_orbit_control():
     elif my_state.state == my_state.STOP:
         pass
 
-# 测试openart不同模式切换函数
-def test_change_mode():
-    global counter
-    if my_state.state == my_state.NAVIGATE:
-        counter += 1
-        # 等待十秒后向openart发送指令获取边界角度
-        if counter >= 1000:
-            counter = 0
-            my_state.state = my_state.MOVE
-            my_order_manager.mode_boundary_ud()
-            my_beep.test()
-    elif my_state.state == my_state.MOVE:
-        counter += 1
-        if counter >= 50:
-            counter = 0
-            my_state.state = my_state.SERVO
-            my_order_manager.mode_target()
-            my_beep.test()
-    elif my_state.state == my_state.SERVO:
-        counter += 1
-        if counter >= 50:
-            counter = 0
-            my_state.state = my_state.STOP
-            my_order_manager.finish()
-            my_beep.test()
-    elif my_state.state == my_state.STOP:
-        counter += 1
-        if counter >= 50:
-            counter = 0
-            my_state.state = my_state.NAVIGATE
-            my_beep.test()
+# 测试主从车通信函数 
+def test_main_slave_communication():
+    slave_state = my_main_protocol.get_slave_state()
+    if slave_state:
+        my_uart3.write(f"Slave state: {slave_state}\n")
+        my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_car.now_yaw, my_state.state)
+        # 测试
+        my_beep.test()
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -480,14 +452,15 @@ def time_pit1_handler(time):
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
-    # 测试MCU与openart通信
+    # 测试主从车通信
+    # test_main_slave_communication()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    # test_vision_servo_2()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -497,7 +470,7 @@ def time_pit3_handler(time) -> None:
     # test_change_mode()
 
     # 环绕物体测试程序
-    test_orbit_control()
+    # test_orbit_control()
     pass
 
 
