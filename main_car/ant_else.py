@@ -168,7 +168,8 @@ class LinkProtocol:
         self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
         self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
-
+    
+    # 用于主车向从车发送坐标和当前状态数据的接口
     def send_pose(self, role_prefix, x, y, yaw, state):
         """
         发送数据包 (非阻塞)
@@ -183,6 +184,16 @@ class LinkProtocol:
         )
         self.my_uart3.write(packet.encode('utf-8'))
 
+    # 用于从车向主车发送当前状态数据的接口
+    def send_slave_state(self, state):
+        if state == "ready":
+            self.my_uart3.write('R'.encode('utf-8'))
+        elif state == "lost":
+            self.my_uart3.write('L'.encode('utf-8'))
+        elif state == "finish":
+            self.my_uart3.write('F'.encode('utf-8'))
+
+    # 用于从车解析主车发送的坐标和当前状态数据的接口
     def get_latest_valid_data(self, target_prefix):
         """
         贪婪读取：只返回缓冲区中【最后一个】完整的有效包
@@ -243,6 +254,32 @@ class LinkProtocol:
                 return None # 字段数量不对（可能是粘包严重导致的残损）
         except:
             return None # 浮点转换失败或解码失败
+        
+    def get_slave_state(self):
+        """
+        解析从车状态包 (非阻塞)
+        包格式: 'R' (ready), 'L' (lost), 'F' (finish)
+        :return: 'ready', 'lost', 'finish' 或 None
+        """
+        if self.my_uart3.any():
+            try:
+                byte = self.my_uart3.read(1)[0]
+                if byte == ord('R'):
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return "ready"
+                elif byte == ord('L'):
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return "lost"
+                elif byte == ord('F'):
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return "finish"
+                else:
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return None
+            except:
+                return None
+        else:
+            return None
 
 # 数学常量类
 class Math:
