@@ -174,7 +174,8 @@ class Plan:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
-                    self.my_uart3.write("boost_finish\n")
+                    # 测试
+                    # self.my_uart3.write("boost_finish\n")
             elif self.stage == self.TRANSIT:
                 self.v_target = self.v_max
                 if self.rest_distance < self.dec_distance:
@@ -339,20 +340,13 @@ class Plan:
 
     # 更新战术矢量，master_pos为主车位置（如果是从车），obstacles为传感器探测到的障碍物坐标列表（如果有）
     # 小车的航向角会受到目标点引力和障碍物斥力的影响
-    def update_tactical_vector(self, master_pos=None, obstacles=[]):
+    def update_tactical_vector(self, obstacles=[]):
         """
-        master_pos: (x, y) 如果是从车，引力来源于主车后方的跟随点
         obstacles: [(x, y, save_dist), ...] 传感器探测到的障碍物坐标及安全距离
         """
         # 1. 计算引力向量 (dx, dy)
-        if master_pos:
-            # 协同逻辑：跟随点定在主车后方 30cm
-            target_x, target_y = master_pos[0] - 30, master_pos[1] 
-        else:
-            target_x, target_y = self.real_target_x, self.real_target_y
-    
-        f_att_x = target_x - self.my_car.x_current
-        f_att_y = target_y - self.my_car.y_current
+        f_att_x = self.real_target_x - self.my_car.x_current
+        f_att_y = self.real_target_y - self.my_car.y_current
 
         # 2. 计算斥力向量 (避障逻辑)
         f_rep_x, f_rep_y = 0.0, 0.0
@@ -483,52 +477,8 @@ class Plan:
             self.path_points.clear()
             self.if_set_path = False
             self.finish_navigate = True
-    
-    # 从车战术导航
-    def slave_tactical_navigate(self, master_pos, obstacles = [], target_turn_angle = None):
-        if self.if_set_path == False and self.finish_navigate == False:
-            # 路径初始化
-            self.path_points = path
-            self.if_set_path = True
-            self.plan_data.aimed_point_index = 0
-            # 设置第一个目标点
-            self.set_target_point(self.path_points[0][0], self.path_points[0][1])
-            if target_turn_angle is not None:
-                self.compute_turn_angle_target(target_turn_angle)
-        # 判断是否还有未到达的目标点
-        if self.plan_data.aimed_point_index < len(self.path_points):
-            # 判断是否到达下一个目标点
-            if self.arrive_flag == False:
-                self.update_tactical_vector(master_pos=None, obstacles=obstacles)
-                if self.arrive_flag == True:
-                    # 到达目标点后，更新目标点索引
-                    self.plan_data.aimed_point_index += 1
-                    # 进行路径过渡
-                    self.path_transition()   
-            else:
-                # 判断此时是否完成路径过渡
-                if self.transition_flag == False:
-                    self.path_transition()
-                else:
-                    # 如果还有下一个目标点，设置下一个目标点坐标
-                    if self.plan_data.aimed_point_index < len(self.path_points):
-                        self.set_target_point(self.path_points[self.plan_data.aimed_point_index][0], self.path_points[self.plan_data.aimed_point_index][1])
-                        # 计算目标航向角
-                        self.compute_target_yaw()
-                    else:
-                        self.stop()
-        else:
-            self.stop()
-            # 测试
-            # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y
-            self.dec_speed_index = 0
-            self.path_points.clear()
-            self.if_set_path = False
-            self.finish_navigate = True
 
-        # 主车战术导航
+    # 主车战术导航
     def main_tactical_navigate(self, path = [], obstacles = [], target_turn_angle = None):
         if self.if_set_path == False and self.finish_navigate == False:
             # 路径初始化
@@ -543,7 +493,7 @@ class Plan:
         if self.plan_data.aimed_point_index < len(self.path_points):
             # 判断是否到达下一个目标点
             if self.arrive_flag == False:
-                self.update_tactical_vector(master_pos=None, obstacles=obstacles)
+                self.update_tactical_vector(obstacles)
                 if self.arrive_flag == True:
                     # 到达目标点后，更新目标点索引
                     self.plan_data.aimed_point_index += 1

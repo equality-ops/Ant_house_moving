@@ -369,7 +369,7 @@ def test_main_slave_communication():
     slave_state = my_main_protocol.get_slave_state()
     if slave_state:
         my_uart3.write(f"Slave state: {slave_state}\n")
-        my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_car.now_yaw, my_state.state)
+        my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
         # 测试
         my_beep.test()
 

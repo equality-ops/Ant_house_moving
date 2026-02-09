@@ -3,7 +3,7 @@ import math
 # 状态机制
 class StateMachine:
     def __init__(self):
-        self.NAVIGATE = 1    # 导航状态
+        self.NAVIGATE = 1    # 跟随主车导航状态
         self.SERVO = 2       # 视觉伺服状态
         self.ORBIT = 3       # 环绕状态
         self.MOVE = 4        # 搬运状态
@@ -23,6 +23,8 @@ class Plan_data:
         self.fixed_point = [[0.0, 0.0], [0.0, 150.0], [150.0, 0.0], [150.0, 150.0]]  # type: list
         # 路径1
         self.path_1 = [[[8.9, 8.0]]]     # type: list
+        # 从车与主车的跟随距离
+        self.follow_dist = 30.0       # type: float
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -128,6 +130,7 @@ class Plan:
         self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
+        self.if_main_finish_navigate = False  # type: bool  # 判断主车是否完成导航标志位
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
         self.if_gain_calibrate_angle = True   # type: bool  # 判断是否获取校准角度标志位
         self.if_finish_calibrate = True       # type: bool  # 判断是否完成校准标志位
@@ -337,19 +340,26 @@ class Plan:
     def compute_turn_angle_target(self, turn_angle_target: float):
         self.turn_angle_target = turn_angle_target
 
-    # 更新战术矢量，master_pos为主车位置（如果是从车），obstacles为传感器探测到的障碍物坐标列表（如果有）
+    # 更新战术矢量，master_pos为主车位置，obstacles为传感器探测到的障碍物坐标列表（如果有）
     # 小车的航向角会受到目标点引力和障碍物斥力的影响
-    def update_tactical_vector(self, master_pos=None, obstacles=[]):
+    def update_tactical_vector(self, master_pos, obstacles=[]):
         """
-        master_pos: (x, y) 如果是从车，引力来源于主车后方的跟随点
+        master_pos: (x, y, now_yaw, turn_angle, state) 如果是从车，引力来源于主车后方的跟随点
         obstacles: [(x, y, save_dist), ...] 传感器探测到的障碍物坐标及安全距离
         """
         # 1. 计算引力向量 (dx, dy)
-        if master_pos:
-            # 协同逻辑：跟随点定在主车后方 30cm
-            target_x, target_y = master_pos[0] - 30, master_pos[1] 
+        # 协同逻辑：跟随点定在主车后方 30cm处，具体位置根据主车当前转角调整
+        if self.turn_angle_target >= -45.0 and self.turn_angle_target < 45.0:
+            target_x, target_y = master_pos[0], master_pos[1] - self.plan_data.follow_dist
+        elif self.turn_angle_target >= 45.0 and self.turn_angle_target < 135.0:
+            target_x, target_y = master_pos[0] - self.plan_data.follow_dist, master_pos[1]
+        elif self.turn_angle_target >= 135.0 or self.turn_angle_target < -135.0:
+            target_x, target_y = master_pos[0], master_pos[1] + self.plan_data.follow_dist
         else:
-            target_x, target_y = self.real_target_x, self.real_target_y
+            target_x, target_y = master_pos[0] + self.plan_data.follow_dist, master_pos[1]
+
+        # 将主车位置也加入障碍物列表，安全距离设为跟随距离减去一个安全距离以避免过度靠近主车
+        obstacles.append((master_pos[0], master_pos[1], self.plan_data.follow_dist - 2.0)) 
     
         f_att_x = target_x - self.my_car.x_current
         f_att_y = target_y - self.my_car.y_current
@@ -398,9 +408,9 @@ class Plan:
             else:
                 self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
 
-            # 更新 rest_distance 引导速度规划
-            # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
-            self.rest_distance = math.sqrt(total_dx**2 + total_dy**2)
+        # 更新 rest_distance 引导速度规划
+        # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
+        self.rest_distance = math.sqrt(total_dx**2 + total_dy**2)
 
         # 当剩余距离小于阈值并且完成目标转角时，推断小车已经到达目标点
         if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
@@ -485,16 +495,9 @@ class Plan:
             self.finish_navigate = True
     
     # 从车战术导航
-    def slave_tactical_navigate(self, master_pos, obstacles = [], target_turn_angle = None):
-        if self.if_set_path == False and self.finish_navigate == False:
-            # 路径初始化
-            self.path_points = path
-            self.if_set_path = True
-            self.plan_data.aimed_point_index = 0
-            # 设置第一个目标点
-            self.set_target_point(self.path_points[0][0], self.path_points[0][1])
-            if target_turn_angle is not None:
-                self.compute_turn_angle_target(target_turn_angle)
+    def slave_tactical_navigate(self, master_pos, obstacles = []):
+        self.update_tactical_vector(master_pos=master_pos, obstacles=obstacles)
+        self.compute_turn_angle_target(master_pos[3])
         # 判断是否还有未到达的目标点
         if self.plan_data.aimed_point_index < len(self.path_points):
             # 判断是否到达下一个目标点
