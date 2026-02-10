@@ -531,7 +531,7 @@ class Plan:
             self.if_set_path = False
             self.finish_navigate = True
 
-        # 主车战术导航
+    # 主车战术导航
     def main_tactical_navigate(self, path = [], obstacles = [], target_turn_angle = None):
         if self.if_set_path == False and self.finish_navigate == False:
             # 路径初始化
