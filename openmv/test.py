@@ -56,6 +56,10 @@ class ColorDetector:
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
     def detect_colors(self, img):
+        # adjusted_brown = [self.auto_adjust_threshold(img, th) for th in self.BROWN_THRESHOLD]
+        # adjusted_red = [self.auto_adjust_threshold(img, th) for th in self.RED_THRESHOLD]
+        # adjusted_green = [self.auto_adjust_threshold(img, th) for th in self.GREEN_THRESHOLD]
+        # adjusted_blue = [self.auto_adjust_threshold(img, th) for th in self.BLUE_THRESHOLD_THRESHOLD]
         brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
         green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
@@ -95,7 +99,20 @@ class ColorDetector:
             if keep:
                 filtered.append((blob, color))
         return filtered
+    
+    def auto_adjust_threshold(self, img, base_threshold):
+        stats = img.get_statistics()
+        l_mean = stats.l_mean()
 
+        l_low, l_high = base_threshold[0], base_threshold[1]
+        if l_mean < 40: # 暗环境（数值待定）
+            l_low = max(0, l_low - 5)
+            l_high = min(100, l_high + 5)
+        elif l_mean > 70: # 亮环境
+            l_low = min(100, l_low + 5)
+            l_high = max(0, l_high -5)
+
+        return (l_low, l_high, *base_threshold[2:])
 ########################边界检测模块######################
 class BoundaryDetector:
     YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
