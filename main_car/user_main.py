@@ -364,7 +364,7 @@ def test_orbit_control():
     elif my_state.state == my_state.STOP:
         pass
 
-# 测试主从车通信函数 
+# 测试主车解析从车状态通信函数 
 def test_main_slave_communication():
     slave_state = my_main_protocol.get_slave_state()
     if slave_state:
@@ -372,6 +372,17 @@ def test_main_slave_communication():
         my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
         # 测试
         my_beep.test()
+
+# 主从车协同导航测试函数
+def test_main_slave_collaborative_navigation():
+    if my_state.state == my_state.READY_NAVIGATE:
+        if my_plan.if_send_path == False:
+            my_main_protocol.send_path([[150.0, 100.0], [150.0, 200.0]])
+            my_plan.if_send_path = True
+        if my_main_protocol.get_slave_state() == "ready":
+            my_plan.if_send_path = False
+            my_state.state = my_state.NAVIGATE
+            my_beep.test()
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -454,13 +465,14 @@ def time_pit1_handler(time):
 def time_pit3_handler(time) -> None:
     # 测试主从车通信
     # test_main_slave_communication()
+    test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()

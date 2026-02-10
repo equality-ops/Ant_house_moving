@@ -198,8 +198,8 @@ class LinkProtocol:
     def get_slave_state(self):
         """
         解析从车状态包 (非阻塞)
-        包格式: 'R' (ready), 'L' (lost), 'F' (finish)
-        :return: 'ready', 'lost', 'finish' 或 None
+        包格式: 'R' (ready), 'L' (lost), 'F' (finish), 'R' (Receive)
+        :return: 'ready', 'lost', 'finish', 'Receive' 或 None
         """
         if self.my_uart3.any():
             try:

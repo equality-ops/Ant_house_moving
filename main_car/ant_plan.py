@@ -3,6 +3,7 @@ import math
 # 状态机制
 class StateMachine:
     def __init__(self):
+        self.READY_NAVIGATE = 0  # 准备导航状态（主车等待从车准备好）
         self.NAVIGATE = 1    # 导航状态
         self.SERVO = 2       # 视觉伺服状态
         self.ORBIT = 3       # 环绕状态
@@ -10,8 +11,9 @@ class StateMachine:
         self.CALIBRATE = 5   # 校准状态
         self.RETURN = 6		 # 返回状态
         self.STOP = 7        # 停止状态
-        self.state = self.NAVIGATE  # 初始状态为导航状态
-
+        
+        # self.state = self.NAVIGATE  # 初始状态为导航状态
+        self.state = self.READY_NAVIGATE  # 初始状态为准备导航状态
 
 # 路径和速度规划相关常量
 class Plan_data:
@@ -126,6 +128,7 @@ class Plan:
         # 标志位
         self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
         self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
+        self.if_send_path = False       # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
