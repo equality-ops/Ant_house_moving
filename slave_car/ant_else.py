@@ -192,13 +192,15 @@ class LinkProtocol:
             self.my_uart3.write('L'.encode('utf-8'))
         elif state == "finish":
             self.my_uart3.write('F'.encode('utf-8'))
+        elif state == "Receive":
+            self.my_uart3.write('R'.encode('utf-8'))
 
     # 用于从车解析主车发送的坐标和当前状态数据的接口
     def get_latest_valid_data(self, target_prefix):
         """
         贪婪读取：只返回缓冲区中【最后一个】完整的有效包
         :param target_prefix: 期望读取的包头 ('M' 或 'S')
-        :return: [x, y, yaw, state] 或 None
+        :return: [x, y, yaw, turn_angle, state] 或 None
         """
         # 1. 将硬件缓冲区的所有数据读入软件缓冲区
         if self.my_uart3.any():
@@ -248,37 +250,90 @@ class LinkProtocol:
             # 解码并按逗号分割并过滤掉可能的空字符串
             parts = (payload_bytes.decode('utf-8')).strip(',').split(',')
             
-            if len(parts) == 4:
-                return [float(parts[0]), float(parts[1]), float(parts[2]), int(parts[3])]
+            if len(parts) == 5:
+                return [float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3]), int(parts[4])]
             else:
                 return None # 字段数量不对（可能是粘包严重导致的残损）
         except:
             return None # 浮点转换失败或解码失败
         
-    def get_slave_state(self):
+
+    # 用于从车解析主车发送的路径坐标点
+    def get_path_list(self):
         """
-        解析从车状态包 (非阻塞)
-        包格式: 'R' (ready), 'L' (lost), 'F' (finish)
-        :return: 'ready', 'lost', 'finish' 或 None
+        尝试解析主车发送的路径包
+        发送格式: #P,120.5,80.1;130.2,90.3!
+        :return: 解析成功返回 list [(x1, y1), (x2, y2)...]; 未收到或解析失败返回 None
         """
+        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
         if self.my_uart3.any():
             try:
-                byte = self.my_uart3.read(1)[0]
-                if byte == ord('R'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "ready"
-                elif byte == ord('L'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "lost"
-                elif byte == ord('F'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "finish"
-                else:
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return None
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
             except:
+                pass # 忽略读取错误
+        
+        # 如果缓冲区为空，直接返回
+        if not self.raw_buffer:
+            return None
+        
+        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 3. 寻找包尾 '!'
+        self.end_idx = self.raw_buffer.find(b'!')
+        if self.end_idx == -1:
+            return None # 数据还没传完，继续等待
+
+        # 4. 寻找包头 '#P,'
+        start_tag = b'#P,'
+        # 只在 end_idx 之前找，防止跨包
+        self.start_idx = self.raw_buffer.find(start_tag, 0, self.end_idx)
+
+        if self.start_idx == -1:
+            # 有尾巴没头，说明头已经被挤出缓冲区或者数据错乱
+            # 清理掉这个废弃的尾巴
+            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+            return None
+
+        # 5. 提取中间的纯数据段
+        # payload_bytes 如: b'120.5,80.1;130.2,90.3'
+        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
+        
+        # 6. 消费缓冲区 (清理掉已读取的这个包)
+        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+
+        # 7. 纯字符串解析逻辑
+        try:
+            payload_str = payload_bytes.decode('utf-8')
+            # 此时 payload_str = "120.5,80.1;130.2,90.3"
+            
+            final_path = []
+            
+            # 第一刀：按分号切开各个点
+            points_str_list = payload_str.split(';')
+            
+            for p_str in points_str_list:
+                # 过滤空字符串 (防止结尾多写了一个分号导致最后是空的)
+                if not p_str: continue 
+                
+                # 第二刀：按逗号切开 x 和 y
+                coords = p_str.split(',')
+                
+                if len(coords) == 2:
+                    x = float(coords[0])
+                    y = float(coords[1])
+                    final_path.append((x, y))
+            
+            if len(final_path) > 0:
+                return final_path
+            else:
                 return None
-        else:
+                
+        except Exception as e:
+            # print("解析路径异常:", e)
             return None
 
 # 数学常量类

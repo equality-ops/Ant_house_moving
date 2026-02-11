@@ -169,6 +169,17 @@ class LinkProtocol:
         self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
     
+    # 用于主车向从车发送规划好的路径坐标点
+    def send_path(self, path_points):
+        """
+        发送路径点列表 (非阻塞)
+        格式: #P,120.5,80.1;130.2,90.3;140.0,100.0!
+        :param path_points: [(x1, y1), (x2, y2), ...]
+        """
+        point_strs = ["{:.1f},{:.1f}".format(x, y) for x, y in path_points]
+        packet = "#P," + ";".join(point_strs) + "!"
+        self.my_uart3.write(packet.encode('utf-8'))
+
     # 用于主车向从车发送坐标和当前状态数据的接口
     def send_pose(self, role_prefix, x, y, yaw, turn_angle, state):
         """
@@ -187,8 +198,8 @@ class LinkProtocol:
     def get_slave_state(self):
         """
         解析从车状态包 (非阻塞)
-        包格式: 'R' (ready), 'L' (lost), 'F' (finish)
-        :return: 'ready', 'lost', 'finish' 或 None
+        包格式: 'R' (ready), 'L' (lost), 'F' (finish), 'R' (Receive)
+        :return: 'ready', 'lost', 'finish', 'Receive' 或 None
         """
         if self.my_uart3.any():
             try:
@@ -202,6 +213,9 @@ class LinkProtocol:
                 elif byte == ord('F'):
                     byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
                     return "finish"
+                elif byte == ord('R'):
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return "Receive"
                 else:
                     byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
                     return None

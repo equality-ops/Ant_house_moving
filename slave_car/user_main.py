@@ -107,7 +107,7 @@ my_order_manager = ant_else.order_manager(my_uart6)
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
 # 创建主从车无线串口通信对象
-my_main_protocol = ant_else.LinkProtocol(my_uart3)
+my_slave_protocol = ant_else.LinkProtocol(my_uart3)
 
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
@@ -364,15 +364,15 @@ def test_orbit_control():
     elif my_state.state == my_state.STOP:
         pass
 
-# 测试主从车通信函数 
-def test_main_slave_communication():
-    slave_state = my_main_protocol.get_slave_state()
-    if slave_state:
-        my_uart3.write(f"Slave state: {slave_state}\n")
-        my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_car.now_yaw, my_state.state)
-        # 测试
+# 测试从车接收主车发送的路径函数 
+def test_slave_receive_path():  
+    final_path = my_slave_protocol.get_path_list()
+    if final_path:
+        my_uart3.write("\r\nReceived path:\r\n")
         my_beep.test()
-
+        for point in final_path:
+            my_uart3.write(f"{point}\r\n")
+    
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -453,14 +453,14 @@ def time_pit1_handler(time):
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 测试主从车通信
-    # test_main_slave_communication()
+    test_slave_receive_path()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
