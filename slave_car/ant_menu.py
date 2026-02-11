@@ -117,7 +117,6 @@ class Menu:
                     self.save_data()
 
 
-
     # 检测按键状态
     # 记得不要写阻塞
     def read_key(self, debounce_ms = 40):

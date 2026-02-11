@@ -10,10 +10,10 @@ from machine import *
 from display import *
 from seekfree import MOTOR_CONTROLLER, IMU660RX, DL1X
 from smartcar import ticker, encoder
-import main_car.main_else as main_else
-import main_car.main_motor as main_motor
-import main_car.main_plan as main_plan
-import main_car.main_menu as main_menu
+import ant_else
+import ant_motor
+import ant_plan
+import ant_menu
 
 
 # 包含 gc 与 time 类
@@ -23,6 +23,13 @@ import time
 ###################################【变量定义及初始化】###################################
 # 多路复用时间计数器
 counter = 0      # type: int
+# 按键消抖相关变量
+current_time = 0
+last_left_time = 0
+# 是否按下启动按键标志位
+if_press_start_key = False
+# 是否成功启动标志位
+start_flag = False
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -83,82 +90,82 @@ lcd.clear(0x0000)
 
 #采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
 end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_up = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_left = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_right = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_up = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_down = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_left = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
-my_beep = main_else.beep(beep)
+my_beep = ant_else.beep(beep)
 
 #【文件读取】
-# 从config.txt中读取保存所有的参数并保存到config字典中
-my_flash_sys = main_else.flash_system(my_beep, "/flash/config.txt")
+# 从main_config.txt中读取保存所有的参数并保存到config字典中
+my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
 
 # 创建数学常量对象
-MATH = main_else.Math()
+MATH = ant_else.Math()
 
 # 创建指令管理对象
-my_order_manager = main_else.order_manager(my_uart6)
+my_order_manager = ant_else.order_manager(my_uart6)
 
 # 创建openart串口解析对象
-my_art_protocol = main_else.UARTProtocol(my_uart6)
+my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
 # 创建主从车无线串口通信对象
-my_main_protocol = main_else.LinkProtocol(my_uart3)
+my_main_protocol = ant_else.LinkProtocol(my_uart3)
 
 # 创建pid参数对象
-pid_data = main_motor.PID_data(my_flash_sys)
+pid_data = ant_motor.PID_data(my_flash_sys)
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = main_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_ur = main_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_md = main_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = main_motor.SlipAveragingFilter(6)  # 滤波窗口为6个
+diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
+diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(6)  # 滤波窗口为6个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
-speed_x_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-speed_y_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 视觉伺服自身转角的卡尔曼滤波器
-servo_yaw_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_ur_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_md_fil = main_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
-tof_distance_fil = main_motor.ToFFilter(window_size=5, alpha=0.4)
+tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 
 # 创建姿态数据对象
-pose_data = main_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
 
 # 创建电机pid对象和角度pid对象
-motor_ul_pid = main_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
-motor_ur_pid = main_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
-motor_md_pid = main_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
-angle_pid = main_motor.AnglePositionPID(my_flash_sys)
-servo_pid = main_motor.ServoPID(my_flash_sys)
+motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
+motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
+motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
+angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
+servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
-my_car = main_motor.CarPose(my_flash_sys, pose_data, MATH, speed_x_fil, speed_y_fil, angle_pid,
+my_car = ant_motor.CarPose(my_flash_sys, pose_data, MATH, speed_x_fil, speed_y_fil, angle_pid,
                            motor_ul_pid, motor_ur_pid, motor_md_pid,
                            motor_ul, motor_ur, motor_md)
 
 # 创建状态机对象
-my_state = main_plan.StateMachine()
+my_state = ant_plan.StateMachine()
 
 # 创建路径规划数据对象
-plan_data = main_plan.Plan_data(my_flash_sys)
+plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = main_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = main_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = main_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -182,6 +189,34 @@ def tof_init():
     for i in range(0, 30):
         tof.get()
         time.sleep_ms(5)
+
+# 用于主车启动的函数
+def main_start():
+    global current_time, last_left_time, start_flag, if_press_start_key
+    if start_flag == False:
+        if if_press_start_key == False:
+            current_time = time.ticks_ms()
+            if key_right.value() == 0 and state2 == 0:
+                if last_left_time == 0:
+                    last_left_time = current_time
+                elif time.ticks_diff(current_time, last_left_time) >= 50:
+                    my_beep.test()
+                    if_press_start_key = True
+                    last_left_time = 0
+                else:
+                    last_left_time = 0
+        else:         
+            my_main_protocol.send_start()
+            if my_main_protocol.get_slave_state() == "ready":
+                my_beep.test()
+                my_state.state_work = 0
+                my_state.state = my_state.READY_NAVIGATE
+                start_flag = True
+                # 打开定时器1和3
+                pit1_start()
+                pit3_start()
+                # 检测是否正常初始化所有
+                detect_if_normal()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -508,6 +543,9 @@ def time_pit3_handler(time) -> None:
 # 用于无线串口调试和发车启动
 def time_pit2_handler(time):
     """用于无线串口调试"""
+    # 发车启动函数
+    main_start()
+
     # my_uart3.write("debug\r\n")
 
     # 视觉伺服
@@ -610,16 +648,11 @@ voltage_detect(11.6)
 # ant_menu.Menu_First()
 
 # 打开定时器
-pit1_start()
-pit3_start()
 pit2_start()
 
 # === 初始显示 ===
 my_menu.Menu_Page_1()
 my_menu.show_arrow()
-
-# 检测是否正常初始化所有
-detect_if_normal()
 
 while True:
     # 屏幕测试程序
