@@ -5,15 +5,17 @@ class StateMachine:
     def __init__(self):
         self.READY_NAVIGATE = 0  # 准备导航状态（主车等待从车准备好）
         self.NAVIGATE = 1    # 导航状态
-        self.SERVO = 2       # 视觉伺服状态
-        self.ORBIT = 3       # 环绕状态
-        self.MOVE = 4        # 搬运状态
-        self.CALIBRATE = 5   # 校准状态
-        self.RETURN = 6		 # 返回状态
-        self.STOP = 7        # 停止状态
+        self.SCAN = 2        # 扫描状态
+        self.SERVO = 3       # 视觉伺服状态
+        self.ORBIT = 4       # 环绕状态
+        self.MOVE = 5        # 搬运状态
+        self.CALIBRATE = 6   # 校准状态
+        self.RETURN = 7		 # 返回状态
+        self.STOP = 8        # 停止状态
         
         # self.state = self.NAVIGATE  # 初始状态为导航状态
         self.state = self.READY_NAVIGATE  # 初始状态为准备导航状态
+        self.state_work = -1               # 阶段变量
 
 # 路径和速度规划相关常量
 class Plan_data:
@@ -22,11 +24,10 @@ class Plan_data:
         self.flash_sys = flash_sys
 
         # 地图固定点坐标
-        self.fixed_point = [[0.0, 0.0], [0.0, 150.0], [150.0, 0.0], [150.0, 150.0]]  # type: list
+        # fixed_point[0]为主车起点，fixed_point[1]为扫描起始点
+        self.fixed_point = [[40.0, -10.0], [100.0, 80.0]]  # type: list
         # 路径1
         self.path_1 = [[[8.9, 8.0]]]     # type: list
-        # 从车与主车的安全距离
-        self.save_dist = 30.0       # type: float
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -130,9 +131,9 @@ class Plan:
         # 标志位
         self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
         self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
+        self.if_send_path = False       # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
-        self.if_main_finish_navigate = False  # type: bool  # 判断主车是否完成导航标志位
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
         self.if_gain_calibrate_angle = True   # type: bool  # 判断是否获取校准角度标志位
         self.if_finish_calibrate = True       # type: bool  # 判断是否完成校准标志位
@@ -179,7 +180,8 @@ class Plan:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
-                    self.my_uart3.write("boost_finish\n")
+                    # 测试
+                    # self.my_uart3.write("boost_finish\n")
             elif self.stage == self.TRANSIT:
                 self.v_target = self.v_max
                 if self.rest_distance < self.dec_distance:
@@ -342,24 +344,15 @@ class Plan:
     def compute_turn_angle_target(self, turn_angle_target: float):
         self.turn_angle_target = turn_angle_target
 
-    # 更新战术矢量，master_pos为主车位置，obstacles为传感器探测到的障碍物坐标列表（如果有）
+    # 更新战术矢量，master_pos为主车位置（如果是从车），obstacles为传感器探测到的障碍物坐标列表（如果有）
     # 小车的航向角会受到目标点引力和障碍物斥力的影响
-    def update_tactical_vector(self, master_pos, obstacles=[]):
+    def update_tactical_vector(self, obstacles=[]):
         """
-        master_pos: (x, y, now_yaw, turn_angle, state) 如果是从车，引力来源于主车后方的跟随点
         obstacles: [(x, y, save_dist), ...] 传感器探测到的障碍物坐标及安全距离
         """
         # 1. 计算引力向量 (dx, dy)
-        # 协同逻辑：跟随点定在主车后方 30cm处，具体位置根据主车当前转角调整
         f_att_x = self.real_target_x - self.my_car.x_current
         f_att_y = self.real_target_y - self.my_car.y_current
-
-        # 将主车位置也加入障碍物列表，安全距离设为跟随距离减去一个安全距离以避免过度靠近主车
-        if master_pos is not None:
-            obstacles.append((master_pos[0], master_pos[1], self.plan_data.save_dist)) 
-
-        # 将从车的目标转角设置为和主车一致
-        self.compute_turn_angle_target(master_pos[3])
 
         # 2. 计算斥力向量 (避障逻辑)
         f_rep_x, f_rep_y = 0.0, 0.0
@@ -405,9 +398,9 @@ class Plan:
             else:
                 self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
 
-        # 更新 rest_distance 引导速度规划
-        # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
-        self.rest_distance = math.sqrt(total_dx**2 + total_dy**2)
+            # 更新 rest_distance 引导速度规划
+            # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
+            self.rest_distance = math.sqrt(total_dx**2 + total_dy**2)
 
         # 当剩余距离小于阈值并且完成目标转角时，推断小车已经到达目标点
         if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
@@ -491,8 +484,8 @@ class Plan:
             self.if_set_path = False
             self.finish_navigate = True
 
-    # 从车战术导航
-    def slave_tactical_navigate(self, master_pos, path = [], obstacles = []):
+    # 主车战术导航
+    def main_tactical_navigate(self, path = [], obstacles = [], target_turn_angle = None):
         if self.if_set_path == False and self.finish_navigate == False:
             # 路径初始化
             self.path_points = path
@@ -500,11 +493,13 @@ class Plan:
             self.plan_data.aimed_point_index = 0
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
+            if target_turn_angle is not None:
+                self.compute_turn_angle_target(target_turn_angle)
         # 判断是否还有未到达的目标点
         if self.plan_data.aimed_point_index < len(self.path_points):
             # 判断是否到达下一个目标点
             if self.arrive_flag == False:
-                self.update_tactical_vector(master_pos=master_pos, obstacles=obstacles)
+                self.update_tactical_vector(obstacles)
                 if self.arrive_flag == True:
                     # 到达目标点后，更新目标点索引
                     self.plan_data.aimed_point_index += 1
@@ -533,7 +528,7 @@ class Plan:
             self.if_set_path = False
             self.finish_navigate = True
 
-    # 边线校准导航
+
     def boundary_calibrate_control(self):
         if self.if_ready_calibrate == False:
             # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）

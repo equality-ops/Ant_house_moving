@@ -72,7 +72,6 @@ gyro_z_supply = 1.164164
 motor_control_T = 5
 collect_dt = 0.005
 plan_calculate_T = 10
-# 测试一般为53
 uart_and_menu_T = 53
 boost_time_threshold = 30
 
