@@ -23,7 +23,7 @@ class beep:
             return 
         elif self.beep_state == self.BEEP_ON:
             return 
-
+        
     def key_test(self) -> None:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON

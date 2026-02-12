@@ -201,12 +201,12 @@ def main_start():
                     last_left_time = current_time
                 elif time.ticks_diff(current_time, last_left_time) >= 50:
                     my_beep.test()
+                    my_main_protocol.send_start()
                     if_press_start_key = True
                     last_left_time = 0
                 else:
                     last_left_time = 0
         else:         
-            my_main_protocol.send_start()
             if my_main_protocol.get_slave_state() == "ready":
                 my_beep.test()
                 my_state.state_work = 0

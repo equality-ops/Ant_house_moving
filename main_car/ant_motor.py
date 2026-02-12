@@ -1,4 +1,5 @@
 import math
+import time
 
 class PID_data:
     def __init__(self, flash_sys):
@@ -144,7 +145,7 @@ class PoseData:
         self.gyro_y_bias = 0.0       # type: float
         """
 
-    # 初始零偏计算函数
+    # 初始零偏计算函数，总计需延时5s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
         """暂时不需要这些数据
         acc_x_sum = 0
@@ -154,7 +155,7 @@ class PoseData:
         gyro_y_sum = 0
         """
         gyro_z_sum = 0
-        sample_count = 10000
+        sample_count = 1000
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -167,6 +168,7 @@ class PoseData:
             gyro_x_sum += imu_data[3]
             gyro_y_sum += imu_data[4]
             """
+            time.sleep_ms(5)
         """时不需要处理这些数据
         self.acc_x_bias = acc_x_sum / sample_count
         self.acc_y_bias = acc_y_sum / sample_count

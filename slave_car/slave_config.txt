@@ -123,3 +123,4 @@ max_orbit_speed = 300
 min_orbit_speed = 30
 
 # openart支架上边沿距离车底板17.7cm
+# 先启动从车再启动主车，启动按键为key_right
