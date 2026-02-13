@@ -356,16 +356,19 @@ class Plan:
         f_att_y = self.real_target_y - self.my_car.y_current
 
         # 将主车位置也加入障碍物列表，安全距离设为跟随距离减去一个安全距离以避免过度靠近主车
+        temp_obstacles = list(obstacles)
         if master_pos is not None:
-            obstacles.append((master_pos[0], master_pos[1], self.plan_data.save_dist)) 
+            temp_obstacles.append((master_pos[0], master_pos[1], self.plan_data.save_dist)) 
 
         # 将从车的目标转角设置为和主车一致
         self.compute_turn_angle_target(master_pos[3])
 
         # 2. 计算斥力向量 (避障逻辑)
         f_rep_x, f_rep_y = 0.0, 0.0
-    
-        for ob_x, ob_y, safe_dist in obstacles:
+        # 总斥力
+        total_f_rep_x, total_f_rep_y = 0.0, 0.0
+
+        for ob_x, ob_y, safe_dist in temp_obstacles:
             dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
             if dist < safe_dist:
                 # 距离越近，排斥力指数级增长，500.0为斥力强度调节系数（需要根据实际情况调整）

@@ -417,6 +417,7 @@ def test_main_slave_collaborative_navigation():
         if my_main_protocol.get_slave_state() == "get":
             my_plan.if_send_path = False
             my_state.state = my_state.NAVIGATE
+            # 测试
             my_beep.test()
 
 # 任务执行机
@@ -424,18 +425,99 @@ def task_machine():
     if my_state.state_work == 0:
         if my_state.state == my_state.READY_NAVIGATE:
             if my_plan.if_send_path == False:
-                my_main_protocol.send_path([[100.0, 50.0]])
+                my_main_protocol.send_path([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1] - 30.0]])
                 my_plan.if_send_path = True
             if my_main_protocol.get_slave_state() == "get":
                 my_plan.if_send_path = False
                 my_state.state = my_state.NAVIGATE
+                # 测试
                 my_beep.test()
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[150.0, 100.0], [150.0, 200.0]], 0.0)
+            my_plan.main_tactical_navigate([plan_data.fixed_point[1]], target_turn_angle=0.0)
+            # 向从车发送主车姿态
+            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
-                my_state.state_work = 1
+                my_state.state = my_state.SCAN
+                # 测试
                 my_beep.test()
+        if my_state.state == my_state.SCAN:
+            plan_data.object = [[160.0, 100.0, 1]]  # [x, y, type]
+            my_state.state = my_state.NAVIGATE
+            my_state.state_work = 1
+    elif my_state.state_work == 1:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.main_tactical_navigate([plan_data.object[0][0], 55.0], target_turn_angle=0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.SERVO
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.SERVO:
+            my_vision_manager.visual_servo_control()
+            if my_vision_manager.finish_servo == True:
+                my_vision_manager.finish_servo = False
+                # 记录实际物体坐标和种类
+                plan_data.object_real = [my_car.x_current, my_car.y_current, plan_data.object[0][2]]
+                my_state.state = my_state.ORBIT
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.ORBIT:
+            if my_vision_manager.finish_orbit == False:
+                my_vision_manager.orbit_control(120.0)
+            else:
+                # 完成orbit后停止等待从车也完成环绕
+                my_vision_manager.orbit_speed = 0
+                if my_main_protocol.get_slave_state() == "finish":
+                    my_main_protocol.send_pose('M', plan_data.object_real[0], plan_data.object_real[1], my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
+                if my_main_protocol.get_slave_state() == "get":    
+                    my_state.state = my_state.STOP
+                    # 测试
+                    my_beep.test()
+        elif my_state.state == my_state.STOP:
+            my_plan.stop()
+            if my_main_protocol.get_slave_state() == "ready":
+                my_state.state = my_state.MOVE
+        elif my_state.state == my_state.MOVE:
+            # 让主车保持目前转角进行定向移动
+            my_plan.main_tactical_navigate([my_car.x_current, -20.0], my_car.now_yaw * 180 / MATH.PI)
+            # 向从车发送主车姿态
+            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
+            """保留从车丢失接口"""
+            if my_plan.finish_navigate == True and my_main_protocol.get_slave_state() == "finish":
+                my_plan.finish_navigate = False
+                my_state.state = my_state.CALIBRATE
+                my_state.state_work = 0
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.CALIBRATE:
+            my_plan.boundary_calibrate_control()
+            if my_plan.if_finish_calibrate == True:
+                my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle = False, False
+                my_state.state = my_state.READY_NAVIGATE
+                my_state.state_work = 2
+                # 测试
+                my_beep.test()
+    elif my_state.state_work == 2:
+            if my_state.state == my_state.READY_NAVIGATE:
+                if my_plan.if_send_path == False:
+                    my_main_protocol.send_path([[plan_data.fixed_point[0][0] - 20.0, plan_data.fixed_point[0][1]]])
+                    my_plan.if_send_path = True
+                if my_main_protocol.get_slave_state() == "get":
+                    my_plan.if_send_path = False
+                    my_state.state = my_state.RETURN
+                    # 测试
+                    my_beep.test()
+            elif my_state.state == my_state.RETURN:
+                my_plan.main_tactical_navigate([plan_data.fixed_point[0]], 0.0)
+                my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
+                if my_plan.finish_navigate == True:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.STOP
+                    # 测试
+                    my_beep.test()
+            elif my_state.state == my_state.STOP:
+                my_plan.stop()
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -516,9 +598,12 @@ def time_pit1_handler(time):
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
+    # 任务执行机
+    task_machine()
+
     # 测试主从车通信
     # test_main_slave_communication()
-    test_main_slave_collaborative_navigation()
+    #  test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])

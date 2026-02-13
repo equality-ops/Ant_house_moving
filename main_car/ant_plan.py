@@ -25,9 +25,12 @@ class Plan_data:
 
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为扫描起始点
-        self.fixed_point = [[40.0, -10.0], [100.0, 80.0]]  # type: list
-        # 路径1
-        self.path_1 = [[[8.9, 8.0]]]     # type: list
+        self.fixed_point = [[40.0, -10.0], [110.0, 55.0]]  # type: list
+        # 目标物品坐标及种类信息
+        # 1为网球， 2为红色沙袋， 3为蓝色沙袋，4为玩具熊
+        self.object = []    # type: list
+        # 实际的物体坐标
+        self.object_real = []   # type: list    
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -356,6 +359,8 @@ class Plan:
 
         # 2. 计算斥力向量 (避障逻辑)
         f_rep_x, f_rep_y = 0.0, 0.0
+        # 总斥力
+        total_f_rep_x, total_f_rep_y = 0.0, 0.0
     
         for ob_x, ob_y, safe_dist in obstacles:
             dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
@@ -379,7 +384,7 @@ class Plan:
         total_dx = f_att_x + total_f_rep_x
         total_dy = f_att_y + total_f_rep_y
 
-        # # 更新 target_yaw 引导转向，单位：度（注意避免除以0）
+        # 更新 target_yaw 引导转向，单位：度（注意避免除以0）
         if total_dy == 0.0:
             if total_dx > 0.0:
                 self.target_yaw = 90.0
@@ -810,7 +815,7 @@ class VisionManager:
                 else:
                     self.orbit_yaw = 90.0   
                 self.current_dis = 0.0
-                self.total_dis = self.orbit_radius * abs(target_angle) * self.MATH.PI / 180.0
+                self.total_dis = self.orbit_radius * abs(target_angle) * self.MATH.PI / 180
                 self.if_gain_dis = True
                 self.tof_buffer.clear()
                 # 测试
