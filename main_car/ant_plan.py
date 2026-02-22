@@ -64,7 +64,7 @@ class Plan_data:
         self.SHORT_DISTANCE = 2
 
 class Plan:
-    def __init__(self, flash_sys, plan_data: Plan_data, math, car, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, plan_data: Plan_data, math, car, order_manager, my_uart3, beep, art_protocol, obstacle_yaw_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -81,6 +81,8 @@ class Plan:
         self.my_beep = beep
         # 注入openart串口解析对象
         self.my_art_protocol = art_protocol
+        # 注入主车避障航向角滑动平均滤波器对象
+        self.obstacle_yaw_fil = obstacle_yaw_fil
 
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: int  # 最小制动速度
@@ -352,80 +354,120 @@ class Plan:
     # 更新战术矢量，master_pos为主车位置（如果是从车），obstacles为传感器探测到的障碍物坐标列表（如果有）
     # 小车的航向角会受到目标点引力和障碍物斥力的影响
     def update_tactical_vector(self, obstacles=[]):
-        """
-        obstacles: [(x, y, save_dist), ...] 传感器探测到的障碍物坐标及安全距离
-        """
-        # 1. 计算引力向量 (dx, dy)
-        f_att_x = self.real_target_x - self.my_car.x_current
-        f_att_y = self.real_target_y - self.my_car.y_current
+            """
+            obstacles: [(x, y, safe_dist), ...] 传感器探测到的障碍物坐标及安全距离。
+                如果是矩形避障，请传入矩形的4个顶点（按顺时针或逆时针顺序）。
+            """
+            # --- 新增：计算点到线段最近点的辅助函数 ---
+            def get_closest_point_on_segment(px, py, x1, y1, x2, y2):
+                dx, dy = x2 - x1, y2 - y1
+                if dx == 0 and dy == 0: return x1, y1
+                t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+                t = max(0.0, min(1.0, t)) # 限制在线段范围内
+                return x1 + t * dx, y1 + t * dy
 
-        # 2. 计算斥力向量 (避障逻辑)
-        f_rep_x, f_rep_y = 0.0, 0.0
-        # 总斥力
-        total_f_rep_x, total_f_rep_y = 0.0, 0.0
+            # 1. 计算引力向量 (dx, dy)
+            f_att_x = self.real_target_x - self.my_car.x_current
+            f_att_y = self.real_target_y - self.my_car.y_current
 
-        if len(obstacles) > 0:
-            for ob_x, ob_y, safe_dist in obstacles:
-                dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
-                if dist < safe_dist:
-                    # 距离越近，排斥力指数级增长，500.0为斥力强度调节系数（需要根据实际情况调整）
-                    force = 300.0 * (1.0/dist - 1.0/safe_dist)
-                    f_rep_x += force * (self.my_car.x_current - ob_x) / dist
-                    f_rep_y += force * (self.my_car.y_current - ob_y) / dist
+            # 2. 计算斥力向量 (避障逻辑)
+            f_rep_x, f_rep_y = 0.0, 0.0
+            total_f_rep_x, total_f_rep_y = 0.0, 0.0
 
-                    # --- 新增的侧向拨力 (切向力) ---
-                    # 此时切向力向右侧拨动，强度与斥力成正比，方向垂直于法向斥力方向
-                    # 强度可以稍微小一点，比如是正向斥力的 0.2 倍，该系数需要根据实际调整
-                    f_tan_x = 2 * force * ((self.my_car.y_current - ob_y) / dist)   # 利用 (dy, -dx) 旋转逻辑
-                    f_tan_y = 2 * force * (-(self.my_car.x_current - ob_x) / dist)
+            if len(obstacles) > 0:
+                # --- 新增：判断是否为矩形(4个点)。为了通用性，如果刚好是4个点，且你想把它当矩形处理 ---
+                # 如果你传入的就是离散的点，且不想按矩形处理，这里需要根据你的实际传入逻辑做分支。
+                # 这里假设传入的是矩形的 4 个顶点，我们将其转化为 4 条线段上的最近点。
+                processed_obstacles = []
+                if len(obstacles) == 4:
+                    # 提取顶点的坐标和统一的安全距离 (取第一个点的 safe_dist)
+                    safe_dist = obstacles[0][2] 
+                    pts = [(ob[0], ob[1]) for ob in obstacles]
+                    # 添加第 5 个点形成闭环 (回到起点)
+                    pts.append(pts[0]) 
+                
+                    # 遍历 4 条边，找出每条边离小车最近的点
+                    for i in range(4):
+                        cx, cy = get_closest_point_on_segment(
+                            self.my_car.x_current, self.my_car.y_current,
+                            pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1]
+                        )
+                        processed_obstacles.append((cx, cy, safe_dist))
+                else:
+                    # 如果传入的不是 4 个点，就按原来的普通点阵处理
+                    processed_obstacles = obstacles
 
-                    # 最终斥力 = 法向斥力 + 切向拨力
-                    # total_f_rep_x += f_rep_x
-                    # total_f_rep_y += f_rep_y
-                    total_f_rep_x += (f_rep_x + f_tan_x)
-                    total_f_rep_y += (f_rep_y + f_tan_y)
+                # --- 原有斥力与切向力计算逻辑 (使用处理后的 processed_obstacles) ---
+                for ob_x, ob_y, safe_dist in processed_obstacles:
+                    dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
+                    # 增加 > 0.01 防止小车刚好压在线上导致除以 0
+                    if 0.01 < dist < safe_dist:
+                        # 距离越近，排斥力指数级增长
+                        force = 500.0 * (1.0/dist - 1.0/safe_dist)
+                        f_rep_x = force * (self.my_car.x_current - ob_x) / dist
+                        f_rep_y = force * (self.my_car.y_current - ob_y) / dist
 
-        # 3. 合成最终矢量
-        total_dx = f_att_x + total_f_rep_x
-        total_dy = f_att_y + total_f_rep_y
+                        # 侧向拨力 (切向力)
+                        # 注意：如果 f_att_x 为 0，下面计算 temp 会抛出除零错误，这里加个小保护
+                        if f_att_x != 0:
+                            temp = (f_att_y / f_att_x) * (ob_x - self.my_car.x_current) + self.my_car.y_current - ob_y
+                        else:
+                            temp = self.my_car.y_current - ob_y
 
-        # 更新 target_yaw 引导转向，单位：度（注意避免除以0）
-        if total_dy == 0.0:
-            if total_dx > 0.0:
-                self.target_yaw = 90.0
-            elif total_dx < 0.0:
-                self.target_yaw = -90.0
-        elif total_dx == 0.0:
-            if total_dy > 0.0:
-                self.target_yaw = 0.0
-            elif total_dy < 0.0:
-                self.target_yaw = 180.0
-        else:  
-            if total_dx > 0.0 and total_dy < 0.0:
-                self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI + 180.0
-            elif total_dx < 0.0 and total_dy < 0.0:
-                self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI - 180.0
-            else:
-                self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
+                        # 判断小车绕行方向
+                        if (temp < 0 and f_att_y > 0.0) or (temp > 0 and f_att_y < 0.0):
+                            # 绕行方向为顺时针，切向力向左侧拨动
+                            f_tan_x = 4 * force * (-(self.my_car.y_current - ob_y) / dist)  
+                            f_tan_y = 4 * force * ((self.my_car.x_current - ob_x) / dist)
+                        else:
+                            # 绕行方向为逆时针，切向力向右侧拨动
+                            f_tan_x = 4 * force * ((self.my_car.y_current - ob_y) / dist)  
+                            f_tan_y = 4 * force * (-(self.my_car.x_current - ob_x) / dist)
 
-        # 更新 rest_distance 引导速度规划
-        # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
-        self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)
+                        total_f_rep_x += (f_rep_x + f_tan_x)
+                        total_f_rep_y += (f_rep_y + f_tan_y)
 
-        # 当剩余距离小于阈值并且完成目标转角时，推断小车已经到达目标点
-        if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
-            self.arrive_flag = True
-            self.transition_flag = False
-            # 测试
-            self.my_uart3.write("arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
-            self.finished_distance = 0.0
-            self.rest_distance = 0.0
-            self.dec_distance = 0.0
+            self.my_uart3.write("x_rep: {:<f}, y_rep: {:<f}\n".format(total_f_rep_x, total_f_rep_y))
+            # 3. 合成最终矢量
+            total_dx = f_att_x + total_f_rep_x
+            total_dy = f_att_y + total_f_rep_y
 
-        # 每次更新距离后进行速度规划计算
-        # 测试
-        if self.dis_flag == self.plan_data.LONG_DISTANCE:
-            self.planning_speed()
+            # 4. 更新 target_yaw 引导转向
+            if total_dy == 0.0:
+                if total_dx > 0.0:
+                    self.target_yaw = 90.0
+                elif total_dx < 0.0:
+                    self.target_yaw = -90.0
+            elif total_dx == 0.0:
+                if total_dy > 0.0:
+                    self.target_yaw = 0.0
+                elif total_dy < 0.0:
+                    self.target_yaw = 180.0
+            else:  
+                if total_dx > 0.0 and total_dy < 0.0:
+                    self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI + 180.0
+                elif total_dx < 0.0 and total_dy < 0.0:
+                    self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI - 180.0
+                else:
+                    self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
+
+            self.target_yaw = self.obstacle_yaw_fil.filtering(self.target_yaw)
+
+            # 更新 rest_distance 引导速度规划
+            self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)
+
+            # 到达判定
+            if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
+                self.arrive_flag = True
+                self.transition_flag = False
+                self.my_uart3.write("arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
+                self.finished_distance = 0.0
+                self.rest_distance = 0.0
+                self.dec_distance = 0.0
+
+            # 每次更新距离后进行速度规划计算
+            if self.dis_flag == self.plan_data.LONG_DISTANCE:
+                self.planning_speed()
 
     # 用于路径之间的过渡，保证小车平稳
     def path_transition(self):
