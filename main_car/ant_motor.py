@@ -126,7 +126,7 @@ class PoseData:
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
         # 测试
-        self.encoder_data_ul_2 = 0    # type: int
+        # self.encoder_data_ul_2 = 0    # type: int
         # self.encoder_data_ur_2 = 0    # type: int
         # self.encoder_data_md_2 = 0    # type: int
         self.gyro_z_bias = 0.0       # type: float
@@ -145,7 +145,7 @@ class PoseData:
         self.gyro_y_bias = 0.0       # type: float
         """
 
-    # 初始零偏计算函数，总计需延时5s，初始化陀螺仪的同时进行启动延时，确保平稳启动
+    # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
         """暂时不需要这些数据
         acc_x_sum = 0
@@ -168,7 +168,7 @@ class PoseData:
             gyro_x_sum += imu_data[3]
             gyro_y_sum += imu_data[4]
             """
-            time.sleep_ms(5)
+            time.sleep_ms(3)
         """时不需要处理这些数据
         self.acc_x_bias = acc_x_sum / sample_count
         self.acc_y_bias = acc_y_sum / sample_count
@@ -432,7 +432,7 @@ class CarPose:
         # 采集周期，单位：秒
         self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
         # 测试一个电机的里程
-        # self.encouder_ul = 0.0
+        # self.encouder_ul = 0.0    
         # self.encouder_ur = 0.0
         # self.encouder_md = 0.0
         

@@ -174,6 +174,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     led.toggle()
+    my_beep.test()
 
 # 检测电源电压函数
 def voltage_detect(limit_min: float) -> None:
@@ -206,23 +207,23 @@ def main_start():
                     last_left_time = 0
                 else:
                     last_left_time = 0
-        else:         
-            if my_main_protocol.get_slave_state() == "ready":
-                my_beep.test()
-                my_state.state_work = 0
-                my_state.state = my_state.READY_NAVIGATE
-                start_flag = True
-                # 打开定时器1和3
-                pit1_start()
-                pit3_start()
-                # 检测是否正常初始化所有
-                detect_if_normal()
+        else:   
+            # 测试，此时只调试主车      
+            # if my_main_protocol.get_slave_state() == "ready":
+            my_state.state_work = 0
+            my_state.state = my_state.READY_NAVIGATE
+            start_flag = True
+            # 打开定时器1和3
+            pit1_start()
+            pit3_start()
+            # 检测是否正常初始化所有
+            detect_if_normal()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(550, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(550, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(550, pose_data.encoder_data_md)
+    # motor_ul_pid.compute_pid(600, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(600, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(650, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -258,14 +259,14 @@ def test_odometer():
     global test_stage
     global count
     if count == 0:
-        if my_car.x_current <= 300.0 and test_stage == 0:
-            my_car.move_ctrl(300, 90, 90)
+        if my_car.x_current <= 150.0 and test_stage == 0:
+            my_car.move_ctrl(300, 90, 0)
             return
-        elif my_car.y_current >= -300.0 and test_stage == 1:
-            my_car.move_ctrl(300, 180, 90)
+        elif my_car.y_current >= -150.0 and test_stage == 1:
+            my_car.move_ctrl(300, 180, 0)
             return
         elif my_car.x_current >= 0.0 and test_stage == 2:
-            my_car.move_ctrl(300, -90, -90)
+            my_car.move_ctrl(300, -90, 0)
             return
         elif my_car.y_current <= 0.0 and test_stage == 3:
             my_car.move_ctrl(300, 0, 0)
@@ -276,7 +277,7 @@ def test_odometer():
      
     my_car.move_ctrl(0, 0, 0)
     count += 1
-    if count == 50:
+    if count == 100:
         test_stage += 1
         count = 0
     
@@ -526,7 +527,7 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 350:
+    if motor_ul_pid.target >= 400:
         motor_ul_pid.set_pid_params(pid_data.ul_extreme_kp, pid_data.ul_extreme_ki, pid_data.ul_extreme_kd)
     elif motor_ul_pid.target >= 240:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -535,7 +536,7 @@ def time_pit1_handler(time):
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 350:
+    if motor_ur_pid.target >= 400:
         motor_ur_pid.set_pid_params(pid_data.ur_extreme_kp, pid_data.ur_extreme_ki, pid_data.ur_extreme_kd)
     elif motor_ur_pid.target >= 240:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
@@ -544,7 +545,7 @@ def time_pit1_handler(time):
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 350:
+    if motor_md_pid.target >= 400:
         motor_md_pid.set_pid_params(pid_data.md_extreme_kp, pid_data.md_extreme_ki, pid_data.md_extreme_kd)
     elif motor_md_pid.target >= 240:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
@@ -569,7 +570,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -599,16 +600,19 @@ def time_pit1_handler(time):
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 测试主从车通信
     # test_main_slave_communication()
-    #  test_main_slave_collaborative_navigation()
+    # test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
+    # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
+    # 战术避障
+    my_plan.main_tactical_navigate([[160.0, 120.0], [110.0, 170.0], [210.0, 170.0], [210.0, 70.0], [0, 0]], [[110.0, 70.0, 50.0]], target_turn_angle=0.0)
+
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -653,7 +657,7 @@ def time_pit2_handler(time):
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")

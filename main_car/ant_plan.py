@@ -143,7 +143,7 @@ class Plan:
 
     def _ease_out_quad(self, t):
         """二次缓出曲线，用于快速启动"""
-        return -t * (t - 2)
+        return t ** 2
     
     # 构建减速速度表
     def build_dec_speed_list(self, i):
@@ -178,7 +178,7 @@ class Plan:
                 self.elapsed_time += 1
                 if self.elapsed_time <= self.boost_time_threshold:
                     # 计算目标速度
-                    self.v_target = self.min_start_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.v_max - self.min_start_v))
+                    self.v_target = self.min_start_v + int(self.elapsed_time / self.boost_time_threshold * (self.v_max - self.dead_zone_v))
                 else:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
@@ -270,33 +270,35 @@ class Plan:
         else:
           self.v_max = self.short_v_max
         # 依据总距离计算里程计系数
-        if self.total_distance >= 150.0:
-            self.my_car.alpha_x = 0.967048
+        if self.total_distance >= 300.0:
+            self.my_car.alpha_x = 0.984448
+        elif self.total_distance >= 200.0:
+            self.my_car.alpha_x = 0.98001
         elif self.total_distance >= 100.0:
-            self.my_car.alpha_x = 0.954026
-        elif self.total_distance >= 45.0:
-            self.my_car.alpha_x = 0.944249
+            self.my_car.alpha_x = 0.98
+        elif self.total_distance >= 40.0:
+            self.my_car.alpha_x = 0.969089
         else:
-            self.my_car.alpha_x = 0.94
+            self.my_car.alpha_x = 1.0
 
-        if self.total_distance >= 280.0:
-            self.my_car.alpha_y = 0.950677
-        elif self.total_distance >= 230.0:
-            self.my_car.alpha_y = 0.951949
-        elif self.total_distance >= 130.0:
-            self.my_car.alpha_y = 0.946843
-        elif self.total_distance >= 45.0:
-            self.my_car.alpha_y = 0.937625
+        if self.total_distance >= 220.0:
+            self.my_car.alpha_y = 0.970369
+        elif self.total_distance >= 160.0:
+            self.my_car.alpha_y = 0.969983
+        elif self.total_distance >= 100.0:
+            self.my_car.alpha_y = 0.9625
+        elif self.total_distance >= 40.0:
+            self.my_car.alpha_y = 0.944444
         else:
-            self.my_car.alpha_y = 0.933
+            self.my_car.alpha_y = 1.0
 
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
-        if self.total_distance >= 45.0:
+        if self.total_distance >= 40.0:
             self.dec_distance = 20.0
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
         else:
-            self.v_target = 60
+            self.v_target = self.short_v_max
             self.dis_flag = self.plan_data.SHORT_DISTANCE
         self.arrive_flag = False
         # 测试
@@ -361,24 +363,27 @@ class Plan:
         f_rep_x, f_rep_y = 0.0, 0.0
         # 总斥力
         total_f_rep_x, total_f_rep_y = 0.0, 0.0
-    
-        for ob_x, ob_y, safe_dist in obstacles:
-            dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
-            if dist < safe_dist:
-                # 距离越近，排斥力指数级增长，500.0为斥力强度调节系数（需要根据实际情况调整）
-                force = 500.0 * (1.0/dist - 1.0/safe_dist)
-                f_rep_x += force * (self.my_car.x_current - ob_x) / dist
-                f_rep_y += force * (self.my_car.y_current - ob_y) / dist
 
-                # --- 新增的侧向拨力 (切向力) ---
-                # 此时切向力向右侧拨动，强度与斥力成正比，方向垂直于法向斥力方向
-                # 强度可以稍微小一点，比如是正向斥力的 0.2 倍，该系数需要根据实际调整
-                f_tan_x = 0.2 * force * ((self.my_car.y_current - ob_y) / dist)   # 利用 (dy, -dx) 旋转逻辑
-                f_tan_y = 0.2 * force * (-(self.my_car.x_current - ob_x) / dist)
+        if len(obstacles) > 0:
+            for ob_x, ob_y, safe_dist in obstacles:
+                dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
+                if dist < safe_dist:
+                    # 距离越近，排斥力指数级增长，500.0为斥力强度调节系数（需要根据实际情况调整）
+                    force = 300.0 * (1.0/dist - 1.0/safe_dist)
+                    f_rep_x += force * (self.my_car.x_current - ob_x) / dist
+                    f_rep_y += force * (self.my_car.y_current - ob_y) / dist
 
-                # 最终斥力 = 法向斥力 + 切向拨力
-                total_f_rep_x += (f_rep_x + f_tan_x)
-                total_f_rep_y += (f_rep_y + f_tan_y)
+                    # --- 新增的侧向拨力 (切向力) ---
+                    # 此时切向力向右侧拨动，强度与斥力成正比，方向垂直于法向斥力方向
+                    # 强度可以稍微小一点，比如是正向斥力的 0.2 倍，该系数需要根据实际调整
+                    f_tan_x = 2 * force * ((self.my_car.y_current - ob_y) / dist)   # 利用 (dy, -dx) 旋转逻辑
+                    f_tan_y = 2 * force * (-(self.my_car.x_current - ob_x) / dist)
+
+                    # 最终斥力 = 法向斥力 + 切向拨力
+                    # total_f_rep_x += f_rep_x
+                    # total_f_rep_y += f_rep_y
+                    total_f_rep_x += (f_rep_x + f_tan_x)
+                    total_f_rep_y += (f_rep_y + f_tan_y)
 
         # 3. 合成最终矢量
         total_dx = f_att_x + total_f_rep_x
@@ -403,9 +408,9 @@ class Plan:
             else:
                 self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
 
-            # 更新 rest_distance 引导速度规划
-            # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
-            self.rest_distance = math.sqrt(total_dx**2 + total_dy**2)
+        # 更新 rest_distance 引导速度规划
+        # 这样你的 S 曲线减速逻辑 (planning_speed) 依然能完美生效
+        self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)
 
         # 当剩余距离小于阈值并且完成目标转角时，推断小车已经到达目标点
         if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
@@ -416,6 +421,7 @@ class Plan:
             self.finished_distance = 0.0
             self.rest_distance = 0.0
             self.dec_distance = 0.0
+
         # 每次更新距离后进行速度规划计算
         # 测试
         if self.dis_flag == self.plan_data.LONG_DISTANCE:
@@ -498,6 +504,7 @@ class Plan:
             self.plan_data.aimed_point_index = 0
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
+            self.compute_target_yaw()
             if target_turn_angle is not None:
                 self.compute_turn_angle_target(target_turn_angle)
         # 判断是否还有未到达的目标点
@@ -526,8 +533,8 @@ class Plan:
             self.stop()
             # 测试
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y
+            # self.my_car.x_current = self.ideal_target_x
+            # self.my_car.y_current = self.ideal_target_y
             self.dec_speed_index = 0
             self.path_points.clear()
             self.if_set_path = False
