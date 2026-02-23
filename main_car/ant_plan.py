@@ -26,11 +26,17 @@ class Plan_data:
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为扫描起始点
         self.fixed_point = [[40.0, -10.0], [110.0, 55.0]]  # type: list
+        
+        # 矩形区域四角点坐标
+        self.rectangle_corners = [[110.0, 70.0, 40.0], [210.0, 70.0, 40.0],  [210.0, 170.0, 40.0],  [110.0, 170.0, 40.0]]
+        
         # 目标物品坐标及种类信息
         # 1为网球， 2为红色沙袋， 3为蓝色沙袋，4为玩具熊
         self.object = []    # type: list
+        
         # 实际的物体坐标
         self.object_real = []   # type: list    
+        
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 坐标误差修正量
@@ -133,6 +139,8 @@ class Plan:
         self.car_position = None
         # 距离长短标志位
         self.dis_flag = None
+        # 绕行障碍物方向指示
+        self.direct = 0
         # 标志位
         self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
         self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
@@ -351,6 +359,14 @@ class Plan:
     def compute_turn_angle_target(self, turn_angle_target: float):
         self.turn_angle_target = turn_angle_target
 
+    # --- 新增：计算点到线段最近点的辅助函数 ---
+    def get_closest_point_on_segment(self, px, py, x1, y1, x2, y2):
+        dx, dy = x2 - x1, y2 - y1
+        if dx == 0 and dy == 0: return x1, y1
+        t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+        t = max(0.0, min(1.0, t)) # 限制在线段范围内
+        return x1 + t * dx, y1 + t * dy
+    
     # 更新战术矢量，master_pos为主车位置（如果是从车），obstacles为传感器探测到的障碍物坐标列表（如果有）
     # 小车的航向角会受到目标点引力和障碍物斥力的影响
     def update_tactical_vector(self, obstacles=[]):
@@ -358,55 +374,55 @@ class Plan:
             obstacles: [(x, y, safe_dist), ...] 传感器探测到的障碍物坐标及安全距离。
                 如果是矩形避障，请传入矩形的4个顶点（按顺时针或逆时针顺序）。
             """
-            # --- 新增：计算点到线段最近点的辅助函数 ---
-            def get_closest_point_on_segment(px, py, x1, y1, x2, y2):
-                dx, dy = x2 - x1, y2 - y1
-                if dx == 0 and dy == 0: return x1, y1
-                t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
-                t = max(0.0, min(1.0, t)) # 限制在线段范围内
-                return x1 + t * dx, y1 + t * dy
-
             # 1. 计算引力向量 (dx, dy)
             f_att_x = self.real_target_x - self.my_car.x_current
             f_att_y = self.real_target_y - self.my_car.y_current
+            
+            # 更新 rest_distance 引导速度规划
+            self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)
 
             # 2. 计算斥力向量 (避障逻辑)
-            f_rep_x, f_rep_y = 0.0, 0.0
-            total_f_rep_x, total_f_rep_y = 0.0, 0.0
+            total_f_rep_x, total_f_rep_y = 0.0, 0.0  # 最大的斥力分量，用于调节最终的斥力向量大小
 
-            if len(obstacles) > 0:
-                # --- 新增：判断是否为矩形(4个点)。为了通用性，如果刚好是4个点，且你想把它当矩形处理 ---
-                # 如果你传入的就是离散的点，且不想按矩形处理，这里需要根据你的实际传入逻辑做分支。
-                # 这里假设传入的是矩形的 4 个顶点，我们将其转化为 4 条线段上的最近点。
-                processed_obstacles = []
-                if len(obstacles) == 4:
-                    # 提取顶点的坐标和统一的安全距离 (取第一个点的 safe_dist)
-                    safe_dist = obstacles[0][2] 
-                    pts = [(ob[0], ob[1]) for ob in obstacles]
-                    # 添加第 5 个点形成闭环 (回到起点)
-                    pts.append(pts[0]) 
-                
-                    # 遍历 4 条边，找出每条边离小车最近的点
-                    for i in range(4):
-                        cx, cy = get_closest_point_on_segment(
-                            self.my_car.x_current, self.my_car.y_current,
-                            pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1]
-                        )
-                        processed_obstacles.append((cx, cy, safe_dist))
-                else:
-                    # 如果传入的不是 4 个点，就按原来的普通点阵处理
-                    processed_obstacles = obstacles
+            processed_obstacles = []
+            # 此时小车在矩形区域附近，启用矩形避障逻辑
+            if self.my_car.x_current >= 70.0 and self.my_car.x_current <= 250.0 and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 210.0:
+                # 提取顶点的坐标和统一的安全距离 (取第一个点的 safe_dist)
+                safe_dist = self.plan_data.rectangle_corners[0][2] 
+                pts = [(ob[0], ob[1]) for ob in self.plan_data.rectangle_corners]  # type: list
+                # 添加第 5 个点形成闭环 (回到起点)
+                pts.append(pts[0]) 
 
-                # --- 原有斥力与切向力计算逻辑 (使用处理后的 processed_obstacles) ---
-                for ob_x, ob_y, safe_dist in processed_obstacles:
-                    dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
-                    # 增加 > 0.01 防止小车刚好压在线上导致除以 0
-                    if 0.01 < dist < safe_dist:
-                        # 距离越近，排斥力指数级增长
-                        force = 400.0 * (1.0/dist - 1.0/safe_dist)
-                        f_rep_x = force * (self.my_car.x_current - ob_x) / dist
-                        f_rep_y = force * (self.my_car.y_current - ob_y) / dist
+                # 遍历 4 条边，找出每条边离小车最近的点
+                for i in range(4):
+                    cx, cy = self.get_closest_point_on_segment(
+                        self.my_car.x_current, self.my_car.y_current,
+                        pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1])
+                    processed_obstacles.append((cx, cy, safe_dist))
+            else:
+                self.direct = 0  # 不在矩形区域内，重置绕行方向指示
 
+            # 将传感器探测到的障碍物添加到 processed_obstacles 中，参与斥力计算
+            processed_obstacles = processed_obstacles + obstacles
+
+            # --- 原有斥力与切向力计算逻辑 (使用处理后的 processed_obstacles) ---
+            for ob_x, ob_y, safe_dist in processed_obstacles:
+                dist = math.sqrt((self.my_car.x_current - ob_x)**2 + (self.my_car.y_current - ob_y)**2)
+                # 增加 > 0.01 防止小车刚好压在线上导致除以 0
+                if 0.01 < dist < safe_dist:
+                    # 距离越近，排斥力指数级增长
+                    force = 30.0 + 400.0 * (1.0/dist - 1.0/safe_dist)
+                    
+                    # 距离过近时，削弱小车受到的斥力（可以根据实际情况调整这个距离阈值）
+                    if self.rest_distance <= 60.0 and self.rest_distance > 30.0:
+                        force *= (60.0 - self.rest_distance) / 60.0
+                    elif self.rest_distance <= 30.0:
+                        force = 0.0
+
+                    f_rep_x = force * (self.my_car.x_current - ob_x) / dist
+                    f_rep_y = force * (self.my_car.y_current - ob_y) / dist
+
+                    if self.direct == 0:
                         # 侧向拨力 (切向力)
                         # 注意：如果 f_att_x 为 0，下面计算 temp 会抛出除零错误，这里加个小保护
                         if f_att_x != 0:
@@ -416,17 +432,22 @@ class Plan:
 
                         # 判断小车绕行方向
                         if (temp < 0 and f_att_y > 0.0) or (temp > 0 and f_att_y < 0.0):
-                            # 绕行方向为顺时针，切向力向左侧拨动
-                            f_tan_x = 4 * force * (-(self.my_car.y_current - ob_y) / dist)  
-                            f_tan_y = 4 * force * ((self.my_car.x_current - ob_x) / dist)
+                            self.direct = 1  # 绕行方向为顺时针
                         else:
-                            # 绕行方向为逆时针，切向力向右侧拨动
-                            f_tan_x = 4 * force * ((self.my_car.y_current - ob_y) / dist)  
-                            f_tan_y = 4 * force * (-(self.my_car.x_current - ob_x) / dist)
+                            self.direct = -1  # 绕行方向为逆时针
 
-                        total_f_rep_x += (f_rep_x + f_tan_x)
-                        total_f_rep_y += (f_rep_y + f_tan_y)
+                    if self.direct == 1:  # 顺时针绕行
+                        # 绕行方向为顺时针，切向力向左侧拨动
+                        f_tan_x = 2 * force * (-(self.my_car.y_current - ob_y) / dist)  
+                        f_tan_y = 2 * force * ((self.my_car.x_current - ob_x) / dist)
+                    elif self.direct == -1:  # 逆时针绕行
+                        # 绕行方向为逆时针，切向力向右侧拨动
+                        f_tan_x = 2 * force * ((self.my_car.y_current - ob_y) / dist)  
+                        f_tan_y = 2 * force * (-(self.my_car.x_current - ob_x) / dist)
 
+                    total_f_rep_x += f_rep_x + f_tan_x
+                    total_f_rep_y += f_rep_y + f_tan_y
+            
             # 3. 合成最终矢量
             total_dx = f_att_x + total_f_rep_x
             total_dy = f_att_y + total_f_rep_y
@@ -450,8 +471,10 @@ class Plan:
                 else:
                     self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
 
-            # 更新 rest_distance 引导速度规划
-            self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)
+            self.target_yaw = self.obstacle_yaw_fil.filtering(self.target_yaw)  # 对目标航向角进行滑动平均滤波，增加稳定性
+
+            #测试
+            self.my_uart3.write("{:<f}\n".format(self.target_yaw))
 
             # 到达判定
             if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0:
@@ -527,8 +550,6 @@ class Plan:
             self.stop()
             # 测试
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y
             self.dec_speed_index = 0
             self.path_points.clear()
             self.if_set_path = False
@@ -572,8 +593,6 @@ class Plan:
             self.stop()
             # 测试
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            # self.my_car.x_current = self.ideal_target_x
-            # self.my_car.y_current = self.ideal_target_y
             self.dec_speed_index = 0
             self.path_points.clear()
             self.if_set_path = False
@@ -900,3 +919,4 @@ def test_vision_servo_1():
     elif my_state.state == my_state.STOP:
         pass
 """
+
