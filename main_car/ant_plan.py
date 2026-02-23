@@ -403,7 +403,7 @@ class Plan:
                     # 增加 > 0.01 防止小车刚好压在线上导致除以 0
                     if 0.01 < dist < safe_dist:
                         # 距离越近，排斥力指数级增长
-                        force = 500.0 * (1.0/dist - 1.0/safe_dist)
+                        force = 400.0 * (1.0/dist - 1.0/safe_dist)
                         f_rep_x = force * (self.my_car.x_current - ob_x) / dist
                         f_rep_y = force * (self.my_car.y_current - ob_y) / dist
 
@@ -427,7 +427,6 @@ class Plan:
                         total_f_rep_x += (f_rep_x + f_tan_x)
                         total_f_rep_y += (f_rep_y + f_tan_y)
 
-            self.my_uart3.write("x_rep: {:<f}, y_rep: {:<f}\n".format(total_f_rep_x, total_f_rep_y))
             # 3. 合成最终矢量
             total_dx = f_att_x + total_f_rep_x
             total_dy = f_att_y + total_f_rep_y
@@ -450,8 +449,6 @@ class Plan:
                     self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI - 180.0
                 else:
                     self.target_yaw = math.atan(total_dx / total_dy) * 180.0 / self.MATH.PI
-
-            self.target_yaw = self.obstacle_yaw_fil.filtering(self.target_yaw)
 
             # 更新 rest_distance 引导速度规划
             self.rest_distance = math.sqrt(f_att_x**2 + f_att_y**2)

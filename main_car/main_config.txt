@@ -62,7 +62,7 @@ car_radius = 10.5
 # 速度转换系数
 speed_conversion_gamma = 0.372928
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.21
+gkd = -0.2
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
@@ -73,7 +73,7 @@ motor_control_T = 5
 collect_dt = 0.005
 plan_calculate_T = 10
 uart_and_menu_T = 53
-boost_time_threshold = 30
+boost_time_threshold = 50
 
 ###################【路径规划】####################
 plan_arrive_threshold = 0.5
