@@ -127,12 +127,12 @@ class BoundaryDetector:
                 img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
                 x1, y1, x2, y2 = l.line()
                 if y1 > y2:
-                    bottom_x = x1 
+                    bottom_x = x1
                 else:
                     bottom_x = x2
-                
+
                 if abs(bottom_x - self.MIDDLE_X) <= self.X_TOLERANCE:
-                    theta = l.theta()        
+                    theta = l.theta()
                     if theta > 90:
                         angle = theta - 180
                     else:
@@ -381,3 +381,4 @@ while True:
             communicator.send_angle(angle)
 
     lcd.show_image(img, 160, 120, zoom=0)
+    print(clock.fps())

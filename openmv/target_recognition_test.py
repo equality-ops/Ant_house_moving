@@ -1,243 +1,379 @@
 import sensor, image, time, math, mjpeg
 from pyb import LED
 from machine import UART
+from ulab import numpy as np
+import seekfree
 import ustruct
+###########################通信模块########################
+class Communicator:
+    def __init__(self, uart):
+        self.uart = uart
+        self.last_sent_x = 80
+        self.last_sent_y = 60
 
-##########################串口初始化#########################
-uart = UART(2, baudrate=115200)
+    def send_coordinate(self, x, y):
+        if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
+            return #增加最小变化阈值（防抖）
+
+        dx_coord = min(30, max(-30, x - self.last_sent_x))
+        dy_coord = min(30, max(-30, y - self.last_sent_y))
+        x_limited = self.last_sent_x + dx_coord
+        y_limited = self.last_sent_y + dy_coord
+
+        if x_limited < 0:
+            x_limited = 0
+        elif x_limited > 160:
+            x_limited = 160
+
+        if y_limited < 0:
+            y_limited = 0
+        elif y_limited > 120:
+            y_limited = 120
+
+        self.last_sent_x = x_limited
+        self.last_sent_y = y_limited
+        data = ustruct.pack("<BBBBB", 0xA5, 0xA6, x_limited, y_limited, 0x5B)
+        self.uart.write(data)
+
+    def send_angle(self, angle):
+        angle_mapped = angle + 90  # 映射到 0～180
+        data = ustruct.pack("<BBBB", 0xA5, 0xA7, angle_mapped, 0x5B)
+        self.uart.write(data)
+
+#######################颜色检测模块########################
+class ColorDetector:
+    # 颜色阈值（类变量，共享）
+    RED_THRESHOLD = [(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)]
+    GREEN_THRESHOLD = [(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)]
+    BLUE_THRESHOLD = [(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)]
+    BROWN_THRESHOLD = [(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)]
+
+    # 距离阈值
+    DISTANCE_THRESHOLD = 30
+
+    @staticmethod
+    def calculate_distance(x1, y1, x2, y2):
+        return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+    def detect_colors(self, img):
+        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
+        red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
+        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
+        blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
+
+        all_blobs = []
+        for blob in brown_blobs: all_blobs.append((blob, 'brown'))
+        for blob in red_blobs:   all_blobs.append((blob, 'red'))
+        for blob in green_blobs: all_blobs.append((blob, 'green'))
+        for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
+        return all_blobs
+
+    def filter_all_blobs(self, blobs):
+        filtered = []
+        for blob, color in blobs:
+            if blob.density() < 0.3:
+                continue
+            min_pixels = 50 * (blob.density() + 0.5)
+            if blob.pixels() < min_pixels:
+                continue
+            """
+            if (blob.w() > 140 or blob.h() > 110):
+                continue
+            """
+            if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
+                continue
+            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
+                continue
+
+            cx, cy = blob.cx(), blob.cy()
+            keep = True
+            for saved_blob, _ in filtered:
+                d = self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy())
+                if d < self.DISTANCE_THRESHOLD:
+                    keep = False
+                    break
+            if keep:
+                filtered.append((blob, color))
+        return filtered
+
+########################边界检测模块######################
+class BoundaryDetector:
+    YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
+    ROI_MID = (40, 0, 80, 120)
+    SCREEN_WIDTH = 160
+    MIDDLE_X = SCREEN_WIDTH // 2  # 80
+    X_TOLERANCE = 5
+
+    # 边界识别
+    def boundary_correction(self, mode, img):
+        angle = None
+        blobs = []
+        center = 0
+
+        if mode == 'row': #行
+            num = [0, 26, 52, 80, 106, 132]
+        elif mode == 'column': #列
+            num = [0, 20, 40, 60, 80, 100]
+        for x in num:
+            if mode == 'row': # 从左到右找色块
+                result = img.find_blobs([self.YELLOW_THRESHOLD], roi = [x,0,26,120] ,pixels_threshold=100, area_threshold=100, margin=1, merge=True, invert=0)
+            elif mode == 'column':# 从上到下找色块
+                result = img.find_blobs([self.YELLOW_THRESHOLD], roi = [0,x,160,20] ,pixels_threshold=100, area_threshold=100, margin=1, merge=True, invert=0)
+            if result:
+                best_blob = min(result, key= lambda b: abs(b.area() - 600)) # 面积还要调整
+                blobs.append(best_blob)
+                center += 1
+                img.draw_rectangle(best_blob.rect(), color = (255, 0, 0), scale = 1, thickness = 1)
+
+        if center >= 3:
+            l = img.get_regression([self.YELLOW_THRESHOLD], roi = self.ROI_MID, robust = True)
+            if l:
+                img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
+                x1, y1, x2, y2 = l.line()
+                if y1 > y2:
+                    bottom_x = x1
+                else:
+                    bottom_x = x2
+
+                if abs(bottom_x - self.MIDDLE_X) <= self.X_TOLERANCE:
+                    theta = l.theta()
+                    if theta > 90:
+                        angle = theta - 180
+                    else:
+                        angle = theta
+                return angle
+            else:
+                return None
+        else:
+            return None
+
+######################棕色目标跟踪模块######################
+class BrownTracker:
+    MAX_LOST_FRAMES = 20
+
+    def __init__(self):
+# 1. 状态量定义: [x, y, vx, vy]
+        self.x_hat = np.array([80, 60, 0, 0], dtype=np.float)
+
+        # 2. 预分配矩阵 (内存优化：避免循环内创建对象)
+        self.A = np.eye(4)      # 状态转移矩阵
+        self.P = np.eye(4) * 10 # 后验协方差
+        self.Q = np.eye(4) * 0.5# 过程噪声
+        self.R = np.eye(2) * 5  # 测量噪声 (x, y)
+        self.H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float) # 观测矩阵
+
+        self.first_detected = False
+        self.lost_count = 0
+        self.last_w = 0
+        self.last_h = 0
+
+    def reset(self):
+        self.first_detected = False
+        self.lost_count = 0
+        self.x_hat = np.array([80, 60, 0, 0], dtype=np.float)
+        self.P = np.eye(4) * 10
+        self.last_w = 0
+        self.last_h = 0
+    """
+    def is_valid(self, blob):
+        current_area = blob.area()
+        if self.last_brown_area > 0:
+            rate = abs(current_area - self.last_brown_area) / self.last_brown_area
+            if rate > 0.7:
+                return False
+        self.last_brown_area = current_area
+        self.brown_visible_frames += 1
+        return True
+    """
+    def kalman_filter(self, pos, Ts):
+            # 更新状态转移矩阵中的时间步长 Ts
+            self.A[0, 2] = Ts
+            self.A[1, 3] = Ts
+
+            # 丢包阻尼处理
+            damping = 0.94 if pos else 0.82
+            self.A[2, 2] = damping
+            self.A[3, 3] = damping
+
+            # --- 预测阶段 (Predict) ---
+            x_pre = np.dot(self.A, self.x_hat)
+            # P_pre = A*P*A.T + Q
+            P_pre = np.dot(self.A, np.dot(self.P, self.A.T)) + self.Q
+
+            # --- 更新阶段 (Update) ---
+            if pos:
+                self.lost_count = 0
+                self.first_detected = True
+                z = np.array(pos, dtype=np.float) # [cx, cy]
+
+                # 计算增益 K = P_pre*H.T / (H*P_pre*H.T + R)
+                S = np.dot(self.H, np.dot(P_pre, self.H.T)) + self.R
+                K = np.dot(P_pre, np.dot(self.H.T, np.linalg.inv(S)))
+
+                # 更新状态 x_hat = x_pre + K*(z - H*x_pre)
+                self.x_hat = x_pre + np.dot(K, (z - np.dot(self.H, x_pre)))
+                # 更新协方差 P = (I - K*H)*P_pre
+                self.P = np.dot((np.eye(4) - np.dot(K, self.H)), P_pre)
+            else:
+                self.lost_count += 1
+                self.x_hat = x_pre # 丢失时仅依靠预测
+                self.P = P_pre
+
+            return self.x_hat
+
+########################初始化#####################
+
+# 串口
+uart = UART(2, baudrate=460800)
 uart.write("uart test\r\n")
 
-##########################摄像头初始化########################
-# 初始化感光原件
+# 摄像头
 sensor.reset()
-# 设置图像格式为 RGB565 彩色模式
 sensor.set_pixformat(sensor.RGB565)
-# 设置分辨率为 QQVGA 160x120
 sensor.set_framesize(sensor.QQVGA)
 sensor.set_framerate(60)
-# sensor.set_auto_gain(False) # 自动增益
+sensor.set_auto_gain(False) # 自动增益
 sensor.set_auto_whitebal(False)
-sensor.set_brightness(1000) # 阴暗条件下蓝色识别受阻 调至2000
+sensor.set_brightness(1000)
 # sensor.set_contrast(2) # 对比度
-# 跳过一些帧， 等待感光元件稳定
-sensor.skip_frames(time = 200)
+sensor.skip_frames(time = 30)
 clock = time.clock()
-white = LED(4)
+# LED(4).on
 
-################# #######变量定义##########################
+# LCD
+lcd = seekfree.IPS200(3)
+lcd.full()
 
-# 四种主要颜色的阈值
-RED_THRESHOLD   = [#(0, 57, 27, 127, 7, 127),
-                   #(0, 56, 9, 85, -2, 53),
-                   (5, 24, 12, 41, -5, 37),
-                   (30, 58, 39, 83, 10, 51)]# 红
-GREEN_THRESHOLD = [#(32, 100, -128, -12, -128, 127),
-                   #(42, 100, -128, -19, -128, 127),
-                   (17, 67, -33, -15, -15, 68),
-                   (53, 100, -51, -15, -20, 95)]# 绿(后两组暗，亮) (第四个阈值影响绿色深度)
-BLUE_THRESHOLD  = [#(34, 64, -18, 10, -128, -39),
-                   #(30, 100, -30, -5, -48, -9),
-                   (13, 35, -24, -9, -18, -7),
-                   (37, 77, -31, -4, -54, -26)]# 蓝
-BROWN_THRESHOLD = [#(32, 100, -11, 12, -16, 127),
-                   #(0, 100, -128, 23, -7, 127),
-                   (12, 43, -14, 14, 8, 46),
-                   (51, 92, -23, 20, -16, 70)]# 棕
+# 创建模块实例
+color_detector = ColorDetector()
+boundary_detector = BoundaryDetector()
+brown_tracker = BrownTracker()
+communicator = Communicator(uart)
 
+# 模式定义
+MODE_TARGET = 0
+MODE_BOUNDARY_UD = 1
+MODE_BOUNDARY_LR = 2
+MODE_WAITING = 3
+current_mode = MODE_WAITING
 
-# 感兴趣的区域
-roi = (0, 0, 160, 120)
+# 时间
+clock = time.clock()
 
-# 历史平滑参数
-alpha = 0.7
-prev_cx = prev_cy = 80
+# 时间戳
+last_time = time.ticks_ms()
 
-# 录像
-"""
-red = LED(1)
-green = LED(2)
-#视频文件地址
-m = mjpeg.Mjpeg("/sd/example.mjpeg")
-#记录视频有多少帧
-fps_count = 0;
-"""
+######################命令处理###################
+def handle_uart_commands():
+    global current_mode
+    if uart.any():
+        cmd = uart.read(1)
+        if cmd == b'T': current_mode = MODE_TARGET
+        elif cmd == b'U': current_mode = MODE_BOUNDARY_UD
+        elif cmd == b'L': current_mode = MODE_BOUNDARY_LR
+        elif cmd == b'F': current_mode = MODE_WAITING
 
-# 坐标距离阈值（两个框的中心距离小于此值，就认为是“过近”，只保留一个）
-DISTANCE_THRESHOLD = 30  # 可根据实际调整
-
-##########################函数定义##########################
-# 计算两个坐标的距离
-def calculate_distance(x1, y1, x2, y2):
-    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-
-# 动态调整LAB阈值，根据图像亮度均值偏移
-def adjust_lab_threshold(base_th, img):
-    hist = img.get_histogram()
-    mean = hist.get_statistics().mean()
-    offset = mean // 6
-    adjusted = []
-    for th in base_th:
-        adjusted.append((
-            max(0, th[0] - offset),
-            min(100, th[1] + offset),
-            max(-128, th[2] - offset // 2),
-            min(127, th[3] + offset // 2),
-            max(-128, th[4] - offset // 2),
-            min(127, th[5] + offset // 2)
-        ))
-    return adjusted
-
-# 分别查找各颜色色块
-def detect_colors(img):
-    red_th = adjust_lab_threshold(RED_THRESHOLD, img)
-    green_th = adjust_lab_threshold(GREEN_THRESHOLD, img)
-    blue_th = adjust_lab_threshold(BLUE_THRESHOLD, img)
-    brown_th = adjust_lab_threshold(BROWN_THRESHOLD, img)
-
-    brown_blobs   = img.find_blobs(brown_th,
-    pixels_threshold=50, area_threshold=50, merge=True)
-    red_blobs   = img.find_blobs(red_th,
-    pixels_threshold=30, area_threshold=30, merge=False)
-    green_blobs   = img.find_blobs(green_th,
-    pixels_threshold=30, area_threshold=30, merge=False)
-    blue_blobs   = img.find_blobs(blue_th,
-    pixels_threshold=30, area_threshold=30, merge=False)
-
-    all_blobs_with_color = []
-    for blob in brown_blobs:
-        all_blobs_with_color.append((blob, 'brown'))
-    for blob in red_blobs:
-        all_blobs_with_color.append((blob, 'red'))
-    for blob in green_blobs:
-        all_blobs_with_color.append((blob, 'green'))
-    for blob in blue_blobs:
-        all_blobs_with_color.append((blob, 'blue'))
-    return all_blobs_with_color
-
-# 对所有色块去重
-def filter_all_blobs(blobs):
-    filtered = []
-    for item in blobs:
-        blob = item[0]
-        color = item[1]
-
-        # 密度滤波 + 动态面积阈值
-        if blob.density() < 0.3:
-            continue
-        min_pixels = 50 * (blob.density() + 0.5)
-        if blob.pixels() < min_pixels:
-            continue
-        # 过滤宽度过大的色块
-        if (
-            # 长大于120，宽大于100，直接舍弃
-            blob.w() > 120
-            or blob.h() > 100
-
-            # 棕色规则：边长比超过1.2:1
-            or (
-                color == 'brown'
-                and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w())
-            )
-
-            # 绿/蓝规则：边长比超过1.5:1
-            or (
-                color in ('green', 'blue')
-                and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10)
-            )
-        ):
-            continue
-        cx, cy = blob.cx(), blob.cy()
-        keep = True
-        # 对比已保留的色块，判断距离是否过近
-        for saved_item in filtered:
-            saved_blob = saved_item[0]
-            distance = calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy())
-            if distance < DISTANCE_THRESHOLD:
-                keep = False
-                break
-        if keep:
-            filtered.append(item)
-    return filtered
-
-# 串口发送函数
-def send_coordinate(x, y):
-    global uart
-    data = ustruct.pack("<BBBBB",
-                        0xA5,
-                        0xA6,
-                        x,
-                        y,
-                        0x5B
-                        )
-    uart.write(data)
-    # print(x,y)
-
-############################主部分###########################
-while(True):
+#######################主循环####################
+while True:
     clock.tick()
     img = sensor.snapshot()
-    # white.on() # 可以补光
-    # white.off()
 
-    # ===== 图像预处理（提升颜色识别鲁棒性）=====
-    img.median(1, percentile=0.5)                 # 中值滤波（去噪，抗椒盐噪声）
-    # =========================================
+    # 时间戳更新
+    current_time = time.ticks_ms()
+    delta_time = time.ticks_diff(current_time, last_time)
+    Ts = max(delta_time / 1000.0, 0.01)
+    last_time = current_time
 
-    # 录像
-    # red.on()
-    """
-    #如果帧数没达到1000
-    if fps_count < 1000:
-        #保存当前图片为1帧
-        m.add_frame(img)
-        print(clock.fps())
-        fps_count += 1
-    else:
-        #关闭文件才保存成功，需要传入保存视频的帧率，可以自己设定，参数填24表示保存的视频就是1秒钟播放24帧
-        m.close(60)
-        red.off()
-        green.on()
-        time.sleep_ms(500)
-        break
-    """
-    #获取图像并进行预处理（寻找色块并筛选）
-    all_blobs_with_color = detect_colors(img)
-    filtered_blobs_with_color = filter_all_blobs(all_blobs_with_color)
+    handle_uart_commands()
 
-    # 绘制筛选后的色块（不同颜色用不同框区分）
-    draw_colors = {
-        'red': (255, 0, 0),
-        'green': (0, 255, 0),
-        'blue': (0, 0, 255),
-        'brown': (255, 255, 255)
-    }
+    if current_mode == MODE_WAITING:
+        LED(1).on()
+        LED(1).off()
+        continue
 
-    center = []
-    for item in filtered_blobs_with_color:
-        # 绘制该颜色的所有筛选后色块
-        blob = item[0]
-        color_name = item[1]
+    elif current_mode == MODE_TARGET:
+        LED(2).on()
+        LED(2).off()
+        # print("1")
+        # 获取图像并进行预处理
+        all_blobs_with_color = color_detector.detect_colors(img)
+        filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
-        # 历史低通滤波平滑中心点
-        cx = alpha * blob.cx() + (1 - alpha) * prev_cx
-        cy = alpha * blob.cy() + (1 - alpha) * prev_cy
-        prev_cx, prev_cy = cx, cy
-        x, y, w, h = blob.rect()
+        # 分离棕色与其它
+        brown_blobs = []
+        other_blobs = []
 
-        new_x = int(cx - w / 2)  # 新的x坐标基于平滑后的中心点
-        new_y = int(cy - h / 2)  # 新的y坐标基于平滑后的中心点
+        for item in filtered_blobs_with_color:
+            blob = item[0]
+            color = item[1]
+            if color == 'brown':
+                brown_blobs.append(blob)
+            else:
+                other_blobs.append((blob, color))
 
-        # 绘制矩形框，使用平滑后的中心点来确定位置
-        img.draw_rectangle(blob.rect(), color=draw_colors[color_name])
+        # 绘制筛选后的色块（不同颜色用不同框区分）
+        draw_colors = {
+            'red': (255, 0, 0),
+            'green': (0, 255, 0),
+            'blue': (0, 0, 255),
+            'brown': (255, 255, 255),
+            'grey': (100, 100, 100)
+        }
 
-        # 画平滑后的中心点
-        img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])
-        center.append((cx, cy))
+        center = []
 
-    if center:
-        target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
-        target_x, target_y = target
-        send_coordinate(int(target_x), int(target_y))
+        # 处理棕色
+        target_pos = None
+        if brown_blobs:
+            target_brown = max(brown_blobs, key = lambda b:b.area())
+            target_pos = (target_brown.cx(), target_brown.cy())
 
+            brown_tracker.last_w = target_brown.w()
+            brown_tracker.last_h = target_brown.h()
 
-    print(f"FPS: {clock.fps()}")
+            img.draw_rectangle(target_brown.rect(), color = draw_colors['brown'])
+            img.draw_cross(target_brown.cx(), target_brown.cy(), color = draw_colors['brown'])  # 画中心点
+
+        state = brown_tracker.kalman_filter(target_pos, Ts)
+
+        if brown_tracker.first_detected:
+            if brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
+                kcx, kcy = int(state[0]), int(state[1])
+                kw, kh = brown_tracker.last_w, brown_tracker.last_h
+
+                img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color = draw_colors['grey'])
+                img.draw_cross(kcx, kcy, color = draw_colors['grey'])
+                center.append((kcx, kcy))
+
+            else:
+                brown_tracker.reset()
+
+        for item in other_blobs:
+            # 绘制该颜色的所有筛选后色块
+            blob = item[0]
+            color_name = item[1]
+            img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
+            img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
+            center_x = blob.cx()
+            center_y = blob.cy()
+            center.append((center_x, center_y))
+        if center:
+            target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
+            target_x, target_y = target
+            communicator.send_coordinate(target_x, target_y)
+
+    elif current_mode == MODE_BOUNDARY_UD:
+        LED(3).on()
+        LED(3).off()
+        angle = boundary_detector.boundary_correction('row', img)
+        if angle is not None:
+            communicator.send_angle(angle)
+
+    elif current_mode == MODE_BOUNDARY_LR:
+        LED(4).on()
+        LED(4).off()
+        angle = boundary_detector.boundary_correction('column', img)
+        if angle is not None:
+            communicator.send_angle(angle)
+
+    lcd.show_image(img, 160, 120, zoom=0)

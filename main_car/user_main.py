@@ -94,6 +94,7 @@ key_up = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_down = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_left = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_confirm = Pin()
 
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
@@ -636,6 +637,33 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     main_start()
+    last_category = my_menu.current_category
+    last_subpage = my_menu.current_subpage
+
+    key = my_menu.read_key()
+
+    if key:
+        if key == my_menu.UP:
+            my_menu.arrow_up(key)
+        elif key == my_menu.DOWN:
+            my_menu.arrow_down(key)
+        elif key in (my_menu.LEFT, my_menu.RIGHT):
+                my_menu.data_processing(key)
+        elif key == my_menu.CONFIRM:
+            page_changed = my_menu.detect_change_page(key)
+            if not page_changed:
+                my_menu.data_processing(key)
+
+            if (page_changed or my_menu.current_category != last_category
+                or my_menu.current_subpage != last_subpage):
+                my_menu.menu_switch()
+                my_menu.show_arrow()
+
+    my_menu.show_arrow()
+
+
+    # 调试器测试
+
 
     # my_uart3.write("debug\r\n")
 

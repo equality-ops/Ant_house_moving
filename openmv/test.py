@@ -14,7 +14,7 @@ class Communicator:
     def send_coordinate(self, x, y):
         if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             return #增加最小变化阈值（防抖）
-        
+
         dx_coord = min(30, max(-30, x - self.last_sent_x))
         dy_coord = min(30, max(-30, y - self.last_sent_y))
         x_limited = self.last_sent_x + dx_coord
@@ -60,11 +60,11 @@ class ColorDetector:
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
     def detect_colors(self, img):
-        # adjusted_brown = [self.auto_adjust_threshold(img, th) for th in self.BROWN_THRESHOLD]
+        adjusted_brown = [self.auto_adjust_threshold(img, th) for th in self.BROWN_THRESHOLD]
         # adjusted_red = [self.auto_adjust_threshold(img, th) for th in self.RED_THRESHOLD]
         # adjusted_green = [self.auto_adjust_threshold(img, th) for th in self.GREEN_THRESHOLD]
         # adjusted_blue = [self.auto_adjust_threshold(img, th) for th in self.BLUE_THRESHOLD]
-        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
+        brown_blobs = img.find_blobs(adjusted_brown, pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
         green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
         blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
@@ -103,17 +103,19 @@ class ColorDetector:
             if keep:
                 filtered.append((blob, color))
         return filtered
-    
+
     def auto_adjust_threshold(self, img, base_threshold):
         stats = img.get_statistics(roi = self.CENTER_ROI)
         l_mean = stats.l_mean()
 
-        diff = int(l_mean - 50) 
+        diff = int(l_mean - 50)
 
         l_low = max(0, min(100, base_threshold[0] + diff))
         l_high = max(0, min(100, base_threshold[1] + diff))
 
-        return (l_low, l_high, *base_threshold[2:])
+        threshold_part = base_threshold[2:]
+
+        return (l_low, l_high) + threshold_part
 ########################边界检测模块######################
 class BoundaryDetector:
     YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
@@ -149,12 +151,12 @@ class BoundaryDetector:
                 img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
                 x1, y1, x2, y2 = l.line()
                 if y1 > y2:
-                    bottom_x = x1 
+                    bottom_x = x1
                 else:
                     bottom_x = x2
-                
+
                 if abs(bottom_x - self.MIDDLE_X) <= self.X_TOLERANCE:
-                    theta = l.theta()        
+                    theta = l.theta()
                     if theta > 90:
                         angle = theta - 180
                     else:
@@ -172,14 +174,14 @@ class BrownTracker:
     def __init__(self):
 # 1. 状态量定义: [x, y, vx, vy]
         self.x_hat = np.array([80, 60, 0, 0], dtype=np.float)
-        
+
         # 2. 预分配矩阵 (内存优化：避免循环内创建对象)
         self.A = np.eye(4)      # 状态转移矩阵
         self.P = np.eye(4) * 10 # 后验协方差
         self.Q = np.eye(4) * 0.5# 过程噪声
         self.R = np.eye(2) * 5  # 测量噪声 (x, y)
         self.H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float) # 观测矩阵
-        
+
         self.first_detected = False
         self.lost_count = 0
         self.last_w = 0
@@ -207,7 +209,7 @@ class BrownTracker:
             # 更新状态转移矩阵中的时间步长 Ts
             self.A[0, 2] = Ts
             self.A[1, 3] = Ts
-            
+
             # 丢包阻尼处理
             damping = 0.94 if pos else 0.82
             self.A[2, 2] = damping
@@ -227,7 +229,7 @@ class BrownTracker:
                 # 计算增益 K = P_pre*H.T / (H*P_pre*H.T + R)
                 S = np.dot(self.H, np.dot(P_pre, self.H.T)) + self.R
                 K = np.dot(P_pre, np.dot(self.H.T, np.linalg.inv(S)))
-                
+
                 # 更新状态 x_hat = x_pre + K*(z - H*x_pre)
                 self.x_hat = x_pre + np.dot(K, (z - np.dot(self.H, x_pre)))
                 # 更新协方差 P = (I - K*H)*P_pre
@@ -236,7 +238,7 @@ class BrownTracker:
                 self.lost_count += 1
                 self.x_hat = x_pre # 丢失时仅依靠预测
                 self.P = P_pre
-                
+
             return self.x_hat
 
 ########################初始化#####################
@@ -273,7 +275,7 @@ MODE_TARGET = 0
 MODE_BOUNDARY_UD = 1
 MODE_BOUNDARY_LR = 2
 MODE_WAITING = 3
-current_mode = MODE_WAITING
+current_mode = MODE_TARGET
 
 # 时间
 clock = time.clock()
