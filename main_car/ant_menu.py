@@ -1,4 +1,5 @@
 import time
+import os
 
 PRIMARY = 0
 PID = 1
@@ -34,7 +35,7 @@ class Menu:
         self.lcd = lcd
 
         ###########################读取所需参数############################
-        
+
         # PID
         self.ul_extreme_kp = self.flash_sys.find_value("ul_extreme_kp")  # type: float
         self.ul_extreme_ki = self.flash_sys.find_value("ul_extreme_ki")  # type: float
@@ -159,6 +160,34 @@ class Menu:
 
         ##############################函数定义###############################
         # 保存数据
+    def update_config_values(self, file_path, updates_dict):
+        temp_file = file_path + ".tmp"
+        found_keys = set()
+        with open(file_path, 'r') as f_in, open(temp_file, 'w') as f_out:
+            for line in f_in:
+                stripped = line.strip()
+                # 忽略注释和空行，直接原样写入
+                if stripped.startswith('#') or not stripped:
+                    f_out.write(line)
+                    continue
+
+                if '=' in stripped:
+                    k, v = stripped.split('=', 1)
+                    k = k.strip()
+                    if k in updates_dict:
+                        f_out.write(f"{k} = {updates_dict[k]}\n")
+                        found_keys.add(k)
+                    else:
+                        f_out.write(line)
+
+        with open(temp_file, 'a') as f_out:
+            for k, v in updates_dict.items():
+                if k not in found_keys:
+                    f_out.write(f"{k} = {v}\n")
+
+        os.remove(file_path)
+        os.rename(temp_file, file_path)
+        """
     def update_config_value(self, file_path, key, new_value):
         lines = []
         found = False
@@ -186,135 +215,173 @@ class Menu:
         with open(file_path, 'w') as f:
             for line in lines:
                 f.write(line)
+        """
         # 使用方法
         # self.update_config_value("config.txt", "ul_normal_kp", self.ul_normal_kp)
 
     # 统一保存数据
     def save_data(self):
-        # ===== PID 分区（5个子页）=====
         if self.current_category == PID:
             if self.current_subpage == 1:  # 极限参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_extreme_kp", self.ul_extreme_kp)
-                self.update_config_value("main_config.txt", "ul_extreme_ki", self.ul_extreme_ki)
-                self.update_config_value("main_config.txt", "ul_extreme_kd", self.ul_extreme_kd)
-                self.update_config_value("main_config.txt", "ur_extreme_kp", self.ur_extreme_kp)
-                self.update_config_value("main_config.txt", "ur_extreme_ki", self.ur_extreme_ki)
-                self.update_config_value("main_config.txt", "ur_extreme_kd", self.ur_extreme_kd)
-                self.update_config_value("main_config.txt", "md_extreme_kp", self.md_extreme_kp)
-                self.update_config_value("main_config.txt", "md_extreme_ki", self.md_extreme_ki)
-                self.update_config_value("main_config.txt", "md_extreme_kd", self.md_extreme_kd)
+                updates = {
+                    "ul_extreme_kp": self.ul_extreme_kp,
+                    "ul_extreme_ki": self.ul_extreme_ki,
+                    "ul_extreme_kd": self.ul_extreme_kd,
+                    "ur_extreme_kp": self.ur_extreme_kp,
+                    "ur_extreme_ki": self.ur_extreme_ki,
+                    "ur_extreme_kd": self.ur_extreme_kd,
+                    "md_extreme_kp": self.md_extreme_kp,
+                    "md_extreme_ki": self.md_extreme_ki,
+                    "md_extreme_kd": self.md_extreme_kd
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 2:  # 高速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_high_kp", self.ul_high_kp)
-                self.update_config_value("main_config.txt", "ul_high_ki", self.ul_high_ki)
-                self.update_config_value("main_config.txt", "ul_high_kd", self.ul_high_kd)
-                self.update_config_value("main_config.txt", "ur_high_kp", self.ur_high_kp)
-                self.update_config_value("main_config.txt", "ur_high_ki", self.ur_high_ki)
-                self.update_config_value("main_config.txt", "ur_high_kd", self.ur_high_kd)
-                self.update_config_value("main_config.txt", "md_high_kp", self.md_high_kp)
-                self.update_config_value("main_config.txt", "md_high_ki", self.md_high_ki)
-                self.update_config_value("main_config.txt", "md_high_kd", self.md_high_kd)
+                updates = {
+                    "ul_high_kp": self.ul_high_kp,
+                    "ul_high_ki": self.ul_high_ki,
+                    "ul_high_kd": self.ul_high_kd,
+                    "ur_high_kp": self.ur_high_kp,
+                    "ur_high_ki": self.ur_high_ki,
+                    "ur_high_kd": self.ur_high_kd,
+                    "md_high_kp": self.md_high_kp,
+                    "md_high_ki": self.md_high_ki,
+                    "md_high_kd": self.md_high_kd
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 3:  # 中速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_mid_kp", self.ul_mid_kp)
-                self.update_config_value("main_config.txt", "ul_mid_ki", self.ul_mid_ki)
-                self.update_config_value("main_config.txt", "ul_mid_kd", self.ul_mid_kd)
-                self.update_config_value("main_config.txt", "ur_mid_kp", self.ur_mid_kp)
-                self.update_config_value("main_config.txt", "ur_mid_ki", self.ur_mid_ki)
-                self.update_config_value("main_config.txt", "ur_mid_kd", self.ur_mid_kd)
-                self.update_config_value("main_config.txt", "md_mid_kp", self.md_mid_kp)
-                self.update_config_value("main_config.txt", "md_mid_ki", self.md_mid_ki)
-                self.update_config_value("main_config.txt", "md_mid_kd", self.md_mid_kd)
+                updates = {
+                    "ul_mid_kp": self.ul_mid_kp,
+                    "ul_mid_ki": self.ul_mid_ki,
+                    "ul_mid_kd": self.ul_mid_kd,
+                    "ur_mid_kp": self.ur_mid_kp,
+                    "ur_mid_ki": self.ur_mid_ki,
+                    "ur_mid_kd": self.ur_mid_kd,
+                    "md_mid_kp": self.md_mid_kp,
+                    "md_mid_ki": self.md_mid_ki,
+                    "md_mid_kd": self.md_mid_kd
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 4:  # 低速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_low_kp", self.ul_low_kp)
-                self.update_config_value("main_config.txt", "ul_low_ki", self.ul_low_ki)
-                self.update_config_value("main_config.txt", "ul_low_kd", self.ul_low_kd)
-                self.update_config_value("main_config.txt", "ur_low_kp", self.ur_low_kp)
-                self.update_config_value("main_config.txt", "ur_low_ki", self.ur_low_ki)
-                self.update_config_value("main_config.txt", "ur_low_kd", self.ur_low_kd)
-                self.update_config_value("main_config.txt", "md_low_kp", self.md_low_kp)
-                self.update_config_value("main_config.txt", "md_low_ki", self.md_low_ki)
-                self.update_config_value("main_config.txt", "md_low_kd", self.md_low_kd)
+                updates = {
+                    "ul_low_kp": self.ul_low_kp,
+                    "ul_low_ki": self.ul_low_ki,
+                    "ul_low_kd": self.ul_low_kd,
+                    "ur_low_kp": self.ur_low_kp,
+                    "ur_low_ki": self.ur_low_ki,
+                    "ur_low_kd": self.ur_low_kd,
+                    "md_low_kp": self.md_low_kp,
+                    "md_low_ki": self.md_low_ki,
+                    "md_low_kd": self.md_low_kd
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 5:  # 角度/全局参数页（11参数）
-                self.update_config_value("main_config.txt", "angle_normal_kp", self.angle_normal_kp)
-                self.update_config_value("main_config.txt", "angle_normal_ki", self.angle_normal_ki)
-                self.update_config_value("main_config.txt", "angle_normal_kd", self.angle_normal_kd)
-                self.update_config_value("main_config.txt", "integral_limitmax", self.integral_limitmax)
-                self.update_config_value("main_config.txt", "pwmout_limitmax", self.pwmout_limitmax)
-                self.update_config_value("main_config.txt", "angle_integral_limitmax", self.angle_integral_limitmax)
-                self.update_config_value("main_config.txt", "angle_pwmout_limitmax", self.angle_pwmout_limitmax)
-                self.update_config_value("main_config.txt", "A", self.A)
-                self.update_config_value("main_config.txt", "B", self.B)
-                self.update_config_value("main_config.txt", "kp_mid", self.kp_mid)
-                self.update_config_value("main_config.txt", "kp_low", self.kp_low)
+                updates = {
+                    "angle_normal_kp": self.angle_normal_kp,
+                    "angle_normal_ki": self.angle_normal_ki,
+                    "angle_normal_kd": self.angle_normal_kd,
+                    "integral_limitmax": self.integral_limitmax,
+                    "pwmout_limitmax": self.pwmout_limitmax,
+                    "angle_integral_limitmax": self.angle_integral_limitmax,
+                    "angle_pwmout_limitmax": self.angle_pwmout_limitmax,
+                    "A": self.A,
+                    "B": self.B,
+                    "kp_mid": self.kp_mid,
+                    "kp_low": self.kp_low
+                }
+                self.update_config_values("main_config.txt", updates)
         
         # ===== Path_Planning 分区（2个子页）=====
         elif self.current_category == Path_Planning:
             if self.current_subpage == 1:  # 第1页（9参数）
-                self.update_config_value("main_config.txt", "plan_arrive_threshold", self.plan_arrive_threshold)
-                self.update_config_value("main_config.txt", "plan_point_transition_T", self.plan_point_transition_T)
-                self.update_config_value("main_config.txt", "dec_ratio", self.dec_ratio)
-                self.update_config_value("main_config.txt", "error_correct_x_50_1", self.error_correct_x_50_1)
-                self.update_config_value("main_config.txt", "error_correct_y_50_1", self.error_correct_y_50_1)
-                self.update_config_value("main_config.txt", "error_correct_x_50_2", self.error_correct_x_50_2)
-                self.update_config_value("main_config.txt", "error_correct_y_50_2", self.error_correct_y_50_2)
-                self.update_config_value("main_config.txt", "error_correct_x_50_3", self.error_correct_x_50_3)
-                self.update_config_value("main_config.txt", "error_correct_y_50_3", self.error_correct_y_50_3)
+                updates = {
+                    "plan_arrive_threshold": self.plan_arrive_threshold,
+                    "plan_point_transition_T": self.plan_point_transition_T,
+                    "dec_ratio": self.dec_ratio,
+                    "error_correct_x_50_1": self.error_correct_x_50_1,
+                    "error_correct_y_50_1": self.error_correct_y_50_1,
+                    "error_correct_x_50_2": self.error_correct_x_50_2,
+                    "error_correct_y_50_2": self.error_correct_y_50_2,
+                    "error_correct_x_50_3": self.error_correct_x_50_3,
+                    "error_correct_y_50_3": self.error_correct_y_50_3
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 2:  # 第2页（10参数）
-                self.update_config_value("main_config.txt", "error_correct_x_50_4", self.error_correct_x_50_4)
-                self.update_config_value("main_config.txt", "error_correct_y_50_4", self.error_correct_y_50_4)
-                self.update_config_value("main_config.txt", "error_correct_x_50_5", self.error_correct_x_50_5)
-                self.update_config_value("main_config.txt", "error_correct_y_50_5", self.error_correct_y_50_5)
-                self.update_config_value("main_config.txt", "error_correct_x_50_6", self.error_correct_x_50_6)
-                self.update_config_value("main_config.txt", "error_correct_y_50_6", self.error_correct_y_50_6)
-                self.update_config_value("main_config.txt", "error_correct_x_50_7", self.error_correct_x_50_7)
-                self.update_config_value("main_config.txt", "error_correct_y_50_7", self.error_correct_y_50_7)
-                self.update_config_value("main_config.txt", "error_correct_x_50_8", self.error_correct_x_50_8)
-                self.update_config_value("main_config.txt", "error_correct_y_50_8", self.error_correct_y_50_8)
+                updates = {
+                    "error_correct_x_50_4": self.error_correct_x_50_4,
+                    "error_correct_y_50_4": self.error_correct_y_50_4,
+                    "error_correct_x_50_5": self.error_correct_x_50_5,
+                    "error_correct_y_50_5": self.error_correct_y_50_5,
+                    "error_correct_x_50_6": self.error_correct_x_50_6,
+                    "error_correct_y_50_6": self.error_correct_y_50_6,
+                    "error_correct_x_50_7": self.error_correct_x_50_7,
+                    "error_correct_y_50_7": self.error_correct_y_50_7,
+                    "error_correct_x_50_8": self.error_correct_x_50_8,
+                    "error_correct_y_50_8": self.error_correct_y_50_8
+                }
+                self.update_config_values("main_config.txt", updates)
         
         # ===== 无子页分区：直接保存全部参数 =====
         elif self.current_category == Mechanical_Parameter:  # 2参数
-            self.update_config_value("main_config.txt", "wheel_radius", self.wheel_radius)
-            self.update_config_value("main_config.txt", "car_radius", self.car_radius)
+            updates = {
+                "wheel_radius": self.wheel_radius,
+                "car_radius": self.car_radius
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Coefficient:  # 3参数
-            self.update_config_value("main_config.txt", "gkd", self.gkd)
-            self.update_config_value("main_config.txt", "speed_fuse_ratio", self.speed_fuse_ratio)
-            self.update_config_value("main_config.txt", "gyro_z_supply", self.gyro_z_supply)
+            updates = {
+                "gkd": self.gkd,
+                "speed_fuse_ratio": self.speed_fuse_ratio,
+                "gyro_z_supply": self.gyro_z_supply
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Temporal_Planning:  # 5参数
-            self.update_config_value("main_config.txt", "motor_control_T", self.motor_control_T)
-            self.update_config_value("main_config.txt", "collect_dt", self.collect_dt)
-            self.update_config_value("main_config.txt", "plan_calculate_T", self.plan_calculate_T)
-            self.update_config_value("main_config.txt", "uart_and_menu_T", self.uart_and_menu_T)
-            self.update_config_value("main_config.txt", "boost_time_threshold", self.boost_time_threshold)
+            updates = {
+                "motor_control_T": self.motor_control_T,
+                "collect_dt": self.collect_dt,
+                "plan_calculate_T": self.plan_calculate_T,
+                "uart_and_menu_T": self.uart_and_menu_T,
+                "boost_time_threshold": self.boost_time_threshold
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Velocity_Planning:  # 4参数
-            self.update_config_value("main_config.txt", "min_start_v", self.min_start_v)
-            self.update_config_value("main_config.txt", "long_v_max", self.long_v_max)
-            self.update_config_value("main_config.txt", "short_v_max", self.short_v_max)
-            self.update_config_value("main_config.txt", "dead_zone_v", self.dead_zone_v)
+            updates = {
+                "min_start_v": self.min_start_v,
+                "long_v_max": self.long_v_max,
+                "short_v_max": self.short_v_max,
+                "dead_zone_v": self.dead_zone_v
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Visual_Servoing:  # 11参数
-            self.update_config_value("main_config.txt", "servo_kp_x", self.servo_kp_x)
-            self.update_config_value("main_config.txt", "servo_kd_x", self.servo_kd_x)
-            self.update_config_value("main_config.txt", "servo_kp_y", self.servo_kp_y)
-            self.update_config_value("main_config.txt", "servo_kd_y", self.servo_kd_y)
-            self.update_config_value("main_config.txt", "servo_target_x", self.servo_target_x)
-            self.update_config_value("main_config.txt", "servo_target_y", self.servo_target_y)
-            self.update_config_value("main_config.txt", "min_rel_speed", self.min_rel_speed)
-            self.update_config_value("main_config.txt", "max_rel_speed", self.max_rel_speed)
-            self.update_config_value("main_config.txt", "finish_threshold_x", self.finish_threshold_x)
-            self.update_config_value("main_config.txt", "finish_threshold_y", self.finish_threshold_y)
-            self.update_config_value("main_config.txt", "servo_pwmout_limitmax", self.servo_pwmout_limitmax)
+            updates = {
+                "servo_kp_x": self.servo_kp_x,
+                "servo_kd_x": self.servo_kd_x,
+                "servo_kp_y": self.servo_kp_y,
+                "servo_kd_y": self.servo_kd_y,
+                "servo_target_x": self.servo_target_x,
+                "servo_target_y": self.servo_target_y,
+                "min_rel_speed": self.min_rel_speed,
+                "max_rel_speed": self.max_rel_speed,
+                "finish_threshold_x": self.finish_threshold_x,
+                "finish_threshold_y": self.finish_threshold_y,
+                "servo_pwmout_limitmax": self.servo_pwmout_limitmax
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Orbit_Control:  # 2参数
-            self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
-            self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
-
+            updates = {
+                "max_orbit_speed": self.max_orbit_speed,
+                "min_orbit_speed": self.min_orbit_speed
+            }
+            self.update_config_values("main_config.txt", updates)
     def data_processing(self, key):
         # ===== PID 分区 (5个子页) =====
         if self.current_category == PID:
