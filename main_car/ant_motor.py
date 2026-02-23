@@ -54,6 +54,9 @@ class SlipAveragingFilter:
         self.index = 0
         self.buffer = [0] * filter_size
 
+    def buffer_init(self, initial_value):
+        self.buffer = [initial_value] * self.filter_size
+
     # 滤波时传入一个新的数据，返回滤波后的结果(float)
     def filtering(self, data: int) -> float:
         self.buffer[self.index] = data
