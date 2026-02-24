@@ -40,9 +40,9 @@ md_low_kp = 35.0
 md_low_ki = 0.14
 md_low_kd = 42.0
 
-angle_normal_kp = 35.0
+angle_normal_kp = 20.0
 angle_normal_ki = 0.0
-angle_normal_kd = 120.0
+angle_normal_kd = 70.0
 integral_limitmax = 14000
 pwmout_limitmax = 6000
 angle_integral_limitmax = 1200
@@ -62,7 +62,7 @@ car_radius = 10.5
 # 速度转换系数
 speed_conversion_gamma = 0.372928
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.0
+gkd = -0.2
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
@@ -76,7 +76,7 @@ uart_and_menu_T = 53
 boost_time_threshold = 50
 
 ###################【路径规划】####################
-plan_arrive_threshold = 0.6
+plan_arrive_threshold = 0.5
 plan_point_transition_T = 50
 # 减速段占据总路程的比例
 dec_ratio = 0.0
@@ -100,7 +100,7 @@ error_correct_y_50_8 = -0.9
 
 ###################【速度规划】####################
 min_start_v = 90
-long_v_max = 650
+long_v_max = 600
 short_v_max = 150
 dead_zone_v = 50
 
