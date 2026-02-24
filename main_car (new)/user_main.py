@@ -612,7 +612,7 @@ def time_pit1_handler(time):
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
-    # 角度环计算（10ms）
+    # 角度环计算（10ms一次）
     angle_pid_compute()
 
     # 任务执行机
