@@ -72,7 +72,7 @@ encoder_md = encoder("C2" , "C3" , False)
 imu = IMU660RX()
 
 # tof深度传感器初始化
-tof = DL1X()
+# tof = DL1X()
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -136,7 +136,7 @@ encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
-tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建主车避障航向角滑动平均滤波器对象
 obstacle_yaw_fil = ant_motor.SlipAveragingFilter(10)
 
@@ -165,7 +165,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, obstacle_yaw_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
+# my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -189,11 +189,13 @@ def voltage_detect(limit_min: float) -> None:
         my_beep.beep_warn()
 
 # tof传感器预热初始化函数
+"""
 def tof_init():
     for i in range(0, 30):
         tof.get()
         time.sleep_ms(5)
-
+"""
+        
 # 用于主车启动的函数
 def main_start():
     global current_time, last_left_time, start_flag, if_press_start_key
@@ -754,8 +756,8 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    pit3.capture_list(tof)
-    tof_init()
+    # pit3.capture_list(tof)
+    # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
