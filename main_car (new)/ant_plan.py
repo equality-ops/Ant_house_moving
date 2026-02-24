@@ -41,23 +41,6 @@ class Plan_data:
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
         self.current_aimed_point_index = 0    # type: int
-        # 坐标误差修正量
-        self.error_correct_x_50_1 = self.flash_sys.find_value("error_correct_x_50_1") # type: float
-        self.error_correct_y_50_1 = self.flash_sys.find_value("error_correct_y_50_1")  # type: float
-        self.error_correct_x_50_2 = self.flash_sys.find_value("error_correct_x_50_2") # type: float
-        self.error_correct_y_50_2 = self.flash_sys.find_value("error_correct_y_50_2")  # type: float
-        self.error_correct_x_50_3 = self.flash_sys.find_value("error_correct_x_50_3") # type: float
-        self.error_correct_y_50_3 = self.flash_sys.find_value("error_correct_y_50_3")  # type: float
-        self.error_correct_x_50_4 = self.flash_sys.find_value("error_correct_x_50_4") # type: float  
-        self.error_correct_y_50_4 = self.flash_sys.find_value("error_correct_y_50_4")  # type: float
-        self.error_correct_x_50_5 = self.flash_sys.find_value("error_correct_x_50_5") # type: float
-        self.error_correct_y_50_5 = self.flash_sys.find_value("error_correct_y_50_5")  # type: float
-        self.error_correct_x_50_6 = self.flash_sys.find_value("error_correct_x_50_6") # type: float
-        self.error_correct_y_50_6 = self.flash_sys.find_value("error_correct_y_50_6")  # type: float
-        self.error_correct_x_50_7 = self.flash_sys.find_value("error_correct_x_50_7") # type: float
-        self.error_correct_y_50_7 = self.flash_sys.find_value("error_correct_y_50_7")  # type: float
-        self.error_correct_x_50_8 = self.flash_sys.find_value("error_correct_x_50_8") # type: float
-        self.error_correct_y_50_8 = self.flash_sys.find_value("error_correct_y_50_8")  # type: float
         # 时间计数器
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
@@ -290,11 +273,9 @@ class Plan:
 
         # 根据当前规划好的避障路径来估计航向
         if len(self.current_path) > 0:
-            # 计算大致航向
             dx = self.ideal_target_x - self.current_path[-1][0]
             dy = self.ideal_target_y - self.current_path[-1][1]
         else:
-            # 计算大致航向
             dx = self.ideal_target_x - self.my_car.x_current
             dy = self.ideal_target_y - self.my_car.y_current
         
@@ -302,29 +283,29 @@ class Plan:
                 
         # 根据大致航向角选择合适的坐标修正量（解决因惯性造成的打滑问题）
         if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_1
-            self.error_correct_y = self.plan_data.error_correct_y_50_1
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= 30.0 and blurry_yaw < 60.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_2
-            self.error_correct_y = self.plan_data.error_correct_y_50_2
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_3
-            self.error_correct_y = self.plan_data.error_correct_y_50_3
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_4
-            self.error_correct_y = self.plan_data.error_correct_y_50_4
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= 150.0 and blurry_yaw <= 180.0 or blurry_yaw >= -180.0 and blurry_yaw < -150.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_5
-            self.error_correct_y = self.plan_data.error_correct_y_50_5
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= -150.0 and blurry_yaw < -120.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_6
-            self.error_correct_y = self.plan_data.error_correct_y_50_6
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_7
-            self.error_correct_y = self.plan_data.error_correct_y_50_7
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
-            self.error_correct_x = self.plan_data.error_correct_x_50_8
-            self.error_correct_y = self.plan_data.error_correct_y_50_8
+            self.error_correct_x = 0.0
+            self.error_correct_y = 0.0
         
         # 实际条件下的目标坐标
         self.real_target_x = self.ideal_target_x + self.error_correct_x
@@ -334,12 +315,7 @@ class Plan:
         self.current_path.append((self.real_target_x, self.real_target_y))
 
         # 实际距离坐标点的直线距离
-        self.total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
-        # 根据总直线距离设置最大速度
-        if self.total_distance >= 30.0:
-           self.v_max = self.long_v_max
-        else:
-          self.v_max = self.short_v_max
+        total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
         total_transit_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
         # 依据到过渡点的距离计算里程计系数
@@ -366,14 +342,13 @@ class Plan:
             self.my_car.alpha_y = 1.0
 
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
-        if self.total_distance >= 40.0:
+        if total_distance >= 40.0:
             self.dec_distance = 20.0
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
         else:
             self.v_target = self.short_v_max
             self.dis_flag = self.plan_data.SHORT_DISTANCE
-            
         self.if_pass_transit_point = False
         self.arrive_flag = False
 
@@ -428,7 +403,6 @@ class Plan:
     def compute_target_yaw(self, target_x, target_y):
         dx = target_x - self.my_car.x_current
         dy = target_y - self.my_car.y_current
-
         # 计算目标角度，单位：度（注意避免除以0）
         self.target_yaw = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI
                 
@@ -618,7 +592,8 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
-                    self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
+                    if self.if_pass_transit_point == False or self.rest_distance >= 5.0:
+                        self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
             else:
                 # 判断此时是否完成路径过渡
                 if self.transition_flag == False:
