@@ -1,4 +1,5 @@
 import time
+import os
 
 PRIMARY = 0
 PID = 1
@@ -34,55 +35,6 @@ class Menu:
         self.lcd = lcd
 
         ###########################读取所需参数############################
-        
-        # PID
-        self.ul_extreme_kp = self.flash_sys.find_value("ul_extreme_kp")  # type: float
-        self.ul_extreme_ki = self.flash_sys.find_value("ul_extreme_ki")  # type: float
-        self.ul_extreme_kd = self.flash_sys.find_value("ul_extreme_kd")  # type: float
-        self.ur_extreme_kp = self.flash_sys.find_value("ur_extreme_kp")  # type: float
-        self.ur_extreme_ki = self.flash_sys.find_value("ur_extreme_ki")  # type: float
-        self.ur_extreme_kd = self.flash_sys.find_value("ur_extreme_kd")  # type: float
-        self.md_extreme_kp = self.flash_sys.find_value("md_extreme_kp")  # type: float
-        self.md_extreme_ki = self.flash_sys.find_value("md_extreme_ki")  # type: float
-        self.md_extreme_kd = self.flash_sys.find_value("md_extreme_kd")  # type: float
-        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
-        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
-        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
-        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
-        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
-        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
-        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
-        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
-        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
-        self.ul_mid_kp = self.flash_sys.find_value("ul_mid_kp")  # type: float
-        self.ul_mid_ki = self.flash_sys.find_value("ul_mid_ki")  # type: float
-        self.ul_mid_kd = self.flash_sys.find_value("ul_mid_kd")  # type: float
-        self.ur_mid_kp = self.flash_sys.find_value("ur_mid_kp")  # type: float
-        self.ur_mid_ki = self.flash_sys.find_value("ur_mid_ki")  # type: float
-        self.ur_mid_kd = self.flash_sys.find_value("ur_mid_kd")  # type: float
-        self.md_mid_kp = self.flash_sys.find_value("md_mid_kp")  # type: float
-        self.md_mid_ki = self.flash_sys.find_value("md_mid_ki")  # type: float
-        self.md_mid_kd = self.flash_sys.find_value("md_mid_kd")  # type: float
-        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
-        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
-        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
-        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
-        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
-        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
-        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
-        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
-        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
-        self.angle_normal_kp = self.flash_sys.find_value("angle_normal_kp")  # type: float
-        self.angle_normal_ki = self.flash_sys.find_value("angle_normal_ki")  # type: float
-        self.angle_normal_kd = self.flash_sys.find_value("angle_normal_kd")  # type: float
-        self.integral_limitmax = self.flash_sys.find_value("integral_limitmax")  # type: int
-        self.pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")  # type: int
-        self.angle_integral_limitmax = self.flash_sys.find_value("angle_integral_limitmax")  # type: int
-        self.angle_pwmout_limitmax = self.flash_sys.find_value("angle_pwmout_limitmax")  # type: int
-        self.A = self.flash_sys.find_value("A")  # type: int
-        self.B = self.flash_sys.find_value("B")  # type: int
-        self.kp_mid = self.flash_sys.find_value("kp_mid")  # type: float
-        self.kp_low = self.flash_sys.find_value("kp_low")  # type: float
 
         # mechanical parameter
         self.wheel_radius = self.flash_sys.find_value("wheel_radius")  # type: float
@@ -159,423 +111,129 @@ class Menu:
 
         ##############################函数定义###############################
         # 保存数据
-    def update_config_value(self, file_path, key, new_value):
-        lines = []
-        found = False
-
-        with open(file_path, 'r') as f:
-            for line in f:
+    def update_config_values(self, file_path, updates_dict):
+        temp_file = file_path + ".tmp"
+        found_keys = set()
+        with open(file_path, 'r') as f_in, open(temp_file, 'w') as f_out:
+            for line in f_in:
                 stripped = line.strip()
+                # 忽略注释和空行，直接原样写入
                 if stripped.startswith('#') or not stripped:
-                    lines.append(line) # 保留原样
+                    f_out.write(line)
                     continue
+
                 if '=' in stripped:
                     k, v = stripped.split('=', 1)
                     k = k.strip()
-                    if k == key:
-                        new_line = f"{k} = {new_value}\n"
-                        lines.append(new_line)
-                        found = True
+                    if k in updates_dict:
+                        f_out.write(f"{k} = {updates_dict[k]}\n")
+                        found_keys.add(k)
                     else:
-                        lines.append(line)
-                else:
-                    lines.append(line)
+                        f_out.write(line)
 
-        if not found:
-            lines.append(f"{key} = {new_value}\n")
-        with open(file_path, 'w') as f:
-            for line in lines:
-                f.write(line)
+        with open(temp_file, 'a') as f_out:
+            for k, v in updates_dict.items():
+                if k not in found_keys:
+                    f_out.write(f"{k} = {v}\n")
+
+        os.remove(file_path)
+        os.rename(temp_file, file_path)
         # 使用方法
         # self.update_config_value("config.txt", "ul_normal_kp", self.ul_normal_kp)
 
     # 统一保存数据
     def save_data(self):
-        # ===== PID 分区（5个子页）=====
-        if self.current_category == PID:
-            if self.current_subpage == 1:  # 极限参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_extreme_kp", self.ul_extreme_kp)
-                self.update_config_value("main_config.txt", "ul_extreme_ki", self.ul_extreme_ki)
-                self.update_config_value("main_config.txt", "ul_extreme_kd", self.ul_extreme_kd)
-                self.update_config_value("main_config.txt", "ur_extreme_kp", self.ur_extreme_kp)
-                self.update_config_value("main_config.txt", "ur_extreme_ki", self.ur_extreme_ki)
-                self.update_config_value("main_config.txt", "ur_extreme_kd", self.ur_extreme_kd)
-                self.update_config_value("main_config.txt", "md_extreme_kp", self.md_extreme_kp)
-                self.update_config_value("main_config.txt", "md_extreme_ki", self.md_extreme_ki)
-                self.update_config_value("main_config.txt", "md_extreme_kd", self.md_extreme_kd)
-            
-            elif self.current_subpage == 2:  # 高速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_high_kp", self.ul_high_kp)
-                self.update_config_value("main_config.txt", "ul_high_ki", self.ul_high_ki)
-                self.update_config_value("main_config.txt", "ul_high_kd", self.ul_high_kd)
-                self.update_config_value("main_config.txt", "ur_high_kp", self.ur_high_kp)
-                self.update_config_value("main_config.txt", "ur_high_ki", self.ur_high_ki)
-                self.update_config_value("main_config.txt", "ur_high_kd", self.ur_high_kd)
-                self.update_config_value("main_config.txt", "md_high_kp", self.md_high_kp)
-                self.update_config_value("main_config.txt", "md_high_ki", self.md_high_ki)
-                self.update_config_value("main_config.txt", "md_high_kd", self.md_high_kd)
-            
-            elif self.current_subpage == 3:  # 中速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_mid_kp", self.ul_mid_kp)
-                self.update_config_value("main_config.txt", "ul_mid_ki", self.ul_mid_ki)
-                self.update_config_value("main_config.txt", "ul_mid_kd", self.ul_mid_kd)
-                self.update_config_value("main_config.txt", "ur_mid_kp", self.ur_mid_kp)
-                self.update_config_value("main_config.txt", "ur_mid_ki", self.ur_mid_ki)
-                self.update_config_value("main_config.txt", "ur_mid_kd", self.ur_mid_kd)
-                self.update_config_value("main_config.txt", "md_mid_kp", self.md_mid_kp)
-                self.update_config_value("main_config.txt", "md_mid_ki", self.md_mid_ki)
-                self.update_config_value("main_config.txt", "md_mid_kd", self.md_mid_kd)
-            
-            elif self.current_subpage == 4:  # 低速参数页（9参数）
-                self.update_config_value("main_config.txt", "ul_low_kp", self.ul_low_kp)
-                self.update_config_value("main_config.txt", "ul_low_ki", self.ul_low_ki)
-                self.update_config_value("main_config.txt", "ul_low_kd", self.ul_low_kd)
-                self.update_config_value("main_config.txt", "ur_low_kp", self.ur_low_kp)
-                self.update_config_value("main_config.txt", "ur_low_ki", self.ur_low_ki)
-                self.update_config_value("main_config.txt", "ur_low_kd", self.ur_low_kd)
-                self.update_config_value("main_config.txt", "md_low_kp", self.md_low_kp)
-                self.update_config_value("main_config.txt", "md_low_ki", self.md_low_ki)
-                self.update_config_value("main_config.txt", "md_low_kd", self.md_low_kd)
-            
-            elif self.current_subpage == 5:  # 角度/全局参数页（11参数）
-                self.update_config_value("main_config.txt", "angle_normal_kp", self.angle_normal_kp)
-                self.update_config_value("main_config.txt", "angle_normal_ki", self.angle_normal_ki)
-                self.update_config_value("main_config.txt", "angle_normal_kd", self.angle_normal_kd)
-                self.update_config_value("main_config.txt", "integral_limitmax", self.integral_limitmax)
-                self.update_config_value("main_config.txt", "pwmout_limitmax", self.pwmout_limitmax)
-                self.update_config_value("main_config.txt", "angle_integral_limitmax", self.angle_integral_limitmax)
-                self.update_config_value("main_config.txt", "angle_pwmout_limitmax", self.angle_pwmout_limitmax)
-                self.update_config_value("main_config.txt", "A", self.A)
-                self.update_config_value("main_config.txt", "B", self.B)
-                self.update_config_value("main_config.txt", "kp_mid", self.kp_mid)
-                self.update_config_value("main_config.txt", "kp_low", self.kp_low)
-        
         # ===== Path_Planning 分区（2个子页）=====
-        elif self.current_category == Path_Planning:
+        if self.current_category == Path_Planning:
             if self.current_subpage == 1:  # 第1页（9参数）
-                self.update_config_value("main_config.txt", "plan_arrive_threshold", self.plan_arrive_threshold)
-                self.update_config_value("main_config.txt", "plan_point_transition_T", self.plan_point_transition_T)
-                self.update_config_value("main_config.txt", "dec_ratio", self.dec_ratio)
-                self.update_config_value("main_config.txt", "error_correct_x_50_1", self.error_correct_x_50_1)
-                self.update_config_value("main_config.txt", "error_correct_y_50_1", self.error_correct_y_50_1)
-                self.update_config_value("main_config.txt", "error_correct_x_50_2", self.error_correct_x_50_2)
-                self.update_config_value("main_config.txt", "error_correct_y_50_2", self.error_correct_y_50_2)
-                self.update_config_value("main_config.txt", "error_correct_x_50_3", self.error_correct_x_50_3)
-                self.update_config_value("main_config.txt", "error_correct_y_50_3", self.error_correct_y_50_3)
+                updates = {
+                    "plan_arrive_threshold": self.plan_arrive_threshold,
+                    "plan_point_transition_T": self.plan_point_transition_T,
+                    "dec_ratio": self.dec_ratio,
+                    "error_correct_x_50_1": self.error_correct_x_50_1,
+                    "error_correct_y_50_1": self.error_correct_y_50_1,
+                    "error_correct_x_50_2": self.error_correct_x_50_2,
+                    "error_correct_y_50_2": self.error_correct_y_50_2,
+                    "error_correct_x_50_3": self.error_correct_x_50_3,
+                    "error_correct_y_50_3": self.error_correct_y_50_3
+                }
+                self.update_config_values("main_config.txt", updates)
             
             elif self.current_subpage == 2:  # 第2页（10参数）
-                self.update_config_value("main_config.txt", "error_correct_x_50_4", self.error_correct_x_50_4)
-                self.update_config_value("main_config.txt", "error_correct_y_50_4", self.error_correct_y_50_4)
-                self.update_config_value("main_config.txt", "error_correct_x_50_5", self.error_correct_x_50_5)
-                self.update_config_value("main_config.txt", "error_correct_y_50_5", self.error_correct_y_50_5)
-                self.update_config_value("main_config.txt", "error_correct_x_50_6", self.error_correct_x_50_6)
-                self.update_config_value("main_config.txt", "error_correct_y_50_6", self.error_correct_y_50_6)
-                self.update_config_value("main_config.txt", "error_correct_x_50_7", self.error_correct_x_50_7)
-                self.update_config_value("main_config.txt", "error_correct_y_50_7", self.error_correct_y_50_7)
-                self.update_config_value("main_config.txt", "error_correct_x_50_8", self.error_correct_x_50_8)
-                self.update_config_value("main_config.txt", "error_correct_y_50_8", self.error_correct_y_50_8)
+                updates = {
+                    "error_correct_x_50_4": self.error_correct_x_50_4,
+                    "error_correct_y_50_4": self.error_correct_y_50_4,
+                    "error_correct_x_50_5": self.error_correct_x_50_5,
+                    "error_correct_y_50_5": self.error_correct_y_50_5,
+                    "error_correct_x_50_6": self.error_correct_x_50_6,
+                    "error_correct_y_50_6": self.error_correct_y_50_6,
+                    "error_correct_x_50_7": self.error_correct_x_50_7,
+                    "error_correct_y_50_7": self.error_correct_y_50_7,
+                    "error_correct_x_50_8": self.error_correct_x_50_8,
+                    "error_correct_y_50_8": self.error_correct_y_50_8
+                }
+                self.update_config_values("main_config.txt", updates)
         
         # ===== 无子页分区：直接保存全部参数 =====
         elif self.current_category == Mechanical_Parameter:  # 2参数
-            self.update_config_value("main_config.txt", "wheel_radius", self.wheel_radius)
-            self.update_config_value("main_config.txt", "car_radius", self.car_radius)
+            updates = {
+                "wheel_radius": self.wheel_radius,
+                "car_radius": self.car_radius
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Coefficient:  # 3参数
-            self.update_config_value("main_config.txt", "gkd", self.gkd)
-            self.update_config_value("main_config.txt", "speed_fuse_ratio", self.speed_fuse_ratio)
-            self.update_config_value("main_config.txt", "gyro_z_supply", self.gyro_z_supply)
+            updates = {
+                "gkd": self.gkd,
+                "speed_fuse_ratio": self.speed_fuse_ratio,
+                "gyro_z_supply": self.gyro_z_supply
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Temporal_Planning:  # 5参数
-            self.update_config_value("main_config.txt", "motor_control_T", self.motor_control_T)
-            self.update_config_value("main_config.txt", "collect_dt", self.collect_dt)
-            self.update_config_value("main_config.txt", "plan_calculate_T", self.plan_calculate_T)
-            self.update_config_value("main_config.txt", "uart_and_menu_T", self.uart_and_menu_T)
-            self.update_config_value("main_config.txt", "boost_time_threshold", self.boost_time_threshold)
+            updates = {
+                "motor_control_T": self.motor_control_T,
+                "collect_dt": self.collect_dt,
+                "plan_calculate_T": self.plan_calculate_T,
+                "uart_and_menu_T": self.uart_and_menu_T,
+                "boost_time_threshold": self.boost_time_threshold
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Velocity_Planning:  # 4参数
-            self.update_config_value("main_config.txt", "min_start_v", self.min_start_v)
-            self.update_config_value("main_config.txt", "long_v_max", self.long_v_max)
-            self.update_config_value("main_config.txt", "short_v_max", self.short_v_max)
-            self.update_config_value("main_config.txt", "dead_zone_v", self.dead_zone_v)
+            updates = {
+                "min_start_v": self.min_start_v,
+                "long_v_max": self.long_v_max,
+                "short_v_max": self.short_v_max,
+                "dead_zone_v": self.dead_zone_v
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Visual_Servoing:  # 11参数
-            self.update_config_value("main_config.txt", "servo_kp_x", self.servo_kp_x)
-            self.update_config_value("main_config.txt", "servo_kd_x", self.servo_kd_x)
-            self.update_config_value("main_config.txt", "servo_kp_y", self.servo_kp_y)
-            self.update_config_value("main_config.txt", "servo_kd_y", self.servo_kd_y)
-            self.update_config_value("main_config.txt", "servo_target_x", self.servo_target_x)
-            self.update_config_value("main_config.txt", "servo_target_y", self.servo_target_y)
-            self.update_config_value("main_config.txt", "min_rel_speed", self.min_rel_speed)
-            self.update_config_value("main_config.txt", "max_rel_speed", self.max_rel_speed)
-            self.update_config_value("main_config.txt", "finish_threshold_x", self.finish_threshold_x)
-            self.update_config_value("main_config.txt", "finish_threshold_y", self.finish_threshold_y)
-            self.update_config_value("main_config.txt", "servo_pwmout_limitmax", self.servo_pwmout_limitmax)
+            updates = {
+                "servo_kp_x": self.servo_kp_x,
+                "servo_kd_x": self.servo_kd_x,
+                "servo_kp_y": self.servo_kp_y,
+                "servo_kd_y": self.servo_kd_y,
+                "servo_target_x": self.servo_target_x,
+                "servo_target_y": self.servo_target_y,
+                "min_rel_speed": self.min_rel_speed,
+                "max_rel_speed": self.max_rel_speed,
+                "finish_threshold_x": self.finish_threshold_x,
+                "finish_threshold_y": self.finish_threshold_y,
+                "servo_pwmout_limitmax": self.servo_pwmout_limitmax
+            }
+            self.update_config_values("main_config.txt", updates)
         
         elif self.current_category == Orbit_Control:  # 2参数
-            self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
-            self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
-
+            updates = {
+                "max_orbit_speed": self.max_orbit_speed,
+                "min_orbit_speed": self.min_orbit_speed
+            }
+            self.update_config_values("main_config.txt", updates)
     def data_processing(self, key):
-        # ===== PID 分区 (5个子页) =====
-        if self.current_category == PID:
-            if self.current_subpage == 1:  # 极限参数页 (参数1-9, save=10)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.ul_extreme_kp = max(0.0, self.ul_extreme_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_extreme_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.ul_extreme_ki = max(0.0, self.ul_extreme_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ul_extreme_ki += 0.001
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.ul_extreme_kd = max(0.0, self.ul_extreme_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_extreme_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.ur_extreme_kp = max(0.0, self.ur_extreme_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_extreme_kp += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.ur_extreme_ki = max(0.0, self.ur_extreme_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ur_extreme_ki += 0.001
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.ur_extreme_kd = max(0.0, self.ur_extreme_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_extreme_kd += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.md_extreme_kp = max(0.0, self.md_extreme_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_extreme_kp += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.md_extreme_ki = max(0.0, self.md_extreme_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.md_extreme_ki += 0.001
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.md_extreme_kd = max(0.0, self.md_extreme_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_extreme_kd += 0.1
-                # SAVE 行处理 (第10行)
-                if self.Current_line == 10 and key == self.CONFIRM:
-                    self.save_data()
-            
-            elif self.current_subpage == 2:  # 高速参数页 (参数1-9, save=10)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.ul_high_kp = max(0.0, self.ul_high_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_high_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.ul_high_ki = max(0.0, self.ul_high_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ul_high_ki += 0.001
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.ul_high_kd = max(0.0, self.ul_high_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_high_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.ur_high_kp = max(0.0, self.ur_high_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_high_kp += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.ur_high_ki = max(0.0, self.ur_high_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ur_high_ki += 0.001
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.ur_high_kd = max(0.0, self.ur_high_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_high_kd += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.md_high_kp = max(0.0, self.md_high_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_high_kp += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.md_high_ki = max(0.0, self.md_high_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.md_high_ki += 0.001
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.md_high_kd = max(0.0, self.md_high_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_high_kd += 0.1
-                if self.Current_line == 10 and key == self.CONFIRM:
-                    self.save_data()
-            
-            elif self.current_subpage == 3:  # 中速参数页 (参数1-9, save=10)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.ul_mid_kp = max(0.0, self.ul_mid_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_mid_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.ul_mid_ki = max(0.0, self.ul_mid_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ul_mid_ki += 0.001
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.ul_mid_kd = max(0.0, self.ul_mid_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_mid_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.ur_mid_kp = max(0.0, self.ur_mid_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_mid_kp += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.ur_mid_ki = max(0.0, self.ur_mid_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ur_mid_ki += 0.001
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.ur_mid_kd = max(0.0, self.ur_mid_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_mid_kd += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.md_mid_kp = max(0.0, self.md_mid_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_mid_kp += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.md_mid_ki = max(0.0, self.md_mid_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.md_mid_ki += 0.001
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.md_mid_kd = max(0.0, self.md_mid_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_mid_kd += 0.1
-                if self.Current_line == 10 and key == self.CONFIRM:
-                    self.save_data()
-            
-            elif self.current_subpage == 4:  # 低速参数页 (参数1-9, save=10)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.ul_low_kp = max(0.0, self.ul_low_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_low_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.ul_low_ki = max(0.0, self.ul_low_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ul_low_ki += 0.001
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.ul_low_kd = max(0.0, self.ul_low_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ul_low_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.ur_low_kp = max(0.0, self.ur_low_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_low_kp += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.ur_low_ki = max(0.0, self.ur_low_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.ur_low_ki += 0.001
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.ur_low_kd = max(0.0, self.ur_low_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.ur_low_kd += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.md_low_kp = max(0.0, self.md_low_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_low_kp += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.md_low_ki = max(0.0, self.md_low_ki - 0.001)
-                    elif key == self.RIGHT:
-                        self.md_low_ki += 0.001
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.md_low_kd = max(0.0, self.md_low_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.md_low_kd += 0.1
-                if self.Current_line == 10 and key == self.CONFIRM:
-                    self.save_data()
-            
-            elif self.current_subpage == 5:  # 角度/全局参数页 (参数1-11, save=12)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.angle_normal_kp = max(0.0, self.angle_normal_kp - 0.1)
-                    elif key == self.RIGHT:
-                        self.angle_normal_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.angle_normal_ki = max(0.0, self.angle_normal_ki - 0.01)
-                    elif key == self.RIGHT:
-                        self.angle_normal_ki += 0.01
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.angle_normal_kd = max(0.0, self.angle_normal_kd - 0.1)
-                    elif key == self.RIGHT:
-                        self.angle_normal_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.integral_limitmax = max(0, self.integral_limitmax - 100)
-                    elif key == self.RIGHT:
-                        self.integral_limitmax += 100
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.pwmout_limitmax = max(0, self.pwmout_limitmax - 100)
-                    elif key == self.RIGHT:
-                        self.pwmout_limitmax += 100
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.angle_integral_limitmax = max(0, self.angle_integral_limitmax - 10)
-                    elif key == self.RIGHT:
-                        self.angle_integral_limitmax += 10
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.angle_pwmout_limitmax = max(0, self.angle_pwmout_limitmax - 10)
-                    elif key == self.RIGHT:
-                        self.angle_pwmout_limitmax += 10
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.A = max(0, self.A - 5)
-                    elif key == self.RIGHT:
-                        self.A += 5
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.B = max(0, self.B - 5)
-                    elif key == self.RIGHT:
-                        self.B += 5
-                elif self.Current_line == 10:
-                    if key == self.LEFT:
-                        self.kp_mid = max(0, self.kp_mid - 5)
-                    elif key == self.RIGHT:
-                        self.kp_mid += 5
-                elif self.Current_line == 11:
-                    if key == self.LEFT:
-                        self.kp_low = max(0, self.kp_low - 5)
-                    elif key == self.RIGHT:
-                        self.kp_low += 5
-                if self.Current_line == 12 and key == self.CONFIRM:
-                    self.save_data()
-        
         # ===== Path_Planning 分区 (2个子页) =====
-        elif self.current_category == Path_Planning:
+        if self.current_category == Path_Planning:
             if self.current_subpage == 1:  # 第1页 (参数1-9, save=10)
                 if self.Current_line == 1:
                     if key == self.LEFT:
@@ -838,46 +496,6 @@ class Menu:
                     self.min_orbit_speed += 10
             if self.Current_line == 3 and key == self.CONFIRM:
                 self.save_data()          
-        """
-        if self.change_page_to == 1:
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.ul_normal_kp -= 0.1
-                elif key == self.RIGHT:
-                    self.ul_normal_kp += 0.1
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.ul_normal_ki -= 0.1
-                elif key == self.RIGHT:
-                    self.ul_normal_ki += 0.1
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.ul_normal_kd -= 0.1
-                elif key == self.RIGHT:
-                    self.ul_normal_kd += 0.1
-            elif self.Current_line == 4:
-                if key == self.RIGHT:
-                    self.save_data()
-            elif self.change_page_to == 2:
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.ur_normal_kp -= 0.1
-                    elif key == self.RIGHT:
-                        self.ur_normal_kp += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.ur_normal_ki -= 0.1
-                    elif key == self.RIGHT:
-                        self.ur_normal_ki += 0.1
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.ur_normal_kd -= 0.1
-                    elif key == self.RIGHT:
-                        self.ur_normal_kd += 0.1
-                elif self.Current_line == 4:
-                    if key == self.RIGHT:
-                        self.save_data()
-            """
 
 
 
@@ -1002,51 +620,6 @@ class Menu:
                         self.current_subpage += 1
                     return True
                 return False
-        """
-        if self.Current_line == self.End_line:
-            if key == self.LEFT:
-                if self.current_subpage == 1:
-                    self.current_subpage =2
-                else:
-                    self.current_subpage -= 1
-            elif key == self.RIGHT:
-                if self.current_subpage == 2:
-                    self.current_subpage = 1
-                else:
-                    self.current_subpage += 1
-            return True
-        else:
-            return False
-        """
-    """
-    # 第1页菜单数据显示
-    def Menu_Page1_data_show(self):
-        self.lcd.str16(60, 64, f"l_p:{self.ul_high_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"l_i:{self.ul_high_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"l_d:{self.ul_high_kd:.2f}", 0xFFFF)
-
-    # 第1页菜单显示
-    def Menu_Page_1(self):
-        self.Start_line,self.End_line,self.Current_line=1,5,1
-        self.lcd.clear(0x0000)
-        self.Menu_Page1_data_show()
-        self.lcd.str16(60, 64 + 32 * 3, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, "turn", 0xFFFF)
-
-    # 第2页菜单数据显示
-    def Menu_Page2_data_show(self):
-        self.lcd.str16(60, 64, f"r_p:{self.ur_normal_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"r_i:{self.ur_normal_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"r_d:{self.ur_normal_kd:.2f}", 0xFFFF)
-    
-    # 第2页菜单显示
-    def Menu_Page_2(self):
-        self.Start_line,self.End_line,self.Current_line=1,5,1
-        self.lcd.clear(0x0000)
-        self.Menu_Page2_data_show()
-        self.lcd.str16(60, 64 + 32 * 3, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, "turn", 0xFFFF)
-    """
 
     # 主菜单显示
     def show_primary_menu(self):
@@ -1060,88 +633,6 @@ class Menu:
         self.lcd.str16(60, 64 + 32 * 8, "Velocity Planning", 0xFFFF)
         self.lcd.str16(60, 64 + 32 * 9, "Visual Servoing", 0xFFFF)
         self.lcd.str16(60, 64 + 32 * 10, "Orbit Control", 0xFFFF)
-
-    def show_PID_menu_1(self):
-        self.Start_line,self.End_line,self.Current_line=1,12,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"ul_ext_kp:{self.ul_extreme_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"ul_ext_ki:{self.ul_extreme_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"ul_ext_kd:{self.ul_extreme_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"ur_ext_kp:{self.ur_extreme_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"ur_ext_ki:{self.ur_extreme_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"ur_ext_kd:{self.ur_extreme_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"md_ext_kp:{self.md_extreme_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"md_ext_ki:{self.md_extreme_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"md_ext_kd:{self.md_extreme_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "return", 0xFFFF)
-
-    def show_PID_menu_2(self):
-        self.Start_line,self.End_line,self.Current_line=1,12,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"ul_high_kp:{self.ul_high_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"ul_high_ki:{self.ul_high_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"ul_high_kd:{self.ul_high_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"ur_high_kp:{self.ur_high_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"ur_high_ki:{self.ur_high_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"ur_high_kd:{self.ur_high_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"md_high_kp:{self.md_high_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"md_high_ki:{self.md_high_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"md_high_kd:{self.md_high_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "return", 0xFFFF)
-
-    def show_PID_menu_3(self):
-        self.Start_line,self.End_line,self.Current_line=1,12,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"ul_mid_kp:{self.ul_mid_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"ul_mid_ki:{self.ul_mid_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"ul_mid_kd:{self.ul_mid_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"ur_mid_kp:{self.ur_mid_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"ur_mid_ki:{self.ur_mid_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"ur_mid_kd:{self.ur_mid_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"md_mid_kp:{self.md_mid_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"md_mid_ki:{self.md_mid_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"md_mid_kd:{self.md_mid_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "return", 0xFFFF)
-
-    def show_PID_menu_4(self):
-        self.Start_line,self.End_line,self.Current_line=1,12,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"ul_low_kp:{self.ul_low_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"ul_low_ki:{self.ul_low_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"ul_low_kd:{self.ul_low_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"ur_low_kp:{self.ur_low_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"ur_low_ki:{self.ur_low_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"ur_low_kd:{self.ur_low_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"md_low_kp:{self.md_low_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"md_low_ki:{self.md_low_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"md_low_kd:{self.md_low_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "return", 0xFFFF)
-
-    def show_PID_menu_5(self):
-        self.Start_line,self.End_line,self.Current_line=1,14,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"ang_nor_kp:{self.angle_normal_kp:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"ang_nor_ki:{self.angle_normal_ki:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"ang_nor_kd:{self.angle_normal_kd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"int_lmt_max:{self.integral_limitmax:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"pwm_lmt_max:{self.pwmout_limitmax:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"ang_int_lmt_max:{self.angle_integral_limitmax:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"ang_pwm_lmt_max:{self.angle_pwmout_limitmax:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"A:{self.A:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"B:{self.B:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, f"kp_mid:{self.kp_mid:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, f"kp_low:{self.kp_low:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 12, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 13, "return", 0xFFFF)
 
     def show_Path_Planning_menu_1(self):
         self.Start_line,self.End_line,self.Current_line=1,12,1
@@ -1243,19 +734,6 @@ class Menu:
     def menu_switch(self):
         if self.current_category == None:
             self.show_primary_menu()  # 主菜单
-        
-        # ===== 多子页分区：需判断 current_subpage =====
-        elif self.current_category == PID:
-            if self.current_subpage == 1:
-                self.show_PID_menu_1()
-            elif self.current_subpage == 2:
-                self.show_PID_menu_2()
-            elif self.current_subpage == 3:
-                self.show_PID_menu_3()
-            elif self.current_subpage == 4:
-                self.show_PID_menu_4()
-            elif self.current_subpage == 5:
-                self.show_PID_menu_5()
         
         elif self.current_category == Path_Planning:
             if self.current_subpage == 1:
