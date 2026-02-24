@@ -114,17 +114,17 @@ class Menu:
                 if stripped.startswith('#') or not stripped:
                     lines.append(line) # 保留原样
                     continue
-            if '=' in stripped:
-                k, v = stripped.split('=', 1)
-                k = k.strip()
-                if k == key:
-                    new_line = f"{k} = {new_value}\n"
-                    lines.append(new_line)
-                    found = True
+                if '=' in stripped:
+                    k, v = stripped.split('=', 1)
+                    k = k.strip()
+                    if k == key:
+                        new_line = f"{k} = {new_value}\n"
+                        lines.append(new_line)
+                        found = True
+                    else:
+                        lines.append(line)
                 else:
                     lines.append(line)
-            else:
-                lines.append(line)
 
         with open(file_path, 'w') as f:
             for line in lines:
@@ -203,6 +203,8 @@ class Menu:
             ###################【环绕控制】####################
             self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
             self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
+        
+        self.Current_line = self.Start_line
 
     # 数据统一处理
     def data_processing(self, key):
