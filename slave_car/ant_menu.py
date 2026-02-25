@@ -1,5 +1,6 @@
 import time
 import gc
+import os
 
 class Menu:
     def __init__(self, flash_sys, beep, key_up, key_down, key_left, key_right, lcd):   
@@ -103,104 +104,124 @@ class Menu:
 
 
         ##############################函数定义###############################
-        # 保存数据
-    def update_config_value(self, file_path, key, new_value):
-        lines = []
-        found = False
+        # 批量更新配置
+    def update_config_values(self, file_path, updates):
+        """
+        Updates multiple configuration values in one pass.
+        :param file_path: Path to the config file
+        :param updates: Dictionary {key: new_value}
+        """
+        temp_file_path = file_path + ".tmp"
+        
+        try:
+            with open(file_path, 'r') as f_in, open(temp_file_path, 'w') as f_out:
+                for line in f_in:
+                    stripped = line.strip()
+                    # 跳过注释和空行
+                    if not stripped or stripped.startswith('#'):
+                        f_out.write(line)
+                        continue
 
-        with open(file_path, 'r') as f:
-            for line in f:
-                stripped = line.strip()
-                if stripped.startswith('#') or not stripped:
-                    lines.append(line) # 保留原样
-                    continue
-                if '=' in stripped:
-                    k, v = stripped.split('=', 1)
-                    k = k.strip()
-                    if k == key:
-                        new_line = f"{k} = {new_value}\n"
-                        lines.append(new_line)
-                        found = True
+                    if '=' in stripped:
+                        key_part, val_part = stripped.split('=', 1)
+                        key = key_part.strip()
+                        if key in updates:
+                            # 写入新值
+                            new_val = updates[key]
+                            # 保持原有格式大概样子，或者直接写 key = value
+                            f_out.write(f"{key} = {new_val}\n")
+                            # 可以在这里移除已处理的 key 以便后续检测是否有剩余（可选）
+                        else:
+                            f_out.write(line)
                     else:
-                        lines.append(line)
-                else:
-                    lines.append(line)
-
-        with open(file_path, 'w') as f:
-            for line in lines:
-                f.write(line)
-        # 使用方法
-        # self.update_config_value("config.txt", "ul_normal_kp", self.ul_normal_kp)
+                        f_out.write(line)
+            
+            # 替换原文件
+            os.remove(file_path)
+            os.rename(temp_file_path, file_path)
+            
+        except Exception as e:
+            try:
+                os.remove(temp_file_path)
+            except:
+                pass
+            # 可以在这里打印错误，或者抛出
+            print(f"Error updating config: {e}")
+        
+        gc.collect()
 
     # 统一保存数据
     def save_data(self):
+        file_path = self.flash_sys.file_path
+        updates = {}
         if self.change_page_to == 1:
-            # PID 参数
-            self.update_config_value("main_config.txt", "angle_normal_kp", self.angle_normal_kp)
-            self.update_config_value("main_config.txt", "angle_normal_ki", self.angle_normal_ki)
-            self.update_config_value("main_config.txt", "angle_normal_kd", self.angle_normal_kd)
-            self.update_config_value("main_config.txt", "integral_limitmax", self.integral_limitmax)
-            self.update_config_value("main_config.txt", "pwmout_limitmax", self.pwmout_limitmax)
-            self.update_config_value("main_config.txt", "angle_integral_limitmax", self.angle_integral_limitmax)
-            self.update_config_value("main_config.txt", "angle_pwmout_limitmax", self.angle_pwmout_limitmax)
-
-            # A/B 设置
-            self.update_config_value("main_config.txt", "A", self.A)
-            self.update_config_value("main_config.txt", "B", self.B)
-
-            # kp 分段系数
-            self.update_config_value("main_config.txt", "kp_mid", self.kp_mid)
-            self.update_config_value("main_config.txt", "kp_low", self.kp_low)
+            updates = {
+                "angle_normal_kp": self.angle_normal_kp,
+                "angle_normal_ki": self.angle_normal_ki,
+                "angle_normal_kd": self.angle_normal_kd,
+                "integral_limitmax": self.integral_limitmax,
+                "pwmout_limitmax": self.pwmout_limitmax,
+                "angle_integral_limitmax": self.angle_integral_limitmax,
+                "angle_pwmout_limitmax": self.angle_pwmout_limitmax,
+                "A": self.A,
+                "B": self.B,
+                "kp_mid": self.kp_mid,
+                "kp_low": self.kp_low
+            }
 
         elif self.change_page_to == 2:
-            ###################【机械参数（单位：cm）】###################
-            self.update_config_value("main_config.txt", "wheel_radius", self.wheel_radius)
-            self.update_config_value("main_config.txt", "car_radius", self.car_radius)
-
-            ###################【系数】####################
-            self.update_config_value("main_config.txt", "speed_conversion_gamma", self.speed_conversion_gamma)
-            self.update_config_value("main_config.txt", "gkd", self.gkd)
-            self.update_config_value("main_config.txt", "speed_fuse_ratio", self.speed_fuse_ratio)
-            self.update_config_value("main_config.txt", "gyro_z_supply", self.gyro_z_supply)
-
-            ###################【环绕控制】####################
-            self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
-            self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
+            updates = {
+                "wheel_radius": self.wheel_radius,
+                "car_radius": self.car_radius,
+                "speed_conversion_gamma": self.speed_conversion_gamma,
+                "gkd": self.gkd,
+                "speed_fuse_ratio": self.speed_fuse_ratio,
+                "gyro_z_supply": self.gyro_z_supply,
+                "max_orbit_speed": self.max_orbit_speed,
+                "min_orbit_speed": self.min_orbit_speed
+            }
 
         elif self.change_page_to == 3:
-            ###################【时间规划】####################
-            self.update_config_value("main_config.txt", "motor_control_T", self.motor_control_T)
-            self.update_config_value("main_config.txt", "collect_dt", self.collect_dt)
-            self.update_config_value("main_config.txt", "plan_calculate_T", self.plan_calculate_T)
-            self.update_config_value("main_config.txt", "uart_and_menu_T", self.uart_and_menu_T)
-            self.update_config_value("main_config.txt", "boost_time_threshold", self.boost_time_threshold)
+            updates = {
+                "motor_control_T": self.motor_control_T,
+                "collect_dt": self.collect_dt,
+                "plan_calculate_T": self.plan_calculate_T,
+                "uart_and_menu_T": self.uart_and_menu_T,
+                "boost_time_threshold": self.boost_time_threshold
+            }
 
         elif self.change_page_to == 4:
-            ###################【路径规划】####################
-            self.update_config_value("main_config.txt", "plan_arrive_threshold", self.plan_arrive_threshold)
-            self.update_config_value("main_config.txt", "plan_point_transition_T", self.plan_point_transition_T)
-            self.update_config_value("main_config.txt", "dec_ratio", self.dec_ratio)
+            updates = {
+                "plan_arrive_threshold": self.plan_arrive_threshold,
+                "plan_point_transition_T": self.plan_point_transition_T,
+                "dec_ratio": self.dec_ratio
+            }
 
         elif self.change_page_to == 5:
-            ###################【速度规划】####################
-            self.update_config_value("main_config.txt", "min_start_v", self.min_start_v)
-            self.update_config_value("main_config.txt", "long_v_max", self.long_v_max)
-            self.update_config_value("main_config.txt", "short_v_max", self.short_v_max)
-            self.update_config_value("main_config.txt", "dead_zone_v", self.dead_zone_v)
+            updates = {
+                "min_start_v": self.min_start_v,
+                "long_v_max": self.long_v_max,
+                "short_v_max": self.short_v_max,
+                "dead_zone_v": self.dead_zone_v
+            }
 
         elif self.change_page_to == 6:
-            ###################【视觉伺服】####################
-            self.update_config_value("main_config.txt", "servo_kp_x", self.servo_kp_x)
-            self.update_config_value("main_config.txt", "servo_kd_x", self.servo_kd_x)
-            self.update_config_value("main_config.txt", "servo_kp_y", self.servo_kp_y)
-            self.update_config_value("main_config.txt", "servo_kd_y", self.servo_kd_y)
-            self.update_config_value("main_config.txt", "servo_target_x", self.servo_target_x)
-            self.update_config_value("main_config.txt", "servo_target_y", self.servo_target_y)
-            self.update_config_value("main_config.txt", "min_rel_speed", self.min_rel_speed)
-            self.update_config_value("main_config.txt", "max_rel_speed", self.max_rel_speed)
-            self.update_config_value("main_config.txt", "finish_threshold_x", self.finish_threshold_x)
-            self.update_config_value("main_config.txt", "finish_threshold_y", self.finish_threshold_y)
-            self.update_config_value("main_config.txt", "servo_pwmout_limitmax", self.servo_pwmout_limitmax)
+            updates = {
+                "servo_kp_x": self.servo_kp_x,
+                "servo_kd_x": self.servo_kd_x,
+                "servo_kp_y": self.servo_kp_y,
+                "servo_kd_y": self.servo_kd_y,
+                "servo_target_x": self.servo_target_x,
+                "servo_target_y": self.servo_target_y,
+                "min_rel_speed": self.min_rel_speed,
+                "max_rel_speed": self.max_rel_speed,
+                "finish_threshold_x": self.finish_threshold_x,
+                "finish_threshold_y": self.finish_threshold_y,
+                "servo_pwmout_limitmax": self.servo_pwmout_limitmax
+            }
+        
+        if updates:
+            self.update_config_values(file_path, updates)
         
         self.Current_line = self.Start_line
 
@@ -573,11 +594,11 @@ class Menu:
         if self.Current_line == self.End_line:
             if key == self.LEFT:
                 if self.change_page_to == 1:
-                    self.change_page_to = 4
+                    self.change_page_to = 6
                 else:
                     self.change_page_to -= 1
             elif key == self.RIGHT:
-                if self.change_page_to == 4:
+                if self.change_page_to == 6:
                     self.change_page_to = 1
                 else:
                     self.change_page_to += 1
@@ -642,28 +663,54 @@ class Menu:
         self.lcd.str16(20, self.LineSpacing * 4, f"plan_T  :{self.plan_calculate_T:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 5, f"uart_T  :{self.uart_and_menu_T:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 6, f"boost_T :{self.boost_time_threshold:6d}    ", 0xFFFF)
+
+    # 第3页菜单显示
+    def Menu_Page_3(self):
+        gc.collect()
+        self.Start_line, self.End_line, self.Current_line = 1, 8, 1
+        self.lcd.clear(0x0000)  # 清屏
+        self.lcd.str16(100, 0, "TIME", 0xFFFF)
+        self.Menu_Page3_data_show()
+        self.lcd.str16(20, self.LineSpacing * 7, "save          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 8, "turn          ", 0xFFFF)
+
+    # 第4页菜单数据显示
+    def Menu_Page4_data_show(self):
+        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 2, f"arrive_th:{self.plan_arrive_threshold:7.2f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 3, f"trans_T :{self.plan_point_transition_T:6d}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 4, f"dec_rat :{self.dec_ratio:7.2f}    ", 0xFFFF)
+
+    # 第4页菜单显示
+    def Menu_Page_4(self):
+        gc.collect()
+        self.Start_line, self.End_line, self.Current_line = 1, 6, 1
+        self.lcd.clear(0x0000)  # 清屏
         self.lcd.str16(100, 0, "PATH", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 7, f"arrive_th:{self.plan_arrive_threshold:7.2f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 8, f"trans_T :{self.plan_point_transition_T:6d}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 9, f"dec_rat :{self.dec_ratio:7.2f}    ", 0xFFFF)
-        self.lcd.str16(100, 0, "SPEED", 0xFFFF)
+        self.Menu_Page4_data_show()
+        self.lcd.str16(20, self.LineSpacing * 5, "save          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 6, "turn          ", 0xFFFF)
+
+    # 第5页菜单数据显示
+    def Menu_Page5_data_show(self):
+        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"min_v   :{self.min_start_v:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"long_v  :{self.long_v_max:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 4, f"short_v :{self.short_v_max:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 5, f"dead_v  :{self.dead_zone_v:6d}    ", 0xFFFF)
 
-    # 第3页菜单显示
-    def Menu_Page_3(self):
+    # 第5页菜单显示
+    def Menu_Page_5(self):
         gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 11, 1
+        self.Start_line, self.End_line, self.Current_line = 1, 7, 1
         self.lcd.clear(0x0000)  # 清屏
-        self.lcd.str16(100, 0, "TIME", 0xFFFF)
-        self.Menu_Page3_data_show()
-        self.lcd.str16(20, self.LineSpacing * 10, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 11, "turn          ", 0xFFFF)
+        self.lcd.str16(100, 0, "SPEED", 0xFFFF)
+        self.Menu_Page5_data_show()
+        self.lcd.str16(20, self.LineSpacing * 6, "save          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 7, "turn          ", 0xFFFF)
 
-    # 第4页菜单数据显示
-    def Menu_Page4_data_show(self):
+    # 第6页菜单数据显示
+    def Menu_Page6_data_show(self):
         self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"kp_x   :{self.servo_kp_x:7.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"kd_x   :{self.servo_kd_x:7.1f}    ", 0xFFFF)
@@ -677,16 +724,15 @@ class Menu:
         self.lcd.str16(20, self.LineSpacing * 11, f"fin_y  :{self.finish_threshold_y:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 12, f"servo_pw:{self.servo_pwmout_limitmax:5d}    ", 0xFFFF)
 
-    # 第4页菜单显示
-    def Menu_Page_4(self):
+    # 第6页菜单显示
+    def Menu_Page_6(self):
         gc.collect()
         self.Start_line, self.End_line, self.Current_line = 1, 14, 1
         self.lcd.clear(0x0000)  # 清屏
         self.lcd.str16(100, 0, "SERVO", 0xFFFF)
-        self.Menu_Page4_data_show()
+        self.Menu_Page6_data_show()
         self.lcd.str16(20, self.LineSpacing * 13, "save          ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 14, "turn          ", 0xFFFF)
-
 
 
     #函数：菜单选择与切换
@@ -699,7 +745,10 @@ class Menu:
             self.Menu_Page_3()
         elif(self.change_page_to == 4):
             self.Menu_Page_4()
-
+        elif(self.change_page_to == 5):
+            self.Menu_Page_5()
+        elif(self.change_page_to == 6):
+            self.Menu_Page_6()
             
 """
 # === 主循环 ===
@@ -720,4 +769,3 @@ while True:
     
     time.sleep_ms(50)
 """
-
