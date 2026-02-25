@@ -1,0 +1,107 @@
+###################【PID参数】####################
+# speed大于600时
+ul_extreme_kp = 105.0
+ul_extreme_ki = 0.28
+ul_extreme_kd = 25.0
+ur_extreme_kp = 98.0
+ur_extreme_ki = 0.285
+ur_extreme_kd = 30.0
+md_extreme_kp = 95.0
+md_extreme_ki = 0.295
+md_extreme_kd = 20.0
+# speed大于400，小于600时
+ul_high_kp = 75.0
+ul_high_ki = 0.21
+ul_high_kd = 25.0
+ur_high_kp = 75.0
+ur_high_ki = 0.21
+ur_high_kd = 25.0
+md_high_kp = 75.0
+md_high_ki = 0.21
+md_high_kd = 25.0
+# speed大于200，小于400时
+ul_mid_kp = 65.0
+ul_mid_ki = 0.17
+ul_mid_kd = 30.0
+ur_mid_kp = 60.0
+ur_mid_ki = 0.17
+ur_mid_kd = 40.0
+md_mid_kp = 62.0
+md_mid_ki = 0.17
+md_mid_kd = 40.0
+# speed小于200时
+ul_low_kp = 50.0
+ul_low_ki = 0.2
+ul_low_kd = 15.0
+ur_low_kp = 50.0
+ur_low_ki = 0.2
+ur_low_kd = 15.0
+md_low_kp = 50.0
+md_low_ki = 0.22
+md_low_kd = 15.0
+
+angle_normal_kp = 8.0
+angle_normal_ki = 0.0
+angle_normal_kd = 35.0
+integral_limitmax = 14000
+pwmout_limitmax = 6000
+angle_integral_limitmax = 1200
+angle_pwmout_limitmax = 1000
+# A设置为B的2倍左右
+A = 500
+# B大致为最大静差的1.5倍
+B = 200
+kp_mid = 0.9
+kp_low = 0.7
+
+###################【机械参数（单位：cm）】###################
+wheel_radius = 5.8
+car_radius = 10.5
+
+###################【系数】####################
+# 速度转换系数
+speed_conversion_gamma = 0.372928
+# 角速度负反馈系数（gkd应为负）
+gkd = -0.25
+# 速度互补滤波系数（可修改）
+speed_fuse_ratio = 0.2
+# 陀螺仪补偿系数
+gyro_y_supply = 1.164164
+
+###################【时间规划】####################
+motor_control_T = 2
+collect_dt = 0.002
+plan_calculate_T = 10
+uart_and_menu_T = 53
+boost_time_threshold = 60
+
+###################【路径规划】####################
+plan_arrive_threshold = 1.0
+plan_point_transition_T = 50
+# 减速段占据总路程的比例
+dec_ratio = 0.0
+
+###################【速度规划】####################
+min_start_v = 90
+long_v_max = 600
+short_v_max = 90
+dead_zone_v = 50
+
+###################【视觉伺服】####################
+servo_kp_x = 8.0
+servo_kd_x = 70.0
+servo_kp_y = 35.0
+servo_kd_y = 70.0
+servo_target_x = 80
+servo_target_y = 5.0
+min_rel_speed = 80
+max_rel_speed = 300
+finish_threshold_x = 2
+finish_threshold_y = 4
+servo_pwmout_limitmax = 75
+
+###################【环绕控制】####################
+max_orbit_speed = 300
+min_orbit_speed = 30
+
+# openart支架上边沿距离车底板17.7cm
