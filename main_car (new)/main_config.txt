@@ -31,14 +31,14 @@ md_mid_ki = 0.17
 md_mid_kd = 40.0
 # speed小于200时
 ul_low_kp = 50.0
-ul_low_ki = 0.13
-ul_low_kd = 40.0
-ur_low_kp = 52.0
-ur_low_ki = 0.132
-ur_low_kd = 35.0
+ul_low_ki = 0.2
+ul_low_kd = 15.0
+ur_low_kp = 50.0
+ur_low_ki = 0.2
+ur_low_kd = 15.0
 md_low_kp = 50.0
-md_low_ki = 0.133
-md_low_kd = 30.0
+md_low_ki = 0.22
+md_low_kd = 15.0
 
 angle_normal_kp = 8.0
 angle_normal_ki = 0.0
@@ -62,21 +62,21 @@ car_radius = 10.5
 # 速度转换系数
 speed_conversion_gamma = 0.372928
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.15
+gkd = -0.25
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
 gyro_y_supply = 1.164164
 
 ###################【时间规划】####################
-motor_control_T = 5
-collect_dt = 0.005
+motor_control_T = 2
+collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
-boost_time_threshold = 50
+boost_time_threshold = 60
 
 ###################【路径规划】####################
-plan_arrive_threshold = 0.5
+plan_arrive_threshold = 1.0
 plan_point_transition_T = 50
 # 减速段占据总路程的比例
 dec_ratio = 0.0
@@ -84,7 +84,7 @@ dec_ratio = 0.0
 ###################【速度规划】####################
 min_start_v = 90
 long_v_max = 600
-short_v_max = 150
+short_v_max = 90
 dead_zone_v = 50
 
 ###################【视觉伺服】####################

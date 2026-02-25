@@ -176,7 +176,7 @@ class Plan:
                 self.elapsed_time += 1
                 if self.elapsed_time <= self.boost_time_threshold:
                     # 计算目标速度
-                    self.v_target = self.min_start_v + int(self.elapsed_time / self.boost_time_threshold * (self.v_max - self.dead_zone_v))
+                    self.v_target = self.min_start_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.v_max - self.min_start_v))
                 else:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
@@ -343,7 +343,8 @@ class Plan:
 
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 40.0:
-            self.dec_distance = 20.0
+            self.dec_distance = 25.0
+            self.v_max = self.long_v_max
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
         else:
@@ -561,8 +562,6 @@ class Plan:
     def stop(self):
         self.v_target = 0
         self.target_yaw = 0.0
-        # 保持当前小车转角停下
-        self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
@@ -592,8 +591,9 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
-                    if self.if_pass_transit_point == False or self.rest_distance >= 5.0:
-                        self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
+                    # 测试
+                    # if self.if_pass_transit_point == False or self.rest_distance >= 5.0:
+                        # self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
             else:
                 # 判断此时是否完成路径过渡
                 if self.transition_flag == False:

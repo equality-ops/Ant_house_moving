@@ -374,10 +374,12 @@ class ServoPID(ControlPID):
 
 # 小车姿态控制
 class CarPose:
-    def __init__(self, flash_sys, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
+    def __init__(self, flash_sys, state_machine, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
                  motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象
         self.flash_sys = flash_sys
+        # 注入速度与路径规划对象
+        self.my_state = state_machine
         # 注入姿态数据对象
         self.pose_data = pose_data
         # 注入速度卡尔曼滤波器对象
@@ -452,18 +454,22 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        # self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
+        #self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
         # self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
         # self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
-        # 计算小车当前x,y速度（互补融合）
-        # car_speed_x, car_speed_y 单位：厘米每5ms
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
-        # 对小车x,y速度卡尔曼滤波
-        self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
-        self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
-        #speed_x_fil.update(self.car_speed_x)
-        #speed_y_fil.update(self.car_speed_y)
+
+        # 当小车为停止状态时不计算速度，直接将速度置0（避免编码器抖动时积分产生误差）
+        if self.my_state.state != self.my_state.STOP:
+            # 计算小车当前x,y速度（互补融合）
+            # car_speed_x, car_speed_y 单位：厘米每5ms
+            self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+            self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
+            # 对小车x,y速度卡尔曼滤波
+            self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
+            self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
+        else:
+            self.car_speed_x, self.car_speed_y = 0.0, 0.0
+
         # car_speed_w单位：度每秒
         self.car_speed_w = self.pose_data.gyro_y
         # 计算小车在世界坐标系下的偏航角

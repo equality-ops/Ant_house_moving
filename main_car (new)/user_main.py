@@ -97,6 +97,9 @@ key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_run = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
 """""""""创建对象"""""""""
+# 创建状态机对象
+my_state = ant_plan.StateMachine()
+
 # 创建蜂鸣器对象
 my_beep = ant_else.beep(beep)
 
@@ -153,12 +156,9 @@ angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
-my_car = ant_motor.CarPose(my_flash_sys, pose_data, MATH, speed_x_fil, speed_y_fil, car_yaw_fil, angle_pid,
+my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil, speed_y_fil, car_yaw_fil, angle_pid,
                            motor_ul_pid, motor_ur_pid, motor_md_pid,
                            motor_ul, motor_ur, motor_md)
-
-# 创建状态机对象
-my_state = ant_plan.StateMachine()
 
 # 创建路径规划数据对象
 plan_data = ant_plan.Plan_data(my_flash_sys)
@@ -222,8 +222,10 @@ def main_start():
             # 测试，此时只调试主车      
             # if my_main_protocol.get_slave_state() == "ready":
             my_state.state_work = 0
-            my_state.state = my_state.READY_NAVIGATE
+            my_state.state = my_state.NAVIGATE
             start_flag = True
+            # 延时一秒避免零漂校准不准确
+            time.sleep_ms(1000)
             # 打开定时器1和3
             pit1_start()
             pit3_start()
@@ -232,9 +234,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(600, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(650, pose_data.encoder_data_md)
+    # motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(180, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(50, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -575,7 +577,7 @@ def time_pit1_handler(time):
     #ant_else.my_uart3.write("{:<f},{:<f}\n".format(my_car.x_crfrent, my_car.car_speed_x))
     
     # 里程计测试程序
-    test_odometer()
+    # test_odometer()
     
     # test_simble_displacement()
     
@@ -597,7 +599,7 @@ def time_pit1_handler(time):
     # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # show_speed_PID_test()
+    show_speed_PID_test()
     
     # 测试伺服控制函数
     # test_servo_control()
@@ -612,7 +614,7 @@ def time_pit1_handler(time):
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
-    # 角度环计算（10ms一次）
+    # 角度环计算（10ms）
     angle_pid_compute()
 
     # 任务执行机
@@ -622,13 +624,23 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_communication()
     # test_main_slave_collaborative_navigation()
 
+   
     # 全向定位测试程序
-    # my_plan.navigate([[240.0, 120.0], [80.0, 120.0], [150.0, 50.0], [150.0, 191.0], [0, 0]])
+    """
+    if my_state.state == my_state.NAVIGATE:
+        my_plan.navigate([[30.0, 0.0], [0, 0]])
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            my_state.state = my_state.STOP
+            # 测试
+            my_beep.test()
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
-
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -657,9 +669,9 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
@@ -689,7 +701,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
     
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
