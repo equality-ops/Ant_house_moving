@@ -1,3 +1,5 @@
+# 修改时间 2.25  23:46
+
 ###################【PID参数】####################
 # speed大于600时
 ul_extreme_kp = 105.0
@@ -11,24 +13,24 @@ md_extreme_ki = 0.295
 md_extreme_kd = 20.0
 # speed大于400，小于600时
 ul_high_kp = 75.0
-ul_high_ki = 0.21
-ul_high_kd = 25.0
+ul_high_ki = 0.45
+ul_high_kd = 30.0
 ur_high_kp = 75.0
-ur_high_ki = 0.21
-ur_high_kd = 25.0
+ur_high_ki = 0.45
+ur_high_kd = 30.0
 md_high_kp = 75.0
-md_high_ki = 0.21
-md_high_kd = 25.0
+md_high_ki = 0.45
+md_high_kd = 30.0
 # speed大于200，小于400时
-ul_mid_kp = 65.0
-ul_mid_ki = 0.17
-ul_mid_kd = 30.0
-ur_mid_kp = 60.0
-ur_mid_ki = 0.17
-ur_mid_kd = 40.0
+ul_mid_kp = 62.0
+ul_mid_ki = 0.35
+ul_mid_kd = 20.0
+ur_mid_kp = 62.0
+ur_mid_ki = 0.35
+ur_mid_kd = 30.0
 md_mid_kp = 62.0
-md_mid_ki = 0.17
-md_mid_kd = 40.0
+md_mid_ki = 0.35
+md_mid_kd = 20.0
 # speed小于200时
 ul_low_kp = 50.0
 ul_low_ki = 0.2
@@ -40,13 +42,13 @@ md_low_kp = 50.0
 md_low_ki = 0.22
 md_low_kd = 15.0
 
-angle_normal_kp = 8.0
+angle_normal_kp = 10.0
 angle_normal_ki = 0.0
-angle_normal_kd = 35.0
+angle_normal_kd = 24.0
 integral_limitmax = 14000
-pwmout_limitmax = 6000
+pwmout_limitmax = 8000
 angle_integral_limitmax = 1200
-angle_pwmout_limitmax = 1000
+angle_pwmout_limitmax = 600
 # A设置为B的2倍左右
 A = 500
 # B大致为最大静差的1.5倍
@@ -62,7 +64,7 @@ car_radius = 10.5
 # 速度转换系数
 speed_conversion_gamma = 0.372928
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.25
+gkd = -0.19
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数
@@ -82,9 +84,9 @@ plan_point_transition_T = 50
 dec_ratio = 0.0
 
 ###################【速度规划】####################
-min_start_v = 90
-long_v_max = 600
-short_v_max = 90
+min_start_v = 40
+long_v_max = 400
+short_v_max = 50
 dead_zone_v = 50
 
 ###################【视觉伺服】####################
@@ -105,3 +107,4 @@ max_orbit_speed = 300
 min_orbit_speed = 30
 
 # openart支架上边沿距离车底板17.7cm
+# 小车最高速度为500

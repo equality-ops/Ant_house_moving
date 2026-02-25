@@ -141,7 +141,7 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(8)
+car_yaw_fil = ant_motor.SlipAveragingFilter(6)
 # 创建主车避障航向角滑动平均滤波器对象
 yaw_fil = ant_motor.SlipAveragingFilter(40)
 
@@ -234,9 +234,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    # motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(180, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(50, pose_data.encoder_data_md)
+    #motor_ul_pid.compute_pid(500, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(500, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(420, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -542,7 +542,7 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 600:
+    if motor_ul_pid.target > 500:
         motor_ul_pid.set_pid_params(pid_data.ul_extreme_kp, pid_data.ul_extreme_ki, pid_data.ul_extreme_kd)
     elif motor_ul_pid.target >= 400:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -551,7 +551,7 @@ def time_pit1_handler(time):
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 600:
+    if motor_ur_pid.target > 500:
         motor_ur_pid.set_pid_params(pid_data.ur_extreme_kp, pid_data.ur_extreme_ki, pid_data.ur_extreme_kd)
     elif motor_ur_pid.target >= 400:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
@@ -560,7 +560,7 @@ def time_pit1_handler(time):
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 600:
+    if motor_md_pid.target > 500:
         motor_md_pid.set_pid_params(pid_data.md_extreme_kp, pid_data.md_extreme_ki, pid_data.md_extreme_kd)
     elif motor_md_pid.target >= 400:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
@@ -585,7 +585,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -599,7 +599,7 @@ def time_pit1_handler(time):
     # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    show_speed_PID_test()
+    # show_speed_PID_test()
     
     # 测试伺服控制函数
     # test_servo_control()
@@ -626,13 +626,11 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
-    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[30.0, 0.0], [0, 0]])
+        my_plan.navigate([[0.0, -160.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
-            # 测试
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
@@ -640,7 +638,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
-    """
+    
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -671,7 +669,7 @@ def time_pit2_handler(time):
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
@@ -683,7 +681,7 @@ def time_pit2_handler(time):
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")

@@ -284,13 +284,13 @@ class Plan:
         # 根据大致航向角选择合适的坐标修正量（解决因惯性造成的打滑问题）
         if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
             self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_y = 0.9
         elif blurry_yaw >= 30.0 and blurry_yaw < 60.0:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = 0.9
+            self.error_correct_y = 0.5
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
@@ -320,29 +320,29 @@ class Plan:
         total_transit_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
         # 依据到过渡点的距离计算里程计系数
         if total_transit_dis >= 300.0:
-            self.my_car.alpha_x = 0.984448
+            self.my_car.alpha_x = 0.975216
         elif total_transit_dis >= 200.0:
-            self.my_car.alpha_x = 0.98001
+            self.my_car.alpha_x = 0.975
         elif total_transit_dis >= 100.0:
-            self.my_car.alpha_x = 0.98
-        elif total_transit_dis >= 40.0:
-            self.my_car.alpha_x = 0.969089
+            self.my_car.alpha_x = 0.975
+        elif total_transit_dis >= 55.0:
+            self.my_car.alpha_x = 0.977778
         else:
-            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 1.02
 
         if total_transit_dis >= 220.0:
-            self.my_car.alpha_y = 0.970369
+            self.my_car.alpha_y = 0.957758
         elif total_transit_dis >= 160.0:
-            self.my_car.alpha_y = 0.969983
+            self.my_car.alpha_y = 0.96
         elif total_transit_dis >= 100.0:
+            self.my_car.alpha_y = 0.962
+        elif total_transit_dis >= 55.0:
             self.my_car.alpha_y = 0.9625
-        elif total_transit_dis >= 40.0:
-            self.my_car.alpha_y = 0.944444
         else:
             self.my_car.alpha_y = 1.0
 
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
-        if total_distance >= 40.0:
+        if total_distance >= 55.0:
             self.dec_distance = 25.0
             self.v_max = self.long_v_max
             self.build_dec_speed_list(0)
@@ -362,24 +362,24 @@ class Plan:
                 total_transit_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
                 # 依据到过渡点的距离计算里程计系数
                 if total_transit_dis >= 300.0:
-                    self.my_car.alpha_x = 0.984448
+                    self.my_car.alpha_x = 0.975216
                 elif total_transit_dis >= 200.0:
-                    self.my_car.alpha_x = 0.98001
+                    self.my_car.alpha_x = 0.975
                 elif total_transit_dis >= 100.0:
-                    self.my_car.alpha_x = 0.98
-                elif total_transit_dis >= 40.0:
-                    self.my_car.alpha_x = 0.969089
+                    self.my_car.alpha_x = 0.975
+                elif total_transit_dis >= 55.0:
+                    self.my_car.alpha_x = 0.977778
                 else:
-                    self.my_car.alpha_x = 1.0
+                    self.my_car.alpha_x = 1.02
 
                 if total_transit_dis >= 220.0:
-                    self.my_car.alpha_y = 0.970369
+                    self.my_car.alpha_y = 0.957758
                 elif total_transit_dis >= 160.0:
-                    self.my_car.alpha_y = 0.969983
+                    self.my_car.alpha_y = 0.96
                 elif total_transit_dis >= 100.0:
+                    self.my_car.alpha_y = 0.962
+                elif total_transit_dis >= 55.0:
                     self.my_car.alpha_y = 0.9625
-                elif total_transit_dis >= 40.0:
-                    self.my_car.alpha_y = 0.944444
                 else:
                     self.my_car.alpha_y = 1.0
         else:
@@ -390,7 +390,7 @@ class Plan:
         if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0 and self.if_pass_transit_point == True:
             self.arrive_flag = True
             self.transition_flag = False
-            self.my_uart3.write("arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
+            # self.my_uart3.write("arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
             self.finished_distance = 0.0
             self.rest_distance = 0.0
             self.dec_distance = 0.0
@@ -553,7 +553,7 @@ class Plan:
         # 最终的过渡时间为 plan_point_transition_T * plan_calculate_T(单位：ms)
         if self.plan_data.time_counter >= self.plan_data.plan_point_transition_T:
             self.plan_data.time_counter = 0
-            self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
+            # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
             self.my_car.x_current = self.ideal_target_x
             self.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
@@ -612,6 +612,8 @@ class Plan:
             self.stop()
             # 测试
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
+            # self.my_car.x_current = self.ideal_target_x
+            # self.my_car.y_current = self.ideal_target_y
             self.dec_speed_index = 0
             self.path_points.clear()
             self.if_set_path = False
