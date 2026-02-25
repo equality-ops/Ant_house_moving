@@ -157,14 +157,17 @@ class Menu:
             self.update_config_value("main_config.txt", "wheel_radius", self.wheel_radius)
             self.update_config_value("main_config.txt", "car_radius", self.car_radius)
 
-        elif self.change_page_to == 3:
             ###################【系数】####################
             self.update_config_value("main_config.txt", "speed_conversion_gamma", self.speed_conversion_gamma)
             self.update_config_value("main_config.txt", "gkd", self.gkd)
             self.update_config_value("main_config.txt", "speed_fuse_ratio", self.speed_fuse_ratio)
             self.update_config_value("main_config.txt", "gyro_z_supply", self.gyro_z_supply)
 
-        elif self.change_page_to == 4:
+            ###################【环绕控制】####################
+            self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
+            self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
+
+        elif self.change_page_to == 3:
             ###################【时间规划】####################
             self.update_config_value("main_config.txt", "motor_control_T", self.motor_control_T)
             self.update_config_value("main_config.txt", "collect_dt", self.collect_dt)
@@ -172,20 +175,20 @@ class Menu:
             self.update_config_value("main_config.txt", "uart_and_menu_T", self.uart_and_menu_T)
             self.update_config_value("main_config.txt", "boost_time_threshold", self.boost_time_threshold)
 
-        elif self.change_page_to == 5:
+        elif self.change_page_to == 4:
             ###################【路径规划】####################
             self.update_config_value("main_config.txt", "plan_arrive_threshold", self.plan_arrive_threshold)
             self.update_config_value("main_config.txt", "plan_point_transition_T", self.plan_point_transition_T)
             self.update_config_value("main_config.txt", "dec_ratio", self.dec_ratio)
 
-        elif self.change_page_to == 6:
+        elif self.change_page_to == 5:
             ###################【速度规划】####################
             self.update_config_value("main_config.txt", "min_start_v", self.min_start_v)
             self.update_config_value("main_config.txt", "long_v_max", self.long_v_max)
             self.update_config_value("main_config.txt", "short_v_max", self.short_v_max)
             self.update_config_value("main_config.txt", "dead_zone_v", self.dead_zone_v)
 
-        elif self.change_page_to == 7:
+        elif self.change_page_to == 6:
             ###################【视觉伺服】####################
             self.update_config_value("main_config.txt", "servo_kp_x", self.servo_kp_x)
             self.update_config_value("main_config.txt", "servo_kd_x", self.servo_kd_x)
@@ -198,11 +201,6 @@ class Menu:
             self.update_config_value("main_config.txt", "finish_threshold_x", self.finish_threshold_x)
             self.update_config_value("main_config.txt", "finish_threshold_y", self.finish_threshold_y)
             self.update_config_value("main_config.txt", "servo_pwmout_limitmax", self.servo_pwmout_limitmax)
-
-        elif self.change_page_to == 8:
-            ###################【环绕控制】####################
-            self.update_config_value("main_config.txt", "max_orbit_speed", self.max_orbit_speed)
-            self.update_config_value("main_config.txt", "min_orbit_speed", self.min_orbit_speed)
         
         self.Current_line = self.Start_line
 
@@ -277,196 +275,215 @@ class Menu:
         if self.change_page_to == 2:
             if self.Current_line == 1:
                 if key == self.LEFT:
+                    self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+                elif key == self.RIGHT:
+                    self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
+            elif self.Current_line == 2:
+                if key == self.LEFT:
                     self.wheel_radius -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.wheel_radius += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
+            elif self.Current_line == 3:
                 if key == self.LEFT:
                     self.car_radius -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.car_radius += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
 
-        # ###################【系数】#################### (page 3)
-        elif self.change_page_to == 3:
-            if self.Current_line == 1:
+        # ###################【系数】#################### (page 2)
+        # 第四行是标题
+            elif self.Current_line == 5:
                 if key == self.LEFT:
                     self.speed_conversion_gamma -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.speed_conversion_gamma += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
+            elif self.Current_line == 6:
                 if key == self.LEFT:
                     self.gkd -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.gkd += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:
+            elif self.Current_line == 7:
                 if key == self.LEFT:
                     self.speed_fuse_ratio -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.speed_fuse_ratio += self.step_values[self.current_step_index]
-            elif self.Current_line == 4:
+            elif self.Current_line == 8:
                 if key == self.LEFT:
                     self.gyro_z_supply -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.gyro_z_supply += self.step_values[self.current_step_index]
-            elif self.Current_line == 5:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
-
-        # ###################【时间规划】#################### (page 4)
-        elif self.change_page_to == 4:
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.motor_control_T -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.motor_control_T += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.collect_dt -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.collect_dt += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.plan_calculate_T -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.plan_calculate_T += self.step_values[self.current_step_index]
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.uart_and_menu_T -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.uart_and_menu_T += self.step_values[self.current_step_index]
-            elif self.Current_line == 5:
-                if key == self.LEFT:
-                    self.boost_time_threshold -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.boost_time_threshold += self.step_values[self.current_step_index]
-            elif self.Current_line == 6:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
-
-        # ###################【路径规划】#################### (page 5)
-        elif self.change_page_to == 5:
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.plan_arrive_threshold -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.plan_arrive_threshold += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.plan_point_transition_T -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.plan_point_transition_T += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.dec_ratio -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.dec_ratio += self.step_values[self.current_step_index]
-            elif self.Current_line == 4:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
-
-        # ###################【速度规划】#################### (page 6)
-        elif self.change_page_to == 6:
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.min_start_v -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.min_start_v += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.long_v_max -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.long_v_max += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.short_v_max -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.short_v_max += self.step_values[self.current_step_index]
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.dead_zone_v -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.dead_zone_v += self.step_values[self.current_step_index]
-            elif self.Current_line == 5:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
-
-        # ###################【视觉伺服】#################### (page 7)
-        elif self.change_page_to == 7:
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.servo_kp_x -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_kp_x += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.servo_kd_x -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_kd_x += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.servo_kp_y -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_kp_y += self.step_values[self.current_step_index]
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.servo_kd_y -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_kd_y += self.step_values[self.current_step_index]
-            elif self.Current_line == 5:
-                if key == self.LEFT:
-                    self.servo_target_x -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_target_x += self.step_values[self.current_step_index]
-            elif self.Current_line == 6:
-                if key == self.LEFT:
-                    self.servo_target_y -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_target_y += self.step_values[self.current_step_index]
-            elif self.Current_line == 7:
-                if key == self.LEFT:
-                    self.min_rel_speed -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.min_rel_speed += self.step_values[self.current_step_index]
-            elif self.Current_line == 8:
-                if key == self.LEFT:
-                    self.max_rel_speed -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.max_rel_speed += self.step_values[self.current_step_index]
-            elif self.Current_line == 9:
-                if key == self.LEFT:
-                    self.finish_threshold_x -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.finish_threshold_x += self.step_values[self.current_step_index]
+            
+        # ###################【环绕控制】#################### (page 2)
+        # 第九行是标题
             elif self.Current_line == 10:
-                if key == self.LEFT:
-                    self.finish_threshold_y -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.finish_threshold_y += self.step_values[self.current_step_index]
-            elif self.Current_line == 11:
-                if key == self.LEFT:
-                    self.servo_pwmout_limitmax -= self.step_values[self.current_step_index]
-                elif key == self.RIGHT:
-                    self.servo_pwmout_limitmax += self.step_values[self.current_step_index]
-            elif self.Current_line == 12:  # save line
-                if key == self.RIGHT:
-                    self.save_data()
-
-        # ###################【环绕控制】#################### (page 8)
-        elif self.change_page_to == 8:
-            if self.Current_line == 1:
                 if key == self.LEFT:
                     self.max_orbit_speed -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.max_orbit_speed += self.step_values[self.current_step_index]
-            elif self.Current_line == 2:
+            elif self.Current_line == 11:
                 if key == self.LEFT:
                     self.min_orbit_speed -= self.step_values[self.current_step_index]
                 elif key == self.RIGHT:
                     self.min_orbit_speed += self.step_values[self.current_step_index]
-            elif self.Current_line == 3:  # save line
+            elif self.Current_line == 12:  # save line
+                if key == self.RIGHT:
+                    self.save_data()
+
+        # ###################【时间规划】#################### (page 3)
+        elif self.change_page_to == 3:
+            if self.Current_line == 1:
+                if key == self.LEFT:
+                    self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+                elif key == self.RIGHT:
+                    self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
+            elif self.Current_line == 2:
+                if key == self.LEFT:
+                    self.motor_control_T -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.motor_control_T += self.step_values[self.current_step_index]
+            elif self.Current_line == 3:
+                if key == self.LEFT:
+                    self.collect_dt -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.collect_dt += self.step_values[self.current_step_index]
+            elif self.Current_line == 4:
+                if key == self.LEFT:
+                    self.plan_calculate_T -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.plan_calculate_T += self.step_values[self.current_step_index]
+            elif self.Current_line == 5:
+                if key == self.LEFT:
+                    self.uart_and_menu_T -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.uart_and_menu_T += self.step_values[self.current_step_index]
+            elif self.Current_line == 6:
+                if key == self.LEFT:
+                    self.boost_time_threshold -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.boost_time_threshold += self.step_values[self.current_step_index]
+            elif self.Current_line == 7:  # save line
+                if key == self.RIGHT:
+                    self.save_data()
+
+        # ###################【路径规划】#################### (page 4)
+        elif self.change_page_to == 4:
+            if self.Current_line == 1:
+                if key == self.LEFT:
+                    self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+                elif key == self.RIGHT:
+                    self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
+            elif self.Current_line == 2:
+                if key == self.LEFT:
+                    self.plan_arrive_threshold -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.plan_arrive_threshold += self.step_values[self.current_step_index]
+            elif self.Current_line == 3:
+                if key == self.LEFT:
+                    self.plan_point_transition_T -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.plan_point_transition_T += self.step_values[self.current_step_index]
+            elif self.Current_line == 4:
+                if key == self.LEFT:
+                    self.dec_ratio -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.dec_ratio += self.step_values[self.current_step_index]
+            elif self.Current_line == 5:  # save line
+                if key == self.RIGHT:
+                    self.save_data()
+
+        # ###################【速度规划】#################### (page 5)
+        elif self.change_page_to == 5:
+            if self.Current_line == 1:
+                if key == self.LEFT:
+                    self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+                elif key == self.RIGHT:
+                    self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
+            elif self.Current_line == 2:
+                if key == self.LEFT:
+                    self.min_start_v -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.min_start_v += self.step_values[self.current_step_index]
+            elif self.Current_line == 3:
+                if key == self.LEFT:
+                    self.long_v_max -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.long_v_max += self.step_values[self.current_step_index]
+            elif self.Current_line == 4:
+                if key == self.LEFT:
+                    self.short_v_max -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.short_v_max += self.step_values[self.current_step_index]
+            elif self.Current_line == 5:
+                if key == self.LEFT:
+                    self.dead_zone_v -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.dead_zone_v += self.step_values[self.current_step_index]
+            elif self.Current_line == 6:  # save line
+                if key == self.RIGHT:
+                    self.save_data()
+
+        # ###################【视觉伺服】#################### (page 6)
+        elif self.change_page_to == 6:
+            if self.Current_line == 1:
+                if key == self.LEFT:
+                    self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+                elif key == self.RIGHT:
+                    self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
+            elif self.Current_line == 2:
+                if key == self.LEFT:
+                    self.servo_kp_x -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_kp_x += self.step_values[self.current_step_index]
+            elif self.Current_line == 3:
+                if key == self.LEFT:
+                    self.servo_kd_x -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_kd_x += self.step_values[self.current_step_index]
+            elif self.Current_line == 4:
+                if key == self.LEFT:
+                    self.servo_kp_y -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_kp_y += self.step_values[self.current_step_index]
+            elif self.Current_line == 5:
+                if key == self.LEFT:
+                    self.servo_kd_y -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_kd_y += self.step_values[self.current_step_index]
+            elif self.Current_line == 6:
+                if key == self.LEFT:
+                    self.servo_target_x -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_target_x += self.step_values[self.current_step_index]
+            elif self.Current_line == 7:
+                if key == self.LEFT:
+                    self.servo_target_y -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_target_y += self.step_values[self.current_step_index]
+            elif self.Current_line == 8:
+                if key == self.LEFT:
+                    self.min_rel_speed -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.min_rel_speed += self.step_values[self.current_step_index]
+            elif self.Current_line == 9:
+                if key == self.LEFT:
+                    self.max_rel_speed -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.max_rel_speed += self.step_values[self.current_step_index]
+            elif self.Current_line == 10:
+                if key == self.LEFT:
+                    self.finish_threshold_x -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.finish_threshold_x += self.step_values[self.current_step_index]
+            elif self.Current_line == 11:
+                if key == self.LEFT:
+                    self.finish_threshold_y -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.finish_threshold_y += self.step_values[self.current_step_index]
+            elif self.Current_line == 12:
+                if key == self.LEFT:
+                    self.servo_pwmout_limitmax -= self.step_values[self.current_step_index]
+                elif key == self.RIGHT:
+                    self.servo_pwmout_limitmax += self.step_values[self.current_step_index]
+            elif self.Current_line == 13:  # save line
                 if key == self.RIGHT:
                     self.save_data()
 
@@ -556,11 +573,11 @@ class Menu:
         if self.Current_line == self.End_line:
             if key == self.LEFT:
                 if self.change_page_to == 1:
-                    self.change_page_to = 8
+                    self.change_page_to = 4
                 else:
                     self.change_page_to -= 1
             elif key == self.RIGHT:
-                if self.change_page_to == 8:
+                if self.change_page_to == 4:
                     self.change_page_to = 1
                 else:
                     self.change_page_to += 1
@@ -598,91 +615,55 @@ class Menu:
         self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"wheel_r :{self.wheel_radius:6.2f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"car_r   :{self.car_radius:6.2f}    ", 0xFFFF)
+        self.lcd.str16(100, self.LineSpacing * 4, "COEF", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 5, f"spd_gam :{self.speed_conversion_gamma:8.4f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 6, f"gkd     :{self.gkd:8.4f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 7, f"fuse_rat:{self.speed_fuse_ratio:8.4f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 8, f"gyro_z  :{self.gyro_z_supply:8.4f}    ", 0xFFFF)
+        self.lcd.str16(100, self.LineSpacing * 9, "ORBIT", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 10, f"max_orb:{self.max_orbit_speed:6d}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 11, f"min_orb:{self.min_orbit_speed:6d}    ", 0xFFFF)
 
     # 第2页菜单显示
     def Menu_Page_2(self):
         gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 5, 1
+        self.Start_line, self.End_line, self.Current_line = 1, 13, 1
         self.lcd.clear(0x0000)  # 清屏
         self.lcd.str16(100, 0, "MECH", 0xFFFF)
         self.Menu_Page2_data_show()
-        self.lcd.str16(20, self.LineSpacing * 4, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 5, "turn          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 12, "save          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 13, "turn          ", 0xFFFF)
         
     # 第3页菜单数据显示
     def Menu_Page3_data_show(self):
-        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 2, f"spd_gam :{self.speed_conversion_gamma:8.4f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 3, f"gkd     :{self.gkd:8.4f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 4, f"fuse_rat:{self.speed_fuse_ratio:8.4f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 5, f"gyro_z  :{self.gyro_z_supply:8.4f}    ", 0xFFFF)
-
-    # 第3页菜单显示
-    def Menu_Page_3(self):
-        gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 7, 1
-        self.lcd.clear(0x0000)  # 清屏
-        self.lcd.str16(100, 0, "COEF", 0xFFFF)
-        self.Menu_Page3_data_show()
-        self.lcd.str16(20, self.LineSpacing * 6, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 7, "turn          ", 0xFFFF)
-        
-    # 第4页菜单数据显示
-    def Menu_Page4_data_show(self):
         self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"motor_T :{self.motor_control_T:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"collect_dt:{self.collect_dt:7.3f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 4, f"plan_T  :{self.plan_calculate_T:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 5, f"uart_T  :{self.uart_and_menu_T:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 6, f"boost_T :{self.boost_time_threshold:6d}    ", 0xFFFF)
-
-    # 第4页菜单显示
-    def Menu_Page_4(self):
-        gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 8, 1
-        self.lcd.clear(0x0000)  # 清屏
-        self.lcd.str16(100, 0, "TIME", 0xFFFF)
-        self.Menu_Page4_data_show()
-        self.lcd.str16(20, self.LineSpacing * 7, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 8, "turn          ", 0xFFFF)
-
-    # 第5页菜单数据显示
-    def Menu_Page5_data_show(self):
-        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 2, f"arrive_th:{self.plan_arrive_threshold:7.2f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 3, f"trans_T :{self.plan_point_transition_T:6d}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 4, f"dec_rat :{self.dec_ratio:7.2f}    ", 0xFFFF)
-
-    # 第5页菜单显示
-    def Menu_Page_5(self):
-        gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 6, 1
-        self.lcd.clear(0x0000)  # 清屏
         self.lcd.str16(100, 0, "PATH", 0xFFFF)
-        self.Menu_Page5_data_show()
-        self.lcd.str16(20, self.LineSpacing * 5, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 6, "turn          ", 0xFFFF)
-
-    # 第6页菜单数据显示
-    def Menu_Page6_data_show(self):
-        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 7, f"arrive_th:{self.plan_arrive_threshold:7.2f}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 8, f"trans_T :{self.plan_point_transition_T:6d}    ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 9, f"dec_rat :{self.dec_ratio:7.2f}    ", 0xFFFF)
+        self.lcd.str16(100, 0, "SPEED", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"min_v   :{self.min_start_v:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"long_v  :{self.long_v_max:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 4, f"short_v :{self.short_v_max:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 5, f"dead_v  :{self.dead_zone_v:6d}    ", 0xFFFF)
 
-    # 第6页菜单显示
-    def Menu_Page_6(self):
+    # 第3页菜单显示
+    def Menu_Page_3(self):
         gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 7, 1
+        self.Start_line, self.End_line, self.Current_line = 1, 11, 1
         self.lcd.clear(0x0000)  # 清屏
-        self.lcd.str16(100, 0, "SPEED", 0xFFFF)
-        self.Menu_Page6_data_show()
-        self.lcd.str16(20, self.LineSpacing * 6, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 7, "turn          ", 0xFFFF)
+        self.lcd.str16(100, 0, "TIME", 0xFFFF)
+        self.Menu_Page3_data_show()
+        self.lcd.str16(20, self.LineSpacing * 10, "save          ", 0xFFFF)
+        self.lcd.str16(20, self.LineSpacing * 11, "turn          ", 0xFFFF)
 
-    # 第7页菜单数据显示
-    def Menu_Page7_data_show(self):
+    # 第4页菜单数据显示
+    def Menu_Page4_data_show(self):
         self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 2, f"kp_x   :{self.servo_kp_x:7.1f}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 3, f"kd_x   :{self.servo_kd_x:7.1f}    ", 0xFFFF)
@@ -696,31 +677,16 @@ class Menu:
         self.lcd.str16(20, self.LineSpacing * 11, f"fin_y  :{self.finish_threshold_y:6d}    ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 12, f"servo_pw:{self.servo_pwmout_limitmax:5d}    ", 0xFFFF)
 
-    # 第7页菜单显示
-    def Menu_Page_7(self):
+    # 第4页菜单显示
+    def Menu_Page_4(self):
         gc.collect()
         self.Start_line, self.End_line, self.Current_line = 1, 14, 1
         self.lcd.clear(0x0000)  # 清屏
         self.lcd.str16(100, 0, "SERVO", 0xFFFF)
-        self.Menu_Page7_data_show()
+        self.Menu_Page4_data_show()
         self.lcd.str16(20, self.LineSpacing * 13, "save          ", 0xFFFF)
         self.lcd.str16(20, self.LineSpacing * 14, "turn          ", 0xFFFF)
 
-    # 第8页菜单数据显示
-    def Menu_Page8_data_show(self):
-        self.lcd.str16(20, self.LineSpacing * 1, f"step :{self.step_values[self.current_step_index]:6.1f}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 2, f"max_orb:{self.max_orbit_speed:6d}    ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 3, f"min_orb:{self.min_orbit_speed:6d}    ", 0xFFFF)
-
-    # 第8页菜单显示
-    def Menu_Page_8(self):
-        gc.collect()
-        self.Start_line, self.End_line, self.Current_line = 1, 5, 1
-        self.lcd.clear(0x0000)  # 清屏
-        self.lcd.str16(100, 0, "ORBIT", 0xFFFF)
-        self.Menu_Page8_data_show()
-        self.lcd.str16(20, self.LineSpacing * 4, "save          ", 0xFFFF)
-        self.lcd.str16(20, self.LineSpacing * 5, "turn          ", 0xFFFF)
 
 
     #函数：菜单选择与切换
@@ -733,14 +699,7 @@ class Menu:
             self.Menu_Page_3()
         elif(self.change_page_to == 4):
             self.Menu_Page_4()
-        elif(self.change_page_to == 5):
-            self.Menu_Page_5()
-        elif(self.change_page_to == 6):
-            self.Menu_Page_6()
-        elif(self.change_page_to == 7):
-            self.Menu_Page_7()
-        elif(self.change_page_to == 8):
-            self.Menu_Page_8()
+
             
 """
 # === 主循环 ===
@@ -761,3 +720,4 @@ while True:
     
     time.sleep_ms(50)
 """
+
