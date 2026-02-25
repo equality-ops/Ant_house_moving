@@ -90,11 +90,10 @@ lcd.clear(0x0000)
 
 #采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
 end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_up = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_left = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_confirm = Pin()
+key_left = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_right = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_down = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
@@ -632,38 +631,17 @@ def time_pit3_handler(time) -> None:
     # test_orbit_control()
     pass
 
-
+my_menu.last_change_page_to = my_menu.change_page_to
 # 定时器2中断回调函数
 # 用于无线串口调试和发车启动
-def time_pit2_handler(time):
-    """用于无线串口调试"""
+def time_pit2_handler(timer):  # 避免用time做参数名（和标准库重名）
+    """用于无线串口调试和菜单控制（中断回调函数）"""
     # 发车启动函数
     main_start()
-    last_category = my_menu.current_category
-    last_subpage = my_menu.current_subpage
-
+    
+    # 读取按键（中断中避免阻塞，快速返回）
     key = my_menu.read_key()
-
-    if key:
-        if key == my_menu.UP:
-            my_menu.arrow_up(key)
-        elif key == my_menu.DOWN:
-            my_menu.arrow_down(key)
-        elif key in (my_menu.LEFT, my_menu.RIGHT):
-                my_menu.data_processing(key)
-        elif key == my_menu.CONFIRM:
-            page_changed = my_menu.detect_change_page(key)
-            if not page_changed:
-                my_menu.data_processing(key)
-
-            if (page_changed or my_menu.current_category != last_category
-                or my_menu.current_subpage != last_subpage):
-                my_menu.menu_switch()
-                my_menu.show_arrow()
-
-    my_menu.show_arrow()
-
-
+    my_menu.handle_key_from_interrupt(key)
     # 调试器测试
 
 
@@ -794,3 +772,4 @@ while True:
         break
 
     gc.collect()
+

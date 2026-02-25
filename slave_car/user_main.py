@@ -627,7 +627,7 @@ pit2_start()
 
 # === 初始显示 ===
 my_menu.Menu_Page_1()
-my_menu.show_arrow()
+my_menu.show_arrow() 
 
 while True:
     # 屏幕测试程序
