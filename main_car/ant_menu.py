@@ -1,782 +1,453 @@
 import time
+import gc
 import os
 
-PRIMARY = 0
-PID = 1
-Mechanical_Parameter = 2
-Coefficient = 3
-Temporal_Planning = 4
-Path_Planning = 5
-Velocity_Planning = 6
-Visual_Servoing = 7
-Orbit_Control = 8
-
-
-
 class Menu:
-    def __init__(self, flash_sys, beep, key_up, key_down, key_left, key_right, key_confirm, lcd):   
-        # 注入 flash 系统对象
-        self.flash_sys = flash_sys  
-        # 注入蜂鸣器对象，用于警报
+    def __init__(self, flash_sys, beep, key_up, key_down, key_left, key_right, lcd):   
+        # 所有参数强制转为浮点数，避免类型错误
+        self.config = {
+            # PID 参数
+            "angle_normal_kp": float(flash_sys.find_value("angle_normal_kp")),
+            "angle_normal_ki": float(flash_sys.find_value("angle_normal_ki")),
+            "angle_normal_kd": float(flash_sys.find_value("angle_normal_kd")),
+            "integral_limitmax": float(flash_sys.find_value("integral_limitmax")),
+            "pwmout_limitmax": float(flash_sys.find_value("pwmout_limitmax")),
+            "angle_integral_limitmax": float(flash_sys.find_value("angle_integral_limitmax")),
+            "angle_pwmout_limitmax": float(flash_sys.find_value("angle_pwmout_limitmax")),
+            # A/B 设置
+            "A": float(flash_sys.find_value("A")),
+            "B": float(flash_sys.find_value("B")),
+            # kp 分段系数
+            "kp_mid": float(flash_sys.find_value("kp_mid")),
+            "kp_low": float(flash_sys.find_value("kp_low")),
+            # 机械参数
+            "wheel_radius": float(flash_sys.find_value("wheel_radius")),
+            "car_radius": float(flash_sys.find_value("car_radius")),
+            # 系数
+            "gkd": float(flash_sys.find_value("gkd")),
+            "speed_fuse_ratio": float(flash_sys.find_value("speed_fuse_ratio")),
+            "ur_high_kp": float(flash_sys.find_value("ur_high_kp")),
+            # 时间规划
+            "motor_control_T": float(flash_sys.find_value("motor_control_T")),
+            "plan_calculate_T": float(flash_sys.find_value("plan_calculate_T")),
+            "uart_and_menu_T": float(flash_sys.find_value("uart_and_menu_T")),
+            "boost_time_threshold": float(flash_sys.find_value("boost_time_threshold")),
+            # 路径规划
+            "plan_arrive_threshold": float(flash_sys.find_value("plan_arrive_threshold")),
+            "plan_point_transition_T": float(flash_sys.find_value("plan_point_transition_T")),
+            "dec_ratio": float(flash_sys.find_value("dec_ratio")),
+            # 速度规划
+            "min_start_v": float(flash_sys.find_value("min_start_v")),
+            "long_v_max": float(flash_sys.find_value("long_v_max")),
+            "short_v_max": float(flash_sys.find_value("short_v_max")),
+            "dead_zone_v": float(flash_sys.find_value("dead_zone_v")),
+            # 视觉伺服
+            "servo_kp_x": float(flash_sys.find_value("servo_kp_x")),
+            "servo_kd_x": float(flash_sys.find_value("servo_kd_x")),
+            "servo_kp_y": float(flash_sys.find_value("servo_kp_y")),
+            "servo_kd_y": float(flash_sys.find_value("servo_kd_y")),
+            "servo_target_x": float(flash_sys.find_value("servo_target_x")),
+            "servo_target_y": float(flash_sys.find_value("servo_target_y")),
+            "min_rel_speed": float(flash_sys.find_value("min_rel_speed")),
+            "max_rel_speed": float(flash_sys.find_value("max_rel_speed")),
+            "finish_threshold_x": float(flash_sys.find_value("finish_threshold_x")),
+            "finish_threshold_y": float(flash_sys.find_value("finish_threshold_y")),
+            "servo_pwmout_limitmax": float(flash_sys.find_value("servo_pwmout_limitmax")),
+            # 环绕控制
+            "max_orbit_speed": float(flash_sys.find_value("max_orbit_speed")),
+            "min_orbit_speed": float(flash_sys.find_value("min_orbit_speed")),
+        } # 用字典保存所需改的参数
+
+        # 参数名-缩略名映射字典（精准控制每个参数的显示名）
+        self.param_short_name = {
+            # PID 参数
+            "angle_normal_kp": "n_kp",
+            "angle_normal_ki": "n_ki",
+            "angle_normal_kd": "n_kd",
+            "integral_limitmax": "int_l",
+            "pwmout_limitmax": "pwm_l",
+            "angle_integral_limitmax": "a_int_l",
+            "angle_pwmout_limitmax": "a_pwm_l",
+            # A/B 设置
+            "A": "A",
+            "B": "B",
+            # kp 分段系数
+            "kp_mid": "kp_m",
+            "kp_low": "kp_l",
+            # 机械参数
+            "wheel_radius": "wheel_r",
+            "car_radius": "car_r",
+            # 系数
+            "gkd": "gkd",
+            "speed_fuse_ratio": "fuse_rat",
+            "ur_high_kp": "ur_kp",
+            # 时间规划
+            "motor_control_T": "motor_T",
+            "plan_calculate_T": "plan_T",
+            "uart_and_menu_T": "uart_T",
+            "boost_time_threshold": "boost_T",
+            # 路径规划
+            "plan_arrive_threshold": "arrive_th",
+            "plan_point_transition_T": "trans_T",
+            "dec_ratio": "dec_rat",
+            # 速度规划
+            "min_start_v": "min_v",
+            "long_v_max": "long_v",
+            "short_v_max": "short_v",
+            "dead_zone_v": "dead_v",
+            # 视觉伺服
+            "servo_kp_x": "kp_x",
+            "servo_kd_x": "kd_x",
+            "servo_kp_y": "kp_y",
+            "servo_kd_y": "kd_y",
+            "servo_target_x": "tar_x",
+            "servo_target_y": "tar_y",
+            "min_rel_speed": "min_spd",
+            "max_rel_speed": "max_spd",
+            "finish_threshold_x": "fin_x",
+            "finish_threshold_y": "fin_y",
+            "servo_pwmout_limitmax": "servo_pw",
+            # 环绕控制
+            "max_orbit_speed": "max_orb",
+            "min_orbit_speed": "min_orb",
+        }
+
+        # 注入外部对象
+        self.flash_sys = flash_sys
         self.beep = beep
-        # 注入按键对象
-        self.key_up = key_up
-        self.key_down = key_down
-        self.key_left = key_left
-        self.key_right = key_right
-        self.key_confirm = key_confirm
-        # 每个按键上次低电平时间
-        self.last_left_time = 0
-        self.last_right_time = 0
-        self.last_up_time = 0
-        self.last_down_time = 0
-        self.last_confirm_time = 0
-        # 注入 LCD 对象
         self.lcd = lcd
+        self.keys = {"up": key_up, "down": key_down, "left": key_left, "right": key_right}
 
-        ###########################读取所需参数############################
+        # 菜单核心配置（统一管理）
+        self.change_page_to = 1
+        self.Current_line = 1  # 初始箭头在第一行
+        self.Start_line, self.End_line = 1, 9
+        self.KEY_NAMES = {"left": "left", "right": "right", "up": "up", "down": "down"}
+        # 步长列表：新增0.001、0.01，按从小到大排序
+        self.step_values = (0.001, 0.01, 0.1, 1.0, 5.0, 10.0, 100.0)  # 步长（元组更省内存）
+        self.current_step_index = 0
+        self.LineSpacing = 18
+        
+        # 屏幕配置（扩展显示宽度，适配三位小数显示）
+        self.LCD_WIDTH = 240
+        self.TITLE_X = 80  # 240宽度屏标题居中x坐标
+        self.ARROW_X = 200  # 箭头x坐标
+        self.CLEAR_SPACES = " " * 35  # 进一步扩展清空空格数（适配三位小数）
 
-        # mechanical parameter
-        self.wheel_radius = self.flash_sys.find_value("wheel_radius")  # type: float
-        self.car_radius = self.flash_sys.find_value("car_radius")  # type: float
+        # 按键防抖时间戳
+        self.key_timestamps = {k: 0 for k in self.KEY_NAMES.keys()}
 
-        # coefficient
-        self.gkd = self.flash_sys.find_value("gkd")  # type: float
-        self.speed_fuse_ratio = self.flash_sys.find_value("speed_fuse_ratio")  # type: float
-        self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")  # type: float
+        # 状态标记：初始设置为True，确保首次绘制箭头
+        self.last_change_page_to = self.change_page_to
+        self.current_key = None
+        self.need_refresh = True  # 关键修复：初始化为True
+        
+        # 预定义核心映射（8页分区，核心逻辑不变）
+        self._init_core_mappings()
+        
+        # 强制GC
+        gc.collect()
 
-        # temporal planning
-        self.motor_control_T = self.flash_sys.find_value("motor_control_T")  # type: int
-        self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float
-        self.plan_calculate_T = self.flash_sys.find_value("plan_calculate_T")  # type: int
-        self.uart_and_menu_T = self.flash_sys.find_value("uart_and_menu_T")  # type: int
-        self.boost_time_threshold = self.flash_sys.find_value("boost_time_threshold")  # type: int
+    def _init_core_mappings(self):
+        """初始化核心映射（8页分区）"""
+        self.page_line_map = {
+            # 1.PID页
+            1: {
+                2: ("angle_normal_kp", "6.3f"), 3: ("angle_normal_ki", "6.3f"), 4: ("angle_normal_kd", "6.3f"),
+                5: ("integral_limitmax", "6.3f"), 6: ("pwmout_limitmax", "6.3f"), 7: ("angle_integral_limitmax", "6.3f"),
+                8: ("angle_pwmout_limitmax", "6.3f"), 9: ("A", "6.3f"), 10: ("B", "6.3f"), 11: ("kp_mid", "6.3f"), 12: ("kp_low", "6.3f")
+            },
+            # 2.MECH页（机械参数）
+            2: {
+                2: ("wheel_radius", "6.3f"), 3: ("car_radius", "6.3f")
+            },
+            # 3.COEF页（系数参数）
+            3: {
+                2: ("gkd", "6.3f"), 3: ("speed_fuse_ratio", "6.3f"), 4: ("ur_high_kp", "6.3f")
+            },
+            # 4.TIME页（时间规划参数）
+            4: {
+                2: ("motor_control_T", "6.3f"), 3: ("plan_calculate_T", "6.3f"),
+                4: ("uart_and_menu_T", "6.3f"), 5: ("boost_time_threshold", "6.3f")
+            },
+            # 5.PATH页（路径规划参数）
+            5: {
+                2: ("plan_arrive_threshold", "6.3f"), 3: ("plan_point_transition_T", "6.3f"), 4: ("dec_ratio", "6.3f")
+            },
+            # 6.SPEED页（速度规划参数）
+            6: {
+                2: ("min_start_v", "6.3f"), 3: ("long_v_max", "6.3f"), 4: ("short_v_max", "6.3f"), 5: ("dead_zone_v", "6.3f")
+            },
+            # 7.SERVO页（视觉伺服参数）
+            7: {
+                2: ("servo_kp_x", "6.3f"), 3: ("servo_kd_x", "6.3f"), 4: ("servo_kp_y", "6.3f"), 5: ("servo_kd_y", "6.3f"),
+                6: ("servo_target_x", "6.3f"), 7: ("servo_target_y", "6.3f"), 8: ("min_rel_speed", "6.3f"), 9: ("max_rel_speed", "6.3f"),
+                10: ("finish_threshold_x", "6.3f"), 11: ("finish_threshold_y", "6.3f"), 12: ("servo_pwmout_limitmax", "6.3f")
+            },
+            # 8.ORBIT页（环绕控制参数）
+            8: {
+                2: ("max_orbit_speed", "6.3f"), 3: ("min_orbit_speed", "6.3f")
+            }
+        }
 
-        # path planning
-        self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
-        self.plan_point_transition_T = self.flash_sys.find_value("plan_point_transition_T")  # type: int
-        self.dec_ratio = self.flash_sys.find_value("dec_ratio")  # type: float
-        self.error_correct_x_50_1 = self.flash_sys.find_value("error_correct_x_50_1")  # type: float
-        self.error_correct_y_50_1 = self.flash_sys.find_value("error_correct_y_50_1")  # type: float
-        self.error_correct_x_50_2 = self.flash_sys.find_value("error_correct_x_50_2")  # type: float
-        self.error_correct_y_50_2 = self.flash_sys.find_value("error_correct_y_50_2")  # type: float
-        self.error_correct_x_50_3 = self.flash_sys.find_value("error_correct_x_50_3")  # type: float
-        self.error_correct_y_50_3 = self.flash_sys.find_value("error_correct_y_50_3")  # type: float
-        self.error_correct_x_50_4 = self.flash_sys.find_value("error_correct_x_50_4")  # type: float
-        self.error_correct_y_50_4 = self.flash_sys.find_value("error_correct_y_50_4")  # type: float
-        self.error_correct_x_50_5 = self.flash_sys.find_value("error_correct_x_50_5")  # type: float
-        self.error_correct_y_50_5 = self.flash_sys.find_value("error_correct_y_50_5")  # type: float
-        self.error_correct_x_50_6 = self.flash_sys.find_value("error_correct_x_50_6")  # type: float
-        self.error_correct_y_50_6 = self.flash_sys.find_value("error_correct_y_50_6")  # type: float
-        self.error_correct_x_50_7 = self.flash_sys.find_value("error_correct_x_50_7")  # type: float
-        self.error_correct_y_50_7 = self.flash_sys.find_value("error_correct_y_50_7")  # type: float
-        self.error_correct_x_50_8 = self.flash_sys.find_value("error_correct_x_50_8")  # type: float
-        self.error_correct_y_50_8 = self.flash_sys.find_value("error_correct_y_50_8")  # type: float
+        # 页面-保存行映射
+        self.save_line_map = {
+            1: 13,  # PID页：11个参数 → 13行保存
+            2: 4,   # MECH页：2个参数 → 4行保存
+            3: 5,   # COEF页：3个参数 → 5行保存
+            4: 6,   # TIME页：4个参数 → 6行保存
+            5: 5,   # PATH页：3个参数 → 5行保存
+            6: 6,   # SPEED页：4个参数 → 6行保存
+            7: 13,  # SERVO页：11个参数 →13行保存
+            8: 4    # ORBIT页：2个参数 →4行保存
+        }
 
-        # velocity planning
-        self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int
-        self.long_v_max = self.flash_sys.find_value("long_v_max")  # type: int
-        self.short_v_max = self.flash_sys.find_value("short_v_max")  # type: int
-        self.dead_zone_v = self.flash_sys.find_value("dead_zone_v")  # type: int
+        # 页面配置（保存参数列表，按8页分区）
+        self.page_configs = {
+            1: ["angle_normal_kp", "angle_normal_ki", "angle_normal_kd", "integral_limitmax",
+                "pwmout_limitmax", "angle_integral_limitmax", "angle_pwmout_limitmax", "A", "B",
+                "kp_mid", "kp_low"],
+            2: ["wheel_radius", "car_radius"],
+            3: ["gkd", "speed_fuse_ratio", "ur_high_kp"],
+            4: ["motor_control_T", "plan_calculate_T", "uart_and_menu_T", "boost_time_threshold"],
+            5: ["plan_arrive_threshold", "plan_point_transition_T", "dec_ratio"],
+            6: ["min_start_v", "long_v_max", "short_v_max", "dead_zone_v"],
+            7: ["servo_kp_x", "servo_kd_x", "servo_kp_y", "servo_kd_y", "servo_target_x",
+                "servo_target_y", "min_rel_speed", "max_rel_speed", "finish_threshold_x",
+                "finish_threshold_y", "servo_pwmout_limitmax"],
+            8: ["max_orbit_speed", "min_orbit_speed"]
+        }
 
-        # visual servoing
-        self.servo_kp_x = self.flash_sys.find_value("servo_kp_x")  # type: float
-        self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")  # type: float
-        self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")  # type: float
-        self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")  # type: float
-        self.servo_target_x = self.flash_sys.find_value("servo_target_x")  # type: int
-        self.servo_target_y = self.flash_sys.find_value("servo_target_y")  # type: float
-        self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: int
-        self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: int
-        self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: int
-        self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: int
-        self.servo_pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")  # type: int
+        # 页面-标题-行范围映射（按每页参数数量适配行范围）
+        self.page_meta = {
+            1: ("PID", 1, 14),    # PID：11参数+步长+保存+翻页 → 1-14行
+            2: ("MECH", 1, 5),    # MECH：2参数+步长+保存+翻页 →1-5行
+            3: ("COEF", 1, 6),    # COEF：3参数+步长+保存+翻页 →1-6行
+            4: ("TIME", 1, 7),    # TIME：4参数+步长+保存+翻页 →1-7行
+            5: ("PATH", 1, 6),    # PATH：3参数+步长+保存+翻页 →1-6行
+            6: ("SPEED", 1, 7),   # SPEED：4参数+步长+保存+翻页 →1-7行
+            7: ("SERVO", 1, 14),  # SERVO：11参数+步长+保存+翻页 →1-14行
+            8: ("ORBIT", 1, 5)    # ORBIT：2参数+步长+保存+翻页 →1-5行
+        }
 
-        # orbit control
-        self.max_orbit_speed = self.flash_sys.find_value("max_orbit_speed")  # type: int
-        self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")  # type: int
+    def _format_param_display(self, config_key):
+        """通用参数格式化方法（改为三位小数显示）"""
+        short_name = self.param_short_name.get(config_key, config_key[:6])
+        val = round(self.config[config_key], 3)  # 保留三位小数
+        # 扩展显示宽度，适配三位小数（缩略名6字符+数值8字符）
+        return f"{short_name:<6} : {val:8.3f}"
 
+    # 局部刷新参数行（适配三位小数显示）
+    def refresh_param_line(self, line_num, config_key):
+        """仅刷新指定行的参数（适配三位小数）"""
+        # 清空当前行（扩展清空宽度到35字符）
+        self.lcd.str16(0, self.LineSpacing * line_num, self.CLEAR_SPACES, 0x0000)
+        # 绘制格式化后的参数（完整显示三位小数）
+        display_text = self._format_param_display(config_key)
+        self.lcd.str16(5, self.LineSpacing * line_num, display_text, 0xFFFF)  # 左移x坐标，增加显示空间
+        gc.collect()
 
+    # 显式销毁方法（核心逻辑不变）
+    def destroy(self):
+        """销毁实例，释放内存"""
+        for attr in ['config', 'param_short_name', 'keys']:
+            if hasattr(self, attr) and isinstance(getattr(self, attr), dict):
+                getattr(self, attr).clear()
+        
+        self.flash_sys = self.beep = self.lcd = None
+        self.last_change_page_to = self.current_key = None
+        self.need_refresh = False
+        gc.collect()
 
-        ###############################变量定义###########################
-        # 当前菜单项
-        ### self.change_page_to = PRIMARY  # 将菜单定位到哪一页
-        self.current_category = None # 当前所在类别
-        self.current_subpage = 1 # 子菜单当前页索引 (0开始)
-        self.total_subpages = 1 # 当前类别的总页数
-        self.Current_line = 1  # 菜单当前行
-        self.Start_line, self.End_line = 1, 8 # 显示的起始行，结束行
-        # 按键引脚定义
-        self.LEFT, self.RIGHT, self.UP, self.DOWN, self.CONFIRM = "left", "right", "up", "down", "confirm"
-
-        ##############################函数定义###############################
-        # 保存数据
-    def update_config_values(self, file_path, updates_dict):
-        temp_file = file_path + ".tmp"
-        found_keys = set()
-        with open(file_path, 'r') as f_in, open(temp_file, 'w') as f_out:
-            for line in f_in:
-                stripped = line.strip()
-                # 忽略注释和空行，直接原样写入
-                if stripped.startswith('#') or not stripped:
-                    f_out.write(line)
-                    continue
-
-                if '=' in stripped:
-                    k, v = stripped.split('=', 1)
-                    k = k.strip()
-                    if k in updates_dict:
-                        f_out.write(f"{k} = {updates_dict[k]}\n")
-                        found_keys.add(k)
+    # 批量更新配置（改为保存三位小数）
+    def update_config_values(self, file_path, updates):
+        """安全更新配置文件（临时文件+原子替换）"""
+        temp_file_path = file_path + ".tmp"
+        try:
+            with open(file_path, 'r') as f_in, open(temp_file_path, 'w') as f_out:
+                for line in f_in:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith('#'):
+                        f_out.write(line)
+                        continue
+                    if '=' in stripped:
+                        key, _ = stripped.split('=', 1)
+                        key = key.strip()
+                        if key in updates:
+                            f_out.write(f"{key} = {updates[key]:.3f}\n")  # 保存为三位小数
+                        else:
+                            f_out.write(line)
                     else:
                         f_out.write(line)
+            os.remove(file_path)
+            os.rename(temp_file_path, file_path)
+        except Exception as e:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            print(f"Config update error: {e}")
+        finally:
+            gc.collect()
 
-        with open(temp_file, 'a') as f_out:
-            for k, v in updates_dict.items():
-                if k not in found_keys:
-                    f_out.write(f"{k} = {v}\n")
-
-        os.remove(file_path)
-        os.rename(temp_file, file_path)
-        # 使用方法
-        # self.update_config_value("config.txt", "ul_normal_kp", self.ul_normal_kp)
-
-    # 统一保存数据
+    # 统一保存数据（核心逻辑不变，保存三位小数）
     def save_data(self):
-        # ===== Path_Planning 分区（2个子页）=====
-        if self.current_category == Path_Planning:
-            if self.current_subpage == 1:  # 第1页（9参数）
-                updates = {
-                    "plan_arrive_threshold": self.plan_arrive_threshold,
-                    "plan_point_transition_T": self.plan_point_transition_T,
-                    "dec_ratio": self.dec_ratio,
-                    "error_correct_x_50_1": self.error_correct_x_50_1,
-                    "error_correct_y_50_1": self.error_correct_y_50_1,
-                    "error_correct_x_50_2": self.error_correct_x_50_2,
-                    "error_correct_y_50_2": self.error_correct_y_50_2,
-                    "error_correct_x_50_3": self.error_correct_x_50_3,
-                    "error_correct_y_50_3": self.error_correct_y_50_3
-                }
-                self.update_config_values("main_config.txt", updates)
-            
-            elif self.current_subpage == 2:  # 第2页（10参数）
-                updates = {
-                    "error_correct_x_50_4": self.error_correct_x_50_4,
-                    "error_correct_y_50_4": self.error_correct_y_50_4,
-                    "error_correct_x_50_5": self.error_correct_x_50_5,
-                    "error_correct_y_50_5": self.error_correct_y_50_5,
-                    "error_correct_x_50_6": self.error_correct_x_50_6,
-                    "error_correct_y_50_6": self.error_correct_y_50_6,
-                    "error_correct_x_50_7": self.error_correct_x_50_7,
-                    "error_correct_y_50_7": self.error_correct_y_50_7,
-                    "error_correct_x_50_8": self.error_correct_x_50_8,
-                    "error_correct_y_50_8": self.error_correct_y_50_8
-                }
-                self.update_config_values("main_config.txt", updates)
+        """保存当前页面参数（三位小数）"""
+        updates = {k: round(self.config[k], 3) for k in self.page_configs.get(self.change_page_to, [])}  # 保留三位小数
+        if updates:
+            self.update_config_values(self.flash_sys.file_path, updates)
         
-        # ===== 无子页分区：直接保存全部参数 =====
-        elif self.current_category == Mechanical_Parameter:  # 2参数
-            updates = {
-                "wheel_radius": self.wheel_radius,
-                "car_radius": self.car_radius
-            }
-            self.update_config_values("main_config.txt", updates)
-        
-        elif self.current_category == Coefficient:  # 3参数
-            updates = {
-                "gkd": self.gkd,
-                "speed_fuse_ratio": self.speed_fuse_ratio,
-                "gyro_z_supply": self.gyro_z_supply
-            }
-            self.update_config_values("main_config.txt", updates)
-        
-        elif self.current_category == Temporal_Planning:  # 5参数
-            updates = {
-                "motor_control_T": self.motor_control_T,
-                "collect_dt": self.collect_dt,
-                "plan_calculate_T": self.plan_calculate_T,
-                "uart_and_menu_T": self.uart_and_menu_T,
-                "boost_time_threshold": self.boost_time_threshold
-            }
-            self.update_config_values("main_config.txt", updates)
-        
-        elif self.current_category == Velocity_Planning:  # 4参数
-            updates = {
-                "min_start_v": self.min_start_v,
-                "long_v_max": self.long_v_max,
-                "short_v_max": self.short_v_max,
-                "dead_zone_v": self.dead_zone_v
-            }
-            self.update_config_values("main_config.txt", updates)
-        
-        elif self.current_category == Visual_Servoing:  # 11参数
-            updates = {
-                "servo_kp_x": self.servo_kp_x,
-                "servo_kd_x": self.servo_kd_x,
-                "servo_kp_y": self.servo_kp_y,
-                "servo_kd_y": self.servo_kd_y,
-                "servo_target_x": self.servo_target_x,
-                "servo_target_y": self.servo_target_y,
-                "min_rel_speed": self.min_rel_speed,
-                "max_rel_speed": self.max_rel_speed,
-                "finish_threshold_x": self.finish_threshold_x,
-                "finish_threshold_y": self.finish_threshold_y,
-                "servo_pwmout_limitmax": self.servo_pwmout_limitmax
-            }
-            self.update_config_values("main_config.txt", updates)
-        
-        elif self.current_category == Orbit_Control:  # 2参数
-            updates = {
-                "max_orbit_speed": self.max_orbit_speed,
-                "min_orbit_speed": self.min_orbit_speed
-            }
-            self.update_config_values("main_config.txt", updates)
-    def data_processing(self, key):
-        # ===== Path_Planning 分区 (2个子页) =====
-        if self.current_category == Path_Planning:
-            if self.current_subpage == 1:  # 第1页 (参数1-9, save=10)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.plan_arrive_threshold = max(0.0, self.plan_arrive_threshold - 0.1)
-                    elif key == self.RIGHT:
-                        self.plan_arrive_threshold += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.plan_point_transition_T = max(1, self.plan_point_transition_T - 1)
-                    elif key == self.RIGHT:
-                        self.plan_point_transition_T += 1
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.dec_ratio = max(0.0, self.dec_ratio - 0.1)
-                    elif key == self.RIGHT:
-                        self.dec_ratio += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_1 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_1 += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_1 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_1 += 0.1
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_2 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_2 += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_2 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_2 += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_3 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_3 += 0.1
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_3 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_3 += 0.1
-                if self.Current_line == 10 and key == self.CONFIRM:
-                    self.save_data()
-            
-            elif self.current_subpage == 2:  # 第2页 (参数1-10, save=11)
-                if self.Current_line == 1:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_4 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_4 += 0.1
-                elif self.Current_line == 2:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_4 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_4 += 0.1
-                elif self.Current_line == 3:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_5 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_5 += 0.1
-                elif self.Current_line == 4:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_5 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_5 += 0.1
-                elif self.Current_line == 5:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_6 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_6 += 0.1
-                elif self.Current_line == 6:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_6 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_6 += 0.1
-                elif self.Current_line == 7:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_7 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_7 += 0.1
-                elif self.Current_line == 8:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_7 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_7 += 0.1
-                elif self.Current_line == 9:
-                    if key == self.LEFT:
-                        self.error_correct_x_50_8 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_x_50_8 += 0.1
-                elif self.Current_line == 10:
-                    if key == self.LEFT:
-                        self.error_correct_y_50_8 -= 0.1
-                    elif key == self.RIGHT:
-                        self.error_correct_y_50_8 += 0.1
-                if self.Current_line == 11 and key == self.CONFIRM:
-                    self.save_data()
-        
-        # ===== 单页分区 (save行 = 参数行数+1) =====
-        elif self.current_category == Mechanical_Parameter:  # 2参数, save=3
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.wheel_radius = max(0.01, self.wheel_radius - 0.1)  # 防止为0
-                elif key == self.RIGHT:
-                    self.wheel_radius += 0.1
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.car_radius = max(0.01, self.car_radius - 0.1)
-                elif key == self.RIGHT:
-                    self.car_radius += 0.1
-            if self.Current_line == 3 and key == self.CONFIRM:
-                self.save_data()
-        
-        elif self.current_category == Coefficient:  # 3参数, save=4
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.gkd = min(0.0, self.gkd - 0.01)  # 保持负值特性
-                elif key == self.RIGHT:
-                    self.gkd = min(0.0, self.gkd + 0.01)
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.speed_fuse_ratio = max(0.0, min(1.0, self.speed_fuse_ratio - 0.01))
-                elif key == self.RIGHT:
-                    self.speed_fuse_ratio = max(0.0, min(1.0, self.speed_fuse_ratio + 0.01))
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.gyro_z_supply = max(0.0, self.gyro_z_supply - 0.01)
-                elif key == self.RIGHT:
-                    self.gyro_z_supply += 0.01
-            if self.Current_line == 4 and key == self.CONFIRM:
-                self.save_data()
-        
-        elif self.current_category == Temporal_Planning:  # 5参数, save=6
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.motor_control_T = max(1, self.motor_control_T - 1)
-                elif key == self.RIGHT:
-                    self.motor_control_T += 1
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.collect_dt = max(0.001, self.collect_dt - 0.001)
-                elif key == self.RIGHT:
-                    self.collect_dt += 0.001
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.plan_calculate_T = max(1, self.plan_calculate_T - 1)
-                elif key == self.RIGHT:
-                    self.plan_calculate_T += 1
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.uart_and_menu_T = max(1, self.uart_and_menu_T - 1)
-                elif key == self.RIGHT:
-                    self.uart_and_menu_T += 1
-            elif self.Current_line == 5:
-                if key == self.LEFT:
-                    self.boost_time_threshold = max(0, self.boost_time_threshold - 1)
-                elif key == self.RIGHT:
-                    self.boost_time_threshold += 1
-            if self.Current_line == 6 and key == self.CONFIRM:
-                self.save_data()
-        
-        elif self.current_category == Velocity_Planning:  # 4参数, save=5
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.min_start_v = max(0, self.min_start_v - 1)
-                elif key == self.RIGHT:
-                    self.min_start_v += 1
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.long_v_max = max(0, self.long_v_max - 10)
-                elif key == self.RIGHT:
-                    self.long_v_max += 10
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.short_v_max = max(0, self.short_v_max - 10)
-                elif key == self.RIGHT:
-                    self.short_v_max += 10
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.dead_zone_v = max(0, self.dead_zone_v - 1)
-                elif key == self.RIGHT:
-                    self.dead_zone_v += 1
-            if self.Current_line == 5 and key == self.CONFIRM:
-                self.save_data()
-        
-        elif self.current_category == Visual_Servoing:  # 11参数, save=12
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.servo_kp_x = max(0.0, self.servo_kp_x - 0.1)
-                elif key == self.RIGHT:
-                    self.servo_kp_x += 0.1
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.servo_kd_x = max(0.0, self.servo_kd_x - 0.1)
-                elif key == self.RIGHT:
-                    self.servo_kd_x += 0.1
-            elif self.Current_line == 3:
-                if key == self.LEFT:
-                    self.servo_kp_y = max(0.0, self.servo_kp_y - 0.1)
-                elif key == self.RIGHT:
-                    self.servo_kp_y += 0.1
-            elif self.Current_line == 4:
-                if key == self.LEFT:
-                    self.servo_kd_y = max(0.0, self.servo_kd_y - 0.1)
-                elif key == self.RIGHT:
-                    self.servo_kd_y += 0.1
-            elif self.Current_line == 5:
-                if key == self.LEFT:
-                    self.servo_target_x = max(0, self.servo_target_x - 1)
-                elif key == self.RIGHT:
-                    self.servo_target_x += 1
-            elif self.Current_line == 6:
-                if key == self.LEFT:
-                    self.servo_target_y = max(0.0, self.servo_target_y - 0.1)
-                elif key == self.RIGHT:
-                    self.servo_target_y += 0.1
-            elif self.Current_line == 7:
-                if key == self.LEFT:
-                    self.min_rel_speed = max(0, self.min_rel_speed - 10)
-                elif key == self.RIGHT:
-                    self.min_rel_speed += 10
-            elif self.Current_line == 8:
-                if key == self.LEFT:
-                    self.max_rel_speed = max(0, self.max_rel_speed - 10)
-                elif key == self.RIGHT:
-                    self.max_rel_speed += 10
-            elif self.Current_line == 9:
-                if key == self.LEFT:
-                    self.finish_threshold_x = max(0, self.finish_threshold_x - 1)
-                elif key == self.RIGHT:
-                    self.finish_threshold_x += 1
-            elif self.Current_line == 10:
-                if key == self.LEFT:
-                    self.finish_threshold_y = max(0, self.finish_threshold_y - 1)
-                elif key == self.RIGHT:
-                    self.finish_threshold_y += 1
-            elif self.Current_line == 11:
-                if key == self.LEFT:
-                    self.servo_pwmout_limitmax = max(0, self.servo_pwmout_limitmax - 1)
-                elif key == self.RIGHT:
-                    self.servo_pwmout_limitmax += 1
-            if self.Current_line == 12 and key == self.CONFIRM:
-                self.save_data()
-        
-        elif self.current_category == Orbit_Control:  # 2参数, save=3
-            if self.Current_line == 1:
-                if key == self.LEFT:
-                    self.max_orbit_speed = max(0, self.max_orbit_speed - 10)
-                elif key == self.RIGHT:
-                    self.max_orbit_speed += 10
-            elif self.Current_line == 2:
-                if key == self.LEFT:
-                    self.min_orbit_speed = max(0, self.min_orbit_speed - 10)
-                elif key == self.RIGHT:
-                    self.min_orbit_speed += 10
-            if self.Current_line == 3 and key == self.CONFIRM:
-                self.save_data()          
+        self.Current_line = 1
+        self.need_refresh = True
+        gc.collect()
 
-
-
-    # 检测按键状态
-    # 记得不要写阻塞
-    def read_key(self, debounce_ms = 40):
+    # 检测按键状态（核心逻辑不变）
+    def read_key(self, debounce_ms=40):
+        """读取按键（防抖处理）"""
         current_time = time.ticks_ms()
-        # 检测是否按下（低电平有效）
-        if self.key_left.value() == 0:
-            if self.last_left_time == 0:
-                self.last_left_time = current_time
-            elif time.ticks_diff(current_time, self.last_left_time) >= debounce_ms:
-                self.beep.key_test()
-                self.last_left_time = 0
-                return self.LEFT
-            else:
-                self.last_left_time = 0
-
-        if self.key_right.value() == 0:
-            if self.last_right_time == 0:
-                self.last_right_time = current_time
-            elif time.ticks_diff(current_time, self.last_right_time) >= debounce_ms:
-                self.beep.key_test()
-                self.last_right_time = 0
-                return self.RIGHT
-            else:
-                self.last_right_time = 0
-
-        if self.key_up.value() == 0:
-            if self.last_up_time == 0:
-                self.last_up_time = current_time
-            elif time.ticks_diff(current_time, self.last_up_time) >= debounce_ms:
-                self.beep.key_test()
-                self.last_up_time = 0
-                return self.UP
-            else:
-                self.last_up_time = 0
-
-        if self.key_down.value() == 0:
-            if self.last_down_time == 0:
-                self.last_down_time = current_time
-            elif time.ticks_diff(current_time, self.last_down_time) >= debounce_ms:
-                self.beep.key_test()
-                self.last_down_time = 0
-                return self.DOWN
-            else:
-                self.last_down_time = 0
+        pressed_key = None
         
-        if self.key_confirm.value() == 0:
-            if self.last_confirm_time == 0:
-                self.last_confirm_time = current_time
-            elif time.ticks_diff(current_time, self.last_down_time) >= debounce_ms:
-                self.beep.key_test()
-                self.last_confirm_time = 0
-                return self.CONFIRM
+        for key_name, key_obj in self.keys.items():
+            if key_obj.value() == 0:
+                if self.key_timestamps[key_name] == 0:
+                    self.key_timestamps[key_name] = current_time
+                elif time.ticks_diff(current_time, self.key_timestamps[key_name]) >= debounce_ms:
+                    self.beep.key_test()
+                    self.key_timestamps[key_name] = 0
+                    pressed_key = key_name
+                    break
             else:
-                self.last_confirm_time = 0
-    
-        return None  # 无按键按下
-
-
-    # 显示箭头  
-    def show_arrow(self):
-        for i in range(self.Start_line, self.End_line + 1):
-            if i == self.Current_line:
-                self.lcd.str16(150, 64 + 32 * (i - 1), "<--", 0xFFFF)
-            else:
-                self.lcd.str16(150, 64 + 32 * (i - 1), "   ", 0xFFFF)
-    # 箭头上移  
-    def arrow_up(self, key):
-        if key == self.UP:
-            if self.Current_line > self.Start_line:
-                self.Current_line -= 1
-            else:
-                self.Current_line = self.End_line
-        self.show_arrow()
-    # 判断按键状态，清除状态并且进行箭头的移动
-
-    # 箭头下移
-    def arrow_down(self, key):
-        if key == self.DOWN:
-            if self.Current_line < self.End_line:
-                self.Current_line += 1
-        else:
-            self.Current_line = self.Start_line
-        self.show_arrow()
-
-    # 监测指定的跳转页面行是否被按下，并指定目标页面
-    def detect_change_page(self, key):
-        if self.Current_line == self.End_line:
-            if key == self.CONFIRM:
-                self.current_category = None
-                self.menu_switch()
-            return True
-        if self.current_category == PID:
-            if self.Current_line == self.End_line - 1:
-                if key == self.LEFT:
-                    if self.current_subpage == 1:
-                        self.current_subpage = 5
-                    else:
-                        self.current_subpage -= 1
-                    return True
-                elif key == self.RIGHT:
-                    if self.current_subpage == 5:
-                        self.current_subpage = 1
-                    else:
-                        self.current_subpage += 1
-                    return True
-                return False
-        elif self.current_category == Path_Planning:
-            if self.Current_line == self.End_line - 1:
-                if key == self.LEFT:
-                    if self.current_subpage == 1:
-                        self.current_subpage = 2
-                    else:
-                        self.current_subpage -= 1
-                    return True
-                elif key == self.RIGHT:
-                    if self.current_subpage == 2:
-                        self.current_subpage = 1
-                    else:
-                        self.current_subpage += 1
-                    return True
-                return False
-
-    # 主菜单显示
-    def show_primary_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,8,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64 + 32 * 3, "PID", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, "Mechanical Parameter", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, "Coefficient", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, "Temporal Planning", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, "Path Planning", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, "Velocity Planning", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "Visual Servoing", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "Orbit Control", 0xFFFF)
-
-    def show_Path_Planning_menu_1(self):
-        self.Start_line,self.End_line,self.Current_line=1,12,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"arr_thres:{self.plan_arrive_threshold:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"pt_trns_T:{self.plan_point_transition_T:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"dec_ratio:{self.dec_ratio:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"err_x_50_1:{self.error_correct_x_50_1:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"err_y_50_1:{self.error_correct_y_50_1:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"err_x_50_2:{self.error_correct_x_50_2:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"err_y_50_2:{self.error_correct_y_50_2:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"err_x_50_3:{self.error_correct_x_50_3:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"err_y_50_3:{self.error_correct_y_50_3:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "return", 0xFFFF)
-
-    def show_Path_Planning_menu_2(self):
-        self.Start_line,self.End_line,self.Current_line=1,13,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"err_x_50_4:{self.error_correct_x_50_4:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"err_y_50_4:{self.error_correct_y_50_4:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"err_x_50_5:{self.error_correct_x_50_5:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"err_y_50_5:{self.error_correct_y_50_5:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"err_x_50_6:{self.error_correct_x_50_6:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"err_y_50_6:{self.error_correct_y_50_6:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"err_x_50_7:{self.error_correct_x_50_7:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"err_y_50_7:{self.error_correct_y_50_7:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"err_x_50_8:{self.error_correct_x_50_8:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, f"err_y_50_8:{self.error_correct_y_50_8:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "turn", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 12, "return", 0xFFFF)
-
-    def show_Mechanical_Parameter_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,4,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"wheel_r:{self.wheel_radius:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"car_r:{self.car_radius:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, "return", 0xFFFF)
-
-    def show_Coefficient_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,5,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"gkd:{self.gkd:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"spd_fuse_ratio:{self.speed_fuse_ratio:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"gyro_z_sup:{self.gyro_z_supply:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, "return", 0xFFFF)
-
-    def show_Temporal_Planning_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,7,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"mtr_ctrl_T:{self.motor_control_T:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"coll_dt:{self.collect_dt:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"pln_calc_T:{self.plan_calculate_T:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"uart_mnu_T:{self.uart_and_menu_T:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"bst_tshld:{self.boost_time_threshold:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, "return", 0xFFFF)
-
-    def show_Velocity_Planning_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,6,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"min_strt_v:{self.min_start_v:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"lng_v_max:{self.long_v_max:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"shrt_v_max:{self.short_v_max:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"dz_v:{self.dead_zone_v:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, "return", 0xFFFF)
-
-    def show_Visual_Servoing_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,13,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"sv_kp_x:{self.servo_kp_x:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"sv_kd_x:{self.servo_kd_x:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, f"sv_kp_y:{self.servo_kp_y:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, f"sv_kd_y:{self.servo_kd_y:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 4, f"sv_tgt_x:{self.servo_target_x:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 5, f"sv_tgt_y:{self.servo_target_y:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 6, f"min_rel_spd:{self.min_rel_speed:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 7, f"max_rel_spd:{self.max_rel_speed:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 8, f"fin_thr_x:{self.finish_threshold_x:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 9, f"fin_thr_y:{self.finish_threshold_y:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 10, f"sv_pwm_lim:{self.servo_pwmout_limitmax:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 11, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 12, "return", 0xFFFF)
-
-    def show_Orbit_Control_menu(self):
-        self.Start_line,self.End_line,self.Current_line=1,4,1
-        self.lcd.clear(0x0000)
-        self.lcd.str16(60, 64, f"mx_orb_spd:{self.max_orbit_speed:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 1, f"mn_orb_spd:{self.min_orbit_speed:.2f}", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 2, "save", 0xFFFF)
-        self.lcd.str16(60, 64 + 32 * 3, "return", 0xFFFF)
-
-    #函数：菜单选择与切换
-    def menu_switch(self):
-        if self.current_category == None:
-            self.show_primary_menu()  # 主菜单
+                self.key_timestamps[key_name] = 0
         
-        elif self.current_category == Path_Planning:
-            if self.current_subpage == 1:
-                self.show_Path_Planning_menu_1()
-            elif self.current_subpage == 2:
-                self.show_Path_Planning_menu_2()
-        
-        # ===== 单页分区：直接调用对应显示函数 =====
-        elif self.current_category == Mechanical_Parameter:
-            self.show_Mechanical_Parameter_menu()
-        elif self.current_category == Coefficient:
-            self.show_Coefficient_menu()
-        elif self.current_category == Temporal_Planning:
-            self.show_Temporal_Planning_menu()
-        elif self.current_category == Velocity_Planning:
-            self.show_Velocity_Planning_menu()
-        elif self.current_category == Visual_Servoing:
-            self.show_Visual_Servoing_menu()
-        elif self.current_category == Orbit_Control:
-            self.show_Orbit_Control_menu()
-        
-        # 异常状态返回主菜单
-        else:
-            self.current_category = None
-            self.show_primary_menu()
+        gc.collect()
+        return pressed_key
 
+    # 数据处理（改为三位小数计算）
+    def data_processing(self, key):
+        """处理参数修改逻辑（三位小数）"""
+        if self.Current_line == 1:
+            old_index = self.current_step_index
+            if key == "left":
+                self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
+            elif key == "right":
+                self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
             
-"""
-# === 主循环 ===
-while True:
-    last_change_page_to = change_page_to
-    key = read_key()
-    if key == UP:
-        arrow_up()
-    elif key == DOWN:
-        arrow_down()
-    elif key in (LEFT, RIGHT):
-        data_processing()
+            if old_index != self.current_step_index:
+                self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
+                step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"  # 步长显示三位小数
+                self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)  # 左移x坐标
+            gc.collect()
+            return
 
-    if detect_change_page():
-        if change_page_to != last_change_page_to:
-            menu_switch()
-            show_arrow()
-    
-    time.sleep_ms(50)
-"""
+        line_config = self.page_line_map.get(self.change_page_to, {}).get(self.Current_line)
+        if line_config:
+            config_key, _ = line_config
+            step = self.step_values[self.current_step_index]
+            
+            if key == "left":
+                self.config[config_key] = round(self.config[config_key] - step, 3)  # 保留三位小数
+            elif key == "right":
+                self.config[config_key] = round(self.config[config_key] + step, 3)  # 保留三位小数
+            
+            self.refresh_param_line(self.Current_line, config_key)
+
+        if self.Current_line == self.save_line_map.get(self.change_page_to, 0) and key == "right":
+            self.save_data()
+        
+        gc.collect()
+
+    # 刷新当前页面（核心逻辑不变）
+    def refresh_current_page(self):
+        """仅刷新箭头区域"""
+        for i in range(self.Start_line, self.End_line + 1):
+            self.lcd.str16(self.ARROW_X, self.LineSpacing * i, "   ", 0xFFFF)
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", 0xFFFF)
+        self.need_refresh = False
+        gc.collect()
+
+    # 箭头控制（核心逻辑不变）
+    def move_arrow(self, key):
+        """移动箭头位置"""
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "   ", 0xFFFF)
+        
+        if key == "up":
+            self.Current_line = self.End_line if self.Current_line <= self.Start_line else self.Current_line - 1
+        elif key == "down":
+            self.Current_line = self.Start_line if self.Current_line >= self.End_line else self.Current_line + 1
+        
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", 0xFFFF)
+        self.need_refresh = True
+        gc.collect()
+
+    # 页面切换检测（适配8页翻页逻辑）
+    def detect_change_page(self, key):
+        """检测并处理8页页面切换"""
+        if self.Current_line == self.End_line:
+            if key == "left":
+                # 左翻：1→8，其他→-1
+                self.change_page_to = 8 if self.change_page_to == 1 else self.change_page_to - 1
+            elif key == "right":
+                # 右翻：8→1，其他→+1
+                self.change_page_to = 1 if self.change_page_to == 8 else self.change_page_to + 1
+            
+            self.Current_line = 1
+            self.last_change_page_to = self.change_page_to
+            self.lcd.clear(0x0000)
+            self.menu_switch()
+            self.need_refresh = True
+            gc.collect()
+            return True
+        return False
+
+    # 页面显示（适配三位小数显示）
+    def _show_page(self, page_num):
+        """通用页面绘制方法（无额外文本，适配三位小数）"""
+        title, start_line, end_line = self.page_meta.get(page_num, ("", 1, 9))
+        self.Start_line, self.End_line = start_line, end_line
+        
+        # 清空标题行和步长行（扩展清空宽度）
+        self.lcd.str16(0, 0, self.CLEAR_SPACES, 0x0000)
+        self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
+        
+        # 绘制标题
+        self.lcd.str16(self.TITLE_X, 0, title, 0xFFFF)
+        # 绘制步长（适配三位小数显示）
+        step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"
+        self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)  # 左移x坐标
+        
+        # 绘制参数行
+        data_lines = self.page_line_map.get(page_num, {})
+        max_line = max(data_lines.keys()) if data_lines else 1
+        for line_num in range(2, max_line + 1):
+            if line_num in data_lines:
+                config_key, _ = data_lines[line_num]
+                self.refresh_param_line(line_num, config_key)
+        
+        # 绘制save/turn行
+        save_line = self.save_line_map.get(page_num, 0)
+        turn_line = end_line
+        for line_num in [save_line, turn_line]:
+            self.lcd.str16(0, self.LineSpacing * line_num, self.CLEAR_SPACES, 0x0000)
+        
+        if save_line:
+            self.lcd.str16(5, self.LineSpacing * save_line, "save", 0xFFFF)  # 左移x坐标
+        self.lcd.str16(5, self.LineSpacing * turn_line, "turn", 0xFFFF)  # 左移x坐标
+        
+        gc.collect()
+
+    # 页面切换（核心逻辑不变）
+    def menu_switch(self):
+        """切换到指定页面"""
+        self._show_page(self.change_page_to)
+
+    # 按键处理入口（核心逻辑不变）
+    def handle_key_from_interrupt(self, key):
+        """按键处理主入口"""
+        if not key:
+            return
+        
+        if key in ("up", "down"):
+            self.move_arrow(key)
+        elif key in ("left", "right"):
+            if not self.detect_change_page(key):
+                self.data_processing(key)
+        
+        self.refresh_current_page()
