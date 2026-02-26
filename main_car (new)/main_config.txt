@@ -1,4 +1,4 @@
-# 修改时间 2.26  14:21
+# 修改时间 2.26  20:52
 
 ###################【PID参数】####################
 # speed大于600时
@@ -48,7 +48,7 @@ angle_normal_kd = 24.0
 integral_limitmax = 14000
 pwmout_limitmax = 8000
 angle_integral_limitmax = 1200
-angle_pwmout_limitmax = 600
+angle_pwmout_limitmax = 300
 # A设置为B的2倍左右
 A = 500
 # B大致为最大静差的1.5倍
@@ -88,19 +88,20 @@ min_start_v = 40
 long_v_max = 400
 short_v_max = 50
 dead_zone_v = 50
+transit_v = 200
 
 ###################【视觉伺服】####################
 servo_kp_x = 8.0
-servo_kd_x = 70.0
-servo_kp_y = 35.0
-servo_kd_y = 70.0
+servo_kd_x = 10.0
+servo_kp_y = 8.0
+servo_kd_y = 10.0
 servo_target_x = 80
-servo_target_y = 5.0
-min_rel_speed = 80
-max_rel_speed = 300
+servo_target_y = 8.0
+min_rel_speed = 50
+max_rel_speed = 200
 finish_threshold_x = 2
 finish_threshold_y = 4
-servo_pwmout_limitmax = 75
+servo_pwmout_limitmax = 200
 
 ###################【环绕控制】####################
 max_orbit_speed = 300

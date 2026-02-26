@@ -58,15 +58,15 @@ my_uart3.init(115200)
 # my_uart3.write("hello\r\n")
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("D13", "D14", False)
-encoder_ur = encoder("D15", "D16", True)
-encoder_md = encoder("C2" , "C3" , False)
+encoder_ul = encoder("D15", "D16", True)
+encoder_ur = encoder("C2" , "C3" , False)
+encoder_md = encoder("D13", "D14", False)
 
 # IMU初始化
 imu = IMU660RX()
@@ -132,8 +132,6 @@ diff_filter_gyroy = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 视觉伺服自身转角的卡尔曼滤波器
-servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
 encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -142,8 +140,12 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(6)
-# 创建主车避障航向角滑动平均滤波器对象
-yaw_fil = ant_motor.SlipAveragingFilter(40)
+# 创建主车正余弦滑动平均滤波器对象
+sin_diff_fil = ant_motor.SlipAveragingFilter(40)
+cos_diff_fil = ant_motor.SlipAveragingFilter(40)
+# 创建视觉伺服正余弦滤波对象
+sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -164,10 +166,10 @@ my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil,
 plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, yaw_fil)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -198,7 +200,7 @@ def tof_init():
 
 # 角度环计算函数
 def angle_pid_compute():
-    filter_yaw = my_car.car_yaw_filter.filtering(my_car.now_yaw * 180 / MATH.PI)
+    filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
     # 计算z轴的目标速度
     angle_pid.compute_pid(my_car.turn_angle_target, filter_yaw)
 
@@ -234,9 +236,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    #motor_ul_pid.compute_pid(500, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(500, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(420, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(-400, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(-400, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(-400, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -302,7 +304,7 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.CALIBRATE:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
@@ -313,14 +315,8 @@ def test_servo_control():
 def test_vision_servo():
     global counter
     if my_state.state == my_state.NAVIGATE:
-        counter += 1
-        # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]], 0.0)
-        # 等待十秒后向openart发送指令获取目标点坐标
-        # if my_plan.finish_navigate == True:
-        if counter >= 1500:
-            counter = 0
-            my_plan.finish_navigate = False
-            my_state.state = my_state.SERVO
+        my_plan.finish_navigate = False
+        my_state.state = my_state.SERVO
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
@@ -334,70 +330,35 @@ def test_vision_servo():
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
-    elif my_state.state == my_state.RETURN:
-            my_plan.navigate([[0.0, 0.0]], 0.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state = my_state.STOP
     elif my_state.state == my_state.STOP:
         pass
 
                 
 # 边线校准测试函数
 def test_boundary_calibration():
-    global counter
     if my_state.state == my_state.NAVIGATE:
-        counter += 1
-        # 等待十秒后向openart发送指令获取边界角度
-        if counter >= 1000:
-            counter = 0
-            my_plan.if_gain_calibrate_angle = False
-            # 切换为上下边界识别模式
-            # my_order_manager.mode_boundary_ud()
-            # 切换为左右边界识别模式
-            my_order_manager.mode_boundary_lf()
-            # 测试是否成功发送指令
+        my_plan.navigate([[160.0, -20.0], [160.0, 240.0]], 0.0)
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            # 测试
+            # my_state.state = my_state.CALIBRATE
+            my_state.state = my_state.RETURN
             my_beep.test()
-
-        if my_plan.if_gain_calibrate_angle == False:
-            my_art_protocol.angle_receive()
-            if len(my_art_protocol.angle_list) >= 10:
-                # 进行边线校准处理
-                my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
-                my_plan.turn_angle_target = my_plan.calibrate_angle 
-                my_order_manager.finish()
-                my_state.state = my_state.STOP
-                my_plan.if_gain_calibrate_angle = True
-                # 测试
-                my_beep.test()
-                for i in range(0, len(my_art_protocol.angle_list)):
-                    my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
-                my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
-                my_art_protocol.angle_list.clear()
-
-
-# 移动中的边线校准测试函数
-def test_moving_boundary_calibration():
-    if my_plan.if_gain_calibrate_angle == False:
-        my_art_protocol.angle_receive()
-        if len(my_art_protocol.angle_list) >= 1:
-            # 进行边线校准处理
-            # my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
-            # my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
-            # 进行里程计矫正处理
-            if my_car.x_current < 150.0:
-                my_car.x_current = 0.0
-            else:
-                my_car.x_current = 300.0
-            my_order_manager.finish()
-            my_plan.if_gain_calibrate_angle = True
-            
+    elif my_state.state == my_state.CALIBRATE:
+        my_plan.boundary_calibrate_control()
+        if my_plan.if_finish_calibrate == True:
+            my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
+            my_state.state = my_state.RETURN
             # 测试
             my_beep.test()
-            for i in range(0, len(my_art_protocol.angle_list)):
-                my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
-            my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
-            my_art_protocol.angle_list.clear()
+    elif my_state.state == my_state.RETURN:
+        my_plan.navigate([[0.0, 0.0]], 0.0)
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            my_state.state = my_state.STOP
+            my_beep.test()
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
 
 # 测试环绕控制函数
 def test_orbit_control():
@@ -585,7 +546,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -602,7 +563,7 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     # 测试边线矫正程序
     # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
@@ -626,14 +587,16 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
+    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[0.0, -160.0]], 0.0)
+        my_plan.navigate([[160.0, -20.0]], 120.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
+"""
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
@@ -643,7 +606,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    # test_boundary_calibration()
+    test_boundary_calibration()
     # test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
@@ -660,10 +623,14 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     main_start()
+    
+    # 读取按键（中断中避免阻塞，快速返回）
+    key = my_menu.read_key()
+    my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # my_uart3.write(f"{my_vision_manager.target_rel_yaw}\r\n")
+    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
@@ -679,9 +646,10 @@ def time_pit2_handler(time):
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                           
     # 里程计：
+    # my_uart3.write(f"{my_plan.target_yaw}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")

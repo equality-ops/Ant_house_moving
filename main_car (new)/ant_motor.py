@@ -52,6 +52,7 @@ class SlipAveragingFilter:
     def __init__(self, filter_size: int):
         self.filter_size = filter_size
         self.index = 0
+        self.last_value = 0.0
         self.buffer = [0] * filter_size
 
     def buffer_init(self, initial_value):
@@ -61,6 +62,17 @@ class SlipAveragingFilter:
     def filtering(self, data: int) -> float:
         self.buffer[self.index] = data
         self.index = (self.index + 1) % self.filter_size
+        return sum(self.buffer) / self.filter_size
+    
+    # 用于处理小车自转角数据的特殊滑动平均滤波，能够处理跨越180度时的跳变问题
+    def car_yaw_filtering(self, data) -> float:
+        self.last_value = self.buffer[self.index]
+        if data - self.last_value > 180:  # 设定一个阈值，单位：角度每秒
+            data -= 360
+        elif data - self.last_value < -180:
+            data += 360
+        self.index = (self.index + 1) % self.filter_size
+        self.buffer[self.index] = data
         return sum(self.buffer) / self.filter_size
 
     
@@ -172,7 +184,7 @@ class PoseData:
             gyro_x_sum += imu_data[3]
             gyro_y_sum += imu_data[4]
             """
-            time.sleep_ms(3)
+            time.sleep_ms(4)
         """时不需要处理这些数据
         self.acc_x_bias = acc_x_sum / sample_count
         self.acc_y_bias = acc_y_sum / sample_count
