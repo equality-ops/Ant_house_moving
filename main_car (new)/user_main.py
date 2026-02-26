@@ -58,15 +58,15 @@ my_uart3.init(115200)
 # my_uart3.write("hello\r\n")
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("D13", "D14", False)
-encoder_ur = encoder("D15", "D16", True)
-encoder_md = encoder("C2" , "C3" , False)
+encoder_ul = encoder("D15", "D16", True)
+encoder_ur = encoder("C2" , "C3" , False)
+encoder_md = encoder("D13", "D14", False)
 
 # IMU初始化
 imu = IMU660RX()
@@ -142,8 +142,9 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(6)
-# 创建主车避障航向角滑动平均滤波器对象
-yaw_fil = ant_motor.SlipAveragingFilter(40)
+# 创建主车正余弦滑动平均滤波器对象
+sin_diff_fil = ant_motor.SlipAveragingFilter(40)
+cos_diff_fil = ant_motor.SlipAveragingFilter(40)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -164,7 +165,7 @@ my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil,
 plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, yaw_fil)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
@@ -234,9 +235,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    #motor_ul_pid.compute_pid(500, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(500, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(420, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(-400, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(-400, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(-400, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -627,7 +628,7 @@ def time_pit3_handler(time) -> None:
    
     # 全向定位测试程序
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[0.0, -160.0]], 0.0)
+        my_plan.navigate([[90.0, 120.0], [230.0, 120.0], [140.0, 50.0], [110.0, 190.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -679,6 +680,7 @@ def time_pit2_handler(time):
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                           
     # 里程计：
+    # my_uart3.write(f"{my_plan.target_yaw}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
