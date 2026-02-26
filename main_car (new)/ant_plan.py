@@ -286,26 +286,26 @@ class Plan:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.9
         elif blurry_yaw >= 30.0 and blurry_yaw < 60.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = 0.5
+            self.error_correct_y = 0.7
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
             self.error_correct_x = 0.9
-            self.error_correct_y = 0.5
+            self.error_correct_y = 0.4
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = 0.4
+            self.error_correct_y = -0.8
         elif blurry_yaw >= 150.0 and blurry_yaw <= 180.0 or blurry_yaw >= -180.0 and blurry_yaw < -150.0:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= -150.0 and blurry_yaw < -120.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = -0.6
+            self.error_correct_y = -0.7
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = -0.9
+            self.error_correct_y = -0.1
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
-            self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_x = -0.6
+            self.error_correct_y = 0.7
         
         # 实际条件下的目标坐标
         self.real_target_x = self.ideal_target_x + self.error_correct_x
@@ -591,9 +591,8 @@ class Plan:
                 else:
                     # 计算目标航向角
                     self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
-                    # 测试
-                    # if self.if_pass_transit_point == False or self.rest_distance >= 5.0:
-                        # self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
+                    if self.if_pass_transit_point == False or self.rest_distance >= 10.0:
+                        self.target_yaw = self.yaw_fil.filtering(self.target_yaw)           
             else:
                 # 判断此时是否完成路径过渡
                 if self.transition_flag == False:
