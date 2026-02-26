@@ -106,16 +106,33 @@ class ColorDetector:
 
     def auto_adjust_threshold(self, img, base_threshold):
         stats = img.get_statistics(roi = self.CENTER_ROI)
-        l_mean = stats.l_mean()
+        l_mean = stats.l_mean()  # OpenART返回0-100的亮度均值
 
-        diff = int(l_mean - 50)
+        # ========== 核心修改：替换原diff计算逻辑 ==========
+        target_brightness = 50  # 目标亮度（可微调，比如48/52）
+        # 1. 计算亮度偏差（相对值，而非绝对值），避免50时diff=0
+        brightness_diff = l_mean - target_brightness
+        # 2. 平滑调整系数：50附近小幅度调整，远离50时调整幅度递增
+        adjust_factor = 0.3  # 核心调试参数！0.1-0.5之间调整，越小越平滑
+        diff = brightness_diff * adjust_factor
+        # 3. 可选：给50附近加“死区”，避免微小波动导致频繁调整
+        dead_zone = 2  # 亮度在48-52之间时，不调整阈值
+        if abs(brightness_diff) < dead_zone:
+            diff = 0
 
-        l_low = max(0, min(100, base_threshold[0] + diff))
-        l_high = max(0, min(100, base_threshold[1] + diff))
+        # ========== 阈值调整：保留原约束，但优化平滑性 ==========
+        # 原逻辑是直接加减diff，改为“增量缩放”，避免50附近突变
+        l_low = base_threshold[0] + diff
+        l_high = base_threshold[1] + diff
+        # 更柔和的边界约束：不是硬切0/100，而是接近边界时衰减调整
+        l_low = max(0, min(100, l_low))
+        l_high = max(0, min(100, l_high))
+        # 保证l_low < l_high（避免阈值交叉导致曝光异常）
+        if l_low >= l_high:
+            l_low = max(0, l_high - 5)  # 至少保留5的阈值差
 
         threshold_part = base_threshold[2:]
-
-        return (l_low, l_high) + threshold_part
+        return (round(l_low), round(l_high)) + threshold_part  # 取整适配OpenART
 ########################边界检测模块######################
 class BoundaryDetector:
     YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)

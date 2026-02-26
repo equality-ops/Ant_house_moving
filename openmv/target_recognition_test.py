@@ -263,6 +263,36 @@ clock = time.clock()
 # 时间戳
 last_time = time.ticks_ms()
 
+# ====================== 锁定逻辑变量 ======================
+LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
+LOCK_MAX_LOST_FRAMES = 5  # 丢失5帧解除锁定
+# 锁定状态
+is_target_locked = False  # 是否锁定目标
+locked_target_color = None  # 锁定的目标颜色
+locked_target_cx = 80  # 锁定目标的初始x坐标
+locked_target_cy = 60  # 锁定目标的初始y坐标
+locked_last_cx = 80  # 上一帧锁定目标的x坐标
+locked_last_cy = 60  # 上一帧锁定目标的y坐标
+locked_lost_count = 0  # 锁定目标丢失帧数
+
+def reset_lock_state():
+    """重置锁定状态"""
+    global is_target_locked, locked_target_color, locked_target_cx, locked_target_cy
+    global locked_last_cx, locked_last_cy, locked_lost_count
+    is_target_locked = False
+    locked_target_color = None
+    locked_target_cx = 80
+    locked_target_cy = 60
+    locked_last_cx = 80
+    locked_last_cy = 60
+    locked_lost_count = 0
+
+def is_coordinate_jump_too_large(cx, cy):
+    """判断坐标跳变是否过大（同色干扰）"""
+    global locked_last_cx, locked_last_cy
+    distance = math.sqrt((cx - locked_last_cx)**2 + (cy - locked_last_cy)**2)
+    return distance > LOCK_JUMP_THRESHOLD
+
 ######################命令处理###################
 def handle_uart_commands():
     global current_mode
@@ -287,22 +317,36 @@ while True:
     handle_uart_commands()
 
     if current_mode == MODE_WAITING:
+        """
         LED(1).on()
         LED(1).off()
+        """
         continue
 
     elif current_mode == MODE_TARGET:
         LED(2).on()
         LED(2).off()
-        # print("1")
-        # 获取图像并进行预处理
+        # 色块检测与筛选
         all_blobs_with_color = color_detector.detect_colors(img)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
-        # 分离棕色与其它
+        # 绘制颜色映射
+        draw_colors = {
+            'red': (255, 0, 0),
+            'green': (0, 255, 0),
+            'blue': (0, 0, 255),
+            'brown': (255, 255, 255),
+            'grey': (100, 100, 100),
+            'black': (0, 0, 0)
+        }
+
+        center = []  # 所有有效色块的中心坐标
+        target_pos = None  # 最终要发送的目标坐标
+        locked_blob = None  # 锁定的目标色块
+
+        # 分离棕色与其它色块
         brown_blobs = []
         other_blobs = []
-
         for item in filtered_blobs_with_color:
             blob = item[0]
             color = item[1]
@@ -311,67 +355,111 @@ while True:
             else:
                 other_blobs.append((blob, color))
 
-        # 绘制筛选后的色块（不同颜色用不同框区分）
-        draw_colors = {
-            'red': (255, 0, 0),
-            'green': (0, 255, 0),
-            'blue': (0, 0, 255),
-            'brown': (255, 255, 255),
-            'grey': (100, 100, 100)
-        }
-
-        center = []
-
-        # 处理棕色
-        target_pos = None
+        # 处理棕色色块
         if brown_blobs:
-            target_brown = max(brown_blobs, key = lambda b:b.area())
-            target_pos = (target_brown.cx(), target_brown.cy())
-
+            target_brown = max(brown_blobs, key=lambda b: b.area())
+            brown_pos = (target_brown.cx(), target_brown.cy())
             brown_tracker.last_w = target_brown.w()
             brown_tracker.last_h = target_brown.h()
-
-            img.draw_rectangle(target_brown.rect(), color = draw_colors['brown'])
-            img.draw_cross(target_brown.cx(), target_brown.cy(), color = draw_colors['brown'])  # 画中心点
-
-        state = brown_tracker.kalman_filter(target_pos, Ts)
-
-        if brown_tracker.first_detected:
-            if brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
-                kcx, kcy = int(state[0]), int(state[1])
-                kw, kh = brown_tracker.last_w, brown_tracker.last_h
-
-                img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color = draw_colors['grey'])
-                img.draw_cross(kcx, kcy, color = draw_colors['grey'])
+            img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])
+            img.draw_cross(target_brown.cx(), target_brown.cy(), color=draw_colors['brown'])
+            # 棕色目标卡尔曼滤波
+            brown_state = brown_tracker.kalman_filter(brown_pos, Ts)
+            if brown_tracker.first_detected and brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
+                kcx, kcy = int(brown_state[0]), int(brown_state[1])
                 center.append((kcx, kcy))
-
-            else:
+                img.draw_rectangle(kcx - brown_tracker.last_w//2, kcy - brown_tracker.last_h//2,
+                                   brown_tracker.last_w, brown_tracker.last_h, color=draw_colors['grey'])
+                img.draw_cross(kcx, kcy, color=draw_colors['grey'])
+        else:
+            brown_tracker.kalman_filter(None, Ts)
+            if brown_tracker.lost_count >= brown_tracker.MAX_LOST_FRAMES:
                 brown_tracker.reset()
 
+        # 处理其他颜色色块
         for item in other_blobs:
-            # 绘制该颜色的所有筛选后色块
             blob = item[0]
             color_name = item[1]
-            img.draw_rectangle(blob.rect(), color=draw_colors[color_name])  # 画矩形框
-            img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])  # 画中心点
-            center_x = blob.cx()
-            center_y = blob.cy()
-            center.append((center_x, center_y))
-        if center:
-            target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
-            target_x, target_y = target
-            communicator.send_coordinate(target_x, target_y)
+            img.draw_rectangle(blob.rect(), color=draw_colors[color_name])
+            img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])
+            center.append((blob.cx(), blob.cy()))
+
+        # 锁定处理
+        if filtered_blobs_with_color:
+            # 未锁定：选择y最大的目标作为锁定对象
+            if not is_target_locked:
+                max_y_blob, max_y_color = max(filtered_blobs_with_color, key=lambda item: item[0].cy())
+                locked_target_cx = max_y_blob.cx()
+                locked_target_cy = max_y_blob.cy()
+                locked_last_cx = locked_target_cx
+                locked_last_cy = locked_target_cy
+                locked_target_color = max_y_color
+                is_target_locked = True
+                locked_lost_count = 0
+                target_pos = (locked_target_cx, locked_target_cy)
+                locked_blob = max_y_blob
+            # 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
+            else:
+                # 筛选同色目标
+                same_color_blobs = [item for item in filtered_blobs_with_color if item[1] == locked_target_color]
+                valid_blobs = []
+                for blob, color in same_color_blobs:
+                    cx, cy = blob.cx(), blob.cy()
+                    # 跳变不超过阈值才视为有效目标
+                    if not is_coordinate_jump_too_large(cx, cy):
+                        valid_blobs.append((blob, cx, cy))
+                if valid_blobs:
+                    # 选同色目标中最接近初始锁定位置的
+                    best_blob, best_cx, best_cy = min(valid_blobs,
+                        key=lambda item: math.sqrt((item[1]-locked_target_cx)**2 + (item[2]-locked_target_cy)**2))
+                    target_pos = (best_cx, best_cy)
+                    locked_last_cx = best_cx
+                    locked_last_cy = best_cy
+                    locked_lost_count = 0
+                    locked_blob = best_blob
+                else:
+                    # 无有效同色目标，计数+1
+                    locked_lost_count += 1
+                    target_pos = None
+        else:
+            # 无任何色块，锁定计数+1
+            if is_target_locked:
+                locked_lost_count += 1
+            target_pos = None
+
+        # 超过5帧解除锁定
+        if is_target_locked and locked_lost_count >= LOCK_MAX_LOST_FRAMES:
+            reset_lock_state()
+
+        if is_target_locked and locked_blob is not None:
+            lock_cx = locked_blob.cx()
+            lock_cy = locked_blob.cy()
+            # 在锁定目标中心绘制黑色圆
+            img.draw_circle(lock_cx, lock_cy, 5, color=draw_colors['black'], thickness=2)
+
+        # 锁定状态下仅发送锁定目标坐标，未锁定时按原有逻辑选y最大
+        if is_target_locked and target_pos is not None:
+            # 锁定状态：发送锁定目标坐标
+            communicator.send_coordinate(target_pos[0], target_pos[1])
+        elif center:
+            # 未锁定：按原有逻辑选y最大的坐标
+            target = max(center, key=lambda coordinate: coordinate[1])
+            communicator.send_coordinate(target[0], target[1])
 
     elif current_mode == MODE_BOUNDARY_UD:
+        """
         LED(3).on()
         LED(3).off()
+        """
         angle = boundary_detector.boundary_correction('row', img)
         if angle is not None:
             communicator.send_angle(angle)
 
     elif current_mode == MODE_BOUNDARY_LR:
+        """
         LED(4).on()
         LED(4).off()
+        """
         angle = boundary_detector.boundary_correction('column', img)
         if angle is not None:
             communicator.send_angle(angle)

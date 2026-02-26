@@ -12,6 +12,9 @@ class Communicator:
         self.last_sent_y = 60
 
     def send_coordinate(self, x, y):
+        if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
+            return #增加最小变化阈值（防抖）
+
         dx_coord = min(30, max(-30, x - self.last_sent_x))
         dy_coord = min(30, max(-30, y - self.last_sent_y))
         x_limited = self.last_sent_x + dx_coord
@@ -96,6 +99,7 @@ class ColorDetector:
 ########################边界检测模块######################
 class BoundaryDetector:
     YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
+    ROI_MID = (40, 0, 80, 120)
     SCREEN_WIDTH = 160
     MIDDLE_X = SCREEN_WIDTH // 2  # 80
     X_TOLERANCE = 5
@@ -116,13 +120,13 @@ class BoundaryDetector:
             elif mode == 'column':# 从上到下找色块
                 result = img.find_blobs([self.YELLOW_THRESHOLD], roi = [0,x,160,20] ,pixels_threshold=100, area_threshold=100, margin=1, merge=True, invert=0)
             if result:
-                best_blob = min(result, key= lambda b: abs(b.area() - 600))
+                best_blob = min(result, key= lambda b: abs(b.area() - 600)) # 面积还要调整
                 blobs.append(best_blob)
                 center += 1
                 img.draw_rectangle(best_blob.rect(), color = (255, 0, 0), scale = 1, thickness = 1)
 
         if center >= 3:
-            l = img.get_regression([self.YELLOW_THRESHOLD], robust = True)
+            l = img.get_regression([self.YELLOW_THRESHOLD], roi = self.ROI_MID, robust = True)
             if l:
                 img.draw_line(l.line(), color = (255, 0, 0), thickness = 2)
                 x1, y1, x2, y2 = l.line()
@@ -148,21 +152,28 @@ class BrownTracker:
     MAX_LOST_FRAMES = 20
 
     def __init__(self):
-        self.C = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0],
-                           [0,0,0,1,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1]])
-        self.R = np.diag([5, 5, 2, 2, 50, 50])
+# 1. 状态量定义: [x, y, vx, vy]
+        self.x_hat = np.array([80, 60, 0, 0], dtype=np.float)
 
-        # 状态
-        self.reset()
+        # 2. 预分配矩阵 (内存优化：避免循环内创建对象)
+        self.A = np.eye(4)      # 状态转移矩阵
+        self.P = np.eye(4) * 10 # 后验协方差
+        self.Q = np.eye(4) * 0.5# 过程噪声
+        self.R = np.eye(2) * 5  # 测量噪声 (x, y)
+        self.H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float) # 观测矩阵
+
+        self.first_detected = False
+        self.lost_count = 0
+        self.last_w = 0
+        self.last_h = 0
 
     def reset(self):
         self.first_detected = False
         self.lost_count = 0
-        # self.brown_visible_frames = 0
-        self.last_brown_area = 0
-        self.last_cx, self.last_cy = 80, 60
-        self.x_hat = np.array([80, 60, 30, 30, 2, 2], dtype=np.float)
-        self.p = np.diag([100.0, 100.0, 50.0, 50.0, 300.0, 300.0])
+        self.x_hat = np.array([80, 60, 0, 0], dtype=np.float)
+        self.P = np.eye(4) * 10
+        self.last_w = 0
+        self.last_h = 0
     """
     def is_valid(self, blob):
         current_area = blob.area()
@@ -174,41 +185,41 @@ class BrownTracker:
         self.brown_visible_frames += 1
         return True
     """
-    def kalman_filter(self, Z, Ts, is_detected):
-        if is_detected:
-            Q_value = [2.0, 5.0, 2.0, 2.0, 50.0, 50.0]
-            damping = 0.92
-            self.lost_count = 0
-        else:
-            Q_value = [20.0, 30.0, 10.0, 10.0, 40.0, 40.0]
-            damping = 0.8
-            self.lost_count += 1
-        Q = np.diag(Q_value)
+    def kalman_filter(self, pos, Ts):
+            # 更新状态转移矩阵中的时间步长 Ts
+            self.A[0, 2] = Ts
+            self.A[1, 3] = Ts
 
-        A = np.array([
-            [1, 0, 0, 0, Ts, 0],
-            [0, 1, 0, 0, 0, Ts],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, damping, 0],
-            [0, 0, 0, 0, 0, damping]
-        ])
+            # 丢包阻尼处理
+            damping = 0.94 if pos else 0.82
+            self.A[2, 2] = damping
+            self.A[3, 3] = damping
 
-        x_hat_minus = np.dot(A, self.x_hat)
-        p_minus = np.dot(A, np.dot(self.p, A.T)) + Q
+            # --- 预测阶段 (Predict) ---
+            x_pre = np.dot(self.A, self.x_hat)
+            # P_pre = A*P*A.T + Q
+            P_pre = np.dot(self.A, np.dot(self.P, self.A.T)) + self.Q
 
-        if is_detected:
-            S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
-            S_reg = S + 1e-4 * np.eye(S.shape[0])
-            S_inv = np.linalg.inv(S_reg)
-            K = np.dot(np.dot(p_minus, self.C.T), S_inv)
-            self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
-            self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
-        else:
-            self.x_hat = x_hat_minus
-            self.p = p_minus
+            # --- 更新阶段 (Update) ---
+            if pos:
+                self.lost_count = 0
+                self.first_detected = True
+                z = np.array(pos, dtype=np.float) # [cx, cy]
 
-        return self.x_hat
+                # 计算增益 K = P_pre*H.T / (H*P_pre*H.T + R)
+                S = np.dot(self.H, np.dot(P_pre, self.H.T)) + self.R
+                K = np.dot(P_pre, np.dot(self.H.T, np.linalg.inv(S)))
+
+                # 更新状态 x_hat = x_pre + K*(z - H*x_pre)
+                self.x_hat = x_pre + np.dot(K, (z - np.dot(self.H, x_pre)))
+                # 更新协方差 P = (I - K*H)*P_pre
+                self.P = np.dot((np.eye(4) - np.dot(K, self.H)), P_pre)
+            else:
+                self.lost_count += 1
+                self.x_hat = x_pre # 丢失时仅依靠预测
+                self.P = P_pre
+
+            return self.x_hat
 
 ########################初始化#####################
 
@@ -244,13 +255,43 @@ MODE_TARGET = 0
 MODE_BOUNDARY_UD = 1
 MODE_BOUNDARY_LR = 2
 MODE_WAITING = 3
-current_mode = MODE_WAITING
+current_mode = MODE_TARGET
 
 # 时间
 clock = time.clock()
 
 # 时间戳
 last_time = time.ticks_ms()
+
+# ====================== 独立的锁定逻辑变量（核心新增） ======================
+LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
+LOCK_MAX_LOST_FRAMES = 5  # 丢失5帧解除锁定
+# 锁定状态
+is_target_locked = False  # 是否锁定目标
+locked_target_color = None  # 锁定的目标颜色
+locked_target_cx = 80  # 锁定目标的初始x坐标
+locked_target_cy = 60  # 锁定目标的初始y坐标
+locked_last_cx = 80  # 上一帧锁定目标的x坐标
+locked_last_cy = 60  # 上一帧锁定目标的y坐标
+locked_lost_count = 0  # 锁定目标丢失帧数
+
+def reset_lock_state():
+    """重置锁定状态"""
+    global is_target_locked, locked_target_color, locked_target_cx, locked_target_cy
+    global locked_last_cx, locked_last_cy, locked_lost_count
+    is_target_locked = False
+    locked_target_color = None
+    locked_target_cx = 80
+    locked_target_cy = 60
+    locked_last_cx = 80
+    locked_last_cy = 60
+    locked_lost_count = 0
+
+def is_coordinate_jump_too_large(cx, cy):
+    """判断坐标跳变是否过大（同色干扰）"""
+    global locked_last_cx, locked_last_cy
+    distance = math.sqrt((cx - locked_last_cx)**2 + (cy - locked_last_cy)**2)
+    return distance > LOCK_JUMP_THRESHOLD
 
 ######################命令处理###################
 def handle_uart_commands():
@@ -312,45 +353,30 @@ while True:
         center = []
 
         # 处理棕色
-        brown_detected = False
+        target_pos = None
         if brown_blobs:
             target_brown = max(brown_blobs, key = lambda b:b.area())
-            # if not brown_tracker.first_detected: # or brown_tracker.is_valid(target_brown)
-            cx, cy = target_brown.cx(), target_brown.cy()
-            w, h = target_brown.w(), target_brown.h()
-            max_speed = 80
-            dx_raw = (cx - brown_tracker.last_cx) / Ts
-            dx = max(-max_speed, min(max_speed, dx_raw))
-            dy_raw = (cy - brown_tracker.last_cy) / Ts
-            dy = max(-max_speed, min(max_speed, dy_raw))
-            Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
-                # 如果是第一次检测到小熊，则初始化卡尔曼滤波器
-            if not brown_tracker.first_detected:
-                # 初始化卡尔曼滤波器的状态和协方差矩阵
-                brown_tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
-                brown_tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
-                brown_tracker.first_detected = True  # 标记为已首次检测过
-            brown_tracker.kalman_filter(Z, Ts, True)
-            brown_tracker.last_cx = cx
-            brown_tracker.last_cy = cy
-            brown_detected = True
-            img.draw_rectangle(target_brown.rect(), color=draw_colors['brown'])  # 画矩形框
-            img.draw_cross(cx, cy, color=draw_colors['brown'])  # 画中心点
-        # else:
-            # brown_tracker.brown_visible_frames = 0
-        # 无检测时预测
-        if not brown_detected and brown_tracker.first_detected:
-            if brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
-                brown_tracker.kalman_filter(None, Ts, is_detected=False)
-            else:
-                brown_tracker.reset()
+            target_pos = (target_brown.cx(), target_brown.cy())
+
+            brown_tracker.last_w = target_brown.w()
+            brown_tracker.last_h = target_brown.h()
+
+            img.draw_rectangle(target_brown.rect(), color = draw_colors['brown'])
+            img.draw_cross(target_brown.cx(), target_brown.cy(), color = draw_colors['brown'])  # 画中心点
+
+        state = brown_tracker.kalman_filter(target_pos, Ts)
 
         if brown_tracker.first_detected:
-            kcx, kcy = int(brown_tracker.x_hat[0]), int(brown_tracker.x_hat[1])
-            kw, kh = max(1, int(brown_tracker.x_hat[2])), max(1, int(brown_tracker.x_hat[3]))
-            img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=draw_colors['grey'])
-            img.draw_cross(kcx, kcy, color=draw_colors['grey'])
-            center.append((kcx, kcy))
+            if brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
+                kcx, kcy = int(state[0]), int(state[1])
+                kw, kh = brown_tracker.last_w, brown_tracker.last_h
+
+                img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color = draw_colors['grey'])
+                img.draw_cross(kcx, kcy, color = draw_colors['grey'])
+                center.append((kcx, kcy))
+
+            else:
+                brown_tracker.reset()
 
         for item in other_blobs:
             # 绘制该颜色的所有筛选后色块
@@ -361,10 +387,68 @@ while True:
             center_x = blob.cx()
             center_y = blob.cy()
             center.append((center_x, center_y))
-        if center:
-            target = max(center, key = lambda coordinate : coordinate[1]) # 选择最靠近小车的坐标（判断依据为y最大的坐标）
-            target_x, target_y = target
-            communicator.send_coordinate(target_x, target_y)
+        if filtered_blobs_with_color:
+            # 5.1 未锁定：选择y最大的目标作为锁定对象
+            if not is_target_locked:
+                max_y_blob, max_y_color = max(filtered_blobs_with_color, key=lambda item: item[0].cy())
+                locked_target_cx = max_y_blob.cx()
+                locked_target_cy = max_y_blob.cy()
+                locked_last_cx = locked_target_cx
+                locked_last_cy = locked_target_cy
+                locked_target_color = max_y_color
+                is_target_locked = True
+                locked_lost_count = 0
+                target_pos = (locked_target_cx, locked_target_cy)
+                locked_blob = max_y_blob
+            # 5.2 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
+            else:
+                # 筛选同色目标
+                same_color_blobs = [item for item in filtered_blobs_with_color if item[1] == locked_target_color]
+                valid_blobs = []
+                for blob, color in same_color_blobs:
+                    cx, cy = blob.cx(), blob.cy()
+                    # 跳变不超过阈值才视为有效目标
+                    if not is_coordinate_jump_too_large(cx, cy):
+                        valid_blobs.append((blob, cx, cy))
+                if valid_blobs:
+                    # 选同色目标中最接近初始锁定位置的
+                    best_blob, best_cx, best_cy = min(valid_blobs,
+                        key=lambda item: math.sqrt((item[1]-locked_target_cx)**2 + (item[2]-locked_target_cy)**2))
+                    target_pos = (best_cx, best_cy)
+                    locked_last_cx = best_cx
+                    locked_last_cy = best_cy
+                    locked_lost_count = 0
+                    locked_blob = best_blob
+                else:
+                    # 无有效同色目标，计数+1
+                    locked_lost_count += 1
+                    target_pos = None
+        else:
+            # 无任何色块，锁定计数+1
+            if is_target_locked:
+                locked_lost_count += 1
+            target_pos = None
+
+        # 6. 丢失帧数判断：超过5帧解除锁定
+        if is_target_locked and locked_lost_count >= LOCK_MAX_LOST_FRAMES:
+            reset_lock_state()
+
+        # 7. 绘制锁定目标的黑色圆（核心修改：仅保留黑色圆标注）
+        if is_target_locked and locked_blob is not None:
+            lock_cx = locked_blob.cx()
+            lock_cy = locked_blob.cy()
+            # 在锁定目标中心绘制黑色圆
+            img.draw_circle(lock_cx, lock_cy, 5,
+                            color=(0, 0, 0), thickness=2)
+
+        # 8. 发送坐标：锁定状态下仅发送锁定目标坐标，未锁定时按原有逻辑选y最大
+        if is_target_locked and target_pos is not None:
+            # 锁定状态：发送锁定目标坐标
+            communicator.send_coordinate(target_pos[0], target_pos[1])
+        elif center:
+            # 未锁定：按原有逻辑选y最大的坐标
+            target = max(center, key=lambda coordinate: coordinate[1])
+            communicator.send_coordinate(target[0], target[1])
 
     elif current_mode == MODE_BOUNDARY_UD:
         LED(3).on()
@@ -381,4 +465,3 @@ while True:
             communicator.send_angle(angle)
 
     lcd.show_image(img, 160, 120, zoom=0)
-    print(clock.fps())
