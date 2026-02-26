@@ -200,7 +200,7 @@ def tof_init():
 
 # 角度环计算函数
 def angle_pid_compute():
-    filter_yaw = my_car.car_yaw_filter.filtering(my_car.now_yaw * 180 / MATH.PI)
+    filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
     # 计算z轴的目标速度
     angle_pid.compute_pid(my_car.turn_angle_target, filter_yaw)
 
@@ -304,7 +304,7 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.CALIBRATE:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
@@ -313,6 +313,7 @@ def test_servo_control():
 
 # 视觉伺服测试函数
 def test_vision_servo():
+    global counter
     if my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
         my_state.state = my_state.SERVO
@@ -335,59 +336,29 @@ def test_vision_servo():
                 
 # 边线校准测试函数
 def test_boundary_calibration():
-    global counter
     if my_state.state == my_state.NAVIGATE:
-        counter += 1
-        # 等待十秒后向openart发送指令获取边界角度
-        if counter >= 1000:
-            counter = 0
-            my_plan.if_gain_calibrate_angle = False
-            # 切换为上下边界识别模式
-            # my_order_manager.mode_boundary_ud()
-            # 切换为左右边界识别模式
-            my_order_manager.mode_boundary_lf()
-            # 测试是否成功发送指令
+        my_plan.navigate([[160.0, -20.0], [160.0, 240.0]], 0.0)
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            # 测试
+            # my_state.state = my_state.CALIBRATE
+            my_state.state = my_state.RETURN
             my_beep.test()
-
-        if my_plan.if_gain_calibrate_angle == False:
-            my_art_protocol.angle_receive()
-            if len(my_art_protocol.angle_list) >= 10:
-                # 进行边线校准处理
-                my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
-                my_plan.turn_angle_target = my_plan.calibrate_angle 
-                my_order_manager.finish()
-                my_state.state = my_state.STOP
-                my_plan.if_gain_calibrate_angle = True
-                # 测试
-                my_beep.test()
-                for i in range(0, len(my_art_protocol.angle_list)):
-                    my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
-                my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
-                my_art_protocol.angle_list.clear()
-
-
-# 移动中的边线校准测试函数
-def test_moving_boundary_calibration():
-    if my_plan.if_gain_calibrate_angle == False:
-        my_art_protocol.angle_receive()
-        if len(my_art_protocol.angle_list) >= 1:
-            # 进行边线校准处理
-            # my_plan.calibrate_angle = sum(my_art_protocol.angle_list) / len(my_art_protocol.angle_list)
-            # my_plan.turn_angle_target += my_plan.calibrate_angle * 2 / 3
-            # 进行里程计矫正处理
-            if my_car.x_current < 150.0:
-                my_car.x_current = 0.0
-            else:
-                my_car.x_current = 300.0
-            my_order_manager.finish()
-            my_plan.if_gain_calibrate_angle = True
-            
+    elif my_state.state == my_state.CALIBRATE:
+        my_plan.boundary_calibrate_control()
+        if my_plan.if_finish_calibrate == True:
+            my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
+            my_state.state = my_state.RETURN
             # 测试
             my_beep.test()
-            for i in range(0, len(my_art_protocol.angle_list)):
-                my_uart3.write(f"{my_art_protocol.angle_list[i]}\n")
-            my_uart3.write(f"average_angle: {my_plan.turn_angle_target}\n")
-            my_art_protocol.angle_list.clear()
+    elif my_state.state == my_state.RETURN:
+        my_plan.navigate([[0.0, 0.0]], 0.0)
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            my_state.state = my_state.STOP
+            my_beep.test()
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
 
 # 测试环绕控制函数
 def test_orbit_control():
@@ -618,24 +589,24 @@ def time_pit3_handler(time) -> None:
     # 全向定位测试程序
     """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[90.0, 120.0], [230.0, 120.0], [140.0, 50.0], [110.0, 190.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[160.0, -20.0]], 120.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+"""
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
-    # test_boundary_calibration()
+    test_boundary_calibration()
     # test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
