@@ -172,7 +172,7 @@ class PoseData:
             gyro_x_sum += imu_data[3]
             gyro_y_sum += imu_data[4]
             """
-            time.sleep_ms(3)
+            time.sleep_ms(4)
         """时不需要处理这些数据
         self.acc_x_bias = acc_x_sum / sample_count
         self.acc_y_bias = acc_y_sum / sample_count

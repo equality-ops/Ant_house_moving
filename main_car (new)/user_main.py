@@ -132,8 +132,6 @@ diff_filter_gyroy = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 视觉伺服自身转角的卡尔曼滤波器
-servo_yaw_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
 encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -145,6 +143,9 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(6)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(40)
 cos_diff_fil = ant_motor.SlipAveragingFilter(40)
+# 创建视觉伺服正余弦滤波对象
+sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -168,7 +169,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -312,16 +313,9 @@ def test_servo_control():
 
 # 视觉伺服测试函数
 def test_vision_servo():
-    global counter
     if my_state.state == my_state.NAVIGATE:
-        counter += 1
-        # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [140.0, 90.0]], 0.0)
-        # 等待十秒后向openart发送指令获取目标点坐标
-        # if my_plan.finish_navigate == True:
-        if counter >= 1500:
-            counter = 0
-            my_plan.finish_navigate = False
-            my_state.state = my_state.SERVO
+        my_plan.finish_navigate = False
+        my_state.state = my_state.SERVO
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
@@ -335,11 +329,6 @@ def test_vision_servo():
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
-    elif my_state.state == my_state.RETURN:
-            my_plan.navigate([[0.0, 0.0]], 0.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state = my_state.STOP
     elif my_state.state == my_state.STOP:
         pass
 
@@ -586,7 +575,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    test_global_localization()
+    # test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -603,7 +592,7 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     # 测试边线矫正程序
     # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
@@ -627,6 +616,7 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
+    """
     if my_state.state == my_state.NAVIGATE:
         my_plan.navigate([[90.0, 120.0], [230.0, 120.0], [140.0, 50.0], [110.0, 190.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
@@ -635,13 +625,14 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -661,10 +652,14 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     main_start()
+    
+    # 读取按键（中断中避免阻塞，快速返回）
+    key = my_menu.read_key()
+    my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # my_uart3.write(f"{my_vision_manager.target_rel_yaw}\r\n")
+    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
@@ -683,7 +678,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
