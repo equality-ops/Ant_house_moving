@@ -599,7 +599,7 @@ class Plan:
                 self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
                 self.if_finish_turn = True  # 如果没有目标转角，直接认为转角调整完成
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
-            self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
+            # self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
             # 在未完成转角调整时，持续进行转角调整
             if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 0.5:
                 self.if_finish_turn = True
