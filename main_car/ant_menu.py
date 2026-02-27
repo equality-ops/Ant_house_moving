@@ -3,7 +3,7 @@ import gc
 import os
 
 class Menu:
-    def __init__(self, flash_sys, beep, key_up, key_down, lcd, encoder):   
+    def __init__(self, flash_sys, beep, key_up, key_down, lcd, enc_rotation, enc_key):   
         # 所有参数强制转为浮点数，避免类型错误
         self.config = {
             # PID 参数
@@ -58,7 +58,7 @@ class Menu:
             "min_orbit_speed": float(flash_sys.find_value("min_orbit_speed")),
         } # 用字典保存所需改的参数
 
-        # 参数名-缩略名映射字典（精准控制每个参数的显示名）
+        # 参数名-缩略名映射字典
         self.param_short_name = {
             # PID 参数
             "angle_normal_kp": "n_kp",
@@ -112,42 +112,55 @@ class Menu:
             "min_orbit_speed": "min_orb",
         }
 
-        # 注入外部对象
+        # 注入外部硬件对象
         self.flash_sys = flash_sys
         self.beep = beep
         self.lcd = lcd
-        self.encoder = encoder
+        self.enc_rotation = enc_rotation  # 编码器旋转对象
+        self.enc_key = enc_key            # 编码器按键引脚对象
         self.keys = {"up": key_up, "down": key_down}
 
-        # 菜单核心配置（统一管理）
+        # 菜单核心配置
         self.change_page_to = 1
         self.Current_line = 1  # 初始箭头在第一行
         self.Start_line, self.End_line = 1, 9
         self.KEY_NAMES = {"up": "up", "down": "down"}
-        # 步长列表：新增0.001、0.01，按从小到大排序
+        # 步长
         self.step_values = (0.001, 0.01, 0.1, 1.0, 5.0, 10.0, 100.0)  # 步长（元组更省内存）
         self.current_step_index = 0
+        # 行间距
         self.LineSpacing = 18
         
-        # 屏幕配置（扩展显示宽度，适配三位小数显示）
+        # 屏幕配置
         self.LCD_WIDTH = 240
         self.TITLE_X = 80  # 240宽度屏标题居中x坐标
         self.ARROW_X = 200  # 箭头x坐标
-        self.CLEAR_SPACES = " " * 35  # 进一步扩展清空空格数（适配三位小数）
+        self.CLEAR_SPACES = " " * 35
 
         # 按键防抖时间戳
         self.key_timestamps = {k: 0 for k in self.KEY_NAMES.keys()}
 
-        # 编码器相关状态
-        self.last_enc_value = self.encoder.get() # 初始化为编码器当前值
+        # 编码器旋转相关状态
+        self.last_enc_value = self.enc_rotation.get()  # 初始化为编码器当前值
+        self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
+        self.enc_rot_last_trigger_time = 0
+        self.enc_pulse_threshold = 1
         
+        # 编码器按键相关状态
+        self.enc_key_debounce_ms = 50  # 按键防抖时间
+        self.enc_key_last_trigger_time = 0
+        self.is_param_selected = False # 参数选中状态（初始未选中）
+        self.selected_line = None      # 选中的行号
+        # 颜色定义
+        self.COLOR_WHITE = 0xFFFF     # 白色（默认箭头）
+        self.COLOR_RED = 0xF800       # 红色（选中状态箭头）
 
         # 状态标记：初始设置为True，确保首次绘制箭头
         self.last_change_page_to = self.change_page_to
         self.current_key = None
-        self.need_refresh = True  # 关键修复：初始化为True
+        self.need_refresh = True
         
-        # 预定义核心映射（8页分区，核心逻辑不变）
+        # 预定义核心映射
         self._init_core_mappings()
         
         # 强制GC
@@ -235,36 +248,125 @@ class Menu:
             8: ("ORBIT", 1, 5)    # ORBIT：2参数+步长+保存+翻页 →1-5行
         }
 
+    def _is_param_line(self, line_num):
+        """判断当前行是否为参数行（非步长/save/turn行）"""
+        page_map = self.page_line_map.get(self.change_page_to, {})
+        return line_num in page_map.keys()
+
     def _format_param_display(self, config_key):
-        """通用参数格式化方法（改为三位小数显示）"""
+        """通用参数格式化方法（三位小数显示）"""
         short_name = self.param_short_name.get(config_key, config_key[:6])
         val = round(self.config[config_key], 3)  # 保留三位小数
-        # 扩展显示宽度，适配三位小数（缩略名6字符+数值8字符）
         return f"{short_name:<6} : {val:8.3f}"
 
-    # 局部刷新参数行（适配三位小数显示）
+    # 局部刷新参数行
     def refresh_param_line(self, line_num, config_key):
-        """仅刷新指定行的参数（适配三位小数）"""
-        # 清空当前行（扩展清空宽度到35字符）
+        """仅刷新指定行的参数"""
+        # 清空当前行
         self.lcd.str16(0, self.LineSpacing * line_num, self.CLEAR_SPACES, 0x0000)
         # 绘制格式化后的参数（完整显示三位小数）
         display_text = self._format_param_display(config_key)
-        self.lcd.str16(5, self.LineSpacing * line_num, display_text, 0xFFFF)  # 左移x坐标，增加显示空间
+        self.lcd.str16(5, self.LineSpacing * line_num, display_text, 0xFFFF)
         gc.collect()
 
-    # 显式销毁方法（核心逻辑不变）
+    # ========== 读取编码器旋转（left/right） ==========
+    def read_encoder_rotation(self):
+        """读取编码器旋转方向，返回left/right/None（防抖）"""
+        current_time = time.ticks_ms()
+        
+        # 防抖检查
+        if time.ticks_diff(current_time, self.enc_rot_last_trigger_time) < self.enc_rot_debounce_ms:
+            return None
+        
+        current_enc = self.enc_rotation.get()
+        pulse_diff = current_enc - self.last_enc_value
+
+        if abs(pulse_diff) >= self.enc_pulse_threshold:
+            self.enc_rot_last_trigger_time = current_time
+            self.last_enc_value = current_enc
+
+            if pulse_diff > 0:
+                self.beep.key_test()
+                return "right"
+            elif pulse_diff < 0:
+                self.beep.key_test()
+                return "left"
+            
+        return None
+
+    # ========== 读取编码器按键 ==========
+    def read_encoder_key(self):
+        """读取外部传入的编码器按键引脚状态，返回True/False（防抖）"""
+        current_time = time.ticks_ms()
+        
+        # 1. 防抖检查：短时间内不重复触发
+        if time.ticks_diff(current_time, self.enc_key_last_trigger_time) < self.enc_key_debounce_ms:
+            return False
+        
+        # 2. 读取按键状态（低电平表示按下，与你的引脚配置一致）
+        if self.enc_key.value() == 0:
+            self.enc_key_last_trigger_time = current_time
+            self.beep.key_test()  # 按键按下触发蜂鸣
+            return True
+        
+        return False
+
+    # ========== 切换参数选中状态 ==========
+    def toggle_param_select(self):
+        """切换参数选中状态（仅对参数行生效）"""
+        # 仅参数行可选中
+        if not self._is_param_line(self.Current_line):
+            self.is_param_selected = False
+            self.selected_line = None
+            self.refresh_current_page()  # 刷新为白色箭头
+            return
+        
+        # 切换选中状态
+        if self.is_param_selected and self.selected_line == self.Current_line:
+            # 取消选中
+            self.is_param_selected = False
+            self.selected_line = None
+        else:
+            # 选中当前参数行
+            self.is_param_selected = True
+            self.selected_line = self.Current_line
+        
+        # 刷新箭头颜色
+        self.refresh_current_page()
+
+    # 刷新当前页面（支持红色箭头）
+    def refresh_current_page(self):
+        """刷新箭头区域，支持选中状态红色箭头"""
+        # 清空所有箭头位置
+        for i in range(self.Start_line, self.End_line + 1):
+            self.lcd.str16(self.ARROW_X, self.LineSpacing * i, "   ", self.COLOR_WHITE)
+        
+        # 绘制当前箭头（根据选中状态切换颜色）
+        arrow_color = self.COLOR_RED if (self.is_param_selected and self.selected_line == self.Current_line) else self.COLOR_WHITE
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", arrow_color)
+        
+        self.need_refresh = False
+        gc.collect()
+
+    # 显式销毁方法（释放所有外部对象引用）
     def destroy(self):
         """销毁实例，释放内存"""
         for attr in ['config', 'param_short_name', 'keys']:
             if hasattr(self, attr) and isinstance(getattr(self, attr), dict):
                 getattr(self, attr).clear()
         
+        # 释放所有外部硬件对象引用
         self.flash_sys = self.beep = self.lcd = None
+        self.enc_rotation = self.enc_key = None
+        self.keys = None
+        
         self.last_change_page_to = self.current_key = None
+        self.is_param_selected = False
+        self.selected_line = None
         self.need_refresh = False
         gc.collect()
 
-    # 批量更新配置（改为保存三位小数）
+    # 批量更新配置（保存三位小数）
     def update_config_values(self, file_path, updates):
         """安全更新配置文件（临时文件+原子替换）"""
         temp_file_path = file_path + ".tmp"
@@ -293,23 +395,35 @@ class Menu:
         finally:
             gc.collect()
 
-    # 统一保存数据（核心逻辑不变，保存三位小数）
+    # 统一保存数据（保存三位小数）
     def save_data(self):
         """保存当前页面参数（三位小数）"""
-        updates = {k: round(self.config[k], 3) for k in self.page_configs.get(self.change_page_to, [])}  # 保留三位小数
+        updates = {k: round(self.config[k], 3) for k in self.page_configs.get(self.change_page_to, [])}
         if updates:
             self.update_config_values(self.flash_sys.file_path, updates)
         
         self.Current_line = 1
+        self.is_param_selected = False  # 保存后取消选中
+        self.selected_line = None
         self.need_refresh = True
         gc.collect()
 
-    # 检测按键状态（核心逻辑不变）
+    # 读取按键（整合所有输入：上下键+编码器旋转+编码器按键）
     def read_key(self, debounce_ms=40):
-        """读取按键（防抖处理）"""
+        """读取所有输入（防抖处理）"""
         current_time = time.ticks_ms()
         pressed_key = None
+
+        # 1. 优先读取编码器旋转（left/right）
+        enc_rot_key = self.read_encoder_rotation()
+        if enc_rot_key:
+            return enc_rot_key
         
+        # 2. 读取编码器按键（返回特殊标识）
+        if self.read_encoder_key():
+            return "enc_press"
+        
+        # 3. 读取up/down按键
         for key_name, key_obj in self.keys.items():
             if key_obj.value() == 0:
                 if self.key_timestamps[key_name] == 0:
@@ -322,12 +436,12 @@ class Menu:
             else:
                 self.key_timestamps[key_name] = 0
         
-        gc.collect()
         return pressed_key
 
-    # 数据处理（改为三位小数计算）
+    # 数据处理（增加选中状态判断）
     def data_processing(self, key):
-        """处理参数修改逻辑（三位小数）"""
+        """处理参数修改逻辑（仅选中状态可修改参数）"""
+        # 步长行：无需选中即可修改
         if self.Current_line == 1:
             old_index = self.current_step_index
             if key == "left":
@@ -337,48 +451,48 @@ class Menu:
             
             if old_index != self.current_step_index:
                 self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
-                step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"  # 步长显示三位小数
-                self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)  # 左移x坐标
+                step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"
+                self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)
             gc.collect()
             return
 
+        # 参数行：仅选中状态可修改
         line_config = self.page_line_map.get(self.change_page_to, {}).get(self.Current_line)
-        if line_config:
+        if line_config and self.is_param_selected and self.selected_line == self.Current_line:
             config_key, _ = line_config
             step = self.step_values[self.current_step_index]
             
             if key == "left":
-                self.config[config_key] = round(self.config[config_key] - step, 3)  # 保留三位小数
+                self.config[config_key] = round(self.config[config_key] - step, 3)
             elif key == "right":
-                self.config[config_key] = round(self.config[config_key] + step, 3)  # 保留三位小数
+                self.config[config_key] = round(self.config[config_key] + step, 3)
             
             self.refresh_param_line(self.Current_line, config_key)
 
+        # save行：无需选中即可保存
         if self.Current_line == self.save_line_map.get(self.change_page_to, 0) and key == "right":
             self.save_data()
         
         gc.collect()
 
-    # 刷新当前页面（核心逻辑不变）
-    def refresh_current_page(self):
-        """仅刷新箭头区域"""
-        for i in range(self.Start_line, self.End_line + 1):
-            self.lcd.str16(self.ARROW_X, self.LineSpacing * i, "   ", 0xFFFF)
-        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", 0xFFFF)
-        self.need_refresh = False
-        gc.collect()
-
-    # 箭头控制（核心逻辑不变）
+    # 箭头控制（移动箭头时取消选中）
     def move_arrow(self, key):
-        """移动箭头位置"""
-        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "   ", 0xFFFF)
+        """移动箭头位置（移动时取消参数选中）"""
+        # 清空当前箭头
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "   ", self.COLOR_WHITE)
         
+        # 移动箭头
         if key == "up":
             self.Current_line = self.End_line if self.Current_line <= self.Start_line else self.Current_line - 1
         elif key == "down":
             self.Current_line = self.Start_line if self.Current_line >= self.End_line else self.Current_line + 1
         
-        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", 0xFFFF)
+        # 移动箭头时取消选中状态
+        self.is_param_selected = False
+        self.selected_line = None
+        
+        # 绘制新箭头（白色）
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", self.COLOR_WHITE)
         self.need_refresh = True
         gc.collect()
 
@@ -387,13 +501,13 @@ class Menu:
         """检测并处理8页页面切换"""
         if self.Current_line == self.End_line:
             if key == "left":
-                # 左翻：1→8，其他→-1
                 self.change_page_to = 8 if self.change_page_to == 1 else self.change_page_to - 1
             elif key == "right":
-                # 右翻：8→1，其他→+1
                 self.change_page_to = 1 if self.change_page_to == 8 else self.change_page_to + 1
             
             self.Current_line = 1
+            self.is_param_selected = False  # 翻页取消选中
+            self.selected_line = None
             self.last_change_page_to = self.change_page_to
             self.lcd.clear(0x0000)
             self.menu_switch()
@@ -402,21 +516,21 @@ class Menu:
             return True
         return False
 
-    # 页面显示（适配三位小数显示）
+    # 页面显示
     def _show_page(self, page_num):
         """通用页面绘制方法（无额外文本，适配三位小数）"""
         title, start_line, end_line = self.page_meta.get(page_num, ("", 1, 9))
         self.Start_line, self.End_line = start_line, end_line
         
-        # 清空标题行和步长行（扩展清空宽度）
+        # 清空标题行和步长行
         self.lcd.str16(0, 0, self.CLEAR_SPACES, 0x0000)
         self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
         
         # 绘制标题
         self.lcd.str16(self.TITLE_X, 0, title, 0xFFFF)
-        # 绘制步长（适配三位小数显示）
+        # 绘制步长
         step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"
-        self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)  # 左移x坐标
+        self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)
         
         # 绘制参数行
         data_lines = self.page_line_map.get(page_num, {})
@@ -433,24 +547,29 @@ class Menu:
             self.lcd.str16(0, self.LineSpacing * line_num, self.CLEAR_SPACES, 0x0000)
         
         if save_line:
-            self.lcd.str16(5, self.LineSpacing * save_line, "save", 0xFFFF)  # 左移x坐标
-        self.lcd.str16(5, self.LineSpacing * turn_line, "turn", 0xFFFF)  # 左移x坐标
+            self.lcd.str16(5, self.LineSpacing * save_line, "save", 0xFFFF)
+        self.lcd.str16(5, self.LineSpacing * turn_line, "turn", 0xFFFF)
         
         gc.collect()
 
-    # 页面切换（核心逻辑不变）
+    # 页面切换
     def menu_switch(self):
         """切换到指定页面"""
         self._show_page(self.change_page_to)
 
-    # 按键处理入口（核心逻辑不变）
+    # 按键处理入口
     def handle_key_from_interrupt(self, key):
-        """按键处理主入口"""
+        """按键处理主入口（适配中断）"""
         if not key:
             return
         
-        if key in ("up", "down"):
+        # 处理编码器按下（切换选中状态）
+        if key == "enc_press":
+            self.toggle_param_select()
+        # 处理up/down（移动箭头）
+        elif key in ("up", "down"):
             self.move_arrow(key)
+        # 处理left/right（编码器旋转，仅选中参数行可修改）
         elif key in ("left", "right"):
             if not self.detect_change_page(key):
                 self.data_processing(key)

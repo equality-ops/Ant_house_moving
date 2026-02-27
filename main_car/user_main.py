@@ -90,13 +90,14 @@ lcd.clear(0x0000)
 
 #采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
 end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_left = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_right = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+# key_left = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+# key_right = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_down = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+enc_key = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
-# 编码器实例化
-enc = encoder("C0" , "C1" )
+# 菜单编码器初始化
+enc_rotation = encoder("C0" , "C1" )
 
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
@@ -170,7 +171,7 @@ my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager,
 # my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, lcd, enc_rotation, enc_key)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -641,7 +642,7 @@ def time_pit2_handler(timer):  # 避免用time做参数名（和标准库重名�
     """用于无线串口调试和菜单控制（中断回调函数）"""
     # 发车启动函数
     main_start()
-    
+ 
     # 读取按键（中断中避免阻塞，快速返回）
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
