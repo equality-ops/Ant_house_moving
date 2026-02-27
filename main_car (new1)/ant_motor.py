@@ -308,9 +308,10 @@ class AnglePositionPID(ControlPID):
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
         self.__angle_integral_limitmax = self.flash_sys.find_value("angle_integral_limitmax")      # type: float
-        self.__pwmout_limitmax = self.flash_sys.find_value("angle_pwmout_limitmax")    # type: float
+        self.high_pwmout_limitmax = self.flash_sys.find_value("high_angle_pwmout_limitmax")    # type: float
+        self.low_pwmout_limitmax = self.flash_sys.find_value("low_angle_pwmout_limitmax")    # type: float
+        self.pwmout_limitmax = self.high_pwmout_limitmax
         
-
     def compute_pid(self, target: float, actual: float):
         self.target = target
         self.actual = actual
@@ -332,7 +333,7 @@ class AnglePositionPID(ControlPID):
         self.pwm_output = self.kp * self.nowError + self.ki * self.integral + self.kd * self.derivative
 
         # pwm_output限幅
-        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
+        self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
 
 # 视觉伺服PD

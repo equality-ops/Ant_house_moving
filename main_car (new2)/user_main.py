@@ -58,15 +58,15 @@ my_uart3.init(115200)
 # my_uart3.write("hello\r\n")
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("D15", "D16", True)
-encoder_ur = encoder("C2" , "C3" , False)
-encoder_md = encoder("D13", "D14", False)
+encoder_ul = encoder("D13", "D14", False)
+encoder_ur = encoder("D15", "D16", True)
+encoder_md = encoder("C2" , "C3" , False)
 
 # IMU初始化
 imu = IMU660RX()
@@ -236,9 +236,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(-400, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(-400, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(-400, pose_data.encoder_data_md)
+    # motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(400, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -337,7 +337,7 @@ def test_vision_servo():
 # 边线校准测试函数
 def test_boundary_calibration():
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, -20.0], [160.0, 240.0]], 0.0)
+        my_plan.navigate([[160.0, -20.0], [160.0, 240.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             # 测试
@@ -587,16 +587,16 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
-    """
+    
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, -20.0]], 120.0)
+        my_plan.navigate([[180.0, 0.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-"""
+
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
@@ -606,7 +606,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    test_boundary_calibration()
+    # test_boundary_calibration()
     # test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
@@ -630,7 +630,7 @@ def time_pit2_handler(time):
 
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
@@ -651,6 +651,8 @@ def time_pit2_handler(time):
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
+    # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
+
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
@@ -723,7 +725,7 @@ def pit3_start():
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
-voltage_detect(11.6)
+voltage_detect(11.4)
 
 # 屏幕测试程序
 # ant_menu.Menu_First()

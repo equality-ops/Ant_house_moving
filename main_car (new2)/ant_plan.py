@@ -135,7 +135,8 @@ class Plan:
         # 标志位
         self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
         self.if_pass_transit_point = False # type: bool  # 判断是否到达过渡点标志位
-        self.transition_flag = True     # type: bool  # 判断是否过渡完成标志位
+        self.transition_flag = False    # type: bool  # 判断是否过渡完成标志位
+        self.if_finish_turn = False        # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False       # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
@@ -283,7 +284,7 @@ class Plan:
 
         # 进行避障路径规划
         self.current_path = self.path_planning(x, y)
-        
+
         # 理想条件下的目标坐标
         self.ideal_target_x = x
         self.ideal_target_y = y
@@ -296,8 +297,11 @@ class Plan:
             dx = self.ideal_target_x - self.my_car.x_current
             dy = self.ideal_target_y - self.my_car.y_current
         
-        blurry_yaw = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI  # 计算大致航向角，单位：度
-                
+        blurry_yaw = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI - self.my_car.now_yaw * 180.0 / self.MATH.PI  # 计算大致航向角，单位：度
+        if blurry_yaw > 180.0:
+            blurry_yaw -= 360.0
+        elif blurry_yaw < -180.0:
+            blurry_yaw += 360.0
         # 根据大致航向角选择合适的坐标修正量（解决因惯性造成的打滑问题）
         if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
             self.error_correct_x = 0.0
@@ -404,7 +408,7 @@ class Plan:
 
         self.rest_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
         # 当剩余距离小于阈值时，推断小车已经到达目标点
-        if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 1.0 and self.if_pass_transit_point == True:
+        if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 0.5 and self.if_pass_transit_point == True:
             self.arrive_flag = True
             self.transition_flag = False
             # self.my_uart3.write("arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
@@ -571,6 +575,7 @@ class Plan:
         if self.plan_data.time_counter >= self.plan_data.plan_point_transition_T:
             self.plan_data.time_counter = 0
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
+            # 进行里程计的硬复位
             self.my_car.x_current = self.ideal_target_x
             self.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
@@ -583,52 +588,71 @@ class Plan:
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
     def navigate(self, path: list, target_turn_angle = None):
-        if self.if_set_path == False and self.finish_navigate == False:
+        # 先进行转角调整使得路径规划与导航更稳定
+        if self.if_finish_turn == False and self.finish_navigate == False:
+            if target_turn_angle is not None:
+                self.v_target = 0
+                self.turn_angle_target = target_turn_angle
+                # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
+                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax
+            else:
+                self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
+                self.if_finish_turn = True  # 如果没有目标转角，直接认为转角调整完成
+                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
+            # 在未完成转角调整时，持续进行转角调整
+            if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 0.5:
+                self.if_finish_turn = True
+                # 恢复正常的角度环限幅
+                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+
+        if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化
             self.path_points = path
             self.if_set_path = True
             self.plan_data.aimed_point_index = 0
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
-            self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
-            if target_turn_angle is not None:
-                self.compute_turn_angle_target(target_turn_angle)
-        # 判断是否还有未到达的目标点
-        if self.plan_data.aimed_point_index < len(self.path_points):
-            # 判断是否到达下一个目标点
-            if self.arrive_flag == False:
-                self.update_distance()
-                if self.arrive_flag == True:
-                    # 到达目标点后，更新目标点索引
-                    self.plan_data.aimed_point_index += 1
-                    # 进行路径过渡
-                    self.path_transition()   
-                else:
-                    # 计算目标航向角
-                    self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])       
-            else:
-                # 判断此时是否完成路径过渡
-                if self.transition_flag == False:
-                    self.path_transition()
-                else:
-                    # 如果还有下一个目标点，设置下一个目标点坐标
-                    if self.plan_data.aimed_point_index < len(self.path_points):
-                        self.set_target_point(self.path_points[self.plan_data.aimed_point_index][0], self.path_points[self.plan_data.aimed_point_index][1])
-                        # 计算目标航向角
-                        self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
-
+            self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])  
+        # 规划好路径后再进行导航
+        if self.if_set_path == True:
+            # 判断是否还有未到达的目标点
+            if self.plan_data.aimed_point_index < len(self.path_points):
+                # 判断是否到达下一个目标点
+                if self.arrive_flag == False:
+                    self.update_distance()
+                    if self.arrive_flag == True:
+                        # 到达目标点后，更新目标点索引
+                        self.plan_data.aimed_point_index += 1
+                        # 进行路径过渡
+                        self.path_transition()   
                     else:
-                        self.stop()
-        else:
-            self.stop()
-            # 测试
-            # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y
-            self.dec_speed_index = 0
-            self.path_points.clear()
-            self.if_set_path = False
-            self.finish_navigate = True
+                        # 计算目标航向角
+                        self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])       
+                else:
+                    # 判断此时是否完成路径过渡
+                    if self.transition_flag == False:
+                        self.path_transition()
+                    else:
+                        # 如果还有下一个目标点，设置下一个目标点坐标
+                        if self.plan_data.aimed_point_index < len(self.path_points):
+                            self.set_target_point(self.path_points[self.plan_data.aimed_point_index][0], self.path_points[self.plan_data.aimed_point_index][1])
+                            # 计算目标航向角
+                            self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])
+                        else:
+                            self.stop()
+            else:
+                self.stop()
+                # 测试
+                # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
+                self.my_car.x_current = self.ideal_target_x
+                self.my_car.y_current = self.ideal_target_y
+                self.if_finish_turn = False
+                self.dec_speed_index = 0
+                self.path_points.clear()
+                self.if_set_path = False
+                self.transition_flag = False
+                self.finish_navigate = True
 
     """
     # 主车战术导航
