@@ -23,7 +23,7 @@ class beep:
             return 
         elif self.beep_state == self.BEEP_ON:
             return 
-        
+
     def key_test(self) -> None:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON
@@ -76,10 +76,10 @@ class UARTProtocol:
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
-        self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
+        self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待物体种类, 5:等待帧尾
         self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
         self.angle_list = []  # 用于缓存矫正角度信息
-        self.coordinate_buffer = [0, 0, 0, 0, 0]
+        self.coordinate_buffer = [0, 0, 0, 0, 0, 0]
         self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
 
@@ -108,16 +108,20 @@ class UARTProtocol:
             elif self.state_coordinate == 3:  # 接收y
                 self.coordinate_buffer[3] = byte
                 self.state_coordinate = 4
+
+            elif self.state_coordinate == 4:  # 接收物体种类
+                self.coordinate_buffer[4] = byte
+                self.state_coordinate = 5
                 
-            elif self.state_coordinate == 4:  # 等待帧尾
+            elif self.state_coordinate == 5:  # 等待帧尾
                 if byte == 0x5B:
-                    self.coordinate_buffer[4] = byte
+                    self.coordinate_buffer[5] = byte
                     # 完整帧接收完成
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
                     self.state_coordinate = 0  # 重置状态
                     # 若解析成功清空缓冲区
                     byte = self.my_uart.read(self.my_uart.any()) 
-                    return (x, y)
+                    return (x, y, self.coordinate_buffer[4])
                 else:
                     self.state_coordinate = 0  # 帧尾错误，重新同步
         
@@ -168,64 +172,169 @@ class LinkProtocol:
         self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
         self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
-    
-    # 用于主车向从车发送规划好的路径坐标点
-    def send_path(self, path_points):
-        """
-        发送路径点列表 (非阻塞)
-        格式: #P,120.5,80.1;130.2,90.3;140.0,100.0!
-        :param path_points: [(x1, y1), (x2, y2), ...]
-        """
-        point_strs = ["{:.1f},{:.1f}".format(x, y) for x, y in path_points]
-        packet = "#P," + ";".join(point_strs) + "!"
-        self.my_uart3.write(packet.encode('utf-8'))
 
-    # 用于主车向从车发送坐标和当前状态数据的接口
-    def send_pose(self, role_prefix, x, y, yaw, turn_angle, state):
-        """
-        发送数据包 (非阻塞)
-        格式: #M,120.5,80.1,90.5,20.0,1!
-        :param role_prefix: 'M' (主车) 或 'S' (从车)
-        :param x, y, yaw: 浮点坐标
-        :param state: 整数状态
-        """
-        # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频率
-        packet = "#{:s},{:.1f},{:.1f},{:.1f},{:.1f},{:d}!".format(
-            role_prefix, x, y, yaw, turn_angle, state
-        )
-        self.my_uart3.write(packet.encode('utf-8'))
-        
-    # 向从车发送开始信息
-    def send_start(self):
-        self.my_uart3.write('S'.encode('utf-8'))
+    # 用于从车向主车发送当前状态数据的接口
+    def send_slave_state(self, state):
+        if state == "ready":
+            self.my_uart3.write('R'.encode('utf-8'))
+        elif state == "lost":
+            self.my_uart3.write('L'.encode('utf-8'))
+        elif state == "finish":
+            self.my_uart3.write('F'.encode('utf-8'))
+        elif state == "get":
+            self.my_uart3.write('G'.encode('utf-8'))
 
-    def get_slave_state(self):
-        """
-        解析从车状态包 (非阻塞)
-        包格式: 'R' (ready), 'L' (lost), 'F' (finish), 'G' (get) 等单字节状态指令
-        :return: 'ready', 'lost', 'finish', 'get' 或 None
-        """
+    # 用于从车解析主车发送的开始信号
+    def get_start_signal(self):
         if self.my_uart3.any():
             try:
                 byte = self.my_uart3.read(1)[0]
-                if byte == ord('R'):
+                if byte == ord('S'):
                     byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "ready"
-                elif byte == ord('L'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "lost"
-                elif byte == ord('F'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "finish"
-                elif byte == ord('G'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return "get"
-                else:
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return None
+                    return True
             except:
+                pass
+        return False
+    
+    # 用于从车解析主车发送的坐标和当前状态数据的接口
+    def get_latest_valid_data(self, target_prefix):
+        """
+        贪婪读取：只返回缓冲区中【最后一个】完整的有效包
+        :param target_prefix: 期望读取的包头 ('M' 或 'S')
+        :return: [x, y, yaw, turn_angle, state] 或 None
+        """
+        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
+        if self.my_uart3.any():
+            try:
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
+            except:
+                pass # 忽略读取错误
+        
+        # 如果缓冲区为空，直接返回
+        if not self.raw_buffer:
+            return None
+
+        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 3. 寻找包尾 '!' (寻找最后一个，保证最新)
+        # rfind 从右边（最新）开始找
+        self.end_idx = self.raw_buffer.rfind(b'!')
+        
+        if self.end_idx == -1:
+            return None # 没有完整的包尾，等待下次数据
+
+        # 4. 寻找匹配的包头 '#' (在包尾之前找)
+        # 构造目标头，例如 b'#M'
+        start_tag = ("#" + target_prefix).encode('utf-8')
+        self.start_idx = self.raw_buffer.rfind(start_tag, 0, self.end_idx)
+
+        if self.start_idx == -1:
+            # 有尾无头，说明数据错位或头部还在传输中
+            # 策略：保留 end_idx 之后的数据（可能是下一个包的开头），前面的全是垃圾
+            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+            return None
+
+        # 5. 提取核心负载
+        # payload_bytes 如: b',120.5,80.1,90.5,1'
+        # start_idx + len(start_tag) 跳过 "#M"
+        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
+        
+        # 6. 关键一步：消费缓冲区
+        # 我们已经拿到了最新的包，end_idx 之前的所有数据（包括旧包）都可以扔掉了
+        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+        # 7. 解析数据
+        try:
+            # 解码并按逗号分割并过滤掉可能的空字符串
+            parts = (payload_bytes.decode('utf-8')).strip(',').split(',')
+            
+            if len(parts) == 5:
+                return [float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3]), int(parts[4])]
+            else:
+                return None # 字段数量不对（可能是粘包严重导致的残损）
+        except:
+            return None # 浮点转换失败或解码失败
+        
+
+    # 用于从车解析主车发送的路径坐标点
+    def get_path_list(self):
+        """
+        尝试解析主车发送的路径包
+        发送格式: #P,120.5,80.1;130.2,90.3!
+        :return: 解析成功返回 list [(x1, y1), (x2, y2)...]; 未收到或解析失败返回 None
+        """
+        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
+        if self.my_uart3.any():
+            try:
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
+            except:
+                pass # 忽略读取错误
+        
+        # 如果缓冲区为空，直接返回
+        if not self.raw_buffer:
+            return None
+        
+        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 3. 寻找包尾 '!'
+        self.end_idx = self.raw_buffer.find(b'!')
+        if self.end_idx == -1:
+            return None # 数据还没传完，继续等待
+
+        # 4. 寻找包头 '#P,'
+        start_tag = b'#P,'
+        # 只在 end_idx 之前找，防止跨包
+        self.start_idx = self.raw_buffer.find(start_tag, 0, self.end_idx)
+
+        if self.start_idx == -1:
+            # 有尾巴没头，说明头已经被挤出缓冲区或者数据错乱
+            # 清理掉这个废弃的尾巴
+            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+            return None
+
+        # 5. 提取中间的纯数据段
+        # payload_bytes 如: b'120.5,80.1;130.2,90.3'
+        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
+        
+        # 6. 消费缓冲区 (清理掉已读取的这个包)
+        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+
+        # 7. 纯字符串解析逻辑
+        try:
+            payload_str = payload_bytes.decode('utf-8')
+            # 此时 payload_str = "120.5,80.1;130.2,90.3"
+            
+            final_path = []
+            
+            # 第一刀：按分号切开各个点
+            points_str_list = payload_str.split(';')
+            
+            for p_str in points_str_list:
+                # 过滤空字符串 (防止结尾多写了一个分号导致最后是空的)
+                if not p_str: continue 
+                
+                # 第二刀：按逗号切开 x 和 y
+                coords = p_str.split(',')
+                
+                if len(coords) == 2:
+                    x = float(coords[0])
+                    y = float(coords[1])
+                    final_path.append((x, y))
+            
+            if len(final_path) > 0:
+                return final_path
+            else:
                 return None
-        else:
+                
+        except Exception as e:
+            # print("解析路径异常:", e)
             return None
 
 # 数学常量类
@@ -320,6 +429,6 @@ if __name__ == "__main__":
         print(f"{key} = {value} (Type: {type(value).__name__})")
 
     # 检测phase_config函数
-    print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
-    print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
+    print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, 'encouder_l_normal_kp')}")
+    print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, 'encouder_l_normal_ks')}")
 """
