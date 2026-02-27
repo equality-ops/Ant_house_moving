@@ -127,7 +127,7 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroy = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -139,16 +139,16 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(6)
+car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 # 创建主车正余弦滑动平均滤波器对象
-sin_diff_fil = ant_motor.SlipAveragingFilter(40)
-cos_diff_fil = ant_motor.SlipAveragingFilter(40)
+sin_diff_fil = ant_motor.SlipAveragingFilter(50)
+cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
 sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -236,9 +236,9 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(200, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(400, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -319,12 +319,14 @@ def test_vision_servo():
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.SERVO
+            # 测试
+            my_beep.test()
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡400ms防止惯性过冲
-            if counter >= 40:
+            if counter >= 1000:
                 counter = 0
                 my_state.state = my_state.RETURN
                 # 重置标志位
@@ -346,12 +348,10 @@ def test_vision_servo():
 # 边线校准测试函数
 def test_boundary_calibration():
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, -20.0], [160.0, 240.0]], 180.0)
+        my_plan.navigate([[160.0, -20.0], [320.0, 120.0], [90.0, 120.0], [0.0, 0.0], [160.0, 40.0], [320.0, 240.0], [160.0, 260.0]], 	0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
-            # 测试
-            # my_state.state = my_state.CALIBRATE
-            my_state.state = my_state.RETURN
+            my_state.state = my_state.CALIBRATE
             my_beep.test()
     elif my_state.state == my_state.CALIBRATE:
         my_plan.boundary_calibrate_control()
@@ -595,23 +595,22 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
-    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 0.0]], 180.0)
+        my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-        """
+    
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -638,7 +637,7 @@ def time_pit2_handler(time):
 
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
@@ -648,13 +647,13 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
         
     # 角度环输出
-    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
+    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
     # imu原始数据
     # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                           
     # 里程计：
-    # my_uart3.write(f"{my_plan.target_yaw}\n")
+    # my_uart3.write(f"{my_plan.turn_angle_target}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
@@ -677,7 +676,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+    my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
