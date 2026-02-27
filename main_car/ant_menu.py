@@ -3,7 +3,7 @@ import gc
 import os
 
 class Menu:
-    def __init__(self, flash_sys, beep, key_up, key_down, key_left, key_right, lcd):   
+    def __init__(self, flash_sys, beep, key_up, key_down, lcd, encoder):   
         # 所有参数强制转为浮点数，避免类型错误
         self.config = {
             # PID 参数
@@ -116,13 +116,14 @@ class Menu:
         self.flash_sys = flash_sys
         self.beep = beep
         self.lcd = lcd
-        self.keys = {"up": key_up, "down": key_down, "left": key_left, "right": key_right}
+        self.encoder = encoder
+        self.keys = {"up": key_up, "down": key_down}
 
         # 菜单核心配置（统一管理）
         self.change_page_to = 1
         self.Current_line = 1  # 初始箭头在第一行
         self.Start_line, self.End_line = 1, 9
-        self.KEY_NAMES = {"left": "left", "right": "right", "up": "up", "down": "down"}
+        self.KEY_NAMES = {"up": "up", "down": "down"}
         # 步长列表：新增0.001、0.01，按从小到大排序
         self.step_values = (0.001, 0.01, 0.1, 1.0, 5.0, 10.0, 100.0)  # 步长（元组更省内存）
         self.current_step_index = 0
@@ -136,6 +137,10 @@ class Menu:
 
         # 按键防抖时间戳
         self.key_timestamps = {k: 0 for k in self.KEY_NAMES.keys()}
+
+        # 编码器相关状态
+        self.last_enc_value = self.encoder.get() # 初始化为编码器当前值
+        
 
         # 状态标记：初始设置为True，确保首次绘制箭头
         self.last_change_page_to = self.change_page_to

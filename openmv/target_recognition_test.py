@@ -11,7 +11,7 @@ class Communicator:
         self.last_sent_x = 80
         self.last_sent_y = 60
 
-    def send_coordinate(self, x, y):
+    def send_coordinate(self, x, y, obj_type=''):
         if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             return #增加最小变化阈值（防抖）
 
@@ -32,7 +32,16 @@ class Communicator:
 
         self.last_sent_x = x_limited
         self.last_sent_y = y_limited
-        data = ustruct.pack("<BBBBB", 0xA5, 0xA6, x_limited, y_limited, 0x5B)
+
+        type_char = 0x00  # 初始值
+        if obj_type == 'red' or obj_type == 'blue':
+            type_char = ord('S')  # S的ASCII码
+        elif obj_type == 'green':
+            type_char = ord('T')  # T的ASCII码
+        elif obj_type == 'brown':
+            type_char = ord('B')  # B的ASCII码
+        
+        data = ustruct.pack("<BBBBBB", 0xA5, 0xA6, x_limited, y_limited, type_char, 0x5B)
         self.uart.write(data)
 
     def send_angle(self, angle):
@@ -343,6 +352,7 @@ while True:
         center = []  # 所有有效色块的中心坐标
         target_pos = None  # 最终要发送的目标坐标
         locked_blob = None  # 锁定的目标色块
+        target_color = ''
 
         # 分离棕色与其它色块
         brown_blobs = []
@@ -397,6 +407,7 @@ while True:
                 is_target_locked = True
                 locked_lost_count = 0
                 target_pos = (locked_target_cx, locked_target_cy)
+                target_color = max_y_color
                 locked_blob = max_y_blob
             # 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
             else:
@@ -416,6 +427,7 @@ while True:
                     locked_last_cx = best_cx
                     locked_last_cy = best_cy
                     locked_lost_count = 0
+                    target_color = locked_target_color
                     locked_blob = best_blob
                 else:
                     # 无有效同色目标，计数+1
@@ -430,6 +442,7 @@ while True:
         # 超过5帧解除锁定
         if is_target_locked and locked_lost_count >= LOCK_MAX_LOST_FRAMES:
             reset_lock_state()
+            target_color = ''
 
         if is_target_locked and locked_blob is not None:
             lock_cx = locked_blob.cx()
@@ -440,11 +453,17 @@ while True:
         # 锁定状态下仅发送锁定目标坐标，未锁定时按原有逻辑选y最大
         if is_target_locked and target_pos is not None:
             # 锁定状态：发送锁定目标坐标
-            communicator.send_coordinate(target_pos[0], target_pos[1])
+            communicator.send_coordinate(target_pos[0], target_pos[1], target_color)
         elif center:
             # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
-            communicator.send_coordinate(target[0], target[1])
+            for item in filtered_blobs_with_color:
+                blob = item[0]
+                color = item[1]
+                if blob.cx()  == target[0] and blob.cy() == target[1]:
+                    target_color = color
+                    break
+            communicator.send_coordinate(target[0], target[1], target_color)
 
     elif current_mode == MODE_BOUNDARY_UD:
         """

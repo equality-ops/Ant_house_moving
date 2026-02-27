@@ -72,7 +72,7 @@ encoder_md = encoder("C2" , "C3" , False)
 imu = IMU660RX()
 
 # tof深度传感器初始化
-tof = DL1X()
+# tof = DL1X()
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -90,18 +90,21 @@ lcd.clear(0x0000)
 
 #采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
 end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_up = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_left = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_left = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_right = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_down = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+
+# 编码器初始化
+enc = encoder("C0" , "C1" )
 
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
 my_beep = ant_else.beep(beep)
 
 #【文件读取】
-# 从slave_config.txt中读取保存所有的参数并保存到config字典中
-my_flash_sys = ant_else.flash_system(my_beep, "/flash/slave_config.txt")
+# 从main_config.txt中读取保存所有的参数并保存到config字典中
+my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
 
 # 创建数学常量对象
@@ -114,7 +117,7 @@ my_order_manager = ant_else.order_manager(my_uart6)
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
 # 创建主从车无线串口通信对象
-my_slave_protocol = ant_else.LinkProtocol(my_uart3)
+my_main_protocol = ant_else.LinkProtocol(my_uart3)
 
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
@@ -135,7 +138,9 @@ encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
-tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# 创建主车避障航向角滑动平均滤波器对象
+obstacle_yaw_fil = ant_motor.SlipAveragingFilter(10)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -159,10 +164,10 @@ my_state = ant_plan.StateMachine()
 plan_data = ant_plan.Plan_data(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol)
+my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager, my_uart3, my_beep, my_art_protocol, obstacle_yaw_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
+# my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, servo_yaw_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
@@ -174,6 +179,7 @@ def set_motor(motor, duty) -> None:
 # 是否成功读取文件和开启定时器检查函数
 def detect_if_normal() -> None:
     led.toggle()
+    my_beep.test()
 
 # 检测电源电压函数
 def voltage_detect(limit_min: float) -> None:
@@ -185,13 +191,15 @@ def voltage_detect(limit_min: float) -> None:
         my_beep.beep_warn()
 
 # tof传感器预热初始化函数
+"""
 def tof_init():
     for i in range(0, 30):
         tof.get()
         time.sleep_ms(5)
-
-# 用于从车启动的函数
-def slave_start():
+"""
+        
+# 用于主车启动的函数
+def main_start():
     global current_time, last_left_time, start_flag, if_press_start_key
     if start_flag == False:
         if if_press_start_key == False:
@@ -201,30 +209,28 @@ def slave_start():
                     last_left_time = current_time
                 elif time.ticks_diff(current_time, last_left_time) >= 50:
                     my_beep.test()
+                    my_main_protocol.send_start()
                     if_press_start_key = True
                     last_left_time = 0
                 else:
                     last_left_time = 0
-        else:         
-            if my_slave_protocol.get_start_signal():
-                # 向主车发送已经准备好了的信号，检查通信是否正常
-                my_slave_protocol.send_slave_state("ready")
-                my_beep.test()
-                my_state.state_work = 0
-                my_state.state = my_state.READY_NAVIGATE
-                start_flag = True
-                # 打开定时器1和3
-                pit1_start()
-                pit3_start()
-                # 检测是否正常初始化所有
-                detect_if_normal()
-    
+        else:   
+            # 测试，此时只调试主车      
+            # if my_main_protocol.get_slave_state() == "ready":
+            my_state.state_work = 0
+            my_state.state = my_state.READY_NAVIGATE
+            start_flag = True
+            # 打开定时器1和3
+            pit1_start()
+            pit3_start()
+            # 检测是否正常初始化所有
+            detect_if_normal()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    motor_ul_pid.compute_pid(550, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(550, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(550, pose_data.encoder_data_md)
+    # motor_ul_pid.compute_pid(600, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(600, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(650, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -260,14 +266,14 @@ def test_odometer():
     global test_stage
     global count
     if count == 0:
-        if my_car.x_current <= 300.0 and test_stage == 0:
-            my_car.move_ctrl(300, 90, 90)
+        if my_car.x_current <= 150.0 and test_stage == 0:
+            my_car.move_ctrl(300, 90, 0)
             return
-        elif my_car.y_current >= -300.0 and test_stage == 1:
-            my_car.move_ctrl(300, 180, 90)
+        elif my_car.y_current >= -150.0 and test_stage == 1:
+            my_car.move_ctrl(300, 180, 0)
             return
         elif my_car.x_current >= 0.0 and test_stage == 2:
-            my_car.move_ctrl(300, -90, -90)
+            my_car.move_ctrl(300, -90, 0)
             return
         elif my_car.y_current <= 0.0 and test_stage == 3:
             my_car.move_ctrl(300, 0, 0)
@@ -278,7 +284,7 @@ def test_odometer():
      
     my_car.move_ctrl(0, 0, 0)
     count += 1
-    if count == 50:
+    if count == 100:
         test_stage += 1
         count = 0
     
@@ -401,24 +407,134 @@ def test_orbit_control():
     elif my_state.state == my_state.STOP:
         pass
 
-# 测试从车接收主车发送的路径函数 
-def test_slave_receive_path():  
-    final_path = my_slave_protocol.get_path_list()
-    if final_path:
-        my_uart3.write("\r\nReceived path:\r\n")
+# 测试主车解析从车状态通信函数 
+def test_main_slave_communication():
+    slave_state = my_main_protocol.get_slave_state()
+    if slave_state:
+        my_uart3.write(f"Slave state: {slave_state}\n")
+        my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
+        # 测试
         my_beep.test()
-        for point in final_path:
-            my_uart3.write(f"{point}\r\n")
-    
+
+# 主从车协同导航测试函数
+def test_main_slave_collaborative_navigation():
+    if my_state.state == my_state.READY_NAVIGATE:
+        if my_plan.if_send_path == False:
+            my_main_protocol.send_path([[150.0, 100.0], [150.0, 200.0]])
+            my_plan.if_send_path = True
+        if my_main_protocol.get_slave_state() == "get":
+            my_plan.if_send_path = False
+            my_state.state = my_state.NAVIGATE
+            # 测试
+            my_beep.test()
+
+# 任务执行机
+def task_machine():
+    if my_state.state_work == 0:
+        if my_state.state == my_state.READY_NAVIGATE:
+            if my_plan.if_send_path == False:
+                my_main_protocol.send_path([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1] - 30.0]])
+                my_plan.if_send_path = True
+            if my_main_protocol.get_slave_state() == "get":
+                my_plan.if_send_path = False
+                my_state.state = my_state.NAVIGATE
+                # 测试
+                my_beep.test()
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.main_tactical_navigate([plan_data.fixed_point[1]], target_turn_angle=0.0)
+            # 向从车发送主车姿态
+            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.SCAN
+                # 测试
+                my_beep.test()
+        if my_state.state == my_state.SCAN:
+            plan_data.object = [[160.0, 100.0, 1]]  # [x, y, type]
+            my_state.state = my_state.NAVIGATE
+            my_state.state_work = 1
+    elif my_state.state_work == 1:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.main_tactical_navigate([plan_data.object[0][0], 55.0], target_turn_angle=0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.SERVO
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.SERVO:
+            my_vision_manager.visual_servo_control()
+            if my_vision_manager.finish_servo == True:
+                my_vision_manager.finish_servo = False
+                # 记录实际物体坐标和种类
+                plan_data.object_real = [my_car.x_current, my_car.y_current, plan_data.object[0][2]]
+                my_state.state = my_state.ORBIT
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.ORBIT:
+            if my_vision_manager.finish_orbit == False:
+                my_vision_manager.orbit_control(120.0)
+            else:
+                # 完成orbit后停止等待从车也完成环绕
+                my_vision_manager.orbit_speed = 0
+                if my_main_protocol.get_slave_state() == "finish":
+                    my_main_protocol.send_pose('M', plan_data.object_real[0], plan_data.object_real[1], my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
+                if my_main_protocol.get_slave_state() == "get":    
+                    my_state.state = my_state.STOP
+                    # 测试
+                    my_beep.test()
+        elif my_state.state == my_state.STOP:
+            my_plan.stop()
+            if my_main_protocol.get_slave_state() == "ready":
+                my_state.state = my_state.MOVE
+        elif my_state.state == my_state.MOVE:
+            # 让主车保持目前转角进行定向移动
+            my_plan.main_tactical_navigate([my_car.x_current, -20.0], my_car.now_yaw * 180 / MATH.PI)
+            # 向从车发送主车姿态
+            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
+            """保留从车丢失接口"""
+            if my_plan.finish_navigate == True and my_main_protocol.get_slave_state() == "finish":
+                my_plan.finish_navigate = False
+                my_state.state = my_state.CALIBRATE
+                my_state.state_work = 0
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.CALIBRATE:
+            my_plan.boundary_calibrate_control()
+            if my_plan.if_finish_calibrate == True:
+                my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle = False, False
+                my_state.state = my_state.READY_NAVIGATE
+                my_state.state_work = 2
+                # 测试
+                my_beep.test()
+    elif my_state.state_work == 2:
+            if my_state.state == my_state.READY_NAVIGATE:
+                if my_plan.if_send_path == False:
+                    my_main_protocol.send_path([[plan_data.fixed_point[0][0] - 20.0, plan_data.fixed_point[0][1]]])
+                    my_plan.if_send_path = True
+                if my_main_protocol.get_slave_state() == "get":
+                    my_plan.if_send_path = False
+                    my_state.state = my_state.RETURN
+                    # 测试
+                    my_beep.test()
+            elif my_state.state == my_state.RETURN:
+                my_plan.main_tactical_navigate([plan_data.fixed_point[0]], 0.0)
+                my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
+                if my_plan.finish_navigate == True:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.STOP
+                    # 测试
+                    my_beep.test()
+            elif my_state.state == my_state.STOP:
+                my_plan.stop()
+
 """ 定时器类 """
 # 定时器1中断回调函数
-# 用于底层的传感器信息采集和电机控制
 def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 350:
+    if motor_ul_pid.target >= 400:
         motor_ul_pid.set_pid_params(pid_data.ul_extreme_kp, pid_data.ul_extreme_ki, pid_data.ul_extreme_kd)
     elif motor_ul_pid.target >= 240:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -427,7 +543,7 @@ def time_pit1_handler(time):
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 350:
+    if motor_ur_pid.target >= 400:
         motor_ur_pid.set_pid_params(pid_data.ur_extreme_kp, pid_data.ur_extreme_ki, pid_data.ur_extreme_kd)
     elif motor_ur_pid.target >= 240:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
@@ -436,7 +552,7 @@ def time_pit1_handler(time):
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 350:
+    if motor_md_pid.target >= 400:
         motor_md_pid.set_pid_params(pid_data.md_extreme_kp, pid_data.md_extreme_ki, pid_data.md_extreme_kd)
     elif motor_md_pid.target >= 240:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
@@ -461,7 +577,7 @@ def time_pit1_handler(time):
     # complete_angle_circle()
     
     # 全向定位测试程序
-    # test_global_localization()
+    test_global_localization()
     
     #if my_car.x_crfrent <= 8.4:
      #   my_car.move_ctrl(60, 90, 0)
@@ -488,16 +604,22 @@ def time_pit1_handler(time):
 
 
 
-# 定时器3中断回调函数
-# 用于路径规划与速度规划计算
+# 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
+    # 任务执行机
+    # task_machine()
+
     # 测试主从车通信
-    test_slave_receive_path()
+    # test_main_slave_communication()
+    # test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
     # my_plan.navigate([[150.0, 100.0], [330.0, 150.0], [150.0, 200.0], [-30.0, 100.0], [0, 0]])
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
+    # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
+    # 战术避障
+    my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
+
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -512,14 +634,20 @@ def time_pit3_handler(time) -> None:
     # test_orbit_control()
     pass
 
-
+my_menu.last_change_page_to = my_menu.change_page_to
 # 定时器2中断回调函数
 # 用于无线串口调试和发车启动
-def time_pit2_handler(time):
-    """用于无线串口调试和发车启动"""
+def time_pit2_handler(timer):  # 避免用time做参数名（和标准库重名）
+    """用于无线串口调试和菜单控制（中断回调函数）"""
     # 发车启动函数
-    slave_start()
+    main_start()
     
+    # 读取按键（中断中避免阻塞，快速返回）
+    key = my_menu.read_key()
+    my_menu.handle_key_from_interrupt(key)
+    # 调试器测试
+
+
     # my_uart3.write("debug\r\n")
 
     # 视觉伺服
@@ -566,7 +694,6 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f}\n".format(pose_data.encoder_data_ul))
 
-    # 菜单集成函数，后续用调试器替代
     """
     key = my_menu.read_key()
     if key == None:
@@ -610,8 +737,8 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    pit3.capture_list(tof)
-    tof_init()
+    # pit3.capture_list(tof)
+    # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
@@ -627,7 +754,7 @@ pit2_start()
 
 # === 初始显示 ===
 my_menu.Menu_Page_1()
-my_menu.show_arrow() 
+my_menu.show_arrow()
 
 while True:
     # 屏幕测试程序
@@ -648,3 +775,4 @@ while True:
         break
 
     gc.collect()
+
