@@ -95,6 +95,9 @@ key_right = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_down = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
+# 编码器实例化
+enc = encoder("C0" , "C1" )
+
 """""""""创建对象"""""""""
 # 创建蜂鸣器对象
 my_beep = ant_else.beep(beep)
