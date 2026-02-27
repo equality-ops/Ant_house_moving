@@ -96,7 +96,7 @@ key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 key_down = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 enc_key = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
 
-# 编码器实例化
+# 菜单编码器初始化
 enc_rotation = encoder("C0" , "C1" )
 
 """""""""创建对象"""""""""

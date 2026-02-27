@@ -254,7 +254,7 @@ class Menu:
         return line_num in page_map.keys()
 
     def _format_param_display(self, config_key):
-        """通用参数格式化方法（改为三位小数显示）"""
+        """通用参数格式化方法（三位小数显示）"""
         short_name = self.param_short_name.get(config_key, config_key[:6])
         val = round(self.config[config_key], 3)  # 保留三位小数
         return f"{short_name:<6} : {val:8.3f}"
