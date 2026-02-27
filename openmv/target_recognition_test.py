@@ -4,6 +4,7 @@ from machine import UART
 from ulab import numpy as np
 import seekfree
 import ustruct
+from typing import Optional
 ###########################通信模块########################
 class Communicator:
     def __init__(self, uart):
@@ -11,7 +12,10 @@ class Communicator:
         self.last_sent_x = 80
         self.last_sent_y = 60
 
-    def send_coordinate(self, x, y, obj_type=''):
+    def send_coordinate(self, x, y, obj_type: Optional[str] = ''):
+        x = int(round(x))
+        y = int(round(y))
+
         if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             return #增加最小变化阈值（防抖）
 
@@ -40,11 +44,15 @@ class Communicator:
             type_char = ord('T')  # T的ASCII码
         elif obj_type == 'brown':
             type_char = ord('B')  # B的ASCII码
-        
+        elif obj_type == 'white':
+            type_char = ord('W')  # W的ASCII码
+
         data = ustruct.pack("<BBBBBB", 0xA5, 0xA6, x_limited, y_limited, type_char, 0x5B)
         self.uart.write(data)
 
     def send_angle(self, angle):
+        if angle is None:
+            return
         angle_mapped = angle + 90  # 映射到 0～180
         data = ustruct.pack("<BBBB", 0xA5, 0xA7, angle_mapped, 0x5B)
         self.uart.write(data)
@@ -56,6 +64,11 @@ class ColorDetector:
     GREEN_THRESHOLD = [(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)]
     BLUE_THRESHOLD = [(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)]
     BROWN_THRESHOLD = [(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)]
+    WHITE_THRESHOLD = []
+
+    # 定义中心采样区 (x, y, w, h)
+    # 针对 160x120 图像，取中心 40x30 区域
+    CENTER_ROI = (60, 45, 40, 30)
 
     # 距离阈值
     DISTANCE_THRESHOLD = 30
@@ -65,13 +78,27 @@ class ColorDetector:
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
     def detect_colors(self, img):
-        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=200, area_threshold=200, merge=True)
+        """
+        adjusted_brown = [self.auto_adjust_threshold(img, th) for th in self.BROWN_THRESHOLD]
+        adjusted_red = [self.auto_adjust_threshold(img, th) for th in self.RED_THRESHOLD]
+        adjusted_green = [self.auto_adjust_threshold(img, th) for th in self.GREEN_THRESHOLD]
+        adjusted_blue = [self.auto_adjust_threshold(img, th) for th in self.BLUE_THRESHOLD]
+
+        """
+        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
+        white_blobs = img.find_blobs(self.WHITE_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
         red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
         green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
         blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
-
+        """
+        brown_blobs = img.find_blobs(adjusted_brown, pixels_threshold=200, area_threshold=200, merge=True)
+        red_blobs   = img.find_blobs(adjusted_red,   pixels_threshold=30,  area_threshold=30,  merge=False)
+        green_blobs = img.find_blobs(adjusted_green, pixels_threshold=30,  area_threshold=30,  merge=False)
+        blue_blobs  = img.find_blobs(adjusted_blue,  pixels_threshold=30,  area_threshold=30,  merge=False)
+        """
         all_blobs = []
         for blob in brown_blobs: all_blobs.append((blob, 'brown'))
+        for blob in white_blobs: all_blobs.append((blob, 'white'))
         for blob in red_blobs:   all_blobs.append((blob, 'red'))
         for blob in green_blobs: all_blobs.append((blob, 'green'))
         for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
@@ -91,6 +118,8 @@ class ColorDetector:
             """
             if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
                 continue
+            if color == 'white' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
+                continue
             if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
                 continue
 
@@ -104,6 +133,29 @@ class ColorDetector:
             if keep:
                 filtered.append((blob, color))
         return filtered
+
+    def auto_adjust_threshold(self, img, base_threshold):
+        stats = img.get_statistics(roi = self.CENTER_ROI)
+        l_mean = stats.l_mean()
+
+        target_brightness = 50  # 目标亮度
+        brightness_diff = l_mean - target_brightness
+        adjust_factor = 0.3  # 0.1-0.5之间调整，越小越平滑
+        diff = brightness_diff * adjust_factor
+        dead_zone = 2  # 亮度在48-52之间时，不调整阈值
+        if abs(brightness_diff) < dead_zone:
+            diff = 0
+
+        l_low = base_threshold[0] + diff
+        l_high = base_threshold[1] + diff
+        l_low = max(0, min(100, l_low))
+        l_high = max(0, min(100, l_high))
+        # 保证l_low < l_high（避免阈值交叉导致曝光异常）
+        if l_low >= l_high:
+            l_low = max(0, l_high - 5)  # 至少保留5的阈值差
+
+        threshold_part = base_threshold[2:]
+        return (round(l_low), round(l_high)) + threshold_part  # 取整适配OpenART
 
 ########################边界检测模块######################
 class BoundaryDetector:
@@ -157,7 +209,7 @@ class BoundaryDetector:
             return None
 
 ######################棕色目标跟踪模块######################
-class BrownTracker:
+class KalmanTracker:
     MAX_LOST_FRAMES = 20
 
     def __init__(self):
@@ -217,7 +269,12 @@ class BrownTracker:
 
                 # 计算增益 K = P_pre*H.T / (H*P_pre*H.T + R)
                 S = np.dot(self.H, np.dot(P_pre, self.H.T)) + self.R
-                K = np.dot(P_pre, np.dot(self.H.T, np.linalg.inv(S)))
+                try:
+                    K = np.dot(P_pre, np.dot(self.H.T, np.linalg.inv(S)))
+                except np.linalg.LinAlgError:
+                    self.x_hat = x_pre
+                    self.P = P_pre
+                    return self.x_hat
 
                 # 更新状态 x_hat = x_pre + K*(z - H*x_pre)
                 self.x_hat = x_pre + np.dot(K, (z - np.dot(self.H, x_pre)))
@@ -256,7 +313,8 @@ lcd.full()
 # 创建模块实例
 color_detector = ColorDetector()
 boundary_detector = BoundaryDetector()
-brown_tracker = BrownTracker()
+brown_tracker = KalmanTracker()
+white_tracker = KalmanTracker()
 communicator = Communicator(uart)
 
 # 模式定义
@@ -266,9 +324,6 @@ MODE_BOUNDARY_LR = 2
 MODE_WAITING = 3
 current_mode = MODE_WAITING
 
-# 时间
-clock = time.clock()
-
 # 时间戳
 last_time = time.ticks_ms()
 
@@ -277,7 +332,7 @@ LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
 LOCK_MAX_LOST_FRAMES = 5  # 丢失5帧解除锁定
 # 锁定状态
 is_target_locked = False  # 是否锁定目标
-locked_target_color = None  # 锁定的目标颜色
+locked_target_color = ''  # 锁定的目标颜色
 locked_target_cx = 80  # 锁定目标的初始x坐标
 locked_target_cy = 60  # 锁定目标的初始y坐标
 locked_last_cx = 80  # 上一帧锁定目标的x坐标
@@ -289,7 +344,7 @@ def reset_lock_state():
     global is_target_locked, locked_target_color, locked_target_cx, locked_target_cy
     global locked_last_cx, locked_last_cy, locked_lost_count
     is_target_locked = False
-    locked_target_color = None
+    locked_target_color = ''
     locked_target_cx = 80
     locked_target_cy = 60
     locked_last_cx = 80
@@ -333,20 +388,25 @@ while True:
         continue
 
     elif current_mode == MODE_TARGET:
+        """
         LED(2).on()
         LED(2).off()
+        """
+        # LED(4).off()
+        # LED(4).on()
         # 色块检测与筛选
         all_blobs_with_color = color_detector.detect_colors(img)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
         # 绘制颜色映射
         draw_colors = {
-            'red': (255, 0, 0),
-            'green': (0, 255, 0),
-            'blue': (0, 0, 255),
-            'brown': (255, 255, 255),
-            'grey': (100, 100, 100),
-            'black': (0, 0, 0)
+            'red': (255, 0, 0), # 红色沙包
+            'green': (0, 255, 0), # 网球
+            'blue': (0, 0, 255), # 蓝色沙包
+            'white': (255, 255, 255), # 白色玩具熊
+            'grey': (100, 100, 100), # 卡尔曼框
+            'black': (0, 0, 0), # 锁定标识
+            'brown': (150, 75, 0) # 棕色玩具熊
         }
 
         center = []  # 所有有效色块的中心坐标
@@ -354,14 +414,17 @@ while True:
         locked_blob = None  # 锁定的目标色块
         target_color = ''
 
-        # 分离棕色与其它色块
+        # 分离棕色白色与其它色块
         brown_blobs = []
+        white_blobs = []
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
+            elif color == 'white':
+                white_blobs.append(blob)
             else:
                 other_blobs.append((blob, color))
 
@@ -377,7 +440,7 @@ while True:
             brown_state = brown_tracker.kalman_filter(brown_pos, Ts)
             if brown_tracker.first_detected and brown_tracker.lost_count < brown_tracker.MAX_LOST_FRAMES:
                 kcx, kcy = int(brown_state[0]), int(brown_state[1])
-                center.append((kcx, kcy))
+                center.append((kcx, kcy, 'brown'))
                 img.draw_rectangle(kcx - brown_tracker.last_w//2, kcy - brown_tracker.last_h//2,
                                    brown_tracker.last_w, brown_tracker.last_h, color=draw_colors['grey'])
                 img.draw_cross(kcx, kcy, color=draw_colors['grey'])
@@ -386,13 +449,34 @@ while True:
             if brown_tracker.lost_count >= brown_tracker.MAX_LOST_FRAMES:
                 brown_tracker.reset()
 
+        # 处理白色色块
+        if white_blobs:
+            target_white = max(white_blobs, key=lambda b: b.area())
+            white_pos = (target_white.cx(), target_white.cy())
+            white_tracker.last_w = target_white.w()
+            white_tracker.last_h = target_white.h()
+            img.draw_rectangle(target_white.rect(), color=draw_colors['white'])
+            img.draw_cross(target_white.cx(), target_white.cy(), color=draw_colors['white'])
+            # 白色目标卡尔曼滤波
+            white_state = white_tracker.kalman_filter(white_pos, Ts)
+            if white_tracker.first_detected and white_tracker.lost_count < white_tracker.MAX_LOST_FRAMES:
+                kcx, kcy = int(white_state[0]), int(white_state[1])
+                center.append((kcx, kcy, 'white'))
+                img.draw_rectangle(kcx - white_tracker.last_w//2, kcy - white_tracker.last_h//2,
+                                   white_tracker.last_w, white_tracker.last_h, color=draw_colors['grey'])
+                img.draw_cross(kcx, kcy, color=draw_colors['grey'])
+        else:
+            white_tracker.kalman_filter(None, Ts)
+            if white_tracker.lost_count >= white_tracker.MAX_LOST_FRAMES:
+                white_tracker.reset()
+
         # 处理其他颜色色块
         for item in other_blobs:
             blob = item[0]
             color_name = item[1]
             img.draw_rectangle(blob.rect(), color=draw_colors[color_name])
             img.draw_cross(blob.cx(), blob.cy(), color=draw_colors[color_name])
-            center.append((blob.cx(), blob.cy()))
+            center.append((blob.cx(), blob.cy(), color_name))
 
         # 锁定处理
         if filtered_blobs_with_color:
@@ -422,7 +506,7 @@ while True:
                 if valid_blobs:
                     # 选同色目标中最接近初始锁定位置的
                     best_blob, best_cx, best_cy = min(valid_blobs,
-                        key=lambda item: math.sqrt((item[1]-locked_target_cx)**2 + (item[2]-locked_target_cy)**2))
+                        key=lambda item: math.sqrt((item[1]-locked_last_cx)**2 + (item[2]-locked_last_cy)**2))
                     target_pos = (best_cx, best_cy)
                     locked_last_cx = best_cx
                     locked_last_cy = best_cy
@@ -457,13 +541,10 @@ while True:
         elif center:
             # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
-            for item in filtered_blobs_with_color:
-                blob = item[0]
-                color = item[1]
-                if blob.cx()  == target[0] and blob.cy() == target[1]:
-                    target_color = color
-                    break
-            communicator.send_coordinate(target[0], target[1], target_color)
+            target_x = target[0]
+            target_y = target[1]
+            target_color = target[2]
+            communicator.send_coordinate(target_x, target_y, target_color)
 
     elif current_mode == MODE_BOUNDARY_UD:
         """
@@ -484,3 +565,4 @@ while True:
             communicator.send_angle(angle)
 
     lcd.show_image(img, 160, 120, zoom=0)
+    # print(clock.fps())
