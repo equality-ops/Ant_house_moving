@@ -576,8 +576,9 @@ class Plan:
             self.plan_data.time_counter = 0
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
             # 进行里程计的硬复位
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y	
+            if self.if_finish_turn == True:
+                self.my_car.x_current = self.ideal_target_x
+                self.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
 
     # 停止小车运动
@@ -601,10 +602,13 @@ class Plan:
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
             # self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
             # 在未完成转角调整时，持续进行转角调整
-            if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 0.5:
-                self.if_finish_turn = True
-                # 恢复正常的角度环限幅
-                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 1.0:
+                if self.transition_flag == False:
+                    self.path_transition()
+                else:
+                    self.if_finish_turn = True
+                    # 恢复正常的角度环限幅
+                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化
@@ -782,7 +786,6 @@ class Plan:
                     # self.calibrate_angle = sum(self.my_art_protocol.angle_list) / len(self.my_art_protocol.angle_list)
                     # self.turn_angle_target += self.calibrate_angle * 2 / 3
                     # 进行里程计矫正处理
-                    """
                     if self.my_car.x_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_LEFT:
                         self.my_car.x_current = 0.0
                     elif self.my_car.x_current >= 270.0 and self.car_position == self.plan_data.BOUNDARY_RIGHT:
@@ -791,7 +794,6 @@ class Plan:
                         self.my_car.y_current = 240.0
                     elif self.my_car.y_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_DOWN:
                         self.my_car.y_current = 0.0
-                    """
                     self.my_order_manager.finish()
                     self.if_gain_calibrate_angle = True 
                     # 若获得角度则跳过定位过渡阶段直接进行转角调整
@@ -896,7 +898,11 @@ class VisionManager:
         # 计算目标航向角
     def compute_target_rel_yaw(self):
         # 计算目标角度，单位：度（注意避免除以0）
-        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
+        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI - self.target_rel_turn_angle
+        if self.target_rel_yaw > 180.0:
+            self.target_rel_yaw -= 360.0
+        elif self.target_rel_yaw < -180.0:
+            self.target_rel_yaw += 360.0
 
     # 计算小车需要转向的角度（一般为0）
     def compute_target_rel_turn_angle(self, turn_angle_target: float):

@@ -48,7 +48,6 @@ angle_normal_kd = 24.0
 integral_limitmax = 14000
 pwmout_limitmax = 8000
 angle_integral_limitmax = 1200
-angle_pwmout_limitmax = 400
 high_angle_pwmout_limitmax = 600
 low_angle_pwmout_limitmax = 150
 # A设置为B的2倍左右

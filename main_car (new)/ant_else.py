@@ -76,10 +76,10 @@ class UARTProtocol:
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
-        self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待帧尾
+        self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待物体种类, 5:等待帧尾
         self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
         self.angle_list = []  # 用于缓存矫正角度信息
-        self.coordinate_buffer = [0, 0, 0, 0, 0]
+        self.coordinate_buffer = [0, 0, 0, 0, 0, 0]
         self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
 
@@ -108,16 +108,20 @@ class UARTProtocol:
             elif self.state_coordinate == 3:  # 接收y
                 self.coordinate_buffer[3] = byte
                 self.state_coordinate = 4
+
+            elif self.state_coordinate == 4:  # 接收物体种类
+                self.coordinate_buffer[4] = byte
+                self.state_coordinate = 5
                 
-            elif self.state_coordinate == 4:  # 等待帧尾
+            elif self.state_coordinate == 5:  # 等待帧尾
                 if byte == 0x5B:
-                    self.coordinate_buffer[4] = byte
+                    self.coordinate_buffer[5] = byte
                     # 完整帧接收完成
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
                     self.state_coordinate = 0  # 重置状态
                     # 若解析成功清空缓冲区
                     byte = self.my_uart.read(self.my_uart.any()) 
-                    return (x, y)
+                    return (x, y, self.coordinate_buffer[4])
                 else:
                     self.state_coordinate = 0  # 帧尾错误，重新同步
         
