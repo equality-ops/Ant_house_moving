@@ -22,21 +22,16 @@ class Plan_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1]为扫描起始点
-        self.fixed_point = [[40.0, -10.0], [110.0, 55.0]]  # type: list
-        
+        # fixed_point[0]为主车起点，fixed_point[1][2][3][4]分别为矩形区域下、左、上、右扫描起始点，[5][6][7][8]分别为矩形区域下、左、上、右扫描结束点
+        self.fixed_point = [[40.0, -10.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]
-        
         # 目标物品坐标及种类信息
-        # 1为网球， 2为红色沙袋， 3为蓝色沙袋，4为玩具熊
+        # 'T'为网球， 'S'为沙袋，'B'为玩具熊
         self.object = []    # type: list
-        
         # 实际的物体坐标
         self.object_real = []   # type: list    
-        
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
@@ -55,7 +50,7 @@ class Plan_data:
         self.SHORT_DISTANCE = 2
 
 class Plan:
-    def __init__(self, flash_sys, plan_data: Plan_data, math, car, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
+    def __init__(self, flash_sys, plan_data: Plan_data, math, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -64,6 +59,8 @@ class Plan:
         self.MATH = math
         # 注入小车位置对象
         self.my_car = car
+        # 注入状态机对象
+        self.my_state = state
         # 注入无线通信对象
         self.my_uart3 = my_uart3
         # 注入指令管理对象
@@ -82,6 +79,8 @@ class Plan:
         self.long_v_max = self.flash_sys.find_value("long_v_max")           # type: int  # 长距离时的最大速度
         self.short_v_max = self.flash_sys.find_value("short_v_max")          # type: int  # 短距离时的最大速度
         self.transit_v = self.flash_sys.find_value("transit_v")              # type: int  # 过渡阶段速度
+        self.move_v_max = self.flash_sys.find_value("move_v_max")          # type: int  # 搬运物品时的最大速度
+        self.scan_v_max = self.flash_sys.find_value("scan_v_max")          # type: int  # 扫描时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
         self.DEC = 3                    # type: int  # 减速阶段标志位
@@ -281,9 +280,13 @@ class Plan:
     def set_target_point(self, x: float, y: float):
         # 重置当前路径和相关索引
         self.plan_data.current_aimed_point_index = 0
-
-        # 进行避障路径规划
-        self.current_path = self.path_planning(x, y)
+        self.plan_data.aimed_point_index = 0
+        # 搬运或返回模式下不需要避开矩形区域行驶
+        if self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.RETURN:
+            self.current_path = []
+        else:
+            # 进行避障路径规划
+            self.current_path = self.path_planning(x, y)
 
         # 理想条件下的目标坐标
         self.ideal_target_x = x
@@ -365,7 +368,12 @@ class Plan:
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 55.0:
             self.dec_distance = 25.0
-            self.v_max = self.long_v_max
+            if self.my_state.state == self.my_state.MOVE:
+                self.v_max = self.move_v_max
+            elif self.my_state.state == self.my_state.SCAN:
+                self.v_max = self.scan_v_max
+            else:
+                self.v_max = self.long_v_max
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
         else:
@@ -614,7 +622,6 @@ class Plan:
             # 路径初始化
             self.path_points = path
             self.if_set_path = True
-            self.plan_data.aimed_point_index = 0
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
             self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])  
@@ -790,8 +797,8 @@ class Plan:
                         self.my_car.y_current = 0.0
                     self.my_order_manager.finish()
                     self.if_gain_calibrate_angle = True 
-                    self.finish_navigate = True
                     # 重置导航相关标志位
+                    self.finish_navigate = False
                     self.dec_speed_index = 0
                     self.path_points.clear()
                     self.if_set_path = False
@@ -858,6 +865,9 @@ class VisionManager:
         # 注入指令管理对象
         self.my_order_manager = order_manager
 
+        # 当前伺服的物品种类
+        # 'T'为网球， 'S'为沙袋，'B'为玩具熊
+        self.current_servo_object = ''
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
@@ -904,6 +914,8 @@ class VisionManager:
 
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self):
+        # 单独测试该模式时需要解开这段注释
+        """
         # 通过标志位控制只向openart发送一次视觉伺服控制指令
         if self.if_send_servo_command == False:
             self.my_order_manager.mode_target()
@@ -911,38 +923,38 @@ class VisionManager:
             # 控制小车面向物体进行视觉伺服控制
             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
         else:
-            self.target_point = self.my_art_protocol.coordinate_receive()
-            if self.target_point:
-                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
-                # 测试，可能阻塞，记得删去
-                # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
-                self.target_rel_speed_x = self.servo_pid.pwm_output_x
-                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+        """
+        self.target_point = self.my_art_protocol.coordinate_receive()
+        if self.target_point:
+            self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+            # 测试，可能阻塞，记得删去
+            # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
+            self.target_rel_speed_x = self.servo_pid.pwm_output_x
+            self.target_rel_speed_y = self.servo_pid.pwm_output_y
 
-                if self.finish_servo == False:
-                    # 判断是否完成视觉伺服控制
-                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-                        self.target_rel_speed = 0
-                        self.target_rel_yaw = 0.0
-                        self.my_order_manager.finish()
-                        # 测试
-                        self.my_beep.test()
-                        # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
-                        self.finish_servo = True
-                    else:
-                        # 计算综合目标速度和航向角
-                        # 滤波
-                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                        # 固定伺服速度
-                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                        self.compute_target_rel_yaw()
-                        # 当横移角度过大时，速度折半
-                        if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.5)
-                        self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
-                        # 尝试取消滤波
-                        # self.target_rel_yaw = self.servo_yaw_fil.update(self.target_rel_yaw)
+            if self.finish_servo == False:
+                # 判断是否完成视觉伺服控制
+                if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                    self.target_rel_speed = 0
+                    self.target_rel_yaw = 0.0
+                    self.my_order_manager.finish()
+                    # 测试
+                    self.my_beep.test()
+                    # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
+                    self.finish_servo = True
+                else:
+                    # 计算综合目标速度和航向角
+                    # 滤波
+                    self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                    self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                    # 固定伺服速度
+                    self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                    self.compute_target_rel_yaw()
+                    # 当横移角度过大时，速度折半
+                    if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                        self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                    self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):

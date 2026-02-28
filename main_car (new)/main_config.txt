@@ -90,6 +90,8 @@ long_v_max = 400
 short_v_max = 50
 dead_zone_v = 50
 transit_v = 200
+move_v_max = 150
+scan_v_max = 80
 
 ###################【视觉伺服】####################
 servo_kp_x = 8.0
