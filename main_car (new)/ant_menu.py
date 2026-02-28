@@ -266,6 +266,9 @@ class Menu:
         """判断当前行是否为参数行（非步长/save行）"""
         page_map = self.page_line_map.get(self.change_page_to, {})
         return line_num in page_map.keys()
+    
+    def _is_save_line(self, line_num):
+        return line_num == self.save_line_map.get(self.change_page_to, 0)
 
     def _format_param_display(self, config_key):
         """通用参数格式化方法（三位小数显示）"""
@@ -281,8 +284,13 @@ class Menu:
         # 绘制格式化后的参数（完整显示三位小数）
         display_text = self._format_param_display(config_key)
         self.lcd.str16(5, self.LineSpacing * line_num, display_text, 0xFFFF)
+        self._redraw_current_arrow()
         gc.collect()
 
+    def _redraw_current_arrow(self):
+        """仅重绘当前行的箭头，保持选中状态颜色"""
+        arrow_color = self.COLOR_RED if (self.is_param_selected and self.selected_line == self.Current_line) else self.COLOR_WHITE
+        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", arrow_color)
     # ========== 读取编码器旋转（left/right） ==========
     def read_encoder_rotation(self):
         """读取编码器旋转方向，返回left/right/None（防抖）"""
@@ -430,7 +438,7 @@ class Menu:
     
         # 读取编码器按键（返回特殊标识）
         if self.read_confirm_key():
-            return "enc_press"
+            return "confirm"
         
         # 读取up/down按键
         for key_name, idx in self.key_index_map.items():
@@ -465,6 +473,7 @@ class Menu:
                 self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
                 step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"
                 self.lcd.str16(5, self.LineSpacing * 1, step_text, 0xFFFF)
+                self._redraw_current_arrow()
             gc.collect()
             return
 
@@ -484,7 +493,7 @@ class Menu:
             return
 
         # save行：无需选中即可保存
-        if self.Current_line == self.save_line_map.get(self.change_page_to, 0) and key == "right":
+        if self.Current_line == self.save_line_map.get(self.change_page_to, 0) and key == "confirm":
             self.save_data()
         
         gc.collect()
@@ -506,7 +515,7 @@ class Menu:
         self.selected_line = None
         
         # 绘制新箭头（白色）
-        self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "<--", self.COLOR_WHITE)
+        self._redraw_current_arrow()
         self.need_refresh = True
         gc.collect()
 
@@ -577,8 +586,11 @@ class Menu:
             return
         
         # 处理编码器按下（切换选中状态）
-        if key == "enc_press":
-            self.toggle_param_select()
+        if key == "confirm":
+            if self._is_save_line(self.Current_line):
+                self.save_data()
+            else:
+                self.toggle_param_select()
         # 处理up/down（移动箭头）
         elif key in ("up", "down"):
             self.move_arrow(key)
