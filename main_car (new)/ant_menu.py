@@ -1,9 +1,20 @@
-import time
+# 从 machine 库包含所有内容
+from machine import *
+
+# 从 smartcar 库包含 ticker
+from smartcar import ticker
+
+# 从 seekfree 库包含 KEY_HANDLER
+from seekfree import KEY_HANDLER
+
+# 包含 gc 与 time 类
 import gc
+import time
+
 import os
 
 class Menu:
-    def __init__(self, flash_sys, beep, key_up, key_down, lcd, enc_rotation, enc_key):   
+    def __init__(self, flash_sys, beep, lcd, enc_rotation, key_data, key_handler):   
         # 所有参数强制转为浮点数，避免类型错误
         self.config = {
             # PID 参数
@@ -119,14 +130,14 @@ class Menu:
         self.beep = beep
         self.lcd = lcd
         self.enc_rotation = enc_rotation  # 编码器旋转对象
-        self.enc_key = enc_key            # 编码器按键引脚对象
-        self.keys = {"up": key_up, "down": key_down}
+        self.key_data = key_data            # 编码器按键引脚对象
+        self.key_handler = key_handler
+        self.key_index_map = {"up":1, "down":0, "confirm":2}
 
         # 菜单核心配置
         self.change_page_to = 1
         self.Current_line = 2  # 初始箭头在第二行
         self.Start_line, self.End_line = 1, 9
-        self.KEY_NAMES = {"up": "up", "down": "down"}
         # 步长
         self.step_values = (0.001, 0.01, 0.1, 1.0, 5.0, 10.0, 100.0)  # 步长（元组更省内存）
         self.current_step_index = 0
@@ -139,21 +150,16 @@ class Menu:
         self.ARROW_X = 200  # 箭头x坐标
         self.CLEAR_SPACES = " " * 35
 
-        # 按键防抖时间戳
-        self.key_timestamps = {k: 0 for k in self.KEY_NAMES.keys()}
-
         # 编码器旋转相关状态
-        self.last_enc_value = self.enc_rotation.read()  # 初始化为编码器当前值
+        self.enc_rotation.capture()
+        self.last_enc_value = self.enc_rotation.get()
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
         self.enc_rot_last_trigger_time = 0
         self.enc_pulse_threshold = 5
         
         # 编码器按键相关状态
-        self.enc_key_debounce_ms = 50  # 按键防抖时间
-        self.enc_key_last_trigger_time = 0
         self.is_param_selected = False # 参数选中状态（初始未选中）
         self.selected_line = None      # 选中的行号
-        self.enc_key_last_state = 1  # 初始为高电平（未按下）
         # 颜色定义
         self.COLOR_WHITE = 0xFFFF     # 白色（默认箭头）
         self.COLOR_RED = 0xF800       # 红色（选中状态箭头）
@@ -305,23 +311,13 @@ class Menu:
         return None
 
     # ========== 读取编码器按键 ==========
-    def read_encoder_key(self):
-        """读取外部传入的编码器按键引脚状态，返回True/False（防抖）"""
-        current_time = time.ticks_ms()
-        
-        # 防抖检查：短时间内不重复触发
-        if time.ticks_diff(current_time, self.enc_key_last_trigger_time) < self.enc_key_debounce_ms:
-            return False
-        
-        current_state = self.enc_key.value()
-        press_triggered = (self.enc_key_last_state == 0) and (current_state == 1)
-        self.enc_key_last_state = current_state
-
-        if press_triggered:
-            self.enc_key_last_trigger_time = current_time
+    def read_confirm_key(self):
+        """读取确认键"""
+        confirm_idx = self.key_index_map["confirm"]
+        if self.key_data[confirm_idx] == 1:
+            self.key_handler.clear(confirm_idx + 1)
             self.beep.key_test()  # 按键松开时触发蜂鸣
             return True
-        
         return False
     
 
@@ -365,19 +361,27 @@ class Menu:
     # 显式销毁方法（释放所有外部对象引用）
     def destroy(self):
         """销毁实例，释放内存"""
-        for attr in ['config', 'param_short_name', 'keys']:
-            if hasattr(self, attr) and isinstance(getattr(self, attr), dict):
-                getattr(self, attr).clear()
-        
-        # 释放所有外部硬件对象引用
-        self.flash_sys = self.beep = self.lcd = None
-        self.enc_rotation = self.enc_key = None
-        self.keys = None
-        
-        self.last_change_page_to = self.current_key = None
-        self.is_param_selected = False
-        self.selected_line = None
-        self.need_refresh = False
+        try:
+            # 修复：只清理存在的属性
+            for attr in ['config', 'param_short_name']:
+                if hasattr(self, attr) and isinstance(getattr(self, attr), dict):
+                    getattr(self, attr).clear()
+            
+            # 释放所有外部硬件对象引用
+            self.flash_sys = None
+            self.beep = None
+            self.lcd = None
+            self.enc_rotation = None
+            self.key_handler = None
+            self.key_data = None
+            
+            self.last_change_page_to = None
+            self.current_key = None
+            self.is_param_selected = False
+            self.selected_line = None
+            self.need_refresh = False
+        except Exception as e:
+            print(f"Destroy error: {e}")
         gc.collect()
 
     # 批量更新配置（保存三位小数）
@@ -424,36 +428,27 @@ class Menu:
 
     # 读取按键（整合所有输入：上下键+编码器旋转+编码器按键）
     def read_key(self, debounce_ms=40):
-        """读取所有输入（防抖处理）"""
-        current_time = time.ticks_ms()
+        """读取所有输入）"""
         pressed_key = None
     
         # 读取编码器按键（返回特殊标识）
-        if self.read_encoder_key():
+        if self.read_confirm_key():
             return "enc_press"
         
         # 读取up/down按键
-        pressed_key = None
-        for key_name, key_obj in self.keys.items():
-            if key_obj.value() == 0:
-                if self.key_timestamps[key_name] == 0:
-                    self.key_timestamps[key_name] = current_time
-                elif time.ticks_diff(current_time, self.key_timestamps[key_name]) >= debounce_ms:
-                    self.beep.key_test()
-                    self.key_timestamps[key_name] = 0
-                    pressed_key = key_name
-                    break
-            else:
-                self.key_timestamps[key_name] = 0
+        for key_name, idx in self.key_index_map.items():
+            if key_name in ("up", "down") and self.key_data[idx] == 1:
+                self.key_handler.clear(idx + 1)
+                self.beep.key_test()
+                pressed_key = key_name
+                break
 
-        if pressed_key is not None:
-            return pressed_key
-        else:
-            # 测试
-            # 优先读取编码器旋转（left/right）
+        if pressed_key is None:
             enc_rot_key = self.read_encoder_rotation()
             if enc_rot_key:
-                return enc_rot_key
+                pressed_key = enc_rot_key
+
+        return pressed_key
         
         
     
