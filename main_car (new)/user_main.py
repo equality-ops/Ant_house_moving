@@ -8,7 +8,7 @@
 # 从 machine 库包含所有内容 
 from machine import *
 from display import *
-from seekfree import MOTOR_CONTROLLER, IMU660RX, DL1X
+from seekfree import MOTOR_CONTROLLER, IMU660RX, DL1X, KEY_HANDLER
 from smartcar import ticker, encoder
 import ant_else
 import ant_motor
@@ -88,14 +88,16 @@ lcd.color(0xFFFF, 0x0000)
 lcd.mode(0)
 lcd.clear(0x0000)
 
-#采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
-end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-enc_key = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-
-# 发车键
-key_run = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+# 与定时器2周期一致，都为53ms
+key = KEY_HANDLER(53)
+key_data = key.get()
+# 按键对应的数据接口
+"""
+key_up:     key_data[1]
+key_down:   key_data[0]
+enc_key:    key_data[2]
+key_run:    key_data[3] 
+"""
 
 # 菜单编码器初始化
 enc_rotation = encoder("C0" , "C1" )
@@ -176,7 +178,7 @@ my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager,
 my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, lcd, enc_rotation, enc_key)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -213,17 +215,12 @@ def main_start():
     global current_time, last_left_time, start_flag, if_press_start_key
     if start_flag == False:
         if if_press_start_key == False:
-            current_time = time.ticks_ms()
-            if key_run.value() == 0 and switch2.value() == 0:
-                if last_left_time == 0:
-                    last_left_time = current_time
-                elif time.ticks_diff(current_time, last_left_time) >= 50:
-                    my_beep.key_test()
-                    my_main_protocol.send_start()
-                    if_press_start_key = True
-                    last_left_time = 0
-                else:
-                    last_left_time = 0
+            if key_data[3] == 1 and switch2.value() == 0:
+                # 清除按键状态
+                key.clear(4)
+                my_beep.key_test()
+                my_main_protocol.send_start()
+                if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
             # if my_main_protocol.get_slave_state() == "ready":
@@ -638,7 +635,7 @@ def time_pit2_handler(time):
     # 读取按键（中断中避免阻塞，快速返回）
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
-
+        
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
@@ -700,6 +697,7 @@ def pit1_start():
 def pit2_start():
     pit2 = ticker(2)
     pit2.callback(time_pit2_handler)
+    pit2.capture_list(key)
     pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）

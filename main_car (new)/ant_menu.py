@@ -143,7 +143,7 @@ class Menu:
         self.key_timestamps = {k: 0 for k in self.KEY_NAMES.keys()}
 
         # 编码器旋转相关状态
-        self.last_enc_value = self.enc_rotation.get()  # 初始化为编码器当前值
+        self.last_enc_value = self.enc_rotation.read()  # 初始化为编码器当前值
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
         self.enc_rot_last_trigger_time = 0
         self.enc_pulse_threshold = 5
@@ -286,7 +286,9 @@ class Menu:
         if time.ticks_diff(current_time, self.enc_rot_last_trigger_time) < self.enc_rot_debounce_ms:
             return None
         
+        self.enc_rotation.capture()
         current_enc = self.enc_rotation.get()
+        print(f"Encoder read: current={current_enc}")
         pulse_diff = current_enc - self.last_enc_value
 
         if abs(pulse_diff) >= self.enc_pulse_threshold:
@@ -425,17 +427,13 @@ class Menu:
         """读取所有输入（防抖处理）"""
         current_time = time.ticks_ms()
         pressed_key = None
-
-        # 优先读取编码器旋转（left/right）
-        enc_rot_key = self.read_encoder_rotation()
-        if enc_rot_key:
-            return enc_rot_key
-        
+    
         # 读取编码器按键（返回特殊标识）
         if self.read_encoder_key():
             return "enc_press"
         
         # 读取up/down按键
+        pressed_key = None
         for key_name, key_obj in self.keys.items():
             if key_obj.value() == 0:
                 if self.key_timestamps[key_name] == 0:
@@ -447,8 +445,18 @@ class Menu:
                     break
             else:
                 self.key_timestamps[key_name] = 0
+
+        if pressed_key is not None:
+            return pressed_key
+        else:
+            # 测试
+            # 优先读取编码器旋转（left/right）
+            enc_rot_key = self.read_encoder_rotation()
+            if enc_rot_key:
+                return enc_rot_key
         
-        return pressed_key
+        
+    
 
     # 数据处理（增加选中状态判断）
     def data_processing(self, key):
