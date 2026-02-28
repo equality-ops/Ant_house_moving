@@ -153,6 +153,7 @@ class Menu:
         self.enc_key_last_trigger_time = 0
         self.is_param_selected = False # 参数选中状态（初始未选中）
         self.selected_line = None      # 选中的行号
+        self.enc_key_last_state = 1  # 初始为高电平（未按下）
         # 颜色定义
         self.COLOR_WHITE = 0xFFFF     # 白色（默认箭头）
         self.COLOR_RED = 0xF800       # 红色（选中状态箭头）
@@ -164,6 +165,10 @@ class Menu:
         
         # 预定义核心映射
         self._init_core_mappings()
+
+        # 保证初始显示
+        self.menu_switch()  # 绘制默认的PID页
+        self.refresh_current_page()  # 绘制初始箭头（第二行）
         
         # 强制GC
         gc.collect()
@@ -306,13 +311,17 @@ class Menu:
         if time.ticks_diff(current_time, self.enc_key_last_trigger_time) < self.enc_key_debounce_ms:
             return False
         
-        # 读取按键状态（低电平表示按下）
-        if self.enc_key.value() == 0:
+        current_state = self.enc_key.value()
+        press_triggered = (self.enc_key_last_state == 0) and (current_state == 1)
+        self.enc_key_last_state = current_state
+
+        if press_triggered:
             self.enc_key_last_trigger_time = current_time
-            self.beep.key_test()  # 按键按下触发蜂鸣
+            self.beep.key_test()  # 按键松开时触发蜂鸣
             return True
         
         return False
+    
 
     # ========== 切换参数选中状态 ==========
     def toggle_param_select(self):
