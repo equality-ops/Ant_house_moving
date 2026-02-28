@@ -559,7 +559,7 @@ def time_pit1_handler(time):
     # show_speed_PID_test()
     
     # 测试伺服控制函数
-    # test_servo_control()
+    test_servo_control()
     
     # 测试边线矫正程序
     # my_car.move_ctrl(0, 0.0, my_plan.turn_angle_target)
@@ -579,19 +579,17 @@ def time_pit3_handler(time) -> None:
 
     # 测试主从车通信
     # test_main_slave_communication()
-    test_main_slave_collaborative_navigation()
+    # test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
-    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[180.0, 0.0]], 180.0)
+        my_plan.navigate([[180.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障

@@ -90,11 +90,15 @@ lcd.clear(0x0000)
 
 #采用gpio设置引脚高低电平方式，请自行根据自己单片机采用的IO口修改。
 end_switch = Pin('C18', Pin.IN, pull=Pin.PULL_UP_47K, value = True)
-key_up = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_down = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_left = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
-key_right = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_up = Pin('C9', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+key_down = Pin('C8', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+enc_key = Pin('C14', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+
+# 发车键
 key_run = Pin('C15', Pin.IN, pull = Pin.PULL_UP_47K, value = True)
+
+# 菜单编码器初始化
+enc_rotation = encoder("C0" , "C1" )
 
 """""""""创建对象"""""""""
 # 创建状态机对象
@@ -172,7 +176,7 @@ my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager,
 my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, key_left, key_right, lcd)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, key_up, key_down, lcd, enc_rotation, enc_key)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -676,7 +680,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
     
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))

@@ -176,7 +176,7 @@ class PoseData:
         self.imu_data = self.imu.get()
         for i in range(sample_count):
             self.imu_data = self.imu.read()
-            gyro_y_sum += self.imu_data[4]
+            gyro_y_sum += self.imu_data[5]
             """暂时不需要处理这些数据
             acc_x_sum += imu_data[0]
             acc_y_sum += imu_data[1]
@@ -215,7 +215,7 @@ class PoseData:
         self.gyro_y = imu_data[4] - self.gyro_y_bias
         """
         # 去零漂后滑动平均滤波（单位：角度每秒）
-        self.gyro_y = self.diff_filter_gyroy.filtering(self.imu_data[4] - self.gyro_y_bias) / 16.4 * self.gyro_y_supply
+        self.gyro_y = self.diff_filter_gyroy.filtering(self.imu_data[5] - self.gyro_y_bias) / 16.4 * self.gyro_y_supply
 
 
 
