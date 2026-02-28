@@ -649,8 +649,8 @@ class Plan:
                 self.stop()
                 # 测试
                 # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
-                # self.my_car.x_current = self.ideal_target_x
-                # self.my_car.y_current = self.ideal_target_y
+                self.my_car.x_current = self.ideal_target_x
+                self.my_car.y_current = self.ideal_target_y
                 self.if_finish_turn = False
                 self.dec_speed_index = 0
                 self.path_points.clear()
@@ -887,10 +887,10 @@ class VisionManager:
         self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
         self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
 
-        # 计算目标航向角
+    # 计算目标航向角
     def compute_target_rel_yaw(self):
         # 计算目标角度，单位：度（注意避免除以0）
-        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI - self.target_rel_turn_angle
+        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI + self.target_rel_turn_angle
         if self.target_rel_yaw > 180.0:
             self.target_rel_yaw -= 360.0
         elif self.target_rel_yaw < -180.0:
