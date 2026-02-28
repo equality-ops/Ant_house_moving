@@ -153,9 +153,8 @@ class Menu:
         # 编码器旋转相关状态
         # self.enc_rotation.capture()
         # self.last_enc_value = self.enc_rotation.get()
-        self.last_enc_value = 0
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
-        self.enc_rot_last_trigger_time = 0
+        self.enc_rot_last_trigger_time = time.ticks_ms()
         self.enc_pulse_threshold = 5
 
         # 编码器按键相关状态
@@ -295,16 +294,14 @@ class Menu:
 
         self.enc_rotation.capture()
         current_enc = self.enc_rotation.get()
-        pulse_diff = self.current_enc - self.last_enc_value
 
-        if abs(pulse_diff) >= self.enc_pulse_threshold:
+        if abs(current_enc) >= self.enc_pulse_threshold:
             self.enc_rot_last_trigger_time = current_time
-            self.last_enc_value = current_enc
 
-            if pulse_diff > 0:
+            if current_enc > 0:
                 self.beep.key_test()
                 return "right"
-            elif pulse_diff < 0:
+            elif current_enc < 0:
                 self.beep.key_test()
                 return "left"
             

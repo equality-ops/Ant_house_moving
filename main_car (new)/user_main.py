@@ -100,7 +100,8 @@ key_run:    key_data[3]
 """
 
 # 菜单编码器初始化
-enc_rotation = encoder("C0", "C1", True)
+# enc_rotation = encoder("C0", "C1", True)
+enc_rotation = encoder("D15", "D16", True)
 
 """""""""创建对象"""""""""
 # 创建状态机对象
