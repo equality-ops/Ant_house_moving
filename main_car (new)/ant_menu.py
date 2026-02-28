@@ -427,8 +427,8 @@ class Menu:
         gc.collect()
 
     # 读取按键（整合所有输入：上下键+编码器旋转+编码器按键）
-    def read_key(self, debounce_ms=40):
-        """读取所有输入）"""
+    def read_key(self):
+        """读取所有输入"""
         pressed_key = None
     
         # 读取编码器按键（返回特殊标识）
@@ -517,7 +517,7 @@ class Menu:
     def detect_change_page(self, key):
         """检测并处理8页页面切换"""
         is_save_line = self.Current_line == self.save_line_map.get(self.change_page_to, 0)
-        if (self.is_param_selected and self.Current_line != 1) or is_save_line:
+        if (self.is_param_selected is False and self.Current_line != 1) or is_save_line:
             if key == "left":
                 self.change_page_to = 8 if self.change_page_to == 1 else self.change_page_to - 1
             elif key == "right":
