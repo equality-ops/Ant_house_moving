@@ -178,7 +178,7 @@ my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager,
 my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -215,7 +215,7 @@ def main_start():
     global current_time, last_left_time, start_flag, if_press_start_key
     if start_flag == False:
         if if_press_start_key == False:
-            if key_data[3] == 1 and switch2.value() == 0:
+            if key_data[3] != 0 and switch2.value() == 0:
                 # 清除按键状态
                 key.clear(4)
                 my_beep.key_test()
@@ -596,6 +596,7 @@ def time_pit3_handler(time) -> None:
 
    
     # 全向定位测试程序
+    """
     if my_state.state == my_state.NAVIGATE:
         my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
@@ -604,7 +605,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
@@ -614,7 +615,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    # test_boundary_calibration()
+    test_boundary_calibration()
     # test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
@@ -657,7 +658,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_plan.turn_angle_target}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
