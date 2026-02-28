@@ -156,7 +156,7 @@ class Menu:
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
         self.enc_rot_last_trigger_time = 0
         self.enc_pulse_threshold = 5
-        
+
         # 编码器按键相关状态
         self.is_param_selected = False # 参数选中状态（初始未选中）
         self.selected_line = None      # 选中的行号
@@ -284,22 +284,19 @@ class Menu:
         gc.collect()
 
     # ========== 读取编码器旋转（left/right） ==========
-    def read_encoder_rotation(self):
+    def read_encoder_rotation(self, enc_data):
         """读取编码器旋转方向，返回left/right/None（防抖）"""
         current_time = time.ticks_ms()
         
         # 防抖检查
         if time.ticks_diff(current_time, self.enc_rot_last_trigger_time) < self.enc_rot_debounce_ms:
             return None
-        
-        self.enc_rotation.capture()
-        current_enc = self.enc_rotation.get()
-        print(f"Encoder read: current={current_enc}")
-        pulse_diff = current_enc - self.last_enc_value
+
+        pulse_diff = enc_data - self.last_enc_value
 
         if abs(pulse_diff) >= self.enc_pulse_threshold:
             self.enc_rot_last_trigger_time = current_time
-            self.last_enc_value = current_enc
+            self.last_enc_value = enc_data
 
             if pulse_diff > 0:
                 self.beep.key_test()
@@ -427,7 +424,7 @@ class Menu:
         gc.collect()
 
     # 读取按键（整合所有输入：上下键+编码器旋转+编码器按键）
-    def read_key(self):
+    def read_key(self, enc_data):
         """读取所有输入"""
         pressed_key = None
     
@@ -444,7 +441,7 @@ class Menu:
                 break
 
         if pressed_key is None:
-            enc_rot_key = self.read_encoder_rotation()
+            enc_rot_key = self.read_encoder_rotation(enc_data)
             if enc_rot_key:
                 pressed_key = enc_rot_key
 
