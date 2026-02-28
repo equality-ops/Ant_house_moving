@@ -146,7 +146,7 @@ class Menu:
         self.last_enc_value = self.enc_rotation.get()  # 初始化为编码器当前值
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
         self.enc_rot_last_trigger_time = 0
-        self.enc_pulse_threshold = 1
+        self.enc_pulse_threshold = 5
         
         # 编码器按键相关状态
         self.enc_key_debounce_ms = 50  # 按键防抖时间
