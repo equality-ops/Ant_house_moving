@@ -1,4 +1,4 @@
-# 修改时间 2.28	14:44
+# 修改时间 2.28	20:02
 
 ###################【PID参数】####################
 # speed大于600时
@@ -105,7 +105,7 @@ finish_threshold_y = 4
 servo_pwmout_limitmax = 250
 
 ###################【环绕控制】####################
-max_orbit_speed = 300
+max_orbit_speed = 200
 min_orbit_speed = 30
 
 # openart支架上边沿距离车底板17.7cm

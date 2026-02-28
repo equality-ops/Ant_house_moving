@@ -100,8 +100,8 @@ key_run:    key_data[3]
 """
 
 # 菜单编码器初始化
-# enc_rotation = encoder("C0", "C1", True)
-enc_rotation = encoder("D15", "D16", True)
+enc_rotation = encoder("C0", "C1", True)
+# enc_rotation = encoder("D15", "D16", True)
 
 """""""""创建对象"""""""""
 # 创建状态机对象
@@ -352,7 +352,7 @@ def test_boundary_calibration():
     global counter
     if my_state.state_work == 0:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[230.0, 120.0]], -90.0)
+            my_plan.navigate([[160.0, 50.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SERVO
@@ -362,7 +362,7 @@ def test_boundary_calibration():
             if my_vision_manager.finish_servo == True:
                 counter += 1
                 # 过渡1s防止惯性过冲
-                if counter >= 100:
+                if counter >= 50:
                     counter = 0
                     my_state.state_work = 1
                     my_state.state = my_state.NAVIGATE
@@ -373,7 +373,7 @@ def test_boundary_calibration():
                     my_beep.test()
     elif my_state.state_work == 1:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[0.0, 120.0]], 30.0)
+            my_plan.navigate([[230.0, 120.0], [0.0, 120.0]], 30.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.CALIBRATE
@@ -399,14 +399,15 @@ def test_orbit_control():
     if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(120.0)
+        my_vision_manager.orbit_control(180.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
+            my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
             my_state.state = my_state.STOP
             # 测试
             my_beep.test()
     elif my_state.state == my_state.STOP:
-        pass
+        my_plan.stop()
 
 # 测试主车解析从车状态通信函数 
 def test_main_slave_communication():
@@ -682,7 +683,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_plan.turn_angle_target}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
@@ -707,7 +708,9 @@ def time_pit2_handler(time):
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
-
+    
+    # 环绕测试
+    # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
