@@ -99,10 +99,10 @@ servo_kd_y = 10.0
 servo_target_x = 80
 servo_target_y = 8.0
 min_rel_speed = 50
-max_rel_speed = 200
+max_rel_speed = 250
 finish_threshold_x = 2
 finish_threshold_y = 4
-servo_pwmout_limitmax = 200
+servo_pwmout_limitmax = 250
 
 ###################【环绕控制】####################
 max_orbit_speed = 300

@@ -178,7 +178,7 @@ my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_order_manager,
 my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
+# my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -326,8 +326,8 @@ def test_vision_servo():
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
             counter += 1
-            # 过渡400ms防止惯性过冲
-            if counter >= 1000:
+            # 过渡1s防止惯性过冲
+            if counter >= 100:
                 counter = 0
                 my_state.state = my_state.RETURN
                 # 重置标志位
@@ -348,27 +348,50 @@ def test_vision_servo():
                 
 # 边线校准测试函数
 def test_boundary_calibration():
-    if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, -20.0], [320.0, 120.0], [90.0, 120.0], [0.0, 0.0], [160.0, 40.0], [320.0, 240.0], [160.0, 260.0]], 	0.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
-            my_state.state = my_state.CALIBRATE
-            my_beep.test()
-    elif my_state.state == my_state.CALIBRATE:
-        my_plan.boundary_calibrate_control()
-        if my_plan.if_finish_calibrate == True:
-            my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
-            my_state.state = my_state.RETURN
-            # 测试
-            my_beep.test()
-    elif my_state.state == my_state.RETURN:
-        my_plan.navigate([[0.0, 0.0]], 0.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
-            my_state.state = my_state.STOP
-            my_beep.test()
-    elif my_state.state == my_state.STOP:
-        my_plan.stop()
+    global counter
+    if my_state.state_work == 0:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[230.0, 120.0]], -90.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.SERVO
+                my_beep.test()
+        elif my_state.state == my_state.SERVO:
+            my_vision_manager.visual_servo_control()
+            if my_vision_manager.finish_servo == True:
+                counter += 1
+                # 过渡1s防止惯性过冲
+                if counter >= 100:
+                    counter = 0
+                    my_state.state_work = 1
+                    my_state.state = my_state.NAVIGATE
+                    # 重置标志位
+                    my_vision_manager.if_send_servo_command = False
+                    my_vision_manager.finish_servo = False
+                    # 测试
+                    my_beep.test()
+    elif my_state.state_work == 1:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[0.0, 120.0]], 30.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.CALIBRATE
+                my_beep.test()
+        elif my_state.state == my_state.CALIBRATE:
+            my_plan.boundary_calibrate_control()
+            if my_plan.if_finish_calibrate == True:
+                my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
+                my_state.state = my_state.RETURN
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.RETURN:
+            my_plan.navigate([[0.0, 0.0]], 0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.STOP
+                my_beep.test()
+        elif my_state.state == my_state.STOP:
+            my_plan.stop()
 
 # 测试环绕控制函数
 def test_orbit_control():
@@ -634,8 +657,8 @@ def time_pit2_handler(time):
     main_start()
     
     # 读取按键（中断中避免阻塞，快速返回）
-    key = my_menu.read_key()
-    my_menu.handle_key_from_interrupt(key)
+    # key = my_menu.read_key()
+    # my_menu.handle_key_from_interrupt(key)
         
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
