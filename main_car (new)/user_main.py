@@ -23,7 +23,6 @@ import time
 ###################################【变量定义及初始化】###################################
 # 多路复用时间计数器
 counter = 0      # type: int
-collect_counter = 0 
 # 按键消抖相关变量
 current_time = 0
 last_left_time = 0
@@ -101,8 +100,7 @@ key_run:    key_data[3]
 """
 
 # 菜单编码器初始化
-enc_rotation = encoder("C0" , "C1" )
-enc_data = 0
+enc_rotation = encoder("C0", "C1", True)
 
 """""""""创建对象"""""""""
 # 创建状态机对象
@@ -654,15 +652,13 @@ def time_pit3_handler(time) -> None:
 # 定时器2中断回调函数
 # 用于无线串口调试和发车启动
 def time_pit2_handler(time):
-    global collect_counter, enc_data
     """用于无线串口调试"""
     # 发车启动函数
     main_start()
     
     if start_flag == False:
-        collect_counter += 1
         # 读取按键（中断中避免阻塞，快速返回）
-        key = my_menu.read_key(enc_data)
+        key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
@@ -760,11 +756,6 @@ while True:
     # ant_menu.lcd.clear(0x07E0)
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0x001F)
-    if collect_counter >= 20 and start_flag == False:   # 每1s执行一次编码器数据采集
-        collect_counter = 0
-        enc_rotation.capture()
-        enc_data = enc_rotation.get()
-        print(f"enc = {enc_data}")
 
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
