@@ -482,12 +482,16 @@ def task_machine():
                 my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]], 0.0)
-            target_point = my_art_protocol.coordinate_receive()
-            if target_point:
-                my_vision_manager.current_servo_object = target_point[2]
-                ready_servo_and_orbit()
-                reset_navigate_flags()
-                my_state.state = my_state.SERVO
+            if my_plan.finish_navigate == False:
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point:
+                    my_vision_manager.current_servo_object = target_point[2]
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_state.state = my_state.SERVO
+            else:
+                my_state.state_work = 1
+                
         elif my_state.state == my_state.SERVO:
             my_vision_manager.visual_servo_control()
             if my_vision_manager.finish_servo == True:
@@ -851,15 +855,8 @@ def pit3_start():
 # 检测电源电压是否正常
 voltage_detect(11.4)
 
-# 屏幕测试程序
-# ant_menu.Menu_First()
-
 # 打开定时器
 pit2_start()
-
-# === 初始显示 ===
-# my_menu.Menu_Page_1()
-# my_menu.show_arrow()
 
 while True:
     # 屏幕测试程序

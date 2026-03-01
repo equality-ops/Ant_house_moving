@@ -79,7 +79,7 @@ class UARTProtocol:
         self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待物体种类, 5:等待帧尾
         self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
         self.angle_list = []  # 用于缓存矫正角度信息
-        self.coordinate_buffer = [0, 0, 0, 0, 0, 0]
+        self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.angle_buffer = [0, 0, 0, 0]
         self.byte_count = 0
 
