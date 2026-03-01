@@ -8,7 +8,6 @@ from machine import UART
 from ulab import numpy as np
 import seekfree
 import ustruct
-from typing import Optional
 
 # ======================== 常量定义（集中管理，便于修改） ========================
 # 串口配置
@@ -70,7 +69,7 @@ class Communicator:
         self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
         self.last_sent_y = SCREEN_CENTER_Y
 
-    def send_coordinate(self, x, y, obj_type: Optional[str] = ''):
+    def send_coordinate(self, x, y, obj_type = ''):
         """发送目标坐标（带防抖和范围限制）"""
         # 坐标取整
         x = int(round(x))
@@ -214,7 +213,7 @@ class ColorDetector:
             if keep:
                 filtered.append((blob, color))
         return filtered
-    
+
     def auto_adjust_threshold(self, img, base_threshold):
         """根据中心区域亮度自动调整颜色阈值"""
         stats = img.get_statistics(roi = self.CENTER_ROI)
@@ -245,7 +244,7 @@ class ColorDetector:
 # ======================== 边界检测模块 ========================
 class BoundaryDetector:
     # 黄色边界阈值
-    YELLOW_THRESHOLD = (70, 100, -128, 127, 10, 127)
+    YELLOW_THRESHOLD = [(58, 98, -46, -17, 31, 101), (24, 51, -25, -4, 22, 55)]
     # 回归分析ROI（中间区域）
     ROI_MID = (40, 0, 80, 120)
     # X轴容差（中心偏移允许范围）
@@ -279,7 +278,7 @@ class BoundaryDetector:
 
             # 检测黄色色块
             result = img.find_blobs(
-                [self.YELLOW_THRESHOLD],
+                self.YELLOW_THRESHOLD,
                 roi=roi,
                 pixels_threshold=100,
                 area_threshold=100,
@@ -297,7 +296,7 @@ class BoundaryDetector:
 
         # 至少检测到3个色块才进行回归分析
         if center_count >= 3:
-            l = img.get_regression([self.YELLOW_THRESHOLD], roi=self.ROI_MID, robust=True)
+            l = img.get_regression(self.YELLOW_THRESHOLD, roi=self.ROI_MID, robust=True)
             if l:
                 img.draw_line(l.line(), color=(255, 0, 0), thickness=2)
                 x1, y1, x2, y2 = l.line()
@@ -470,7 +469,7 @@ sensor.set_auto_gain(False)  # 关闭自动增益
 sensor.set_auto_whitebal(False)  # 关闭自动白平衡
 sensor.set_brightness(CAMERA_BRIGHTNESS)
 # sensor.set_contrast(2) # 对比度
-sensor.skip_frames(time=30)  # 跳过初始帧，让摄像头稳定
+sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 # LED(4).on
 
