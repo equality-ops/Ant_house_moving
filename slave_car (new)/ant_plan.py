@@ -22,21 +22,16 @@ class Plan_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1]为扫描起始点
-        self.fixed_point = [[40.0, -10.0], [110.0, 55.0]]  # type: list
-        
+        # fixed_point[0]为主车起点，fixed_point[1][2][3][4]分别为矩形区域下、左、上、右扫描起始点，[5][6][7][8]分别为矩形区域下、左、上、右扫描结束点
+        self.fixed_point = [[40.0, -10.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]
-        
         # 目标物品坐标及种类信息
-        # 1为网球， 2为红色沙袋， 3为蓝色沙袋，4为玩具熊
+        # 'T'为网球， 'S'为沙袋，'B'为玩具熊
         self.object = []    # type: list
-        
         # 实际的物体坐标
         self.object_real = []   # type: list    
-        
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
@@ -55,7 +50,7 @@ class Plan_data:
         self.SHORT_DISTANCE = 2
 
 class Plan:
-    def __init__(self, flash_sys, plan_data: Plan_data, math, car, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
+    def __init__(self, flash_sys, plan_data: Plan_data, math, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -64,6 +59,8 @@ class Plan:
         self.MATH = math
         # 注入小车位置对象
         self.my_car = car
+        # 注入状态机对象
+        self.my_state = state
         # 注入无线通信对象
         self.my_uart3 = my_uart3
         # 注入指令管理对象
@@ -82,11 +79,12 @@ class Plan:
         self.long_v_max = self.flash_sys.find_value("long_v_max")           # type: int  # 长距离时的最大速度
         self.short_v_max = self.flash_sys.find_value("short_v_max")          # type: int  # 短距离时的最大速度
         self.transit_v = self.flash_sys.find_value("transit_v")              # type: int  # 过渡阶段速度
+        self.move_v_max = self.flash_sys.find_value("move_v_max")          # type: int  # 搬运物品时的最大速度
+        self.scan_v_max = self.flash_sys.find_value("scan_v_max")          # type: int  # 扫描时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
         self.DEC = 3                    # type: int  # 减速阶段标志位
         self.STOP = 4                   # type: int  # 停止标志位
-        self.dec_ratio = self.flash_sys.find_value("dec_ratio")	# type: float  # 减速段占据的比例
         self.v_target = 0               # type: int  # 目标速度
         # 速度规划阶段变量
         self.v_max = 0                  # type: int    # 本次移动规划的最大速度
@@ -145,7 +143,7 @@ class Plan:
         self.if_finish_calibrate = True       # type: bool  # 判断是否完成校准标志位
 
     def _ease_out_quad(self, t):
-        """二次曲线，用于缓慢启动，快速达到目标速度"""
+        """二次缓出曲线，用于快速启动"""
         return t ** 2
     
     # 构建减速速度表
@@ -281,9 +279,13 @@ class Plan:
     def set_target_point(self, x: float, y: float):
         # 重置当前路径和相关索引
         self.plan_data.current_aimed_point_index = 0
-
-        # 进行避障路径规划
-        self.current_path = self.path_planning(x, y)
+        
+        # 搬运或返回模式下不需要避开矩形区域行驶
+        if self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.RETURN:
+            self.current_path = []
+        else:
+            # 进行避障路径规划
+            self.current_path = self.path_planning(x, y)
 
         # 理想条件下的目标坐标
         self.ideal_target_x = x
@@ -323,7 +325,7 @@ class Plan:
             self.error_correct_y = -0.7
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
             self.error_correct_x = -0.9
-            self.error_correct_y = -0.4
+            self.error_correct_y = -1.0
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
             self.error_correct_x = -0.6
             self.error_correct_y = 0.7
@@ -341,13 +343,13 @@ class Plan:
         total_transit_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
         # 依据到过渡点的距离计算里程计系数
         if total_transit_dis >= 300.0:
-            self.my_car.alpha_x = 0.975216
+            self.my_car.alpha_x = 0.959375
         elif total_transit_dis >= 200.0:
-            self.my_car.alpha_x = 0.975
+            self.my_car.alpha_x = 0.968275
         elif total_transit_dis >= 100.0:
-            self.my_car.alpha_x = 0.975
+            self.my_car.alpha_x = 0.966933
         elif total_transit_dis >= 55.0:
-            self.my_car.alpha_x = 0.977778
+            self.my_car.alpha_x = 0.975
         else:
             self.my_car.alpha_x = 1.02
 
@@ -365,7 +367,12 @@ class Plan:
         # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 55.0:
             self.dec_distance = 25.0
-            self.v_max = self.long_v_max
+            if self.my_state.state == self.my_state.MOVE:
+                self.v_max = self.move_v_max
+            elif self.my_state.state == self.my_state.SCAN:
+                self.v_max = self.scan_v_max
+            else:
+                self.v_max = self.long_v_max
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
         else:
@@ -383,13 +390,13 @@ class Plan:
                 total_transit_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
                 # 依据到过渡点的距离计算里程计系数
                 if total_transit_dis >= 300.0:
-                    self.my_car.alpha_x = 0.975216
+                    self.my_car.alpha_x = 0.959375
                 elif total_transit_dis >= 200.0:
-                    self.my_car.alpha_x = 0.975
+                    self.my_car.alpha_x = 0.968275
                 elif total_transit_dis >= 100.0:
-                    self.my_car.alpha_x = 0.975
+                    self.my_car.alpha_x = 0.966933
                 elif total_transit_dis >= 55.0:
-                    self.my_car.alpha_x = 0.977778
+                    self.my_car.alpha_x = 0.975
                 else:
                     self.my_car.alpha_x = 1.02
 
@@ -576,8 +583,9 @@ class Plan:
             self.plan_data.time_counter = 0
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
             # 进行里程计的硬复位
-            self.my_car.x_current = self.ideal_target_x
-            self.my_car.y_current = self.ideal_target_y	
+            if self.if_finish_turn == True:
+                self.my_car.x_current = self.ideal_target_x
+                self.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
 
     # 停止小车运动
@@ -599,18 +607,20 @@ class Plan:
                 self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
                 self.if_finish_turn = True  # 如果没有目标转角，直接认为转角调整完成
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
-            self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
+            # self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
             # 在未完成转角调整时，持续进行转角调整
-            if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 0.5:
-                self.if_finish_turn = True
-                # 恢复正常的角度环限幅
-                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            if abs(abs(self.turn_angle_target) - abs(self.my_car.now_yaw * 180.0 / self.MATH.PI)) <= 1.0:
+                if self.transition_flag == False:
+                    self.path_transition()
+                else:
+                    self.if_finish_turn = True
+                    # 恢复正常的角度环限幅
+                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化
             self.path_points = path
             self.if_set_path = True
-            self.plan_data.aimed_point_index = 0
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
             self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])  
@@ -648,6 +658,7 @@ class Plan:
                 self.my_car.x_current = self.ideal_target_x
                 self.my_car.y_current = self.ideal_target_y
                 self.if_finish_turn = False
+                self.plan_data.aimed_point_index = 0
                 self.dec_speed_index = 0
                 self.path_points.clear()
                 self.if_set_path = False
@@ -726,16 +737,16 @@ class Plan:
                     self.navigate([[self.my_car.x_current + 10.0, -20.0]], -90.0)
                 else:
                     self.navigate([[self.my_car.x_current - 10.0, -20.0]], 90.0)
-                self.car_position = self.plan_data.BOUNDARY_UP
+                self.car_position = self.plan_data.BOUNDARY_DOWN
                 # 重置标志位，准备进行边线校准
                 self.if_finish_calibrate = False
                 self.if_gain_calibrate_angle = False
-            elif self.my_car.y_current >= 290.0 and self.my_car.x_current >= 30.0 and self.my_car.x_current <= 270.0:
+            elif self.my_car.y_current >= 230.0 and self.my_car.x_current >= 30.0 and self.my_car.x_current <= 270.0:
                 if now_yaw <= 0.0 and now_yaw > -180.0:
                     self.navigate([[self.my_car.x_current + 10.0, 260.0]], -90.0)
                 else:
                     self.navigate([[self.my_car.x_current - 10.0, 260.0]], 90.0)
-                self.car_position = self.plan_data.BOUNDARY_DOWN
+                self.car_position = self.plan_data.BOUNDARY_UP
                 # 重置标志位，准备进行边线校准
                 self.if_finish_calibrate = False
                 self.if_gain_calibrate_angle = False
@@ -749,22 +760,16 @@ class Plan:
                 self.finish_navigate = False
                 # 测试
                 self.my_beep.test()
-                # 判断是进行左右边线矫正还是上下边沿矫正
-                if self.car_position == self.plan_data.BOUNDARY_LEFT or self.car_position == self.plan_data.BOUNDARY_RIGHT:
-                # 向openart发送左右边线校准指令获取校准角度
-                    self.my_order_manager.mode_boundary_lf()
-                elif self.car_position == self.plan_data.BOUNDARY_UP or self.car_position == self.plan_data.BOUNDARY_DOWN:
-                    # 向openart发送上下边线校准指令获取校准角度
-                    self.my_order_manager.mode_boundary_ud()
+                self.my_order_manager.mode_boundary_lf()
         else:
             if self.car_position == self.plan_data.BOUNDARY_LEFT:
                 self.navigate([[10.0, self.my_car.y_current]])
             elif self.car_position == self.plan_data.BOUNDARY_RIGHT:
                 self.navigate([[310.0, self.my_car.y_current]])
             elif self.car_position == self.plan_data.BOUNDARY_UP:
-                self.navigate([[self.my_car.x_current, 10.0]])
-            elif self.car_position == self.plan_data.BOUNDARY_DOWN:
                 self.navigate([[self.my_car.x_current, 230.0]])
+            elif self.car_position == self.plan_data.BOUNDARY_DOWN:
+                self.navigate([[self.my_car.x_current, 10.0]])
             if self.finish_navigate == True:
                 # 此时仍未获得角度信息，直接退出该模式
                 self.finish_navigate = False
@@ -782,7 +787,6 @@ class Plan:
                     # self.calibrate_angle = sum(self.my_art_protocol.angle_list) / len(self.my_art_protocol.angle_list)
                     # self.turn_angle_target += self.calibrate_angle * 2 / 3
                     # 进行里程计矫正处理
-                    """
                     if self.my_car.x_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_LEFT:
                         self.my_car.x_current = 0.0
                     elif self.my_car.x_current >= 270.0 and self.car_position == self.plan_data.BOUNDARY_RIGHT:
@@ -791,33 +795,31 @@ class Plan:
                         self.my_car.y_current = 240.0
                     elif self.my_car.y_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_DOWN:
                         self.my_car.y_current = 0.0
-                    """
                     self.my_order_manager.finish()
                     self.if_gain_calibrate_angle = True 
-                    # 若获得角度则跳过定位过渡阶段直接进行转角调整
-                    self.arrive_flag = True
+                    self.if_finish_calibrate = True
+                    # 重置导航相关标志位
+                    self.finish_navigate = False
                     self.dec_speed_index = 0
                     self.path_points.clear()
                     self.if_set_path = False
-
+                    self.if_finish_turn = False
+                    self.transition_flag = False
                     # 测试
                     self.my_beep.test()
-                    for i in range(0, len(self.my_art_protocol.angle_list)):
-                        self.my_uart3.write(f"{self.my_art_protocol.angle_list[i]}\n")
-                    # self.my_uart3.write(f"average_angle: {self.turn_angle_target}\n")
-
                     self.my_art_protocol.angle_list.clear()
-
+            """
             if self.if_finish_calibrate == False:
                 # 判断是否完成校准（校准误差不超过1度）
                 # 测试
                 # if self.if_gain_calibrate_angle == True and abs(self.my_car.angle_pid.nowError) <= 1.0:
                 if self.if_gain_calibrate_angle == True:
+                    self.finish_navigate = False
                     self.if_finish_calibrate = True
                     # 向openart发送停止校准指令
                     self.my_order_manager.finish()
                     # 根据小车位置重置小车角度及目标转角
-                    """
+                    '''
                     now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
                     if now_yaw >= -45.0 and now_yaw < 45.0:
                         self.my_car.now_yaw = 0.0
@@ -831,13 +833,13 @@ class Plan:
                     else:
                         self.my_car.now_yaw = self.MATH.PI
                         self.turn_angle_target = 180.0
-                    """
+                    '''
                     # 测试
                     self.my_beep.test()
-                    
+                """
  # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager):
+    def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan: Plan):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -863,7 +865,12 @@ class VisionManager:
         self.my_art_protocol = protocol
         # 注入指令管理对象
         self.my_order_manager = order_manager
+        # 注入路径规划对象
+        self.my_plan = plan
 
+        # 当前伺服的物品种类
+        # 'T'为网球， 'S'为沙袋，'B'为玩具熊
+        self.current_servo_object = ''
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
@@ -883,9 +890,13 @@ class VisionManager:
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
-        self.total_dis = 0.0                 # type: float   # 总距离
-        self.max_orbit_speed = self.flash_sys.find_value("max_orbit_speed")   # type: int   # 最大环绕速度
-        self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")   # type: int   # 最小环绕速度
+        self.target_angle = 0.0            # type: float   # 目标角度
+        self.orbit_v = self.flash_sys.find_value("orbit_v")   # type: int   # 环绕速度
+        self.object_radius = 0.0           # type: float   # 物体半径
+        self.radius_T = self.flash_sys.find_value("radius_T")   # type: float   # 网球半径
+        self.radius_S = self.flash_sys.find_value("radius_S")   # type: float   # 沙袋半径
+        self.radius_B = self.flash_sys.find_value("radius_B")   # type: float   # 玩具熊半径
+        self.direct = 0     # 0为顺时针，1为逆时针
 
         # 标志位
         self.if_send_servo_command = False   # type: bool   # 是否发送视觉伺服控制指令标志位
@@ -893,10 +904,14 @@ class VisionManager:
         self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
         self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
 
-        # 计算目标航向角
+    # 计算目标航向角
     def compute_target_rel_yaw(self):
         # 计算目标角度，单位：度（注意避免除以0）
-        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
+        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI + self.target_rel_turn_angle
+        if self.target_rel_yaw > 180.0:
+            self.target_rel_yaw -= 360.0
+        elif self.target_rel_yaw < -180.0:
+            self.target_rel_yaw += 360.0
 
     # 计算小车需要转向的角度（一般为0）
     def compute_target_rel_turn_angle(self, turn_angle_target: float):
@@ -905,6 +920,8 @@ class VisionManager:
 
     # 传入物体中心点的实际像素坐标，计算目标速度
     def visual_servo_control(self):
+        # 单独测试该模式时需要解开这段注释
+        """
         # 通过标志位控制只向openart发送一次视觉伺服控制指令
         if self.if_send_servo_command == False:
             self.my_order_manager.mode_target()
@@ -912,79 +929,95 @@ class VisionManager:
             # 控制小车面向物体进行视觉伺服控制
             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
         else:
-            self.target_point = self.my_art_protocol.coordinate_receive()
-            if self.target_point:
-                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
-                # 测试，可能阻塞，记得删去
-                # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
-                self.target_rel_speed_x = self.servo_pid.pwm_output_x
-                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+        """
+        self.target_point = self.my_art_protocol.coordinate_receive()
+        if self.target_point:
+            self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+            # 测试，可能阻塞，记得删去
+            # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
+            self.target_rel_speed_x = self.servo_pid.pwm_output_x
+            self.target_rel_speed_y = self.servo_pid.pwm_output_y
 
-                if self.finish_servo == False:
-                    # 判断是否完成视觉伺服控制
-                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-                        self.target_rel_speed = 0
-                        self.target_rel_yaw = 0.0
-                        self.my_order_manager.finish()
-                        # 测试
-                        self.my_beep.test()
-                        # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
-                        self.finish_servo = True
-                    else:
-                        # 计算综合目标速度和航向角
-                        # 滤波
-                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                        # 固定伺服速度
-                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                        self.compute_target_rel_yaw()
-                        # 当横移角度过大时，速度折半
-                        if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.5)
-                        self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+            if self.finish_servo == False:
+                # 判断是否完成视觉伺服控制
+                if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                    self.target_rel_speed = 0
+                    self.target_rel_yaw = 0.0
+                    self.my_order_manager.finish()
+                    # 测试
+                    self.my_beep.test()
+                    # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
+                    self.finish_servo = True
+                else:
+                    # 计算综合目标速度和航向角
+                    # 滤波
+                    self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                    self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                    # 固定伺服速度
+                    self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                    self.compute_target_rel_yaw()
+                    # 当横移角度过大时，速度折半
+                    if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                        self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                    self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):
         if self.if_gain_dis == False:
+            # 保持静止采集tof数据
+            self.orbit_speed = 0
             if len(self.tof_buffer) <= 35:          
                 # 获取TOF测距值，并添加到缓冲区
                 self.tof_buffer.append(self.tof_distance_fil.update(self.my_tof.get()))
                 # 测试
-                self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
+                # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
             else:
                 # 计算最终的TOF测距值（去除前5个的平均值）
                 self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
                 # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
-                self.orbit_radius = self.tof_distance + 3.0 + 8.0
+                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5	
+                self.target_angle = self.my_plan.turn_angle_target + target_angle
                 # 限制目标角度在-180到180度之间
-                if target_angle > 180.0:
-                    target_angle -= 360.0
-                elif target_angle < -180.0:
-                    target_angle += 360.0
+                if self.target_angle > 180.0:
+                    self.target_angle -= 360.0
+                elif self.target_angle < -180.0:
+                    self.target_angle += 360.0
                 # 确定旋转方向（顺时针还是逆时针）
                 if target_angle >= 0.0:
-                    self.orbit_yaw = -90.0
+                    self.direct = 0
                 else:
-                    self.orbit_yaw = 90.0   
+                    self.direct = 1 
                 self.current_dis = 0.0
-                self.total_dis = self.orbit_radius * abs(target_angle) * self.MATH.PI / 180
                 self.if_gain_dis = True
                 self.tof_buffer.clear()
                 # 测试
-                self.my_beep.test()
-                self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}, total_dis: {:<f}\n".format(self.tof_distance, self.orbit_radius, self.total_dis))
+                # self.my_beep.test()
+                self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
         else:
-            # 更新当前小车的目标转角
-            self.orbit_turn_angle = self.my_car.car_speed_x / self.orbit_radius * 180.0 / self.MATH.PI
-            # 更新当前小车的行驶距离
-            self.current_dis += self.my_car.car_speed_x
-            # 更新当前小车的速度
-            self.orbit_speed = int(self.max_orbit_speed - (self.max_orbit_speed - self.min_orbit_speed) * (self.current_dis / self.total_dis))
-            # 速度限幅
-            if self.orbit_speed < self.min_orbit_speed:
-                self.orbit_speed = self.min_orbit_speed
-            elif self.orbit_speed > self.max_orbit_speed:
-                self.orbit_speed = self.max_orbit_speed
-            # 判断是否完成环绕
-            if self.current_dis >= self.total_dis:
-                self.finish_orbit = True
+            if self.finish_orbit == False:
+                # 更新当前小车的行驶距离
+                self.current_dis += self.my_car.car_speed_x
+                # 更新当前小车的目标转角及目标航向角
+                self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI + self.my_plan.turn_angle_target
+                if self.orbit_turn_angle >= 180.0:
+                    self.orbit_turn_angle -= 360.0
+                elif self.orbit_turn_angle <= -180.0:
+                    self.orbit_turn_angle += 360.0
+                    
+                if self.direct == 0:
+                    self.orbit_yaw = -90.0 + self.orbit_turn_angle
+                elif self.direct == 1:
+                    self.orbit_yaw = 90.0 + self.orbit_turn_angle
+                    
+                if self.orbit_yaw >= 180.0:
+                    self.orbit_yaw -= 360.0
+                elif self.orbit_yaw <= -180.0:
+                    self.orbit_yaw += 360.0
+                # 更新当前小车的速度
+                self.orbit_speed = self.orbit_v
+                # 判断是否完成环绕
+                if abs(abs(self.target_angle) - abs(self.my_car.now_yaw * 180 / self.MATH.PI)) <= 1.0:	
+                    self.orbit_speed = 0
+                    self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
+                    self.finish_orbit = True
