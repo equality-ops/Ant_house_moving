@@ -5,16 +5,6 @@ class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-
-        self.ul_extreme_kp = self.flash_sys.find_value("ul_extreme_kp")  # type: float
-        self.ul_extreme_ki = self.flash_sys.find_value("ul_extreme_ki")  # type: float
-        self.ul_extreme_kd = self.flash_sys.find_value("ul_extreme_kd")  # type: float
-        self.ur_extreme_kp = self.flash_sys.find_value("ur_extreme_kp")  # type: float
-        self.ur_extreme_ki = self.flash_sys.find_value("ur_extreme_ki")  # type: float
-        self.ur_extreme_kd = self.flash_sys.find_value("ur_extreme_kd")  # type: float
-        self.md_extreme_kp = self.flash_sys.find_value("md_extreme_kp")  # type: float
-        self.md_extreme_ki = self.flash_sys.find_value("md_extreme_ki")  # type: float
-        self.md_extreme_kd = self.flash_sys.find_value("md_extreme_kd")  # type: float
         
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
@@ -246,8 +236,6 @@ class SpeedPositionPID(ControlPID):
         self.diff_filter = diff_filter
         self.__A = self.flash_sys.find_value("A")      # type: float # 变速积分误差阈值上限
         self.__B = self.flash_sys.find_value("B")      # type: float # 变速积分误差阈值下限
-        self.__kp_mid = self.flash_sys.find_value("kp_mid")  # type: float # 中等误差时的kp系数
-        self.__kp_low = self.flash_sys.find_value("kp_low")  # type: float # 低误差时的kp系数
 
     def set_pid_params(self, kp: float, ki: float, kd: float) -> None:
         self.kp = kp
@@ -307,7 +295,7 @@ class AnglePositionPID(ControlPID):
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
-        self.__angle_integral_limitmax = self.flash_sys.find_value("angle_integral_limitmax")      # type: float
+        self.__angle_integral_limitmax = 1200
         self.high_pwmout_limitmax = self.flash_sys.find_value("high_angle_pwmout_limitmax")    # type: float
         self.low_pwmout_limitmax = self.flash_sys.find_value("low_angle_pwmout_limitmax")    # type: float
         self.pwmout_limitmax = self.high_pwmout_limitmax
@@ -347,7 +335,10 @@ class ServoPID(ControlPID):
         self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
         self.target_x = self.flash_sys.find_value("servo_target_x")     # type: int
         self.actual_x = 0     # type: float
-        self.target_y = self.flash_sys.find_value("servo_target_y")     # type: float
+        self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
+        self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
+        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float
+        self.target_y = 0.0     # type: float
         self.actual_y = 0     # type: float
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
@@ -413,9 +404,6 @@ class CarPose:
         self.motor_ur = motor_ur
         self.motor_md = motor_md
 
-        # 机械参数
-        self.wheel_radius = self.flash_sys.find_value("wheel_radius")  # type: float  # 轮半径，单位：cm
-        self.car_radius = self.flash_sys.find_value("car_radius")          # type: float  # 车体半径，单位：cm
         # 上一次速度
         self.last_car_speed_x = 0.0  # type: float
         self.last_car_speed_y = 0.0  # type: float

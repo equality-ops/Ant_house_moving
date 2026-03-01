@@ -85,7 +85,6 @@ class Plan:
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
         self.DEC = 3                    # type: int  # 减速阶段标志位
         self.STOP = 4                   # type: int  # 停止标志位
-        self.dec_ratio = self.flash_sys.find_value("dec_ratio")	# type: float  # 减速段占据的比例
         self.v_target = 0               # type: int  # 目标速度
         # 速度规划阶段变量
         self.v_max = 0                  # type: int    # 本次移动规划的最大速度
@@ -888,10 +887,12 @@ class VisionManager:
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
-        self.total_dis = 0.0                 # type: float   # 总距离
-        self.max_orbit_speed = self.flash_sys.find_value("max_orbit_speed")   # type: int   # 最大环绕速度
-        self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")   # type: int   # 最小环绕速度
+        self.total_dis = 0.0               # type: float   # 总距离
         self.orbit_v = self.flash_sys.find_value("orbit_v")   # type: int   # 环绕速度
+        self.object_radius = 0.0           # type: float   # 物体半径
+        self.radius_T = self.flash_sys.find_value("radius_T")   # type: float   # 网球半径
+        self.radius_S = self.flash_sys.find_value("radius_S")   # type: float   # 沙袋半径
+        self.radius_B = self.flash_sys.find_value("radius_B")   # type: float   # 玩具熊半径
         self.direct = 0     # 0为顺时针，1为逆时针
 
         # 标志位
@@ -970,7 +971,7 @@ class VisionManager:
                 # 计算最终的TOF测距值（去除前5个的平均值）
                 self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
                 # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
-                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 15.0) / 5	
+                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5	
                 # self.orbit_radius = 3.0
                 # 限制目标角度在-180到180度之间
                 if target_angle > 180.0:

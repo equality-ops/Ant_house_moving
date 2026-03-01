@@ -236,6 +236,28 @@ def main_start():
             # 检测是否正常初始化所有
             detect_if_normal()
 
+# 用于准备视觉伺服和环绕
+def ready_servo_and_orbit():
+    # 根据物品种类选择伺服距离和环绕半径
+    if my_vision_manager.current_servo_object == ord('T'):
+        servo_pid.target_y = servo_pid.target_y_T
+        my_vision_manager.object_radius = my_vision_manager.radius_T
+    elif my_vision_manager.current_servo_object == ord('S'):
+        servo_pid.target_y = servo_pid.target_y_S
+        my_vision_manager.object_radius = my_vision_manager.radius_S
+    elif my_vision_manager.current_servo_object == ord('B'):
+        servo_pid.target_y = servo_pid.target_y_B
+        my_vision_manager.object_radius = my_vision_manager.radius_B
+
+# 重置导航相关标志位
+def reset_navigate_flags():
+    my_plan.finish_navigate = False
+    my_plan.dec_speed_index = 0
+    my_plan.path_points.clear()
+    my_plan.if_set_path = False
+    my_plan.if_finish_turn = False
+    my_plan.transition_flag = False
+
 # 调试电机速度环pid函数
 def show_speed_PID_test():
     motor_ul_pid.compute_pid(400, pose_data.encoder_data_ul)
@@ -463,14 +485,9 @@ def task_machine():
             target_point = my_art_protocol.coordinate_receive()
             if target_point:
                 my_vision_manager.current_servo_object = target_point[2]
+                ready_servo_and_orbit()
+                reset_navigate_flags()
                 my_state.state = my_state.SERVO
-                # 重置导航相关标志位
-                my_plan.finish_navigate = False
-                my_plan.dec_speed_index = 0
-                my_plan.path_points.clear()
-                my_plan.if_set_path = False
-                my_plan.if_finish_turn = False
-                my_plan.transition_flag = False
         elif my_state.state == my_state.SERVO:
             my_vision_manager.visual_servo_control()
             if my_vision_manager.finish_servo == True:
@@ -633,27 +650,21 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target > 500:
-        motor_ul_pid.set_pid_params(pid_data.ul_extreme_kp, pid_data.ul_extreme_ki, pid_data.ul_extreme_kd)
-    elif motor_ul_pid.target >= 400:
+    if motor_ul_pid.target >= 400:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
     elif motor_ul_pid.target >= 200:
         motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target > 500:
-        motor_ur_pid.set_pid_params(pid_data.ur_extreme_kp, pid_data.ur_extreme_ki, pid_data.ur_extreme_kd)
-    elif motor_ur_pid.target >= 400:
+    if motor_ur_pid.target >= 400:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
     elif motor_ur_pid.target >= 200:
         motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target > 500:
-        motor_md_pid.set_pid_params(pid_data.md_extreme_kp, pid_data.md_extreme_ki, pid_data.md_extreme_kd)
-    elif motor_md_pid.target >= 400:
+    if motor_md_pid.target >= 400:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     elif motor_md_pid.target >= 200:
         motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
@@ -759,6 +770,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
+    my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
@@ -809,7 +821,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
     
     # 任务机
-    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}\n")
+    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
