@@ -838,7 +838,7 @@ class Plan:
                 """
  # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager):
+    def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan: Plan):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -864,6 +864,8 @@ class VisionManager:
         self.my_art_protocol = protocol
         # 注入指令管理对象
         self.my_order_manager = order_manager
+        # 注入路径规划对象
+        self.my_plan = plan
 
         # 当前伺服的物品种类
         # 'T'为网球， 'S'为沙袋，'B'为玩具熊
@@ -887,7 +889,7 @@ class VisionManager:
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
-        self.total_dis = 0.0               # type: float   # 总距离
+        self.target_angle = 0.0            # type: float   # 目标角度
         self.orbit_v = self.flash_sys.find_value("orbit_v")   # type: int   # 环绕速度
         self.object_radius = 0.0           # type: float   # 物体半径
         self.radius_T = self.flash_sys.find_value("radius_T")   # type: float   # 网球半径
@@ -962,40 +964,41 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):
         if self.if_gain_dis == False:
+            # 保持静止采集tof数据
+            self.orbit_speed = 0
             if len(self.tof_buffer) <= 35:          
                 # 获取TOF测距值，并添加到缓冲区
                 self.tof_buffer.append(self.tof_distance_fil.update(self.my_tof.get()))
                 # 测试
-                self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
+                # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
             else:
                 # 计算最终的TOF测距值（去除前5个的平均值）
                 self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
                 # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
                 self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5	
-                # self.orbit_radius = 3.0
+                self.target_angle = self.my_plan.turn_angle_target + target_angle
                 # 限制目标角度在-180到180度之间
-                if target_angle > 180.0:
-                    target_angle -= 360.0
-                elif target_angle < -180.0:
-                    target_angle += 360.0
+                if self.target_angle > 180.0:
+                    self.target_angle -= 360.0
+                elif self.target_angle < -180.0:
+                    self.target_angle += 360.0
                 # 确定旋转方向（顺时针还是逆时针）
                 if target_angle >= 0.0:
                     self.direct = 0
                 else:
                     self.direct = 1 
                 self.current_dis = 0.0
-                self.total_dis = self.orbit_radius * abs(target_angle) * self.MATH.PI / 180
                 self.if_gain_dis = True
                 self.tof_buffer.clear()
                 # 测试
-                self.my_beep.test()
-                self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}, total_dis: {:<f}\n".format(self.tof_distance, self.orbit_radius, self.total_dis))
+                # self.my_beep.test()
+                self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
         else:
             if self.finish_orbit == False:
                 # 更新当前小车的行驶距离
                 self.current_dis += self.my_car.car_speed_x
                 # 更新当前小车的目标转角及目标航向角
-                self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI
+                self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI + self.my_plan.turn_angle_target
                 if self.orbit_turn_angle >= 180.0:
                     self.orbit_turn_angle -= 360.0
                 elif self.orbit_turn_angle <= -180.0:
@@ -1013,7 +1016,7 @@ class VisionManager:
                 # 更新当前小车的速度
                 self.orbit_speed = self.orbit_v
                 # 判断是否完成环绕
-                if abs(target_angle - self.my_car.now_yaw * 180 / self.MATH.PI) <= 1.0:	
+                if abs(self.target_angle - self.my_car.now_yaw * 180 / self.MATH.PI) <= 1.0:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
