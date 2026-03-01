@@ -19,6 +19,13 @@ CAMERA_PIXFORMAT = sensor.RGB565
 CAMERA_FRAMESIZE = sensor.QQVGA  # 160x120
 CAMERA_FRAMERATE = 60
 CAMERA_BRIGHTNESS = 800
+BRIGHTNESS_TOLERANCE = 10
+REFERENCE_BRIGHTNESS = 50
+BRIGHTNESS_STEP = 20
+MIN_BRIGHTNESS = 500    # 摄像头亮度下限
+MAX_BRIGHTNESS = 2500 # 摄像头亮度上限
+BRIGHTNESS_ROI = (60, 45, 40, 30)
+ADJUST_INTERVAL = 5
 
 # 屏幕尺寸
 SCREEN_WIDTH = 160
@@ -62,6 +69,8 @@ DRAW_COLORS = {
     'black': (0, 0, 0),      # 锁定标识
     'brown': (150, 75, 0)    # 棕色玩具熊
 }
+
+
 
 # ======================== 通信模块 ========================
 class Communicator:
@@ -411,6 +420,10 @@ locked_last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
 locked_last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
 locked_lost_count = 0           # 锁定目标丢失帧数
 
+# 亮度调整相关变量
+current_brightness = CAMERA_BRIGHTNESS  # 手动维护当前亮度值（替代无接口的get_brightness）
+frame_count = 0  # 帧计数器，控制亮度调整频率
+
 # 时间戳
 last_time = time.ticks_ms()
 
@@ -447,6 +460,29 @@ def handle_uart_commands():
         elif cmd == b'F':
             current_mode = MODE_WAITING
 
+def adjust_brightness(img):
+    """依据当前亮度自动调整摄像头亮度"""
+    global frame_count, current_brightness
+    frame_count += 1
+    if frame_count % ADJUST_INTERVAL != 0:
+        return 
+    stats = img.get_statistics(roi = BRIGHTNESS_ROI)
+    l_mean = stats.l_mean()
+
+    diff = l_mean - REFERENCE_BRIGHTNESS
+    if abs(diff) > BRIGHTNESS_TOLERANCE:
+        if diff < 0:
+            new_brightness = new_brightness = current_brightness + BRIGHTNESS_STEP
+        else:
+            new_brightness = new_brightness = current_brightness - BRIGHTNESS_STEP
+
+        new_brightness = max(MIN_BRIGHTNESS, min(MAX_BRIGHTNESS, new_brightness))
+
+        if new_brightness != current_brightness:
+            sensor.set_brightness(new_brightness)
+            current_brightness = new_brightness
+
+
 # ======================== 初始化 ========================
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
@@ -480,6 +516,7 @@ communicator = Communicator(uart)
 while True:
     clock.tick()
     img = sensor.snapshot()
+    adjust_brightness(img)
 
     # 时间戳更新（计算卡尔曼滤波时间步长）
     current_time = time.ticks_ms()
