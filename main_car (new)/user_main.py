@@ -474,12 +474,13 @@ def task_machine():
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 if my_vision_manager.if_send_servo_command == False:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
                     # 控制小车面向物体进行视觉伺服控制
                     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                # 测试
-                my_beep.test()
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]], 0.0)
             if my_plan.finish_navigate == False:
@@ -550,12 +551,13 @@ def task_machine():
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 if my_vision_manager.if_send_servo_command == False:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
                     # 控制小车面向物体进行视觉伺服控制
                     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                # 测试
-                my_beep.test()
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]], 90.0)
             if my_plan.finish_navigate == False:
@@ -624,11 +626,9 @@ def task_machine():
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
-                if my_vision_manager.if_send_servo_command == False:
-                    my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
-                    # 控制小车面向物体进行视觉伺服控制
-                    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                my_vision_manager.my_order_manager.mode_target()
+                # 控制小车面向物体进行视觉伺服控制
+                my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.SCAN:
@@ -692,7 +692,7 @@ def task_machine():
             if my_main_protocol.get_slave_state() == "get":
                 my_plan.if_send_path = False
                 my_state.state = my_state.NAVIGATE
-                # 测试+
+                # 测试
                 my_beep.test()
         elif my_state.state == my_state.NAVIGATE:
             my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], -90.0)
@@ -700,12 +700,13 @@ def task_machine():
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 if my_vision_manager.if_send_servo_command == False:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
                     # 控制小车面向物体进行视觉伺服控制
                     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                # 测试
-                my_beep.test()
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[8][0], plan_data.fixed_point[8][1]]], -90.0)
             if my_plan.finish_navigate == False:
@@ -1051,7 +1052,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
     
     # 任务机
-    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}\n")
+    # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
+    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

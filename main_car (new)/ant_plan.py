@@ -609,7 +609,7 @@ class Plan:
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
             # self.my_uart3.write(f"{abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI)}\n")
             # 在未完成转角调整时，持续进行转角调整
-            if abs(self.turn_angle_target - self.my_car.now_yaw * 180.0 / self.MATH.PI) <= 1.0:
+            if abs(abs(self.turn_angle_target) - abs(self.my_car.now_yaw * 180.0 / self.MATH.PI)) <= 1.0:
                 if self.transition_flag == False:
                     self.path_transition()
                 else:
@@ -1016,7 +1016,7 @@ class VisionManager:
                 # 更新当前小车的速度
                 self.orbit_speed = self.orbit_v
                 # 判断是否完成环绕
-                if abs(self.target_angle - self.my_car.now_yaw * 180 / self.MATH.PI) <= 1.0:	
+                if abs(abs(self.target_angle) - abs(self.my_car.now_yaw * 180 / self.MATH.PI)) <= 1.0:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
