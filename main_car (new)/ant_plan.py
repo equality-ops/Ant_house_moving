@@ -279,7 +279,7 @@ class Plan:
     def set_target_point(self, x: float, y: float):
         # 重置当前路径和相关索引
         self.plan_data.current_aimed_point_index = 0
-        self.plan_data.aimed_point_index = 0
+        
         # 搬运或返回模式下不需要避开矩形区域行驶
         if self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.RETURN:
             self.current_path = []
@@ -658,6 +658,7 @@ class Plan:
                 self.my_car.x_current = self.ideal_target_x
                 self.my_car.y_current = self.ideal_target_y
                 self.if_finish_turn = False
+                self.plan_data.aimed_point_index = 0
                 self.dec_speed_index = 0
                 self.path_points.clear()
                 self.if_set_path = False

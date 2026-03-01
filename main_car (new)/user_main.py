@@ -253,6 +253,7 @@ def ready_servo_and_orbit():
 def reset_navigate_flags():
     my_plan.finish_navigate = False
     my_plan.dec_speed_index = 0
+    plan_data.aimed_point_index = 0
     my_plan.path_points.clear()
     my_plan.if_set_path = False
     my_plan.if_finish_turn = False
@@ -960,7 +961,9 @@ def time_pit3_handler(time) -> None:
    
     # 全向定位测试程序
     """
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+    elif my_state.state == my_state.NAVIGATE:
         my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
