@@ -797,6 +797,7 @@ class Plan:
                         self.my_car.y_current = 0.0
                     self.my_order_manager.finish()
                     self.if_gain_calibrate_angle = True 
+                    self.if_finish_calibrate = True
                     # 重置导航相关标志位
                     self.finish_navigate = False
                     self.dec_speed_index = 0
@@ -890,6 +891,7 @@ class VisionManager:
         self.total_dis = 0.0                 # type: float   # 总距离
         self.max_orbit_speed = self.flash_sys.find_value("max_orbit_speed")   # type: int   # 最大环绕速度
         self.min_orbit_speed = self.flash_sys.find_value("min_orbit_speed")   # type: int   # 最小环绕速度
+        self.orbit_v = self.flash_sys.find_value("orbit_v")   # type: int   # 环绕速度
         self.direct = 0     # 0为顺时针，1为逆时针
 
         # 标志位
@@ -968,7 +970,7 @@ class VisionManager:
                 # 计算最终的TOF测距值（去除前5个的平均值）
                 self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
                 # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
-                self.orbit_radius = ((self.tof_distance - 53.0) / 10 + 15.0) / 5	
+                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 15.0) / 5	
                 # self.orbit_radius = 3.0
                 # 限制目标角度在-180到180度之间
                 if target_angle > 180.0:
@@ -988,34 +990,29 @@ class VisionManager:
                 self.my_beep.test()
                 self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}, total_dis: {:<f}\n".format(self.tof_distance, self.orbit_radius, self.total_dis))
         else:
-            # 更新当前小车的行驶距离
-            self.current_dis += self.my_car.car_speed_x
-            # 更新当前小车的目标转角及目标航向角
-            self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI
-            if self.orbit_turn_angle >= 180.0:
-                self.orbit_turn_angle -= 360.0
-            elif self.orbit_turn_angle <= -180.0:
-                self.orbit_turn_angle += 360.0
-                
-            if self.direct == 0:
-                self.orbit_yaw = -90.0 + self.orbit_turn_angle
-            elif self.direct == 1:
-                self.orbit_yaw = 90.0 + self.orbit_turn_angle
-                
-            if self.orbit_yaw >= 180.0:
-                self.orbit_yaw -= 360.0
-            elif self.orbit_yaw <= -180.0:
-                self.orbit_yaw += 360.0
-            # 更新当前小车的速度
-            self.orbit_speed = 150
-            """
-            self.orbit_speed = int(self.max_orbit_speed - (self.max_orbit_speed - self.min_orbit_speed) * (self.current_dis / self.total_dis))
-            # 速度限幅
-            if self.orbit_speed < self.min_orbit_speed:
-                self.orbit_speed = self.min_orbit_speed
-            elif self.orbit_speed > self.max_orbit_speed:
-                self.orbit_speed = self.max_orbit_speed
-                """
-            # 判断是否完成环绕
-            if abs(target_angle - self.my_car.now_yaw * 180 / self.MATH.PI) <= 1.0:	
-                self.finish_orbit = True
+            if self.finish_orbit == False:
+                # 更新当前小车的行驶距离
+                self.current_dis += self.my_car.car_speed_x
+                # 更新当前小车的目标转角及目标航向角
+                self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI
+                if self.orbit_turn_angle >= 180.0:
+                    self.orbit_turn_angle -= 360.0
+                elif self.orbit_turn_angle <= -180.0:
+                    self.orbit_turn_angle += 360.0
+                    
+                if self.direct == 0:
+                    self.orbit_yaw = -90.0 + self.orbit_turn_angle
+                elif self.direct == 1:
+                    self.orbit_yaw = 90.0 + self.orbit_turn_angle
+                    
+                if self.orbit_yaw >= 180.0:
+                    self.orbit_yaw -= 360.0
+                elif self.orbit_yaw <= -180.0:
+                    self.orbit_yaw += 360.0
+                # 更新当前小车的速度
+                self.orbit_speed = self.orbit_v
+                # 判断是否完成环绕
+                if abs(target_angle - self.my_car.now_yaw * 180 / self.MATH.PI) <= 1.0:	
+                    self.orbit_speed = 0
+                    self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
+                    self.finish_orbit = True

@@ -1,6 +1,7 @@
 # 修改时间 2.28	20:02
 
 ###################【PID参数】####################
+"""
 # speed大于600时
 ul_extreme_kp = 105.0
 ul_extreme_ki = 0.28
@@ -11,6 +12,7 @@ ur_extreme_kd = 30.0
 md_extreme_kp = 95.0
 md_extreme_ki = 0.295
 md_extreme_kd = 20.0
+"""
 # speed大于400，小于600时
 ul_high_kp = 75.0
 ul_high_ki = 0.45
@@ -47,19 +49,25 @@ angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 integral_limitmax = 14000
 pwmout_limitmax = 8000
+"""
 angle_integral_limitmax = 1200
+"""
 high_angle_pwmout_limitmax = 600
 low_angle_pwmout_limitmax = 200
 # A设置为B的2倍左右
 A = 500
 # B大致为最大静差的1.5倍
 B = 200
+"""
 kp_mid = 0.9
 kp_low = 0.7
+"""
 
+"""
 ###################【机械参数（单位：cm）】###################
 wheel_radius = 5.8
 car_radius = 10.5
+"""
 
 ###################【系数】####################
 # 速度转换系数
@@ -81,8 +89,10 @@ boost_time_threshold = 60
 ###################【路径规划】####################
 plan_arrive_threshold = 1.0
 plan_point_transition_T = 50
+"""
 # 减速段占据总路程的比例
 dec_ratio = 0.0
+"""
 
 ###################【速度规划】####################
 min_start_v = 40
@@ -90,6 +100,7 @@ long_v_max = 400
 short_v_max = 50
 dead_zone_v = 50
 transit_v = 200
+orbit_v = 100
 move_v_max = 150
 scan_v_max = 80
 
@@ -99,7 +110,7 @@ servo_kd_x = 10.0
 servo_kp_y = 8.0
 servo_kd_y = 10.0
 servo_target_x = 80
-servo_target_y = 8.0
+servo_target_y_T = 8.0
 min_rel_speed = 50
 max_rel_speed = 250
 finish_threshold_x = 2

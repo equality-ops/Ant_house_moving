@@ -306,12 +306,14 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.CALIBRATE:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.CALIBRATE or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE :
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
+    elif my_state.state == my_state.READY_NAVIGATE:
+        my_car.move_ctrl(0, 0.0, 0.0)
 
 # 视觉伺服测试函数
 def test_vision_servo():
@@ -396,10 +398,12 @@ def test_boundary_calibration():
 
 # 测试环绕控制函数
 def test_orbit_control():
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+    elif my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(180.0)
+        my_vision_manager.orbit_control(-120.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
@@ -443,7 +447,7 @@ def task_machine():
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
@@ -455,7 +459,7 @@ def task_machine():
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]], 0.0)
             target_point = my_art_protocol.coordinate_receive()
             if target_point:
                 my_vision_manager.current_servo_object = target_point[2]
@@ -474,7 +478,6 @@ def task_machine():
                 # 过渡500ms防止惯性过冲
                 if counter >= 50:
                     counter = 0
-                    my_state.state_work = 1
                     my_state.state = my_state.ORBIT
                     # 重置标志位
                     my_vision_manager.if_send_servo_command = False
@@ -488,12 +491,12 @@ def task_machine():
                 # 过渡500ms防止惯性过冲
                 if counter >= 50:
                     counter = 0
-                    my_vision_manager.finish_orbit = False
+                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     my_state.state = my_state.MOVE
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
-            my_plan.navigate([my_car.x_current, -20.0])
+            my_plan.navigate([[my_car.x_current, -25.0]])
             if my_plan.finish_navigate == True:
                 counter += 1
                 # 过渡500ms防止惯性过冲
@@ -504,13 +507,14 @@ def task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.CALIBRATE:  
+            my_plan.boundary_calibrate_control()
             if my_plan.if_finish_calibrate == True:
                 my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
                 my_state.state = my_state.RETURN
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.RETURN:
-            my_plan.navigate([0.0, 0.0], 0.0)
+            my_plan.navigate([[0.0, 0.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -705,7 +709,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 测试主从车通信
     # test_main_slave_communication()
@@ -732,7 +736,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    test_boundary_calibration()
+    # test_boundary_calibration()
     # test_moving_boundary_calibration()
 
     # 测试openart不同模式切换程序
@@ -803,6 +807,9 @@ def time_pit2_handler(time):
     
     # 环绕测试
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
+    
+    # 任务机
+    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
