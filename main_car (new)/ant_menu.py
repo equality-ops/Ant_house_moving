@@ -18,56 +18,55 @@ class Menu:
         # 所有参数强制转为浮点数，避免类型错误
         self.config = {
             # PID 参数
-            "angle_normal_kp": float(flash_sys.find_value("angle_normal_kp")),
-            "angle_normal_ki": float(flash_sys.find_value("angle_normal_ki")),
-            "angle_normal_kd": float(flash_sys.find_value("angle_normal_kd")),
-            "integral_limitmax": float(flash_sys.find_value("integral_limitmax")),
-            "pwmout_limitmax": float(flash_sys.find_value("pwmout_limitmax")),
-            "angle_integral_limitmax": float(flash_sys.find_value("angle_integral_limitmax")),
+            "angle_normal_kp": float(flash_sys.find_value("angle_normal_kp")) if flash_sys.find_value("angle_normal_kp") else 10.0,
+            "angle_normal_ki": float(flash_sys.find_value("angle_normal_ki")) if flash_sys.find_value("angle_normal_ki") else 0.0,
+            "angle_normal_kd": float(flash_sys.find_value("angle_normal_kd")) if flash_sys.find_value("angle_normal_kd") else 20.0,
+            "integral_limitmax": float(flash_sys.find_value("integral_limitmax")) if flash_sys.find_value("integral_limitmax") else 14000.0,
+            "pwmout_limitmax": float(flash_sys.find_value("pwmout_limitmax")) if flash_sys.find_value("pwmout_limitmax") else 8000.0,
             "high_angle_pwmout_limitmax": float(flash_sys.find_value("high_angle_pwmout_limitmax")) if flash_sys.find_value("high_angle_pwmout_limitmax") else 600.0,
-            "low_angle_pwmout_limitmax": float(flash_sys.find_value("low_angle_pwmout_limitmax")) if flash_sys.find_value("low_angle_pwmout_limitmax") else 150.0,
+            "low_angle_pwmout_limitmax": float(flash_sys.find_value("low_angle_pwmout_limitmax")) if flash_sys.find_value("low_angle_pwmout_limitmax") else 200.0,
             # A/B 设置
-            "A": float(flash_sys.find_value("A")),
-            "B": float(flash_sys.find_value("B")),
-            # kp 分段系数
-            "kp_mid": float(flash_sys.find_value("kp_mid")),
-            "kp_low": float(flash_sys.find_value("kp_low")),
-            # 机械参数
-            "wheel_radius": float(flash_sys.find_value("wheel_radius")),
-            "car_radius": float(flash_sys.find_value("car_radius")),
+            "A": float(flash_sys.find_value("A")) if flash_sys.find_value("A") else 500.0,
+            "B": float(flash_sys.find_value("B")) if flash_sys.find_value("B") else 200.0,
             # 系数
-            "gkd": float(flash_sys.find_value("gkd")),
-            "speed_fuse_ratio": float(flash_sys.find_value("speed_fuse_ratio")),
-            "ur_high_kp": float(flash_sys.find_value("ur_high_kp")),
+            "gkd": float(flash_sys.find_value("gkd")) if flash_sys.find_value("gkd") else -0.19,
+            "speed_fuse_ratio": float(flash_sys.find_value("speed_fuse_ratio")) if flash_sys.find_value("speed_fuse_ratio") else 0.2,
             # 时间规划
-            "motor_control_T": float(flash_sys.find_value("motor_control_T")),
-            "plan_calculate_T": float(flash_sys.find_value("plan_calculate_T")),
-            "uart_and_menu_T": float(flash_sys.find_value("uart_and_menu_T")),
-            "boost_time_threshold": float(flash_sys.find_value("boost_time_threshold")),
+            "motor_control_T": float(flash_sys.find_value("motor_control_T")) if flash_sys.find_value("motor_control_T") else 2.0,
+            "collect_dt": float(flash_sys.find_value("collect_dt")) if flash_sys.find_value("collect_dt") else 0.002,
+            "plan_calculate_T": float(flash_sys.find_value("plan_calculate_T")) if flash_sys.find_value("plan_calculate_T") else 10.0,
+            "uart_and_menu_T": float(flash_sys.find_value("uart_and_menu_T")) if flash_sys.find_value("uart_and_menu_T") else 53.0,
+            "boost_time_threshold": float(flash_sys.find_value("boost_time_threshold")) if flash_sys.find_value("boost_time_threshold") else 60.0,
             # 路径规划
-            "plan_arrive_threshold": float(flash_sys.find_value("plan_arrive_threshold")),
-            "plan_point_transition_T": float(flash_sys.find_value("plan_point_transition_T")),
-            "dec_ratio": float(flash_sys.find_value("dec_ratio")),
+            "plan_arrive_threshold": float(flash_sys.find_value("plan_arrive_threshold")) if flash_sys.find_value("plan_arrive_threshold") else 1.0,
+            "plan_point_transition_T": float(flash_sys.find_value("plan_point_transition_T")) if flash_sys.find_value("plan_point_transition_T") else 50.0,
             # 速度规划
-            "min_start_v": float(flash_sys.find_value("min_start_v")),
-            "long_v_max": float(flash_sys.find_value("long_v_max")),
-            "short_v_max": float(flash_sys.find_value("short_v_max")),
-            "dead_zone_v": float(flash_sys.find_value("dead_zone_v")),
+            "min_start_v": float(flash_sys.find_value("min_start_v")) if flash_sys.find_value("min_start_v") else 40.0,
+            "long_v_max": float(flash_sys.find_value("long_v_max")) if flash_sys.find_value("long_v_max") else 400.0,
+            "short_v_max": float(flash_sys.find_value("short_v_max")) if flash_sys.find_value("short_v_max") else 50.0,
+            "dead_zone_v": float(flash_sys.find_value("dead_zone_v")) if flash_sys.find_value("dead_zone_v") else 50.0,
+            "transit_v": float(flash_sys.find_value("transit_v")) if flash_sys.find_value("transit_v") else 200.0,
+            "orbit_v": float(flash_sys.find_value("orbit_v")) if flash_sys.find_value("orbit_v") else 100.0,
+            "move_v_max": float(flash_sys.find_value("move_v_max")) if flash_sys.find_value("move_v_max") else 150.0,
+            "scan_v_max": float(flash_sys.find_value("scan_v_max")) if flash_sys.find_value("scan_v_max") else 80.0,
             # 视觉伺服
-            "servo_kp_x": float(flash_sys.find_value("servo_kp_x")),
-            "servo_kd_x": float(flash_sys.find_value("servo_kd_x")),
-            "servo_kp_y": float(flash_sys.find_value("servo_kp_y")),
-            "servo_kd_y": float(flash_sys.find_value("servo_kd_y")),
-            "servo_target_x": float(flash_sys.find_value("servo_target_x")),
-            "servo_target_y": float(flash_sys.find_value("servo_target_y")),
-            "min_rel_speed": float(flash_sys.find_value("min_rel_speed")),
-            "max_rel_speed": float(flash_sys.find_value("max_rel_speed")),
-            "finish_threshold_x": float(flash_sys.find_value("finish_threshold_x")),
-            "finish_threshold_y": float(flash_sys.find_value("finish_threshold_y")),
-            "servo_pwmout_limitmax": float(flash_sys.find_value("servo_pwmout_limitmax")),
+            "servo_kp_x": float(flash_sys.find_value("servo_kp_x")) if flash_sys.find_value("servo_kp_x") else 8.0,
+            "servo_kd_x": float(flash_sys.find_value("servo_kd_x")) if flash_sys.find_value("servo_kd_x") else 10.0,
+            "servo_kp_y": float(flash_sys.find_value("servo_kp_y")) if flash_sys.find_value("servo_kp_y") else 8.0,
+            "servo_kd_y": float(flash_sys.find_value("servo_kd_y")) if flash_sys.find_value("servo_kd_y") else 10.0,
+            "servo_target_x": float(flash_sys.find_value("servo_target_x")) if flash_sys.find_value("servo_target_x") else 80.0,
+            "servo_target_y_T": float(flash_sys.find_value("servo_target_y_T")) if flash_sys.find_value("servo_target_y_T") else 5.0,
+            "servo_target_y_S": float(flash_sys.find_value("servo_target_y_S")) if flash_sys.find_value("servo_target_y_S") else 8.0,
+            "servo_target_y_B": float(flash_sys.find_value("servo_target_y_B")) if flash_sys.find_value("servo_target_y_B") else 30.0,
+            "min_rel_speed": float(flash_sys.find_value("min_rel_speed")) if flash_sys.find_value("min_rel_speed") else 50.0,
+            "max_rel_speed": float(flash_sys.find_value("max_rel_speed")) if flash_sys.find_value("max_rel_speed") else 250.0,
+            "finish_threshold_x": float(flash_sys.find_value("finish_threshold_x")) if flash_sys.find_value("finish_threshold_x") else 2.0,
+            "finish_threshold_y": float(flash_sys.find_value("finish_threshold_y")) if flash_sys.find_value("finish_threshold_y") else 4.0,
+            "servo_pwmout_limitmax": float(flash_sys.find_value("servo_pwmout_limitmax")) if flash_sys.find_value("servo_pwmout_limitmax") else 250.0,
             # 环绕控制
-            "max_orbit_speed": float(flash_sys.find_value("max_orbit_speed")),
-            "min_orbit_speed": float(flash_sys.find_value("min_orbit_speed")),
+            "radius_T": float(flash_sys.find_value("radius_T")) if flash_sys.find_value("radius_T") else 2.5,
+            "radius_S": float(flash_sys.find_value("radius_S")) if flash_sys.find_value("radius_S") else 4.5,
+            "radius_B": float(flash_sys.find_value("radius_B")) if flash_sys.find_value("radius_B") else 13.0,
         } # 用字典保存所需改的参数
 
         # 参数名-缩略名映射字典
@@ -78,51 +77,49 @@ class Menu:
             "angle_normal_kd": "n_kd",
             "integral_limitmax": "int_l",
             "pwmout_limitmax": "pwm_l",
-            "angle_integral_limitmax": "a_int_l",
             "high_angle_pwmout_limitmax": "h_a_pwm",
             "low_angle_pwmout_limitmax": "l_a_pwm",
-            # A/B 设置
             "A": "A",
             "B": "B",
-            # kp 分段系数
-            "kp_mid": "kp_m",
-            "kp_low": "kp_l",
-            # 机械参数
-            "wheel_radius": "wheel_r",
-            "car_radius": "car_r",
             # 系数
             "gkd": "gkd",
             "speed_fuse_ratio": "fuse_rat",
-            "ur_high_kp": "ur_kp",
             # 时间规划
             "motor_control_T": "motor_T",
+            "collect_dt": "col_dt",
             "plan_calculate_T": "plan_T",
             "uart_and_menu_T": "uart_T",
             "boost_time_threshold": "boost_T",
             # 路径规划
             "plan_arrive_threshold": "arrive_th",
             "plan_point_transition_T": "trans_T",
-            "dec_ratio": "dec_rat",
             # 速度规划
             "min_start_v": "min_v",
             "long_v_max": "long_v",
             "short_v_max": "short_v",
             "dead_zone_v": "dead_v",
+            "transit_v": "trans_v",
+            "orbit_v": "orbit_v",
+            "move_v_max": "move_v",
+            "scan_v_max": "scan_v",
             # 视觉伺服
             "servo_kp_x": "kp_x",
             "servo_kd_x": "kd_x",
             "servo_kp_y": "kp_y",
             "servo_kd_y": "kd_y",
             "servo_target_x": "tar_x",
-            "servo_target_y": "tar_y",
+            "servo_target_y_T": "tar_yT",
+            "servo_target_y_S": "tar_yS",
+            "servo_target_y_B": "tar_yB",
             "min_rel_speed": "min_spd",
             "max_rel_speed": "max_spd",
             "finish_threshold_x": "fin_x",
             "finish_threshold_y": "fin_y",
             "servo_pwmout_limitmax": "servo_pw",
             # 环绕控制
-            "max_orbit_speed": "max_orb",
-            "min_orbit_speed": "min_orb",
+            "radius_T": "rad_T",
+            "radius_S": "rad_S",
+            "radius_B": "rad_B",
         }
 
         # 注入外部硬件对象
@@ -151,8 +148,6 @@ class Menu:
         self.CLEAR_SPACES = " " * 35
 
         # 编码器旋转相关状态
-        # self.enc_rotation.capture()
-        # self.last_enc_value = self.enc_rotation.get()
         self.enc_rot_debounce_ms = 40                  # 旋转防抖时间
         self.enc_rot_last_trigger_time = time.ticks_ms()
         self.enc_pulse_threshold = 5
@@ -184,82 +179,105 @@ class Menu:
         self.page_line_map = {
             # 1.PID页
             1: {
-                2: ("angle_normal_kp", "6.3f"), 3: ("angle_normal_ki", "6.3f"), 4: ("angle_normal_kd", "6.3f"),
-                5: ("integral_limitmax", "6.3f"), 6: ("pwmout_limitmax", "6.3f"), 7: ("angle_integral_limitmax", "6.3f"),
-                8: ("high_angle_pwmout_limitmax", "6.3f"), 9: ("low_angle_pwmout_limitmax", "6.3f"), 10: ("A", "6.3f"), 
-                11: ("B", "6.3f"), 12: ("kp_mid", "6.3f"), 13: ("kp_low", "6.3f")
+                2: ("angle_normal_kp", "6.3f"), 
+                3: ("angle_normal_ki", "6.3f"), 
+                4: ("angle_normal_kd", "6.3f"),
+                5: ("integral_limitmax", "6.3f"), 
+                6: ("pwmout_limitmax", "6.3f"), 
+                7: ("high_angle_pwmout_limitmax", "6.3f"),
+                8: ("low_angle_pwmout_limitmax", "6.3f"), 
+                9: ("A", "6.3f"), 
+                10: ("B", "6.3f")
             },
-            # 2.MECH页（机械参数）
+            # 2.COEF页（系数参数）
             2: {
-                2: ("wheel_radius", "6.3f"), 3: ("car_radius", "6.3f")
+                2: ("gkd", "6.3f"), 
+                3: ("speed_fuse_ratio", "6.3f")
             },
-            # 3.COEF页（系数参数）
+            # 3.TIME页（时间规划参数）
             3: {
-                2: ("gkd", "6.3f"), 3: ("speed_fuse_ratio", "6.3f"), 4: ("ur_high_kp", "6.3f")
+                2: ("motor_control_T", "6.3f"), 
+                3: ("collect_dt", "6.3f"),
+                4: ("plan_calculate_T", "6.3f"),
+                5: ("uart_and_menu_T", "6.3f"), 
+                6: ("boost_time_threshold", "6.3f")
             },
-            # 4.TIME页（时间规划参数）
+            # 4.PATH页（路径规划参数）
             4: {
-                2: ("motor_control_T", "6.3f"), 3: ("plan_calculate_T", "6.3f"),
-                4: ("uart_and_menu_T", "6.3f"), 5: ("boost_time_threshold", "6.3f")
+                2: ("plan_arrive_threshold", "6.3f"), 
+                3: ("plan_point_transition_T", "6.3f")
             },
-            # 5.PATH页（路径规划参数）
+            # 5.SPEED页（速度规划参数）
             5: {
-                2: ("plan_arrive_threshold", "6.3f"), 3: ("plan_point_transition_T", "6.3f"), 4: ("dec_ratio", "6.3f")
+                2: ("min_start_v", "6.3f"), 
+                3: ("long_v_max", "6.3f"),
+                4: ("short_v_max", "6.3f"), 
+                5: ("dead_zone_v", "6.3f"),
+                6: ("transit_v", "6.3f"), 
+                7: ("orbit_v", "6.3f"),
+                8: ("move_v_max", "6.3f"), 
+                9: ("scan_v_max", "6.3f")
             },
-            # 6.SPEED页（速度规划参数）
+            # 6.SERVO页（视觉伺服参数）
             6: {
-                2: ("min_start_v", "6.3f"), 3: ("long_v_max", "6.3f"), 4: ("short_v_max", "6.3f"), 5: ("dead_zone_v", "6.3f")
+                2: ("servo_kp_x", "6.3f"), 
+                3: ("servo_kd_x", "6.3f"),
+                4: ("servo_kp_y", "6.3f"), 
+                5: ("servo_kd_y", "6.3f"),
+                6: ("servo_target_x", "6.3f"), 
+                7: ("servo_target_y_T", "6.3f"),
+                8: ("servo_target_y_S", "6.3f"), 
+                9: ("servo_target_y_B", "6.3f"),
+                10: ("min_rel_speed", "6.3f"), 
+                11: ("max_rel_speed", "6.3f"),
+                12: ("finish_threshold_x", "6.3f"), 
+                13: ("finish_threshold_y", "6.3f"),
+                14: ("servo_pwmout_limitmax", "6.3f")
             },
-            # 7.SERVO页（视觉伺服参数）
+            # 7.ORBIT页（环绕控制参数）
             7: {
-                2: ("servo_kp_x", "6.3f"), 3: ("servo_kd_x", "6.3f"), 4: ("servo_kp_y", "6.3f"), 5: ("servo_kd_y", "6.3f"),
-                6: ("servo_target_x", "6.3f"), 7: ("servo_target_y", "6.3f"), 8: ("min_rel_speed", "6.3f"), 9: ("max_rel_speed", "6.3f"),
-                10: ("finish_threshold_x", "6.3f"), 11: ("finish_threshold_y", "6.3f"), 12: ("servo_pwmout_limitmax", "6.3f")
-            },
-            # 8.ORBIT页（环绕控制参数）
-            8: {
-                2: ("max_orbit_speed", "6.3f"), 3: ("min_orbit_speed", "6.3f")
+                2: ("radius_T", "6.3f"), 
+                3: ("radius_S", "6.3f"),
+                4: ("radius_B", "6.3f")
             }
         }
 
-        # 页面-保存行映射
+        # 页面-保存行映射（按每页参数数量+1（步长行）计算保存行）
         self.save_line_map = {
-            1: 14,   # PID页：12个参数 → 14行保存
-            2: 4,    # MECH页：2个参数 → 4行保存
-            3: 5,    # COEF页：3个参数 → 5行保存
-            4: 6,    # TIME页：4个参数 → 6行保存
-            5: 5,    # PATH页：3个参数 → 5行保存
-            6: 6,    # SPEED页：4个参数 → 6行保存
-            7: 13,   # SERVO页：11个参数 →13行保存
-            8: 4     # ORBIT页：2个参数 →4行保存
+            1: 11,   # PID页：9个参数 → 11行保存
+            2: 4,    # COEF页：2个参数 → 4行保存
+            3: 7,    # TIME页：5个参数 → 7行保存
+            4: 4,    # PATH页：2个参数 → 4行保存
+            5: 10,   # SPEED页：8个参数 → 10行保存
+            6: 15,   # SERVO页：13个参数 →15行保存
+            7: 5     # ORBIT页：3个参数 →5行保存
         }
 
-        # 页面配置（保存参数列表，按8页分区）
+        # 页面配置（保存参数列表）
         self.page_configs = {
             1: ["angle_normal_kp", "angle_normal_ki", "angle_normal_kd", "integral_limitmax",
-                "pwmout_limitmax", "angle_integral_limitmax", "high_angle_pwmout_limitmax", 
-                "low_angle_pwmout_limitmax", "A", "B", "kp_mid", "kp_low"],
-            2: ["wheel_radius", "car_radius"],
-            3: ["gkd", "speed_fuse_ratio", "ur_high_kp"],
-            4: ["motor_control_T", "plan_calculate_T", "uart_and_menu_T", "boost_time_threshold"],
-            5: ["plan_arrive_threshold", "plan_point_transition_T", "dec_ratio"],
-            6: ["min_start_v", "long_v_max", "short_v_max", "dead_zone_v"],
-            7: ["servo_kp_x", "servo_kd_x", "servo_kp_y", "servo_kd_y", "servo_target_x",
-                "servo_target_y", "min_rel_speed", "max_rel_speed", "finish_threshold_x",
-                "finish_threshold_y", "servo_pwmout_limitmax"],
-            8: ["max_orbit_speed", "min_orbit_speed"]
+                "pwmout_limitmax", "high_angle_pwmout_limitmax", "low_angle_pwmout_limitmax", 
+                "A", "B"],
+            2: ["gkd", "speed_fuse_ratio"],
+            3: ["motor_control_T", "collect_dt", "plan_calculate_T", "uart_and_menu_T", "boost_time_threshold"],
+            4: ["plan_arrive_threshold", "plan_point_transition_T"],
+            5: ["min_start_v", "long_v_max", "short_v_max", "dead_zone_v", "transit_v",
+                "orbit_v", "move_v_max", "scan_v_max"],
+            6: ["servo_kp_x", "servo_kd_x", "servo_kp_y", "servo_kd_y", "servo_target_x",
+                "servo_target_y_T", "servo_target_y_S", "servo_target_y_B", "min_rel_speed",
+                "max_rel_speed", "finish_threshold_x", "finish_threshold_y", "servo_pwmout_limitmax"],
+            7: ["radius_T", "radius_S", "radius_B"]
         }
 
         # 页面-标题-行范围映射
         self.page_meta = {
-            1: ("PID", 1, 14),    # PID：12参数+步长+保存 → 1-14行
-            2: ("MECH", 1, 4),    # MECH：2参数+步长+保存 →1-4行
-            3: ("COEF", 1, 5),    # COEF：3参数+步长+保存 →1-5行
-            4: ("TIME", 1, 6),    # TIME：4参数+步长+保存 →1-6行
-            5: ("PATH", 1, 5),    # PATH：3参数+步长+保存 →1-5行
-            6: ("SPEED", 1, 6),   # SPEED：4参数+步长+保存 →1-6行
-            7: ("SERVO", 1, 13),  # SERVO：11参数+步长+保存 →1-13行
-            8: ("ORBIT", 1, 4)    # ORBIT：2参数+步长+保存 →1-4行
+            1: ("PID", 1, 11),    # PID：9参数+步长+保存 → 1-11行
+            2: ("COEF", 1, 4),    # COEF：2参数+步长+保存 →1-4行
+            3: ("TIME", 1, 7),    # TIME：5参数+步长+保存 →1-7行
+            4: ("PATH", 1, 4),    # PATH：2参数+步长+保存 →1-4行
+            5: ("SPEED", 1, 10),  # SPEED：8参数+步长+保存 →1-10行
+            6: ("SERVO", 1, 15),  # SERVO：13参数+步长+保存 →1-15行
+            7: ("ORBIT", 1, 5)    # ORBIT：3参数+步长+保存 →1-5行
         }
 
     def _is_param_line(self, line_num):
@@ -455,9 +473,6 @@ class Menu:
 
         return pressed_key
         
-        
-    
-
     # 数据处理（增加选中状态判断）
     def data_processing(self, key):
         """处理参数修改逻辑（仅选中状态可修改参数）"""
@@ -519,15 +534,15 @@ class Menu:
         self.need_refresh = True
         gc.collect()
 
-    # 页面切换检测（适配8页翻页逻辑）
+    # 页面切换检测（适配7页翻页逻辑）
     def detect_change_page(self, key):
-        """检测并处理8页页面切换"""
+        """检测并处理7页页面切换"""
         is_save_line = self.Current_line == self.save_line_map.get(self.change_page_to, 0)
         if (self.is_param_selected is False and self.Current_line != 1) or is_save_line:
             if key == "left":
-                self.change_page_to = 8 if self.change_page_to == 1 else self.change_page_to - 1
+                self.change_page_to = 7 if self.change_page_to == 1 else self.change_page_to - 1
             elif key == "right":
-                self.change_page_to = 1 if self.change_page_to == 8 else self.change_page_to + 1
+                self.change_page_to = 1 if self.change_page_to == 7 else self.change_page_to + 1
             
             self.Current_line = 2
             self.is_param_selected = False  # 翻页取消选中
@@ -600,4 +615,3 @@ class Menu:
                 self.data_processing(key)
         if self.need_refresh:
             self.refresh_current_page()
-        ############################################
