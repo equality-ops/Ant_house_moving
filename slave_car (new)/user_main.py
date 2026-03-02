@@ -227,7 +227,7 @@ def slave_start():
             # if my_slave_protocol.get_start_signal() == True:
             my_state.state_work = 0
             # 初始状态设置为导航状态
-            my_state.state = my_state.NAVIGATE
+            my_state.state = my_state.READY_NAVIGATE
             start_flag = True
             # 延时一秒避免零漂校准不准确
             time.sleep_ms(1000)
@@ -236,6 +236,19 @@ def slave_start():
             pit3_start()
             # 检测是否正常初始化所有
             detect_if_normal()
+
+# 用于准备视觉伺服和环绕
+def ready_servo_and_orbit():
+    # 根据物品种类选择伺服距离和环绕半径
+    if my_vision_manager.current_servo_object == ord('T'):
+        servo_pid.target_y = servo_pid.target_y_T
+        my_vision_manager.object_radius = my_vision_manager.radius_T
+    elif my_vision_manager.current_servo_object == ord('S'):
+        servo_pid.target_y = servo_pid.target_y_S
+        my_vision_manager.object_radius = my_vision_manager.radius_S
+    elif my_vision_manager.current_servo_object == ord('B'):
+        servo_pid.target_y = servo_pid.target_y_B
+        my_vision_manager.object_radius = my_vision_manager.radius_B
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -321,10 +334,16 @@ def test_vision_servo():
     global counter
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
+        my_order_manager.mode_target()
     elif my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
-        my_order_manager.mode_target()
-        my_state.state = my_state.SERVO
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.current_servo_object = target_point[2]
+            ready_servo_and_orbit()
+            my_state.state = my_state.SERVO
+            # 测试
+            my_beep.test()
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
@@ -628,6 +647,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
+    # my_uart3.write(f"target_y: {servo_pid.target_y}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
@@ -675,6 +695,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
+
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
