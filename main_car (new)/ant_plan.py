@@ -852,6 +852,8 @@ class VisionManager:
         self.sin_servo_fil = sin_servo_fil
         # 注入余弦滑动平均滤波器对象
         self.cos_servo_fil = cos_servo_fil
+        # 注入角度滑动平均滤波器对象
+        # self.angle_fil = angle_fil
         # 注入无线串口对象，用于调试
         self.my_uart3 = my_uart3
         # 注入TOF测距对象，用于测距
@@ -871,6 +873,8 @@ class VisionManager:
         # 当前伺服的物品种类
         # 'T'为网球， 'S'为沙袋，'B'为玩具熊
         self.current_servo_object = ''
+        # 当前伺服连续丢失物体的帧数
+        self.servo_lost_count = 0
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
@@ -881,7 +885,6 @@ class VisionManager:
         self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
-        self.target_rel_yaw_fil = 0.0				# type: float   # 滤波后的目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
 
         # 环绕控制相关变量
@@ -900,7 +903,7 @@ class VisionManager:
 
         # 标志位
         self.if_send_servo_command = False   # type: bool   # 是否发送视觉伺服控制指令标志位
-        self.finish_servo = False      # type: bool   # 是否完成视觉伺服控制标志位
+        self.finish_servo = False      # 是否完成视觉伺服控制标志位
         self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
         self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
 
@@ -916,12 +919,11 @@ class VisionManager:
     # 计算小车需要转向的角度（一般为0）
     def compute_target_rel_turn_angle(self, turn_angle_target: float):
         self.target_rel_turn_angle = turn_angle_target
-
-
-    # 传入物体中心点的实际像素坐标，计算目标速度
+    
+    # 视觉伺服控制
     def visual_servo_control(self):
         # 单独测试该模式时需要解开这段注释
-        """
+        '''
         # 通过标志位控制只向openart发送一次视觉伺服控制指令
         if self.if_send_servo_command == False:
             self.my_order_manager.mode_target()
@@ -929,7 +931,7 @@ class VisionManager:
             # 控制小车面向物体进行视觉伺服控制
             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
         else:
-        """
+        '''
         self.target_point = self.my_art_protocol.coordinate_receive()
         if self.target_point:
             self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
@@ -960,8 +962,63 @@ class VisionManager:
                     if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
                         self.target_rel_speed = int(self.target_rel_speed * 0.5)
                     self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+    """
+    # 视觉伺服环绕
+    def visual_servo_orbit(self):
+        # 单独测试该模式时需要解开这段注释
+        '''
+        # 通过标志位控制只向openart发送一次视觉伺服控制指令
+        if self.if_send_servo_command == False:
+            self.my_order_manager.mode_target()
+            self.if_send_servo_command = True
+            # 控制小车面向物体进行视觉伺服控制
+            self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
+        else:
+        '''
+        self.target_point = self.my_art_protocol.coordinate_receive()
+        if self.target_point:
+            self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+            # 测试，可能阻塞，记得删去
+            # self.my_uart3.write(f"x: {self.target_point[0]}, y: {self.target_point[1]}, target_yaw: {self.target_rel_yaw}, {self.servo_pid.current_y}\r\n")
+            self.target_rel_speed_x = self.servo_pid.pwm_output_x
+            self.target_rel_speed_y = self.servo_pid.pwm_output_y
 
+            if self.finish_servo == False:
+                # 判断是否完成视觉伺服控制
+                '''
+                if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                    
+                    self.target_rel_speed = 0
+                    self.target_rel_yaw = 0.0
+                    self.my_order_manager.finish()
+                    # 测试
+                    self.my_beep.test()
+                    # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
+                    self.finish_servo = True
+                    
+                else:
+                '''
+                # 计算综合目标速度和航向角
+                # 滤波
+                self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                    # 固定伺服速度
+                self.target_rel_speed = 0
+                    # self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                self.target_rel_turn_angle =  self.angle_fil.filtering(-math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI)
+                self.target_rel_yaw = 90.0 + self.target_rel_turn_angle
+                if self.target_rel_yaw > 180.0:
+                    self.target_rel_yaw -= 360.0
+                elif self.target_rel_yaw < -180.0:
+                    self.target_rel_yaw += 360.0
 
+                # 当横移角度过大时，速度折半
+                '''
+                if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                    self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+                '''
+"""
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):
         if self.if_gain_dis == False:
@@ -1021,3 +1078,4 @@ class VisionManager:
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
+    

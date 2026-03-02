@@ -351,14 +351,20 @@ def test_vision_servo():
             # 过渡400ms防止惯性过冲
             if counter >= 40:
                 counter = 0
-                my_state.state = my_state.STOP
+                my_state.state = my_state.ORBIT
                 # 重置标志位
                 my_vision_manager.if_send_servo_command = False
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
+    elif my_state.state == my_state.ORBIT:
+        my_vision_manager.orbit_control(120.0)
+        if my_vision_manager.finish_orbit:
+            my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+            my_state.state = my_state.STOP
+            my_plan.turn_angle_target = my_car.now_yaw * 180.0 / MATH.PI
     elif my_state.state == my_state.STOP:
-        pass
+        my_plan.stop()
 
                 
 # 边线校准测试函数
@@ -647,7 +653,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
-    # my_uart3.write(f"target_y: {servo_pid.target_y}\n")
+    my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))

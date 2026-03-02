@@ -226,7 +226,8 @@ def main_start():
             # 测试，此时只调试主车，双车正常通信时需要解注释  
             # if my_main_protocol.get_slave_state() == "ready":
             my_state.state_work = 0
-            my_state.state = my_state.READY_NAVIGATE
+            # my_state.state = my_state.READY_NAVIGATE
+            my_state.NAVIGATE
             start_flag = True
             # 延时一秒避免零漂校准不准确
             time.sleep_ms(1000)
@@ -354,7 +355,7 @@ def test_vision_servo():
             # 测试
             my_beep.test()
     elif my_state.state == my_state.SERVO:
-        my_vision_manager.visual_servo_control()
+        my_vision_manager.visual_servo_orbit()
         if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡1s防止惯性过冲
@@ -461,6 +462,10 @@ def test_main_slave_collaborative_navigation():
         my_state.state = my_state.NAVIGATE
         # 测试
         my_beep.test()
+
+# 双车协同版的任务执行机
+def collaborative_task_machine():
+    global counter
 
 # 单车版的任务执行机
 def task_machine():
@@ -1010,7 +1015,8 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
-    my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}\n")
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
+    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
