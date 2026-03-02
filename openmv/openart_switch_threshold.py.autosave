@@ -231,7 +231,7 @@ class ColorDetector:
                 continue
             if color == 'white' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
                 continue
-            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
+            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
