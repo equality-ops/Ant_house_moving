@@ -374,8 +374,52 @@ class ServoPID(ControlPID):
         self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
         self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
 
+"""
+# 环绕伺服pid
+class OrbitControlPID(ControlPID):
+    def __init__(self, flash_sys):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+        self.orbit_kp_x = self.flash_sys.find_value("orbit_kp_x")        # type: float
+        self.orbit_kd_x = self.flash_sys.find_value("orbit_kd_x")        # type: float
+        self.orbit_kp_y = self.flash_sys.find_value("orbit_kp_y")        # type: float
+        self.orbit_kd_y = self.flash_sys.find_value("orbit_kd_y")        # type: float
+        self.target_x = self.flash_sys.find_value("orbit_target_x")       # type: float
+        self.target_y = self.flash_sys.find_value("orbit_target_y")       # type: float
+        self.actual_x = 0.0     # type: float
+        self.actual_y = 0.0     # type: float
+        self.nowError_x = 0.0   # type: float
+        self.nowError_y = 0.0   # type: float
+        self.preError_x = 0.0   # type: float
+        self.preError_y = 0.0   # type: float
+        self.derivative_x = 0.0 # type: float
+        self.derivative_y = 0.0 # type: float
+        self.pwm_output_x = 0.0 # type: float
+        self.pwm_output_y = 0.0 # type: float
+        self.__pwmout_limitmax_x = self.flash_sys.find_value("orbit_pwmout_limitmax_x")    # type: float
+        self.__pwmout_limitmax_y = self.flash_sys.find_value("orbit_pwmout_limitmax_y")    # type: float
 
+    # 传入物体中心的像素点坐标
+    def compute_pid(self, object_x, object_y):
+        self.actual_x = object_x
+        self.actual_y = object_y
+        self.preError_x = self.nowError_x
+        self.preError_y = self.nowError_y
+        self.nowError_x = self.target_x - self.actual_x
+        self.nowError_y = self.target_y - self.actual_y
+        
+        # 计算微分项
+        self.derivative_x = self.nowError_x - self.preError_x
+        self.derivative_y = self.nowError_y - self.preError_y
 
+        # 计算pwm_output
+        self.pwm_output_x = -(self.orbit_kp_x * self.nowError_x + self.orbit_kd_x * self.derivative_x)
+        self.pwm_output_y = -(self.orbit_kp_y * self.nowError_y + self.orbit_kd_y * self.derivative_y)
+            
+        # pwm_output限幅
+        self.pwm_output_x = max(-self.__pwmout_limitmax_x, min(self.pwm_output_x, self.__pwmout_limitmax_x))
+        self.pwm_output_y = max(-self.__pwmout_limitmax_y, min(self.pwm_output_y, self.__pwmout_limitmax_y))
+"""
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,

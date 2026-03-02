@@ -395,12 +395,13 @@ def test_boundary_calibration():
 
 # 测试环绕控制函数
 def test_orbit_control():
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
         my_vision_manager.orbit_control(120.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
+            my_plan.turn_angle_target = my_car.now_yaw * 180.0 / MATH.PI
             my_state.state = my_state.STOP
             # 测试
             my_beep.test()
@@ -627,7 +628,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -637,7 +638,7 @@ def time_pit3_handler(time) -> None:
     # test_change_mode()
 
     # 环绕物体测试程序
-    # test_orbit_control()
+    test_orbit_control()
     pass
 
 
@@ -653,7 +654,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
-    my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
@@ -680,7 +681,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
     # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+    my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
     # 测试边线校准
     # my_uart3.write(f"{my_plan.calibrate_angle}\n")
@@ -697,6 +698,9 @@ def time_pit2_handler(time):
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
+    # 环绕测试
+    # my_uart3.write(f"{my_vision_manager.orbit_radius}\n")
+    # my_uart3.write(f"{my_vision_manager.x_coordinate},{orbit_pid.pwm_output_x},{orbit_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\n")
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))

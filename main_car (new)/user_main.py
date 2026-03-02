@@ -355,7 +355,7 @@ def test_vision_servo():
             # 测试
             my_beep.test()
     elif my_state.state == my_state.SERVO:
-        my_vision_manager.visual_servo_orbit()
+        my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡1s防止惯性过冲
