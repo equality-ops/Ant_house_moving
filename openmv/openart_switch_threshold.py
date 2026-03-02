@@ -63,6 +63,35 @@ DRAW_COLORS = {
     'brown': (150, 75, 0)    # 棕色玩具熊
 }
 
+# 多套阈值
+THRESHOLD = {'dark':{
+    'brown':[(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)],
+    'red':[(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)],
+    'green':[(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)],
+    'blue':[(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)],
+    'white':[]
+}, 'normal':{
+    'brown':[(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)],
+    'red':[(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)],
+    'green':[(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)],
+    'blue':[(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)],
+    'white':[]
+}, 'bright':{
+    'brown':[(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)],
+    'red':[(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)],
+    'green':[(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)],
+    'blue':[(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)],
+    'white':[]
+}
+            }
+    
+# 亮度区间划分    
+BRIGHTNESS_RANGES ={
+    'dark':(0, 30),
+    'normal':(30, 70),
+    'bright':(70, 100)
+}
+
 # ======================== 通信模块 ========================
 class Communicator:
     def __init__(self, uart):
@@ -130,13 +159,15 @@ class Communicator:
 
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
+
+    """
     # 颜色阈值（类变量，共享）
     RED_THRESHOLD = [(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)]
     GREEN_THRESHOLD = [(17, 67, -33, -15, -15, 68), (53, 100, -51, -15, -20, 95)]
     BLUE_THRESHOLD = [(13, 35, -24, -9, -18, -7), (37, 77, -31, -4, -54, -26)]
     BROWN_THRESHOLD = [(12, 43, -14, 14, 8, 46), (51, 92, -23, 20, -16, 70)]
     WHITE_THRESHOLD = []
-
+    """
     # 定义中心采样区 (x, y, w, h) - 针对 160x120 图像，取中心 40x30 区域
     CENTER_ROI = (60, 45, 40, 30)
 
@@ -156,12 +187,13 @@ class ColorDetector:
         adjusted_green = [self.auto_adjust_threshold(img, th) for th in self.GREEN_THRESHOLD]
         adjusted_blue = [self.auto_adjust_threshold(img, th) for th in self.BLUE_THRESHOLD]
         """
+        current_threshold = get_threshold(img)
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
-        white_blobs = img.find_blobs(self.WHITE_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
-        red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
-        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
-        blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=400, area_threshold=400, merge=True)
+        # white_blobs = img.find_blobs(self.WHITE_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=30,  area_threshold=30,  merge=False)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=False)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=30,  area_threshold=30,  merge=False)
         """
         brown_blobs = img.find_blobs(adjusted_brown, pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(adjusted_red,   pixels_threshold=30,  area_threshold=30,  merge=False)
@@ -446,6 +478,17 @@ def handle_uart_commands():
             current_mode = MODE_BOUNDARY_LR
         elif cmd == b'F':
             current_mode = MODE_WAITING
+
+def get_threshold(img):
+    """依据当前亮度自动匹配阈值"""
+    stats = img.get_statistics(roi = (60, 45, 40, 30))
+    l_mean = stats.l_mean()
+
+    for type, (min_brightness, max_brightness) in BRIGHTNESS_RANGES.items():
+        if min_brightness <= l_mean <= max_brightness:
+            return THRESHOLD[type]
+        
+    return THRESHOLD['normal']
 
 # ======================== 初始化 ========================
 # 串口初始化

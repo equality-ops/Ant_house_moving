@@ -143,35 +143,36 @@ class ColorDetector:
     # 距离阈值（过滤过近的色块）
     DISTANCE_THRESHOLD = 30
 
+    # 动态阈值校准配置
+    TARGET_BRIGHTNESS = 30  # 目标亮度（可根据实际效果调整）
+    ADJUST_FACTOR = 0.3      # 调整幅度（0.1-0.5，越小越平滑）
+    DEAD_ZONE = 2            # 亮度偏差小于该值时不调整
+
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
         """计算两点间欧氏距离"""
         return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
     def detect_colors(self, img):
-        """检测所有颜色色块并返回（带颜色标签）"""
-        """
+        """检测所有颜色色块并返回（带颜色标签）- 融合动态阈值校准"""
+        # 对所有颜色阈值进行动态校准
         adjusted_brown = [self.auto_adjust_threshold(img, th) for th in self.BROWN_THRESHOLD]
         adjusted_red = [self.auto_adjust_threshold(img, th) for th in self.RED_THRESHOLD]
         adjusted_green = [self.auto_adjust_threshold(img, th) for th in self.GREEN_THRESHOLD]
         adjusted_blue = [self.auto_adjust_threshold(img, th) for th in self.BLUE_THRESHOLD]
-        """
-        # 检测各颜色色块
-        brown_blobs = img.find_blobs(self.BROWN_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
-        white_blobs = img.find_blobs(self.WHITE_THRESHOLD, pixels_threshold=400, area_threshold=400, merge=True)
-        red_blobs   = img.find_blobs(self.RED_THRESHOLD,   pixels_threshold=30,  area_threshold=30,  merge=False)
-        green_blobs = img.find_blobs(self.GREEN_THRESHOLD, pixels_threshold=30,  area_threshold=30,  merge=False)
-        blue_blobs  = img.find_blobs(self.BLUE_THRESHOLD,  pixels_threshold=30,  area_threshold=30,  merge=False)
-        """
-        brown_blobs = img.find_blobs(adjusted_brown, pixels_threshold=200, area_threshold=200, merge=True)
+        adjusted_white = [self.auto_adjust_threshold(img, th) for th in self.WHITE_THRESHOLD] if self.WHITE_THRESHOLD else []
+
+        # 使用校准后的阈值检测各颜色色块
+        brown_blobs = img.find_blobs(adjusted_brown, pixels_threshold=400, area_threshold=400, merge=True)
+        white_blobs = img.find_blobs(adjusted_white, pixels_threshold=400, area_threshold=400, merge=True) if adjusted_white else []
         red_blobs   = img.find_blobs(adjusted_red,   pixels_threshold=30,  area_threshold=30,  merge=False)
         green_blobs = img.find_blobs(adjusted_green, pixels_threshold=30,  area_threshold=30,  merge=False)
-        blue_blobs  = img.find_blobs(adjusted_blue,  pixels_threshold=30,  area_threshold=30,  merge=False)
-        """
+        blue_blobs  = img.find_blobs(adjusted_blue,  pixels_threshold=30,  area_threshold=30,  merge=True)
+
         # 整合所有色块并添加颜色标签
         all_blobs = []
         for blob in brown_blobs: all_blobs.append((blob, 'brown'))
-        # for blob in white_blobs: all_blobs.append((blob, 'white'))
+        for blob in white_blobs: all_blobs.append((blob, 'white'))
         for blob in red_blobs:   all_blobs.append((blob, 'red'))
         for blob in green_blobs: all_blobs.append((blob, 'green'))
         for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
@@ -189,11 +190,6 @@ class ColorDetector:
             min_pixels = 50 * (blob.density() + 0.5)
             if blob.pixels() < min_pixels:
                 continue
-
-            """
-            if (blob.w() > 140 or blob.h() > 110):
-                continue
-            """
 
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
@@ -216,31 +212,37 @@ class ColorDetector:
         return filtered
 
     def auto_adjust_threshold(self, img, base_threshold):
-        """根据中心区域亮度自动调整颜色阈值"""
+        """根据中心区域亮度自动调整颜色阈值（方案3核心实现）"""
+        # 获取中心区域的亮度统计
         stats = img.get_statistics(roi = self.CENTER_ROI)
         l_mean = stats.l_mean()
 
-        target_brightness = 30  # 目标亮度
-        brightness_diff = l_mean - target_brightness
-        adjust_factor = 0.3  # 0.1-0.5之间调整，越小越平滑
-        diff = brightness_diff * adjust_factor
-        dead_zone = 2  # 亮度在48-52之间时，不调整阈值
-        if abs(brightness_diff) < dead_zone:
-            diff = 0
+        # 计算亮度偏差
+        brightness_diff = l_mean - self.TARGET_BRIGHTNESS
 
-        # 调整亮度通道阈值
+        # 死区判断：亮度偏差过小时不调整
+        if abs(brightness_diff) < self.DEAD_ZONE:
+            diff = 0
+        else:
+            diff = brightness_diff * self.ADJUST_FACTOR
+
+        # 调整亮度通道阈值（L通道）
         l_low = base_threshold[0] + diff
         l_high = base_threshold[1] + diff
+
+        # 限制阈值范围在0-100之间
         l_low = max(0, min(100, l_low))
         l_high = max(0, min(100, l_high))
 
-        # 保证l_low < l_high（避免阈值交叉导致曝光异常）
+        # 保证l_low < l_high（避免阈值交叉导致检测异常）
         if l_low >= l_high:
             l_low = max(0, l_high - 5)  # 至少保留5的阈值差
 
-        # 拼接调整后的阈值
+        # 拼接调整后的阈值（保留A/B通道原值）
         threshold_part = base_threshold[2:]
-        return (round(l_low), round(l_high)) + threshold_part  # 取整适配OpenART
+        adjusted_threshold = (round(l_low), round(l_high)) + threshold_part
+
+        return adjusted_threshold
 
 # ======================== 边界检测模块 ========================
 class BoundaryDetector:
@@ -502,7 +504,7 @@ while True:
     elif current_mode == MODE_TARGET:
         # LED(4).off()
         # LED(4).on()
-        # 色块检测与筛选
+        # 色块检测与筛选（已融合动态阈值校准）
         all_blobs_with_color = color_detector.detect_colors(img)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
@@ -685,11 +687,6 @@ while True:
             if is_target_locked:
                 locked_lost_count += 1
             target_pos = None
-
-        # 超过最大丢失帧数，解除锁定
-        if is_target_locked and locked_lost_count >= LOCK_MAX_LOST_FRAMES:
-            reset_lock_state()
-            target_color = ''
 
         # 绘制锁定标识（黑色圆）
         if is_target_locked and locked_blob is not None:
