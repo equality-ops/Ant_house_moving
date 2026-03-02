@@ -226,7 +226,8 @@ def main_start():
             # 测试，此时只调试主车，双车正常通信时需要解注释  
             # if my_main_protocol.get_slave_state() == "ready":
             my_state.state_work = 0
-            my_state.state = my_state.READY_NAVIGATE
+            # my_state.state = my_state.READY_NAVIGATE
+            my_state.NAVIGATE
             start_flag = True
             # 延时一秒避免零漂校准不准确
             time.sleep_ms(1000)
@@ -341,10 +342,15 @@ def test_servo_control():
 # 视觉伺服测试函数
 def test_vision_servo():
     global counter
-    if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 190.0]], 180.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+        my_order_manager.mode_target()
+    elif my_state.state == my_state.NAVIGATE:
+        my_plan.finish_navigate = False
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.current_servo_object = target_point[2]
+            ready_servo_and_orbit()
             my_state.state = my_state.SERVO
             # 测试
             my_beep.test()
@@ -353,9 +359,10 @@ def test_vision_servo():
         if my_vision_manager.finish_servo == True:
             counter += 1
             # 过渡1s防止惯性过冲
-            if counter >= 100:
+            if counter >= 50:
                 counter = 0
-                my_state.state = my_state.RETURN
+                my_state.state = my_state.STOP
+                my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                 # 重置标志位
                 my_vision_manager.if_send_servo_command = False
                 my_vision_manager.finish_servo = False
@@ -369,7 +376,7 @@ def test_vision_servo():
             # 测试
             my_beep.test()
     elif my_state.state == my_state.STOP:
-        pass
+        my_plan.stop()
 
                 
 # 边线校准测试函数
@@ -455,6 +462,10 @@ def test_main_slave_collaborative_navigation():
         my_state.state = my_state.NAVIGATE
         # 测试
         my_beep.test()
+
+# 双车协同版的任务执行机
+def collaborative_task_machine():
+    global counter
 
 # 单车版的任务执行机
 def task_machine():
@@ -952,7 +963,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 测试主从车通信
     # test_main_slave_communication()
@@ -978,7 +989,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -1004,7 +1015,8 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}\n")
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
+    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
@@ -1056,7 +1068,7 @@ def time_pit2_handler(time):
     
     # 任务机
     # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
-    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}\n")
+    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

@@ -134,15 +134,15 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(6)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
@@ -227,7 +227,7 @@ def slave_start():
             # if my_slave_protocol.get_start_signal() == True:
             my_state.state_work = 0
             # 初始状态设置为导航状态
-            my_state.state = my_state.NAVIGATE
+            my_state.state = my_state.READY_NAVIGATE
             start_flag = True
             # 延时一秒避免零漂校准不准确
             time.sleep_ms(1000)
@@ -236,6 +236,19 @@ def slave_start():
             pit3_start()
             # 检测是否正常初始化所有
             detect_if_normal()
+
+# 用于准备视觉伺服和环绕
+def ready_servo_and_orbit():
+    # 根据物品种类选择伺服距离和环绕半径
+    if my_vision_manager.current_servo_object == ord('T'):
+        servo_pid.target_y = servo_pid.target_y_T
+        my_vision_manager.object_radius = my_vision_manager.radius_T
+    elif my_vision_manager.current_servo_object == ord('S'):
+        servo_pid.target_y = servo_pid.target_y_S
+        my_vision_manager.object_radius = my_vision_manager.radius_S
+    elif my_vision_manager.current_servo_object == ord('B'):
+        servo_pid.target_y = servo_pid.target_y_B
+        my_vision_manager.object_radius = my_vision_manager.radius_B
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -319,9 +332,18 @@ def test_servo_control():
 # 视觉伺服测试函数
 def test_vision_servo():
     global counter
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+        my_order_manager.mode_target()
+    elif my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
-        my_state.state = my_state.SERVO
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.current_servo_object = target_point[2]
+            ready_servo_and_orbit()
+            my_state.state = my_state.SERVO
+            # 测试
+            my_beep.test()
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
@@ -329,14 +351,20 @@ def test_vision_servo():
             # 过渡400ms防止惯性过冲
             if counter >= 40:
                 counter = 0
-                my_state.state = my_state.STOP
+                my_state.state = my_state.ORBIT
                 # 重置标志位
                 my_vision_manager.if_send_servo_command = False
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
+    elif my_state.state == my_state.ORBIT:
+        my_vision_manager.orbit_control(120.0)
+        if my_vision_manager.finish_orbit:
+            my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+            my_state.state = my_state.STOP
+            my_plan.turn_angle_target = my_car.now_yaw * 180.0 / MATH.PI
     elif my_state.state == my_state.STOP:
-        pass
+        my_plan.stop()
 
                 
 # 边线校准测试函数
@@ -367,12 +395,13 @@ def test_boundary_calibration():
 
 # 测试环绕控制函数
 def test_orbit_control():
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
         my_vision_manager.orbit_control(120.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
+            my_plan.turn_angle_target = my_car.now_yaw * 180.0 / MATH.PI
             my_state.state = my_state.STOP
             # 测试
             my_beep.test()
@@ -581,17 +610,18 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
+    """
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[180.0, 0.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[140.0, 190.0], [140.0, 50.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
@@ -608,7 +638,7 @@ def time_pit3_handler(time) -> None:
     # test_change_mode()
 
     # 环绕物体测试程序
-    # test_orbit_control()
+    test_orbit_control()
     pass
 
 
@@ -624,6 +654,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
@@ -636,6 +667,7 @@ def time_pit2_handler(time):
         
     # 角度环输出
     # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
+    # my_uart3.write(f"{pose_data.gyro_z}, {pose_data.gyro_z_bias}\n")
     # imu原始数据
     # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
@@ -649,7 +681,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
     # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+    my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
     # 测试边线校准
     # my_uart3.write(f"{my_plan.calibrate_angle}\n")
@@ -664,11 +696,15 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
+    # 环绕测试
+    # my_uart3.write(f"{my_vision_manager.orbit_radius}\n")
+    # my_uart3.write(f"{my_vision_manager.x_coordinate},{orbit_pid.pwm_output_x},{orbit_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\n")
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
+    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

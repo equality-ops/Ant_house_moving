@@ -1,4 +1,4 @@
-# 修改时间 3.1	18：33
+# 修改时间 3.2	16：56
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -32,7 +32,7 @@ md_low_kp = 50.0
 md_low_ki = 0.22
 md_low_kd = 15.0
 
-angle_normal_kp = 10.0
+angle_normal_kp = 15.0
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 integral_limitmax = 14000
@@ -71,7 +71,7 @@ long_v_max = 400
 short_v_max = 80
 dead_zone_v = 50
 transit_v = 200
-orbit_v = 100
+orbit_v = 50
 move_v_max = 150
 scan_v_max = 150
 
@@ -81,14 +81,14 @@ servo_kd_x = 10.0
 servo_kp_y = 8.0
 servo_kd_y = 10.0
 servo_target_x = 80
-servo_target_y_T = 5.0
-servo_target_y_S = 8.0
-servo_target_y_B = 30.0
+servo_target_y_T = 3.0
+servo_target_y_S = 5.0
+servo_target_y_B = 15.0
 min_rel_speed = 50
-max_rel_speed = 250
-finish_threshold_x = 2
-finish_threshold_y = 4
-servo_pwmout_limitmax = 250
+max_rel_speed = 200
+finish_threshold_x = 1
+finish_threshold_y = 2
+servo_pwmout_limitmax = 200
 
 ###################【环绕控制】####################
 radius_T = 2.5
