@@ -1,4 +1,4 @@
-# 修改时间 3.1	18：33
+# 修改时间 3.2   15：40
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -32,7 +32,7 @@ md_low_kp = 50.0
 md_low_ki = 0.22
 md_low_kd = 15.0
 
-angle_normal_kp = 10.0
+angle_normal_kp = 15.0
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 integral_limitmax = 14000

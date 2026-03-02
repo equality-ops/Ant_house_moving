@@ -134,15 +134,15 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(6)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
@@ -319,8 +319,11 @@ def test_servo_control():
 # 视觉伺服测试函数
 def test_vision_servo():
     global counter
-    if my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+    elif my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
+        my_order_manager.mode_target()
         my_state.state = my_state.SERVO
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
@@ -581,24 +584,25 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_collaborative_navigation()
 
     # 全向定位测试程序
+    """
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[180.0, 0.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[140.0, 190.0], [140.0, 50.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     # my_plan.main_tactical_navigate([[320.0, 0.0]], target_turn_angle=0.0)
     # 战术避障
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -636,6 +640,7 @@ def time_pit2_handler(time):
         
     # 角度环输出
     # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
+    # my_uart3.write(f"{pose_data.gyro_z}, {pose_data.gyro_z_bias}\n")
     # imu原始数据
     # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
@@ -664,12 +669,12 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
     
     # 卡尔曼滤波（速度）
     # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
-
+    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
