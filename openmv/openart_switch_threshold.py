@@ -48,7 +48,7 @@ COLOR_TYPE_MAP = {
     'blue': ord('S'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('W'),
+    'white': ord('B'),
     '': 0x00  # 默认值
 }
 
@@ -67,7 +67,7 @@ DRAW_COLORS = {
 THRESHOLD = {'dark':{
     'brown':[(20, 66, -5, 23, 19, 66)], # 27
     'red':[(15, 39, 18, 59, 17, 49)], # 27
-    'green':[(41, 78, -32, -15, 42, 81)], # 27
+    'green':[(41, 78, -32, -15, 42, 81), (28, 66, -33, -6, 30, 70)], # 27
     'blue':[(25, 53, -29, -9, -26, -8)], # 27
     'white':[(47, 76, -17, 0, 2, 39)] # 27
 }, 'normal':{
@@ -404,7 +404,7 @@ MODE_TARGET = 0          # 目标跟踪模式
 MODE_BOUNDARY_UD = 1     # 上下边界矫正模式
 MODE_BOUNDARY_LR = 2     # 左右边界矫正模式
 MODE_WAITING = 3         # 等待模式
-current_mode = MODE_TARGET
+current_mode = MODE_WAITING
 
 # 锁定状态变量
 is_target_locked = False        # 是否锁定目标
