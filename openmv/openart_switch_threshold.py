@@ -65,11 +65,17 @@ DRAW_COLORS = {
 
 # 多套阈值
 THRESHOLD = {'dark':{
-    'brown':[(20, 66, -5, 23, 19, 66)], # 27
-    'red':[(15, 39, 18, 59, 17, 49)], # 27
-    'green':[(41, 78, -32, -15, 42, 81), (28, 66, -33, -6, 30, 70)], # 27
-    'blue':[(25, 53, -29, -9, -26, -8)], # 27
-    'white':[(47, 76, -17, 0, 2, 39)] # 27
+    'brown':[(20, 66, -5, 23, 19, 66), # 27
+    (14, 61, -7, 18, 12, 52)], # 30
+    'red':[(15, 39, 18, 59, 17, 49), # 27
+    (5, 34, 8, 52, -7, 41)], # 30
+    'green':[(35, 84, -47, -14, -20, 87), # 27
+    (32, 85, -43, -12, 13, 84)], # 30
+    'blue':[(25, 53, -29, -9, -26, -8), # 27
+    (17, 58, -24, -3, -36, -17), # 29
+    (18, 53, -20, -5, -35, -13)], # 30
+    'white':[(47, 76, -17, 0, 2, 39),  # 27
+    (39, 79, -15, 2, -5, 9)] # 30
 }, 'normal':{
     'brown':[(40, 83, -6, 22, 11, 69), # 45
     (31, 94, -5, 22, 8, 67)], # 50
@@ -78,8 +84,8 @@ THRESHOLD = {'dark':{
     (25, 56, 34, 87, 11, 53)], # 50
     'green':[(58, 100, -49, -20, 44, 97), # 45
     (71, 98, -52, -10, 39, 98)], # 50
-    'blue':[(42, 70, -19, -2, -47, -25), # 45
-    (44, 86, -27, -4, -59, -21)], # 50
+    'blue':[(33, 79, -29, -2, -52, -24), # 45
+    (44, 83, -33, -6, -54, -27)], # 50
     'white':[(56, 100, -18, 0, -9, 16), # 45
     (69, 100, -23, 5, -5, 24)] # 50
 }, 'bright':{
@@ -94,8 +100,8 @@ THRESHOLD = {'dark':{
 # 亮度区间划分
 BRIGHTNESS_RANGES ={
     'dark':(0, 35),
-    'normal':(35, 70),
-    'bright':(70, 100)
+    'normal':(35, 58),
+    'bright':(58, 100)
 }
 
 # 锁定的阈值集
@@ -215,12 +221,12 @@ class ColorDetector:
             # 密度过滤（排除稀疏色块）
             if blob.density() < 0.3:
                 continue
-
+            """
             # 像素数过滤（动态最小像素数）
-            min_pixels = 50 * (blob.density() + 0.5)
+            min_pixels = 30 * (blob.density() + 0.5)
             if blob.pixels() < min_pixels:
                 continue
-
+            """
             """
             if (blob.w() > 140 or blob.h() > 110):
                 continue
@@ -231,7 +237,7 @@ class ColorDetector:
                 continue
             if color == 'white' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
                 continue
-            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w() or abs(blob.w() - blob.h()) > 10):
+            if color in ('green', 'blue') and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
@@ -404,7 +410,7 @@ MODE_TARGET = 0          # 目标跟踪模式
 MODE_BOUNDARY_UD = 1     # 上下边界矫正模式
 MODE_BOUNDARY_LR = 2     # 左右边界矫正模式
 MODE_WAITING = 3         # 等待模式
-current_mode = MODE_WAITING
+current_mode = MODE_TARGET
 
 # 锁定状态变量
 is_target_locked = False        # 是否锁定目标
@@ -533,7 +539,7 @@ while True:
         stats = img.get_statistics()
         l_mean = stats.l_mean()
         print(l_mean)
-        LED(4).off()
+        # LED(4).off()
         # LED(4).on()
         # 色块检测与筛选
         all_blobs_with_color = color_detector.detect_colors(img)
@@ -551,6 +557,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
+            # print(f"像素数：{blob.pixels()}，密度：{blob.density()}，坐标：({blob.cx()}, {blob.cy()})")
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
@@ -765,3 +772,4 @@ while True:
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
     # print(clock.fps())
+
