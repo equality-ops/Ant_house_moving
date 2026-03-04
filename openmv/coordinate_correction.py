@@ -40,6 +40,7 @@ LOCK_MAX_LOST_FRAMES = 5  # 丢失5帧解除锁定
 PROTOCOL_HEADER1 = 0xA5
 PROTOCOL_HEADER2_COORD = 0xA6
 PROTOCOL_HEADER2_ANGLE = 0xA7
+PROTOCOL_HEADER2_APRILTAG = 0xA8
 PROTOCOL_FOOTER = 0x5B
 
 # 颜色类型ASCII码映射
@@ -49,6 +50,7 @@ COLOR_TYPE_MAP = {
     'green': ord('T'),
     'brown': ord('B'),
     'white': ord('B'),
+    'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
 
@@ -151,6 +153,21 @@ class Communicator:
             x_limited,
             y_limited,
             type_char,
+            PROTOCOL_FOOTER
+        )
+        self.uart.write(data)
+
+    def send_coordinate_with_angle(self, tag_cx, tag_cy, rotation):
+        tag_cx = int(round(tag_cx))
+        tag_cy = int(round(tag_cy))
+        rotation = int(round(rotation * 10))
+        data = ustruct.pack(
+            "<BBBBHB",
+            PROTOCOL_HEADER1,
+            PROTOCOL_HEADER2_APRILTAG,
+            tag_cx,
+            tag_cy,
+            rotation,
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
@@ -326,6 +343,25 @@ class BoundaryDetector:
         else:
             return None
 
+# ======================== 坐标矫正模块 ========================
+class CoordinateCorrection:
+    def __init__(self):
+        self.tag_family = image.TAG25H9
+
+    def coordinate_correction(self, img):
+        tags = img.find_apriltags(families = self.tag_family)
+        tag_cx, tag_cy = None, None
+
+        if tags:
+            tag = tags[0]
+            tag_cx = tag.cx()
+            tag_cy = tag.cy()
+            rotation = (math.acos(math.cos(tag.y_rotation()) * math.cos(tag.z_rotation())) - math.pi / 2)
+            img.draw_rectangle(tag.rect(), color=(255, 0, 0))
+            img.draw_cross(tag_cx, tag_cy, color=(0, 255, 0))
+
+        return (tag_cx, tag_cy, rotation) if tag_cx is not None else None
+
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
     MAX_LOST_FRAMES = KALMAN_MAX_LOST_FRAMES
@@ -410,7 +446,8 @@ class KalmanTracker:
 MODE_TARGET = 0          # 目标跟踪模式
 MODE_BOUNDARY_UD = 1     # 上下边界矫正模式
 MODE_BOUNDARY_LR = 2     # 左右边界矫正模式
-MODE_WAITING = 3         # 等待模式
+MODE_CORRECTION = 3      # 坐标校正
+MODE_WAITING = 4         # 等待模式
 current_mode = MODE_WAITING
 
 # 锁定状态变量
@@ -455,6 +492,8 @@ def handle_uart_commands():
             current_mode = MODE_BOUNDARY_UD
         elif cmd == b'L':
             current_mode = MODE_BOUNDARY_LR
+        elif cmd == b'C':
+            current_mode = MODE_CORRECTION
         elif cmd == b'F':
             current_mode = MODE_WAITING
 
@@ -504,6 +543,7 @@ lcd.full()
 # 创建模块实例
 color_detector = ColorDetector()
 boundary_detector = BoundaryDetector()
+tag_corrector = CoordinateCorrection()
 brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 communicator = Communicator(uart)
@@ -769,6 +809,15 @@ while True:
         angle = boundary_detector.boundary_correction('column', img)
         if angle is not None:
             communicator.send_angle(angle)
+
+    # 坐标校正模式
+    elif current_mode == MODE_CORRECTION:
+        tag_center = tag_corrector.coordinate_correction(img)
+        if tag_center is not None:
+            tag_cx, tag_cy, rotation = tag_center
+            rotation = (180 * rotation) / math.pi + 90
+            communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
+            # print(tag_cx, tag_cy, rotation)
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)

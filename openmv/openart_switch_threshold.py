@@ -85,6 +85,7 @@ THRESHOLD = {'dark':{
     'green':[(58, 100, -49, -20, 44, 97), # 45
     (71, 98, -52, -10, 39, 98)], # 50
     'blue':[(33, 79, -29, -2, -52, -24), # 45
+    (33, 74, -31, -8, -46, -16), # 42
     (44, 83, -33, -6, -54, -27)], # 50
     'white':[(56, 100, -18, 0, -9, 16), # 45
     (69, 100, -23, 5, -5, 24)] # 50
@@ -199,11 +200,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=400, area_threshold=400, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=400, area_threshold=400, merge=True)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=30,  area_threshold=30,  merge=True)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=30,  area_threshold=30,  merge=True)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=110,  area_threshold=110,  merge=True)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -219,7 +220,7 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.3:
+            if blob.density() < 0.4:
                 continue
             """
             # 像素数过滤（动态最小像素数）
@@ -233,11 +234,11 @@ class ColorDetector:
             """
 
             # 长宽比过滤（不同颜色有不同规则）
-            if color == 'brown' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
+            if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            if color == 'white' and (blob.w() > 3 * blob.h() or blob.h() > 3 * blob.w()):
+            if color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            if color in ('green', 'blue') and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
+            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
@@ -410,7 +411,7 @@ MODE_TARGET = 0          # 目标跟踪模式
 MODE_BOUNDARY_UD = 1     # 上下边界矫正模式
 MODE_BOUNDARY_LR = 2     # 左右边界矫正模式
 MODE_WAITING = 3         # 等待模式
-current_mode = MODE_TARGET
+current_mode = MODE_WAITING
 
 # 锁定状态变量
 is_target_locked = False        # 是否锁定目标
@@ -557,7 +558,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            # print(f"像素数：{blob.pixels()}，密度：{blob.density()}，坐标：({blob.cx()}, {blob.cy()})")
+            print(f"像素数：{blob.pixels()}，密度：{blob.density()}，长宽：({blob.w()}, {blob.h()})")
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
