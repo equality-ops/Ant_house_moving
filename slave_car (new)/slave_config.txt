@@ -1,4 +1,4 @@
-# 修改时间 3.2	23：07
+# 修改时间 3.3	18：32
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -81,19 +81,19 @@ servo_kd_x = 10.0
 servo_kp_y = 8.0
 servo_kd_y = 10.0
 servo_target_x = 80
-servo_target_y_T = 3.0
-servo_target_y_S = 5.0
-servo_target_y_B = 15.0
+servo_target_y_T = 7.0
+servo_target_y_S = 10.0
+servo_target_y_B = 30.0
 min_rel_speed = 50
-max_rel_speed = 200
+max_rel_speed = 150
 finish_threshold_x = 1
-finish_threshold_y = 2
-servo_pwmout_limitmax = 200
+finish_threshold_y = 2.5
+servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
 radius_T = 2.5
 radius_S = 4.5
-radius_B = 13.0
+radius_B = 10.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500

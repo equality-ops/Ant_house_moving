@@ -30,6 +30,12 @@ last_left_time = 0
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
+DOWN = 0         # 位于矩形下边沿
+LEFT = 1         # 位于矩形左边沿
+UP = 2           # 位于矩形上边沿
+RIGHT = 3        # 位于矩形右边沿
+CHECK = 4        # 检验阶段（检查是否搬运完所有物体）
+RETURN_WORK = 5  # 返回阶段（搬运完所有物体后返回起点）
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -225,11 +231,12 @@ def slave_start():
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
             if my_slave_protocol.get_start_signal() == True:
+                my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = my_state.DOWN
+                my_state.state_work = DOWN
                 # 初始状态设置为导航状态
                 my_state.state = my_state.READY_NAVIGATE
                 start_flag = True
@@ -442,24 +449,29 @@ def test_main_slave_collaborative_navigation():
 # 双车版的任务执行机
 def collaborative_task_machine():
     global counter
-    if my_state.state_work == my_state.DOWN:
+    if my_state.state_work == DOWN:
         if my_state.state == my_state.READY_NAVIGATE:
             plan_data.current_path = my_slave_protocol.get_path_list()
             if plan_data.current_path:
+                my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
                 my_beep.test()
         elif my_state.state == my_state.NAVIGATE:
             my_plan.navigate(plan_data.current_path, 0.0)
             if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state = my_state.SERVO
                 if my_vision_manager.if_send_servo_command == False:
-                    my_plan.finish_navigate = False
                     my_vision_manager.my_order_manager.mode_target()
-                # 控制小车面向物体进行视觉伺服控制
-                my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                # 测试
-                my_beep.test()
+                    my_vision_manager.if_send_servo_command = True
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point:
+                    my_plan.finish_navigate = False
+                    my_vision_manager.current_servo_object = target_point[2]
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_state.state = my_state.SERVO
+                    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.SERVO:
             my_vision_manager.visual_servo_control()
             if my_vision_manager.finish_servo == True:
@@ -477,7 +489,7 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(-120.0)
+            my_vision_manager.orbit_control(-130.0)
             if my_vision_manager.finish_orbit == True:
                 my_slave_protocol.send_slave_state("finish")
                 my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
@@ -492,7 +504,8 @@ def collaborative_task_machine():
                 if counter >= 50:
                     counter = 0
                     my_plan.finish_navigate = False
-                    my_state.state = my_state.CALIBRATE
+                    my_state.state = my_state.RETURN
+                    my_state.state_work = RETURN_WORK
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.CALIBRATE:  
@@ -500,10 +513,10 @@ def collaborative_task_machine():
             if my_plan.if_finish_calibrate == True:
                 my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
                 my_state.state = my_state.RETURN
-                my_state.state_work = my_state.RETURN_WORK
+                my_state.state_work = RETURN_WORK   
                 # 测试
                 my_beep.test()
-    elif my_state.state_work == my_state.RETURN_WORK:
+    elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
             if my_plan.finish_navigate == True:
@@ -593,6 +606,7 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
+    collaborative_task_machine()
 
     # 测试主从车通信
     # test_main_slave_communication()
@@ -603,7 +617,7 @@ def time_pit3_handler(time) -> None:
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[140.0, 190.0], [140.0, 50.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[30.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -627,7 +641,7 @@ def time_pit3_handler(time) -> None:
     # test_change_mode()
 
     # 环绕物体测试程序
-    test_orbit_control()
+    # test_orbit_control()
     pass
 
 
@@ -670,7 +684,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
     # tof传感器测试
-    my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
     # 测试边线校准
     # my_uart3.write(f"{my_plan.calibrate_angle}\n")

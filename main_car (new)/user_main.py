@@ -30,6 +30,12 @@ last_left_time = 0
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
+DOWN = 1         # 位于矩形下边沿
+LEFT = 2         # 位于矩形左边沿
+UP = 3           # 位于矩形上边沿
+RIGHT = 4        # 位于矩形右边沿
+CHECK = 5        # 检验阶段（检查是否搬运完所有物体）
+RETURN_WORK = 6  # 返回阶段（搬运完所有物体后返回起点）
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -228,7 +234,7 @@ def main_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = my_state.DOWN
+                my_state.state_work = DOWN
                 # my_state.state = my_state.READY_NAVIGATE
                 my_state.state = my_state.NAVIGATE
                 start_flag = True
@@ -345,10 +351,8 @@ def test_servo_control():
 # 视觉伺服测试函数
 def test_vision_servo():
     global counter
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
+    if my_state.state == my_state.NAVIGATE:
         my_order_manager.mode_target()
-    elif my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
@@ -431,12 +435,10 @@ def test_boundary_calibration():
 
 # 测试环绕控制函数
 def test_orbit_control():
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
+    if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(-120.0)
+        my_vision_manager.orbit_control(120.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
@@ -469,9 +471,9 @@ def test_main_slave_collaborative_navigation():
 # 双车版的任务执行机
 def collaborative_task_machine():
     global counter
-    if my_state.state_work == my_state.DOWN:
+    if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[my_state.state_work][0], plan_data.fixed_point[my_state.state_work][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
@@ -495,31 +497,27 @@ def collaborative_task_machine():
             else:
                 # 此时跳过该边
                 my_plan.finish_navigate = False
-                my_state.state_work = my_state.RETURN_WORK
+                my_state.state_work = RETURN_WORK
                 my_state.state = my_state.RETURN
         elif my_state.state == my_state.SERVO:
             my_vision_manager.visual_servo_control()
             if my_vision_manager.finish_servo == True:
-                counter += 1
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[my_state.state_work+4][1]]])
+                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[my_state.state_work][1]]])
                     my_plan.if_send_path = True
 
-                # 过渡500ms防止惯性过冲
-                if counter >= 50:
-                    counter = 0
-                    if my_main_protocol.get_slave_state() == "get":
-                        my_plan.if_send_path = False
-                        my_state.state = my_state.ORBIT
-                        my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                        my_state.state = my_state.ORBIT
-                        # 重置标志位
-                        my_vision_manager.if_send_servo_command = False
-                        my_vision_manager.finish_servo = False
-                        # 测试
-                        my_beep.test()
+                if my_main_protocol.get_slave_state() == "get":
+                    my_plan.if_send_path = False
+                    my_state.state = my_state.ORBIT
+                    my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
+                    my_state.state = my_state.ORBIT
+                    # 重置标志位
+                    my_vision_manager.if_send_servo_command = False
+                    my_vision_manager.finish_servo = False
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(120.0)
+            my_vision_manager.orbit_control(130.0)
             if my_vision_manager.finish_orbit == True and my_main_protocol.get_slave_state() == "finish":
                 my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                 my_state.state = my_state.MOVE
@@ -533,7 +531,8 @@ def collaborative_task_machine():
                 if counter >= 50:
                     counter = 0
                     my_plan.finish_navigate = False
-                    my_state.state = my_state.CALIBRATE
+                    my_state.state = my_state.RETURN
+                    my_state.state_work = RETURN_WORK
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.CALIBRATE:  
@@ -541,10 +540,10 @@ def collaborative_task_machine():
             if my_plan.if_finish_calibrate == True:
                 my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
                 my_state.state = my_state.RETURN
-                my_state.state_work = my_state.RETURN_WORK
+                my_state.state_work = RETURN_WORK
                 # 测试
                 my_beep.test()
-    elif my_state.state_work == my_state.RETURN_WORK:
+    elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
             if my_plan.finish_navigate == True:
@@ -556,7 +555,7 @@ def collaborative_task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
         
-
+"""
 # 单车版的任务执行机
 def single_task_machine():
     global counter
@@ -873,6 +872,7 @@ def single_task_machine():
                 my_beep.test()
         elif my_state.state == my_state.STOP:
             my_plan.stop()
+"""
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -952,7 +952,7 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-
+    collaborative_task_machine()
     # 测试主从车通信
     # test_main_slave_communication()
     # test_main_slave_collaborative_navigation()
@@ -977,7 +977,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -1005,7 +1005,7 @@ def time_pit2_handler(time):
     # 视觉伺服
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
-    my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
+    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
