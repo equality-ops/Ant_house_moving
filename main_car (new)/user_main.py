@@ -224,18 +224,21 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
-            my_state.state_work = 0
-            # my_state.state = my_state.READY_NAVIGATE
-            my_state.NAVIGATE
-            start_flag = True
-            # 延时一秒避免零漂校准不准确
-            time.sleep_ms(1000)
-            # 打开定时器1和3
-            pit1_start()
-            pit3_start()
-            # 检测是否正常初始化所有
-            detect_if_normal()
+            if my_main_protocol.get_slave_state() == "ready":
+                # 初始化小车坐标
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_state.state_work = my_state.DOWN
+                # my_state.state = my_state.READY_NAVIGATE
+                my_state.state = my_state.NAVIGATE
+                start_flag = True
+                # 延时一秒避免零漂校准不准确
+                time.sleep_ms(1000)
+                # 打开定时器1和3
+                pit1_start()
+                pit3_start()
+                # 检测是否正常初始化所有
+                detect_if_normal()
 
 # 用于准备视觉伺服和环绕
 def ready_servo_and_orbit():
@@ -463,12 +466,99 @@ def test_main_slave_collaborative_navigation():
         # 测试
         my_beep.test()
 
-# 双车协同版的任务执行机
+# 双车版的任务执行机
 def collaborative_task_machine():
     global counter
+    if my_state.state_work == my_state.DOWN:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.SCAN
+                if my_vision_manager.if_send_servo_command == False:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.SCAN
+                    my_vision_manager.my_order_manager.mode_target()
+                    # 控制小车面向物体进行视觉伺服控制
+                    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                    # 测试
+                    my_beep.test()
+        elif my_state.state == my_state.SCAN:
+            my_plan.navigate([[plan_data.fixed_point[my_state.state_work+4][0], plan_data.fixed_point[my_state.state_work+4][1]]], 0.0)
+            if my_plan.finish_navigate == False:
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point:
+                    my_vision_manager.current_servo_object = target_point[2]
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_state.state = my_state.SERVO
+            else:
+                # 此时跳过该边
+                my_plan.finish_navigate = False
+                my_state.state_work = my_state.RETURN_WORK
+                my_state.state = my_state.RETURN
+        elif my_state.state == my_state.SERVO:
+            my_vision_manager.visual_servo_control()
+            if my_vision_manager.finish_servo == True:
+                counter += 1
+                if my_plan.if_send_path == False:
+                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[my_state.state_work+4][1]]])
+                    my_plan.if_send_path = True
+
+                # 过渡500ms防止惯性过冲
+                if counter >= 50:
+                    counter = 0
+                    if my_main_protocol.get_slave_state() == "get":
+                        my_plan.if_send_path = False
+                        my_state.state = my_state.ORBIT
+                        my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
+                        my_state.state = my_state.ORBIT
+                        # 重置标志位
+                        my_vision_manager.if_send_servo_command = False
+                        my_vision_manager.finish_servo = False
+                        # 测试
+                        my_beep.test()
+        elif my_state.state == my_state.ORBIT:
+            my_vision_manager.orbit_control(120.0)
+            if my_vision_manager.finish_orbit == True and my_main_protocol.get_slave_state() == "finish":
+                my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                my_state.state = my_state.MOVE
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.MOVE:
+            my_plan.navigate([[my_car.x_current, -25.0]])
+            if my_plan.finish_navigate == True:
+                counter += 1
+                # 过渡500ms防止惯性过冲
+                if counter >= 50:
+                    counter = 0
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.CALIBRATE
+                    # 测试
+                    my_beep.test()
+        elif my_state.state == my_state.CALIBRATE:  
+            my_plan.boundary_calibrate_control()
+            if my_plan.if_finish_calibrate == True:
+                my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle, my_plan.if_ready_calibrate = False, False, False
+                my_state.state = my_state.RETURN
+                my_state.state_work = my_state.RETURN_WORK
+                # 测试
+                my_beep.test()
+    elif my_state.state_work == my_state.RETURN_WORK:
+        if my_state.state == my_state.RETURN:
+            my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state = my_state.STOP
+                my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.STOP:
+            my_plan.stop()
+        
 
 # 单车版的任务执行机
-def task_machine():
+def single_task_machine():
     global counter
     if my_state.state_work == 0:
         if my_state.state == my_state.READY_NAVIGATE:
@@ -784,108 +874,6 @@ def task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
-
-"""
-# 任务执行机
-def task_machine():
-    if my_state.state_work == 0:
-        if my_state.state == my_state.READY_NAVIGATE:
-            if my_plan.if_send_path == False:
-                my_main_protocol.send_path([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1] - 30.0]])
-                my_plan.if_send_path = True
-            if my_main_protocol.get_slave_state() == "get":
-                my_plan.if_send_path = False
-                my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test()
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.main_tactical_navigate([plan_data.fixed_point[1]], target_turn_angle=0.0)
-            # 向从车发送主车姿态
-            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state = my_state.SCAN
-                # 测试
-                my_beep.test()
-        if my_state.state == my_state.SCAN:
-            plan_data.object = [[160.0, 100.0, 1]]  # [x, y, type]
-            my_state.state = my_state.NAVIGATE
-            my_state.state_work = 1
-    elif my_state.state_work == 1:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.main_tactical_navigate([plan_data.object[0][0], 55.0], target_turn_angle=0.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state = my_state.SERVO
-                # 测试
-                my_beep.test()
-        elif my_state.state == my_state.SERVO:
-            my_vision_manager.visual_servo_control()
-            if my_vision_manager.finish_servo == True:
-                my_vision_manager.finish_servo = False
-                # 记录实际物体坐标和种类
-                plan_data.object_real = [my_car.x_current, my_car.y_current, plan_data.object[0][2]]
-                my_state.state = my_state.ORBIT
-                # 测试
-                my_beep.test()
-        elif my_state.state == my_state.ORBIT:
-            if my_vision_manager.finish_orbit == False:
-                my_vision_manager.orbit_control(120.0)
-            else:
-                # 完成orbit后停止等待从车也完成环绕
-                my_vision_manager.orbit_speed = 0
-                if my_main_protocol.get_slave_state() == "finish":
-                    my_main_protocol.send_pose('M', plan_data.object_real[0], plan_data.object_real[1], my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
-                if my_main_protocol.get_slave_state() == "get":    
-                    my_state.state = my_state.STOP
-                    # 测试
-                    my_beep.test()
-        elif my_state.state == my_state.STOP:
-            my_plan.stop()
-            if my_main_protocol.get_slave_state() == "ready":
-                my_state.state = my_state.MOVE
-        elif my_state.state == my_state.MOVE:
-            # 让主车保持目前转角进行定向移动
-            my_plan.main_tactical_navigate([my_car.x_current, -20.0], my_car.now_yaw * 180 / MATH.PI)
-            # 向从车发送主车姿态
-            my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_plan.turn_angle_target, my_state.state)
-            '''保留从车丢失接口'''
-            if my_plan.finish_navigate == True and my_main_protocol.get_slave_state() == "finish":
-                my_plan.finish_navigate = False
-                my_state.state = my_state.CALIBRATE
-                my_state.state_work = 0
-                # 测试
-                my_beep.test()
-        elif my_state.state == my_state.CALIBRATE:
-            my_plan.boundary_calibrate_control()
-            if my_plan.if_finish_calibrate == True:
-                my_plan.if_finish_calibrate, my_plan.if_gain_calibrate_angle = False, False
-                my_state.state = my_state.READY_NAVIGATE
-                my_state.state_work = 2
-                # 测试
-                my_beep.test()
-    elif my_state.state_work == 2:
-            if my_state.state == my_state.READY_NAVIGATE:
-                if my_plan.if_send_path == False:
-                    my_main_protocol.send_path([[plan_data.fixed_point[0][0] - 20.0, plan_data.fixed_point[0][1]]])
-                    my_plan.if_send_path = True
-                if my_main_protocol.get_slave_state() == "get":
-                    my_plan.if_send_path = False
-                    my_state.state = my_state.RETURN
-                    # 测试
-                    my_beep.test()
-            elif my_state.state == my_state.RETURN:
-                my_plan.main_tactical_navigate([plan_data.fixed_point[0]], 0.0)
-                my_main_protocol.send_pose('M', my_car.x_current, my_car.y_current, my_plan.target_yaw, my_car.now_yaw * 180 / MATH.PI, my_state.state)
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    my_state.state = my_state.STOP
-                    # 测试
-                    my_beep.test()
-            elif my_state.state == my_state.STOP:
-                my_plan.stop()
-"""
-
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -1017,7 +1005,7 @@ def time_pit2_handler(time):
     # 视觉伺服
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
-    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
+    my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     

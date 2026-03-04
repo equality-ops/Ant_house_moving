@@ -1,4 +1,4 @@
-# 修改时间 3.2	16：56
+# 修改时间 3.2	23：07
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -71,7 +71,7 @@ long_v_max = 400
 short_v_max = 80
 dead_zone_v = 50
 transit_v = 200
-orbit_v = 50
+orbit_v = 100
 move_v_max = 150
 scan_v_max = 150
 

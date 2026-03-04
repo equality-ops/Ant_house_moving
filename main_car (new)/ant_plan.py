@@ -3,6 +3,7 @@ import math
 # 状态机制
 class StateMachine:
     def __init__(self):
+        # state 模式：
         self.READY_NAVIGATE = 0  # 准备导航状态（主车等待从车准备好）
         self.NAVIGATE = 1    # 导航状态
         self.SCAN = 2        # 扫描状态
@@ -12,10 +13,19 @@ class StateMachine:
         self.CALIBRATE = 6   # 校准状态
         self.RETURN = 7		 # 返回状态
         self.STOP = 8        # 停止状态
+
+        # state_work 小车状态：
+        self.OFF = -1         # 关闭状态（初始状态）
+        self.DOWN = 0         # 位于矩形下边沿
+        self.LEFT = 1         # 位于矩形左边沿
+        self.UP = 2           # 位于矩形上边沿
+        self.RIGHT = 3        # 位于矩形右边沿
+        self.CHECK = 4        # 检验阶段（检查是否搬运完所有物体）
+        self.RETURN_WORK = 5        # 返回阶段（搬运完所有物体后返回起点）
         
         # self.state = self.NAVIGATE  # 初始状态为导航状态
         self.state = self.READY_NAVIGATE  # 初始状态为准备导航状态
-        self.state_work = -1 # 阶段变量
+        self.state_work = self.OFF # 阶段变量
 
 # 路径和速度规划相关常量
 class Plan_data:
@@ -24,7 +34,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2][3][4]分别为矩形区域下、左、上、右扫描起始点，[5][6][7][8]分别为矩形区域下、左、上、右扫描结束点
-        self.fixed_point = [[40.0, -10.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]
         # 目标物品坐标及种类信息
