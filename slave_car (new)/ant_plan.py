@@ -3,6 +3,7 @@ import math
 # 状态机制
 class StateMachine:
     def __init__(self):
+        # state 模式：
         self.READY_NAVIGATE = 0  # 准备导航状态（主车等待从车准备好）
         self.NAVIGATE = 1    # 导航状态
         self.SCAN = 2        # 扫描状态
@@ -24,7 +25,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2][3][4]分别为矩形区域下、左、上、右扫描起始点，[5][6][7][8]分别为矩形区域下、左、上、右扫描结束点
-        self.fixed_point = [[40.0, -10.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
+        self.fixed_point = [[30.0, -20.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]
         # 目标物品坐标及种类信息
@@ -36,6 +37,8 @@ class Plan_data:
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
         self.current_aimed_point_index = 0    # type: int
+        # 当前主车发送的导航路径
+        self.current_path = None
         # 时间计数器
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
@@ -824,7 +827,7 @@ class VisionManager:
                 # 计算最终的TOF测距值（去除前5个的平均值）
                 self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
                 # 3.0为网球半径，8.0为tod传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径
-                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5	
+                self.orbit_radius = ((self.tof_distance - 57.5) / 10 + 10.5 + self.object_radius) / 5	
                 self.target_angle = self.my_plan.turn_angle_target + target_angle
                 # 限制目标角度在-180到180度之间
                 if self.target_angle > 180.0:

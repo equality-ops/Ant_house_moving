@@ -177,7 +177,7 @@ class LinkProtocol:
     def send_path(self, path_points):
         """
         发送路径点列表 (非阻塞)
-        格式: #P,120.5,80.1;130.2,90.3;140.0,100.0!
+        格式: #P,120.5,80.1;130.2,90.3;140.0,100.0!  #P,160.0,50.0!
         :param path_points: [(x1, y1), (x2, y2), ...]
         """
         point_strs = ["{:.1f},{:.1f}".format(x, y) for x, y in path_points]

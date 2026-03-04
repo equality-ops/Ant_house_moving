@@ -333,7 +333,7 @@ class ServoPID(ControlPID):
         self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")        # type: float
         self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")        # type: float
         self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
-        self.target_x = self.flash_sys.find_value("servo_target_x")      # type: int
+        self.target_x = self.flash_sys.find_value("servo_target_x")     # type: int
         self.actual_x = 0     # type: float
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
@@ -373,6 +373,7 @@ class ServoPID(ControlPID):
         # pwm_output限幅
         self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
         self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
+
 
 
 # 小车姿态控制
