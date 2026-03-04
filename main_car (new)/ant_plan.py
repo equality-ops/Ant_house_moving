@@ -50,11 +50,6 @@ class Plan_data:
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
         self.plan_point_transition_T = self.flash_sys.find_value("plan_point_transition_T")
-        # 上下左右边线
-        self.BOUNDARY_UP = 1
-        self.BOUNDARY_DOWN = 2
-        self.BOUNDARY_LEFT = 3
-        self.BOUNDARY_RIGHT = 4
         # 长短距离标志
         self.LONG_DISTANCE = 1
         self.SHORT_DISTANCE = 2
@@ -148,9 +143,6 @@ class Plan:
         self.if_send_path = False       # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
-        self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
-        self.if_gain_calibrate_angle = True   # type: bool  # 判断是否获取校准角度标志位
-        self.if_finish_calibrate = True       # type: bool  # 判断是否完成校准标志位
 
     def _ease_out_quad(self, t):
         """二次缓出曲线，用于快速启动"""
@@ -539,134 +531,7 @@ class Plan:
                 self.if_set_path = False
                 self.transition_flag = False
                 self.finish_navigate = True
-
-    def boundary_calibrate_control(self):
-        if self.if_ready_calibrate == False:
-            # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
-            now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
-            if self.my_car.x_current <= 10.0 and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 270.0:
-                if now_yaw <= -90.0 or now_yaw > 90.0:
-                    self.navigate([[-20.0, self.my_car.y_current + 10.0]], 180.0)
-                else:
-                    self.navigate([[-20.0, self.my_car.y_current - 10.0]], 0.0)
-                self.car_position = self.plan_data.BOUNDARY_LEFT
-                # 重置标志位，准备进行边线校准
-                self.if_finish_calibrate = False
-                self.if_gain_calibrate_angle = False
-            elif self.my_car.x_current >= 290.0 and self.my_car.y_current >= 30.0 and self.my_car.y_current <= 270.0:
-                if now_yaw <= -90.0 or now_yaw > 90.0:
-                    self.navigate([[340.0, self.my_car.y_current + 10.0]], 180.0)
-                else:
-                    self.navigate([[340.0, self.my_car.y_current - 10.0]], 0.0)
-                self.car_position = self.plan_data.BOUNDARY_RIGHT
-                # 重置标志位，准备进行边线校准
-                self.if_finish_calibrate = False
-                self.if_gain_calibrate_angle = False
-            elif self.my_car.y_current <= 10.0 and self.my_car.x_current >= 30.0 and self.my_car.x_current <= 270.0:
-                if now_yaw <= 0.0 and now_yaw > -180.0:
-                    self.navigate([[self.my_car.x_current + 10.0, -20.0]], -90.0)
-                else:
-                    self.navigate([[self.my_car.x_current - 10.0, -20.0]], 90.0)
-                self.car_position = self.plan_data.BOUNDARY_DOWN
-                # 重置标志位，准备进行边线校准
-                self.if_finish_calibrate = False
-                self.if_gain_calibrate_angle = False
-            elif self.my_car.y_current >= 230.0 and self.my_car.x_current >= 30.0 and self.my_car.x_current <= 270.0:
-                if now_yaw <= 0.0 and now_yaw > -180.0:
-                    self.navigate([[self.my_car.x_current + 10.0, 260.0]], -90.0)
-                else:
-                    self.navigate([[self.my_car.x_current - 10.0, 260.0]], 90.0)
-                self.car_position = self.plan_data.BOUNDARY_UP
-                # 重置标志位，准备进行边线校准
-                self.if_finish_calibrate = False
-                self.if_gain_calibrate_angle = False
-            else:
-                self.car_position = None
-                self.if_finish_calibrate = True
-                self.if_gain_calibrate_angle = True
-
-            if self.finish_navigate == True:
-                self.if_ready_calibrate = True
-                self.finish_navigate = False
-                # 测试
-                self.my_beep.test()
-                self.my_order_manager.mode_boundary_lf()
-        else:
-            if self.car_position == self.plan_data.BOUNDARY_LEFT:
-                self.navigate([[10.0, self.my_car.y_current]])
-            elif self.car_position == self.plan_data.BOUNDARY_RIGHT:
-                self.navigate([[310.0, self.my_car.y_current]])
-            elif self.car_position == self.plan_data.BOUNDARY_UP:
-                self.navigate([[self.my_car.x_current, 230.0]])
-            elif self.car_position == self.plan_data.BOUNDARY_DOWN:
-                self.navigate([[self.my_car.x_current, 10.0]])
-            if self.finish_navigate == True:
-                # 此时仍未获得角度信息，直接退出该模式
-                self.finish_navigate = False
-                self.if_gain_calibrate_angle = True
-                self.if_finish_calibrate = True
-                # 向openart发送停止校准指令
-                self.my_order_manager.finish()
-                return 
-            
-            # 判断是否获取到校准角度
-            if self.if_gain_calibrate_angle == False:
-                self.my_art_protocol.angle_receive()
-                if len(self.my_art_protocol.angle_list) >= 1:
-                    # 进行边线校准处理
-                    # self.calibrate_angle = sum(self.my_art_protocol.angle_list) / len(self.my_art_protocol.angle_list)
-                    # self.turn_angle_target += self.calibrate_angle * 2 / 3
-                    # 进行里程计矫正处理
-                    if self.my_car.x_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_LEFT:
-                        self.my_car.x_current = 0.0
-                    elif self.my_car.x_current >= 270.0 and self.car_position == self.plan_data.BOUNDARY_RIGHT:
-                        self.my_car.x_current = 300.0
-                    elif self.my_car.y_current >= 190.0 and self.car_position == self.plan_data.BOUNDARY_UP:
-                        self.my_car.y_current = 240.0
-                    elif self.my_car.y_current <= 50.0 and self.car_position == self.plan_data.BOUNDARY_DOWN:
-                        self.my_car.y_current = 0.0
-                    self.my_order_manager.finish()
-                    self.if_gain_calibrate_angle = True 
-                    self.if_finish_calibrate = True
-                    # 重置导航相关标志位
-                    self.finish_navigate = False
-                    self.dec_speed_index = 0
-                    self.path_points.clear()
-                    self.if_set_path = False
-                    self.if_finish_turn = False
-                    self.transition_flag = False
-                    # 测试
-                    self.my_beep.test()
-                    self.my_art_protocol.angle_list.clear()
-            """
-            if self.if_finish_calibrate == False:
-                # 判断是否完成校准（校准误差不超过1度）
-                # 测试
-                # if self.if_gain_calibrate_angle == True and abs(self.my_car.angle_pid.nowError) <= 1.0:
-                if self.if_gain_calibrate_angle == True:
-                    self.finish_navigate = False
-                    self.if_finish_calibrate = True
-                    # 向openart发送停止校准指令
-                    self.my_order_manager.finish()
-                    # 根据小车位置重置小车角度及目标转角
-                    '''
-                    now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
-                    if now_yaw >= -45.0 and now_yaw < 45.0:
-                        self.my_car.now_yaw = 0.0
-                        self.turn_angle_target = 0.0
-                    elif now_yaw >= 45.0 and now_yaw < 135.0:
-                        self.my_car.now_yaw = self.MATH.PI / 2
-                        self.turn_angle_target = 90.0
-                    elif now_yaw >= -135.0 and now_yaw < -45.0:
-                        self.my_car.now_yaw = -self.MATH.PI / 2
-                        self.turn_angle_target = -90.0
-                    else:
-                        self.my_car.now_yaw = self.MATH.PI
-                        self.turn_angle_target = 180.0
-                    '''
-                    # 测试
-                    self.my_beep.test()
-                """
+                
  # 视觉伺服控制类(PD控制器)
 class VisionManager:
     def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan: Plan):
@@ -731,11 +596,16 @@ class VisionManager:
         self.radius_B = self.flash_sys.find_value("radius_B")   # type: float   # 玩具熊半径
         self.direct = 0     # 0为顺时针，1为逆时针
 
+        # 矫正次数
+        self.calibrate_times = 0       # type: int     # 矫正次数
         # 标志位
         self.if_send_servo_command = False   # type: bool   # 是否发送视觉伺服控制指令标志位
         self.finish_servo = False      # 是否完成视觉伺服控制标志位
         self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
         self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
+        self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
+        self.if_gain_calibrate_angle = False   # type: bool  # 判断是否获取校准角度标志位
+        self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
 
     # 计算目标航向角
     def compute_target_rel_yaw(self):
@@ -745,10 +615,6 @@ class VisionManager:
             self.target_rel_yaw -= 360.0
         elif self.target_rel_yaw < -180.0:
             self.target_rel_yaw += 360.0
-
-    # 计算小车需要转向的角度（一般为0）
-    def compute_target_rel_turn_angle(self, turn_angle_target: float):
-        self.target_rel_turn_angle = turn_angle_target
     
     # 视觉伺服控制
     def visual_servo_control(self):
@@ -852,3 +718,93 @@ class VisionManager:
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
+
+    # apriltag辅助校准校准控制函数
+    def apriltag_calibrate_control(self):
+        """0代表下边线左侧,1代表下边线右侧, 2代表上边线左侧, 3代表上边线右侧"""
+        if self.if_ready_calibrate == False:
+            # 测试
+            self.if_ready_calibrate = True
+            self.my_beep.test()
+            self.my_order_manager.mode_apriltag()
+            self.car_position = 0
+            # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
+            self.servo_pid.target_y = 10.0
+            return 
+            # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
+            now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
+            if self.my_car.y_current <= 120.0:
+                if now_yaw <= 0.0 and now_yaw > -180.0:
+                    self.my_plan.navigate([[190.0, 0.0]], -90.0)
+                    self.car_position = 1
+                else:
+                    self.my_plan.navigate([[130.0, 0.0]], 90.0)
+                    self.car_position = 0
+                # 重置标志位，准备进行边线校准
+                self.if_finish_calibrate = False
+                self.if_gain_calibrate_angle = False
+            else:
+                if now_yaw <= 0.0 and now_yaw > -180.0:
+                    self.my_plan.navigate([[190.0, 260.0]], -90.0)
+                    self.car_position = 3
+                else:
+                    self.my_plan.navigate([[130.0, 260.0]], 90.0)
+                    self.car_position = 2
+                # 重置标志位，准备进行边线校准
+                self.if_finish_calibrate = False
+                self.if_gain_calibrate_angle = False
+
+            if self.finish_navigate == True:
+                self.if_ready_calibrate = True
+                self.finish_navigate = False
+                # 测试
+                self.my_beep.test()
+                self.my_order_manager.mode_apriltag()
+        else:
+            target_point = self.my_art_protocol.apriltag_receive()
+            if target_point:
+                if self.if_gain_calibrate_angle == False:
+                    # 计算目标转角
+                    now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
+                    if self.car_position == 0 or self.car_position == 2:
+                        self.target_rel_turn_angle = now_yaw + target_point[2]
+                    elif self.car_position == 1 or self.car_position == 3:
+                        self.target_rel_turn_angle = now_yaw - target_point[2]
+                    self.if_gain_calibrate_angle = True
+
+                self.servo_pid.compute_pid(target_point[0], target_point[1])
+                self.target_rel_speed_x = self.servo_pid.pwm_output_x
+                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+                if self.if_finish_calibrate == False:
+                    # 判断是否完成视觉伺服控制
+                    if ((abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y) or self.calibrate_times == 1) and abs(abs(self.target_rel_turn_angle) - abs(self.my_car.now_yaw * 180.0 / self.MATH.PI)) <= 0.5:
+                        self.target_rel_speed = 0
+                        self.target_rel_yaw = 0.0
+                        self.calibrate_times += 1
+                        if self.calibrate_times == 1:
+                            self.if_gain_calibrate_angle = False
+                        # 测试
+                        self.my_beep.test()
+                        # self.my_uart3.write("x: %d, y: %d, target_yaw: %.2f, current_x: %.2f, current_y: %.2f\r\n" % (self.target_point[0], self.target_point[1], self.target_rel_yaw, self.servo_pid.current_x, self.servo_pid.current_y))
+                        # 矫正两次后完成矫正
+                        if self.calibrate_times >= 2:
+                            self.calibrate_times = 0
+                            self.my_order_manager.finish()
+                            self.if_finish_calibrate = True
+                    else:
+                        # 计算综合目标速度和航向角
+                        # 滤波
+                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                        self.compute_target_rel_yaw()
+                        
+                        # 第二次矫正时速度为0，帮助小车稳定完成最后的角度矫正
+                        if self.calibrate_times == 1:
+                            self.target_rel_speed = 0
+                        else:
+                            # 计算伺服速度
+                            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                            # 当横移角度过大时，速度折半
+                            if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                                self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                            self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))

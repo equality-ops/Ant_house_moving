@@ -86,8 +86,8 @@ servo_target_y_S = 10.0
 servo_target_y_B = 30.0
 min_rel_speed = 50
 max_rel_speed = 200
-finish_threshold_x = 1
-finish_threshold_y = 2.5
+finish_threshold_x = 2
+finish_threshold_y = 2
 servo_pwmout_limitmax = 200
 
 ###################【环绕控制】####################

@@ -339,9 +339,9 @@ def test_global_localization():
 
 # 测试伺服控制函数
 def test_servo_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.CALIBRATE or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE :
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE :
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.SERVO:
+    elif my_state.state == my_state.SERVO or my_state.state == my_state.CALIBRATE:
         my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
@@ -368,24 +368,37 @@ def test_vision_servo():
             # 过渡1s防止惯性过冲
             if counter >= 50:
                 counter = 0
-                my_state.state = my_state.STOP
+                my_state.state = my_state.ORBIT
                 my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                 # 重置标志位
                 my_vision_manager.if_send_servo_command = False
                 my_vision_manager.finish_servo = False
                 # 测试
                 my_beep.test()
-    elif my_state.state == my_state.RETURN:
-        my_plan.navigate([[0.0, 0.0]], 0.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
+    elif my_state.state == my_state.ORBIT:
+        my_vision_manager.orbit_control(130.0)
+        if my_vision_manager.finish_orbit == True:
+            my_vision_manager.finish_orbit = False
+            my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
             my_state.state = my_state.STOP
             # 测试
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
 
-                
+# 视觉伺服辅助apriltag码矫正
+def test_apriltag_calibrate():
+    if my_state.state == my_state.NAVIGATE:
+        my_state.state = my_state.CALIBRATE
+    elif my_state.state == my_state.CALIBRATE:
+        my_vision_manager.apriltag_calibrate_control()
+        if my_vision_manager.if_finish_calibrate == True:
+            my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+            my_state.state = my_state.STOP
+            my_plan.turn_angle_target = my_vision_manager.target_rel_turn_angle
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
+
 # 边线校准测试函数
 def test_boundary_calibration():
     global counter
@@ -438,7 +451,7 @@ def test_orbit_control():
     if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.ORBIT
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(120.0)
+        my_vision_manager.orbit_control(130.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
@@ -952,12 +965,12 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
+
     # 测试主从车通信
     # test_main_slave_communication()
     # test_main_slave_collaborative_navigation()
 
-   
     # 全向定位测试程序
     """
     if my_state.state == my_state.READY_NAVIGATE:
@@ -979,7 +992,8 @@ def time_pit3_handler(time) -> None:
     # 视觉伺服测试程序
     # test_vision_servo()
 
-    # 边线校准测试程序
+    # 边线和apriltag码校准测试程序
+    test_apriltag_calibrate()
     # test_boundary_calibration()
     # test_moving_boundary_calibration()
 
@@ -1006,7 +1020,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
+    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参

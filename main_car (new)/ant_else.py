@@ -67,9 +67,14 @@ class order_manager:
     def mode_boundary_lf(self):
         self.my_uart.write("L")
 
+    # 切换到apriltag识别模式
+    def mode_apriltag(self):
+        self.my_uart.write("C")
+
     # 当前模式结束
     def finish(self):
         self.my_uart.write("F")    
+
         
 # 状态机解析串口数据类
 class UARTProtocol:
@@ -77,90 +82,84 @@ class UARTProtocol:
         # 注入串口对象
         self.my_uart = uart
         self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待物体种类, 5:等待帧尾
-        self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
-        self.angle_list = []  # 用于缓存矫正角度信息
+        self.state_apriltag = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待角度, 5:等待帧尾
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
-        self.angle_buffer = [0, 0, 0, 0]
+        self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
 
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
+        last_valid_frame = None
+        # 持续读取直到处理完当前缓冲区的所有数据
         while self.my_uart.any():	
             byte = self.my_uart.read(1)[0]
             
-            if self.state_coordinate == 0:  # 等待帧头1
+            if self.state_coordinate == 0:
                 if byte == 0xA5:
-                    self.coordinate_buffer[0] = byte
                     self.state_coordinate = 1
-                # 如果不是0xA5，继续等待（保持状态0）
-                
-            elif self.state_coordinate == 1:  # 等待帧头2
+            elif self.state_coordinate == 1:
                 if byte == 0xA6:
-                    self.coordinate_buffer[1] = byte
                     self.state_coordinate = 2
                 else:
-                    self.state_coordinate = 0  # 状态重置
-                    
-            elif self.state_coordinate == 2:  # 接收x
+                    self.state_coordinate = 0
+            elif self.state_coordinate == 2:
                 self.coordinate_buffer[2] = byte
                 self.state_coordinate = 3
-                
-            elif self.state_coordinate == 3:  # 接收y
+            elif self.state_coordinate == 3:
                 self.coordinate_buffer[3] = byte
                 self.state_coordinate = 4
-
-            elif self.state_coordinate == 4:  # 接收物体种类
+            elif self.state_coordinate == 4:
                 self.coordinate_buffer[4] = byte
                 self.state_coordinate = 5
-                
-            elif self.state_coordinate == 5:  # 等待帧尾
+            elif self.state_coordinate == 5:
                 if byte == 0x5B:
-                    self.coordinate_buffer[5] = byte
-                    # 完整帧接收完成
+                    # 解析成功，保存当前帧，但【不要】清空缓冲区，【不要】立即返回
                     x, y = self.coordinate_buffer[2], self.coordinate_buffer[3]
-                    self.state_coordinate = 0  # 重置状态
-                    # 若解析成功清空缓冲区
-                    byte = self.my_uart.read(self.my_uart.any()) 
-                    return (x, y, self.coordinate_buffer[4])
+                    last_valid_frame = (x, y, self.coordinate_buffer[4])
+                    self.state_coordinate = 0 
                 else:
-                    self.state_coordinate = 0  # 帧尾错误，重新同步
-        
-        return None  # 没有完整帧
+                    self.state_coordinate = 0
+                
+        # 循环结束后，返回缓冲区里最新的一帧
+        return last_valid_frame
     
-    # 非阻塞接收并解析边界的斜率
-    def angle_receive(self):
-        while self.my_uart.any():
+    # 非阻塞接收并解析apriltag码的像素点坐标和角度  
+    def apriltag_receive(self):
+        last_valid_frame = None
+        # 持续读取直到处理完当前缓冲区的所有数据
+        while self.my_uart.any():	
             byte = self.my_uart.read(1)[0]
-
-            if self.state_angle == 0:  # 等待帧头1
-                if byte == 0xA5:
-                    self.angle_buffer[0] = byte
-                    self.state_angle = 1
-                # 如果不是0xA5，继续等待（保持状态0）
             
-            elif self.state_angle == 1:  # 等待帧头2
-                if byte == 0xA7:
-                    self.angle_buffer[1] = byte
-                    self.state_angle = 2
+            if self.state_apriltag == 0:
+                if byte == 0xA5:
+                    self.state_apriltag = 1
+            elif self.state_apriltag == 1:
+                if byte == 0xA8:
+                    self.state_apriltag = 2
                 else:
-                    self.state_angle = 0  # 状态重置
-
-            elif self.state_angle == 2:
-                self.angle_buffer[2] = byte
-                self.state_angle = 3
-
-            elif self.state_angle == 3:
+                    self.state_apriltag = 0
+            elif self.state_apriltag == 2:
+                self.apriltag_buffer[2] = byte
+                self.state_apriltag = 3
+            elif self.state_apriltag == 3:
+                self.apriltag_buffer[3] = byte
+                self.state_apriltag = 4
+            elif self.state_apriltag == 4:
+                self.apriltag_buffer[4] = byte
+                self.state_apriltag = 5
+            elif self.state_apriltag == 5:
+                self.apriltag_buffer[5] = byte
+                self.state_apriltag = 6
+            elif self.state_apriltag == 6:
                 if byte == 0x5B:
-                    self.angle_buffer[3] = byte
-                    # 记录接收到的角度值进行解算后到列表中
-                    self.angle_list.append(self.angle_buffer[2] - 90)
-                    self.state_angle = 0   
-                    # 若解析成功清空缓冲区
-                    byte = self.my_uart.read(self.my_uart.any())
+                    # 解析成功，保存当前帧，但【不要】清空缓冲区，【不要】立即返回
+                    last_valid_frame = [self.apriltag_buffer[2], self.apriltag_buffer[3], ((self.apriltag_buffer[5] << 8 | self.apriltag_buffer[4]) / 10 - 90)]
+                    self.state_apriltag = 0 
                 else:
-                    self.state_angle = 0
-
-        return None       
+                    self.state_apriltag = 0
+                
+        # 循环结束后，返回缓冲区里最新的一帧
+        return last_valid_frame
 
 # 主从机通信类
 class LinkProtocol:

@@ -355,9 +355,11 @@ def test_vision_servo():
     global counter
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
-        my_order_manager.mode_target()
     elif my_state.state == my_state.NAVIGATE:
         my_plan.finish_navigate = False
+        if my_vision_manager.if_send_servo_command == False:
+            my_order_manager.mode_target()
+            my_vision_manager.if_send_servo_command = True
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
             my_vision_manager.current_servo_object = target_point[2]
@@ -606,7 +608,7 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 测试主从车通信
     # test_main_slave_communication()
@@ -631,7 +633,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.main_tactical_navigate([[320.0, 240.0], [0, 0]], [[110.0, 70.0, 60.0], [210.0, 70.0, 60.0],  [210.0, 170.0, 60.0],  [110.0, 170.0, 60.0]], target_turn_angle=0.0)
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_boundary_calibration()
@@ -657,7 +659,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
 
     # 视觉伺服
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
+    my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
