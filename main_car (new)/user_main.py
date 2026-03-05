@@ -180,7 +180,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -320,10 +320,19 @@ def master_control():
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
-        if my_vision_manager.if_lost_object == False or my_state.state == my_state.CALIBRATE:
+        if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+    elif my_state.state == my_state.CALIBRATE:
+        if my_vision_manager.if_ready_calibrate == False:
+            my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+        else:
+            # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行轨迹的导航控制
+            if my_vision_manager.if_lost_object == False:
+                my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
+            else:
+                my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
     elif my_state.state == my_state.READY_NAVIGATE:
@@ -376,7 +385,6 @@ def test_apriltag_calibrate():
         if my_vision_manager.if_finish_calibrate == True:
             my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
             my_state.state = my_state.STOP
-            my_plan.turn_angle_target = my_vision_manager.target_rel_turn_angle
     elif my_state.state == my_state.STOP:
         my_plan.stop()
 
@@ -462,6 +470,7 @@ def collaborative_task_machine():
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
+                    my_beep.test()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     # 重回扫描点继续寻找物体
@@ -505,9 +514,9 @@ def collaborative_task_machine():
             else:
                 # 控制小车前后移动寻找apriltag码
                 if my_vision_manager.car_position == 0 or my_vision_manager.car_position == 2:
-                    my_plan.navigate([[150.0, my_car.y_current], [110.0, my_car.y_current]], 90)
+                    my_plan.navigate([[my_car.x_current+20.0, my_car.y_current], [my_car.x_current-20.0, my_car.y_current]], 90)
                 elif my_vision_manager.car_position == 1 or my_vision_manager.car_position == 3:
-                    my_plan.navigate([[170.0, my_car.y_current], [210.0, my_car.y_current]], -90)
+                    my_plan.navigate([[my_car.x_current-20.0, my_car.y_current], [my_car.x_current+20.0, my_car.y_current]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -604,7 +613,7 @@ def collaborative_task_machine():
                 my_beep.test()
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体
-            my_plan.navigate([[my_car.x_current, 345.0]])
+            my_plan.navigate([[my_car.x_current, 265.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_vision_manager.car_position = 2
@@ -807,7 +816,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
-    my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
@@ -857,7 +866,7 @@ def time_pit2_handler(time):
     
     # 任务机
     # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
-    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}\n")
+    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
