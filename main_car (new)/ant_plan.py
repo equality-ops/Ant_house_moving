@@ -120,8 +120,6 @@ class Plan:
         self.path_points = []      # type: list
         # 当前路径（用于避开矩形区域）
         self.current_path = []     # type: list
-        # 边线矫正时小车位置
-        self.car_position = None
         # 距离长短标志位
         self.dis_flag = None
         # 绕行障碍物方向指示
@@ -528,11 +526,13 @@ class Plan:
                 
  # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan: Plan):
+    def __init__(self, flash_sys, beep, math, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan: Plan):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
         self.MATH = math
+        # 注入角度环pid对象
+        self.angle_pid = angle_pid
         # 注入伺服PD控制器对象
         self.servo_pid = servo_pid
         # 注入蜂鸣器对象
@@ -590,6 +590,12 @@ class VisionManager:
         self.radius_B = self.flash_sys.find_value("radius_B")   # type: float   # 玩具熊半径
         self.direct = 0     # 0为顺时针，1为逆时针
 
+        # 延时计数器
+        self.counter = 0       # type: int     # 延时计数器
+        # 目标角度缓冲区
+        self.angle_buffer = []     # type: list    # 目标角度缓冲区
+        # 边线矫正时小车位置
+        self.car_position = None
         # 矫正次数
         self.calibrate_times = 0       # type: int     # 矫正次数
         # 标志位
@@ -623,42 +629,43 @@ class VisionManager:
             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
         else:
         '''
-        self.target_point = self.my_art_protocol.coordinate_receive()
-        if self.target_point:
-            self.servo_lost_count = 0
-            self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
-            self.target_rel_speed_x = self.servo_pid.pwm_output_x
-            self.target_rel_speed_y = self.servo_pid.pwm_output_y
+        if self.finish_servo == False:
+            self.target_point = self.my_art_protocol.coordinate_receive()
+            if self.target_point:
+                self.servo_lost_count = 0
+                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+                self.target_rel_speed_x = self.servo_pid.pwm_output_x
+                self.target_rel_speed_y = self.servo_pid.pwm_output_y
 
-            if self.finish_servo == False:
-                # 判断是否完成视觉伺服控制
-                if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                if self.finish_servo == False:
+                    # 判断是否完成视觉伺服控制
+                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+                        self.target_rel_speed = 0
+                        self.target_rel_yaw = 0.0
+                        self.my_order_manager.finish()
+                        # 测试
+                        self.my_beep.test()
+                        self.finish_servo = True
+                    else:
+                        # 计算综合目标速度和航向角
+                        # 滤波
+                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                        # 固定伺服速度
+                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                        self.compute_target_rel_yaw()
+                        # 当横移角度过大时，速度折半
+                        if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                            self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                        self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+            else:
+                self.servo_lost_count += 1
+                # 连续丢失150帧物体坐标后（在1.5s内不再收到物体坐标信息），认为物体丢失，停止小车运动
+                if self.servo_lost_count >= 150:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
-                    self.my_order_manager.finish()
-                    # 测试
-                    self.my_beep.test()
-                    self.finish_servo = True
-                else:
-                    # 计算综合目标速度和航向角
-                    # 滤波
-                    self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                    self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                    # 固定伺服速度
-                    self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                    self.compute_target_rel_yaw()
-                    # 当横移角度过大时，速度折半
-                    if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                        self.target_rel_speed = int(self.target_rel_speed * 0.5)
-                    self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
-        else:
-            self.servo_lost_count += 1
-            # 连续丢失20帧物体坐标后（在200ms内不再收到物体坐标信息），认为物体丢失，停止小车运动
-            if self.servo_lost_count >= 20:
-                self.target_rel_speed = 0
-                self.target_rel_yaw = 0.0
-                self.servo_lost_count = 0
-                self.if_lost_object = True
+                    self.servo_lost_count = 0
+                    self.if_lost_object = True
 
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
@@ -725,33 +732,39 @@ class VisionManager:
     def apriltag_calibrate_control(self):
         """0代表下边线左侧,1代表下边线右侧, 2代表上边线左侧, 3代表上边线右侧"""
         if self.if_ready_calibrate == False:
-            # 测试
-            self.if_ready_calibrate = True
-            self.my_beep.test()
-            self.my_order_manager.mode_apriltag()
-            self.car_position = 0
             # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
             self.servo_pid.target_y = 10.0
-            return 
             # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
             if self.car_position == 1:
                 self.my_plan.navigate([[190.0, 0.0]], -90.0)
             elif self.car_position == 0:
                 self.my_plan.navigate([[130.0, 0.0]], 90.0)
             elif self.car_position == 3:
-                self.my_plan.navigate([[190.0, 260.0]], -90.0)
+                self.my_plan.navigate([[190.0, 240.0]], -90.0)
             elif self.car_position == 2:
-                self.my_plan.navigate([[130.0, 260.0]], 90.0)
+                self.my_plan.navigate([[130.0, 240.0]], 90.0)
 
-            if self.finish_navigate == True:
+            if self.my_plan.finish_navigate == True:
                 self.if_ready_calibrate = True
-                self.finish_navigate = False
+                self.my_plan.finish_navigate = False
+                self.target_rel_turn_angle = self.my_plan.turn_angle_target
                 # 测试
                 self.my_beep.test()
                 self.my_order_manager.mode_apriltag()
         else:
+            if self.calibrate_times == 1:
+                if self.counter != -1:
+                    self.counter += 1
+                if self.counter >= 50:
+                    self.counter = -1
+                    self.if_gain_calibrate_angle = False
+                    # 测试
+                    self.my_beep.test()
+                elif self.counter != -1:
+                    return
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
+                self.servo_lost_count = 0
                 if self.if_gain_calibrate_angle == False:
                     # 计算目标转角
                     now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
@@ -764,28 +777,32 @@ class VisionManager:
                 self.servo_pid.compute_pid(target_point[0], target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
                 self.target_rel_speed_y = self.servo_pid.pwm_output_y
+                
                 if self.if_finish_calibrate == False:
                     # 判断是否完成视觉伺服控制
                     if ((abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y) or self.calibrate_times == 1) and abs(abs(self.target_rel_turn_angle) - abs(self.my_car.now_yaw * 180.0 / self.MATH.PI)) <= 0.5:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
-                        self.calibrate_times += 1
-                        if self.calibrate_times == 1:
-                            self.if_gain_calibrate_angle = False
                         # 测试
                         self.my_beep.test()
-                        # 矫正两次后完成矫正
+                        self.calibrate_times += 1
+                        # 完成两次矫正才算结束
                         if self.calibrate_times >= 2:
                             self.calibrate_times = 0
+                            self.counter = 0
                             # 里程计和姿态角硬复位
                             if self.car_position == 0:
                                 self.my_car.now_yaw = self.MATH.PI / 2
+                                self.my_car.y_current = 0.0
                             elif self.car_position == 1:
                                 self.my_car.now_yaw = -self.MATH.PI / 2
+                                self.my_car.y_current = 0.0
                             elif self.car_position == 2:
                                 self.my_car.now_yaw = self.MATH.PI / 2
+                                self.my_car.y_current = 240.0
                             elif self.car_position == 3:
                                 self.my_car.now_yaw = -self.MATH.PI / 2
+                                self.my_car.y_current = 240.0
                             self.my_order_manager.finish()
                             self.if_finish_calibrate = True
                     else:
@@ -794,8 +811,7 @@ class VisionManager:
                         self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
                         self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
                         self.compute_target_rel_yaw()
-                        
-                        # 第二次矫正时速度为0，帮助小车稳定完成最后的角度矫正
+
                         if self.calibrate_times == 1:
                             self.target_rel_speed = 0
                         else:
@@ -807,8 +823,8 @@ class VisionManager:
                             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1
-                # 连续丢失20帧apriltag坐标后（在200ms内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
-                if self.servo_lost_count >= 20:
+                # 连续丢失100帧apriltag坐标后（在1s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
+                if self.servo_lost_count >= 100:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
