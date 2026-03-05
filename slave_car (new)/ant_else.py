@@ -67,6 +67,10 @@ class order_manager:
     def mode_boundary_lf(self):
         self.my_uart.write("L")
 
+    # 切换到apriltag识别模式
+    def mode_apriltag(self):
+        self.my_uart.write("C")
+
     # 当前模式结束
     def finish(self):
         self.my_uart.write("F")    
@@ -77,10 +81,9 @@ class UARTProtocol:
         # 注入串口对象
         self.my_uart = uart
         self.state_coordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待物体种类, 5:等待帧尾
-        self.state_angle = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待angle, 3:等待帧尾
-        self.angle_list = []  # 用于缓存矫正角度信息
+        self.state_apriltag = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x, 3:等待y, 4:等待距离低8位, 5:等待距离高8位, 6:等待帧尾
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
-        self.angle_buffer = [0, 0, 0, 0]
+        self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
 
     # 非阻塞接收并解析物体中心的像素点坐标  
@@ -115,6 +118,44 @@ class UARTProtocol:
                     self.state_coordinate = 0 
                 else:
                     self.state_coordinate = 0
+                
+        # 循环结束后，返回缓冲区里最新的一帧
+        return last_valid_frame
+    
+        # 非阻塞接收并解析apriltag码的像素点坐标和角度  
+    def apriltag_receive(self):
+        last_valid_frame = None
+        # 持续读取直到处理完当前缓冲区的所有数据
+        while self.my_uart.any():	
+            byte = self.my_uart.read(1)[0]
+            
+            if self.state_apriltag == 0:
+                if byte == 0xA5:
+                    self.state_apriltag = 1
+            elif self.state_apriltag == 1:
+                if byte == 0xA8:
+                    self.state_apriltag = 2
+                else:
+                    self.state_apriltag = 0
+            elif self.state_apriltag == 2:
+                self.apriltag_buffer[2] = byte
+                self.state_apriltag = 3
+            elif self.state_apriltag == 3:
+                self.apriltag_buffer[3] = byte
+                self.state_apriltag = 4
+            elif self.state_apriltag == 4:
+                self.apriltag_buffer[4] = byte
+                self.state_apriltag = 5
+            elif self.state_apriltag == 5:
+                self.apriltag_buffer[5] = byte
+                self.state_apriltag = 6
+            elif self.state_apriltag == 6:
+                if byte == 0x5B:
+                    # 解析成功，保存当前帧，但【不要】清空缓冲区，【不要】立即返回
+                    last_valid_frame = [self.apriltag_buffer[2], self.apriltag_buffer[3], ((self.apriltag_buffer[5] << 8 | self.apriltag_buffer[4]) / 10 - 90)]
+                    self.state_apriltag = 0 
+                else:
+                    self.state_apriltag = 0
                 
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame

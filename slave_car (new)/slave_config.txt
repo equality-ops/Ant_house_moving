@@ -68,12 +68,12 @@ plan_point_transition_T = 50
 ###################【速度规划】####################
 min_start_v = 40
 long_v_max = 400
-short_v_max = 80
+short_v_max = 70
 dead_zone_v = 50
 transit_v = 200
 orbit_v = 100
 move_v_max = 150
-scan_v_max = 150
+scan_v_max = 250
 
 ###################【视觉伺服】####################
 servo_kp_x = 8.0
@@ -85,15 +85,15 @@ servo_target_y_T = 7.0
 servo_target_y_S = 10.0
 servo_target_y_B = 30.0
 min_rel_speed = 50
-max_rel_speed = 150
-finish_threshold_x = 1
-finish_threshold_y = 2.5
-servo_pwmout_limitmax = 150
+max_rel_speed = 200
+finish_threshold_x = 2
+finish_threshold_y = 2
+servo_pwmout_limitmax = 200
 
 ###################【环绕控制】####################
 radius_T = 2.5
-radius_S = 4.5
-radius_B = 10.0
+radius_S = 3.5
+radius_B = 13.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500

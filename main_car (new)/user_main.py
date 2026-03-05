@@ -458,7 +458,7 @@ def collaborative_task_machine():
                 my_vision_manager.visual_servo_control()
             else:
                 # 若丢失物体则按矩形轨迹行驶寻找物体
-                my_plan.navigate([[my_car.x_current+30.0, my_car.y_current], [my_car.x_current+30.0, my_car.y_current-30.0], [my_car.x_current-30.0, my_car.y_current-30.0], [my_car.x_current-30.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current-30.0], [my_car.x_current-25.0, my_car.y_current-30.0], [my_car.x_current-25.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point:
                     my_vision_manager.current_servo_object = target_point[2]
@@ -479,7 +479,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[5][1]]])
+                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[5][1]], [my_car.x_current, my_car.y_current - 10.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -494,11 +494,20 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
             my_vision_manager.orbit_control(130.0)
-            if my_vision_manager.finish_orbit == True and my_main_protocol.get_slave_state() == "finish":
-                my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                my_state.state = my_state.MOVE
-                # 测试
-                my_beep.test()
+            if my_vision_manager.finish_orbit == True:
+                order = my_main_protocol.get_slave_state()
+                if order == "finish":
+                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                    my_state.state = my_state.MOVE
+                    # 测试
+                    my_beep.test()
+                elif order == "lost":
+                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                    # 重回扫描点继续寻找物体
+                    my_plan.return_to_scan_point = True
+                    my_state.state = my_state.NAVIGATE
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体
             my_plan.navigate([[my_car.x_current + 5.0, -25.0]])
@@ -521,6 +530,7 @@ def collaborative_task_machine():
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
                     reset_navigate_flags()
+                    my_vision_manager.counter = 0
                     my_vision_manager.calibrate_times = 0
                     my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
 
@@ -571,7 +581,7 @@ def collaborative_task_machine():
                 my_vision_manager.visual_servo_control()
             else:
                 # 若丢失物体则按矩形轨迹行驶寻找物体
-                my_plan.navigate([[my_car.x_current+30.0, my_car.y_current], [my_car.x_current+30.0, my_car.y_current+30.0], [my_car.x_current-30.0, my_car.y_current+30.0], [my_car.x_current-30.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current+30.0], [my_car.x_current-25.0, my_car.y_current+30.0], [my_car.x_current-25.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point:
                     my_vision_manager.current_servo_object = target_point[2]
@@ -591,7 +601,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[7][1]]])
+                    my_main_protocol.send_path([[my_car.x_current, plan_data.fixed_point[7][1]], [my_car.x_current, my_car.y_current + 10.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -606,14 +616,23 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
             my_vision_manager.orbit_control(-130.0)
-            if my_vision_manager.finish_orbit == True and my_main_protocol.get_slave_state() == "finish":
-                my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                my_state.state = my_state.MOVE
-                # 测试
-                my_beep.test()
+            if my_vision_manager.finish_orbit == True:
+                order = my_main_protocol.get_slave_state()
+                if order == "finish":
+                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                    my_state.state = my_state.MOVE
+                    # 测试
+                    my_beep.test()
+                elif order == "lost":
+                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                    # 重回扫描点继续寻找物体
+                    my_plan.return_to_scan_point = True
+                    my_state.state = my_state.NAVIGATE
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体
-            my_plan.navigate([[my_car.x_current, 265.0]])
+            my_plan.navigate([[my_car.x_current + 5.0, 265.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_vision_manager.car_position = 2
@@ -648,15 +667,19 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
             if my_vision_manager.if_finish_calibrate == True:
-                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                if my_state.if_move_easy_object == False:
-                    my_state.state = my_state.NAVIGATE
-                else:
-                    my_vision_manager.my_order_manager.mode_target()
-                    my_state.state_work = CHECK
-                    my_state.state = my_state.SCAN
-                # 测试
-                my_beep.test()
+                counter += 1
+                # 缓冲500ms防止过冲
+                if counter >= 50:
+                    counter = 0
+                    my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                    if my_state.if_move_easy_object == False:
+                        my_state.state = my_state.NAVIGATE
+                    else:
+                        my_vision_manager.my_order_manager.mode_target()
+                        my_state.state_work = CHECK
+                        my_state.state = my_state.SCAN
+                    # 测试
+                    my_beep.test()
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.SCAN:
             my_plan.navigate([[190.0, 150.0], [130.0, 150.0]], 180.0)
@@ -669,14 +692,20 @@ def collaborative_task_machine():
                     my_state.state_work = UP
                     my_state.state = my_state.SERVO
             else:
-                my_plan.finish_navigate = False
-                # 将openart置为等待模式
-                my_order_manager.finish()
-                # 此时矩形区域内已没有物体，控制小车返回发车区
-                my_state.state_work = RETURN_WORK
-                my_state.state = my_state.RETURN
-                # 测试
-                my_beep.test()
+                if my_plan.if_send_path == False:
+                    my_main_protocol.send_path([[30.0, -20.0]])
+                    my_plan.if_send_path = True
+
+                if my_main_protocol.get_slave_state() == "get":
+                    my_plan.if_send_path = False
+                    my_plan.finish_navigate = False
+                    # 将openart置为等待模式
+                    my_order_manager.finish()
+                    # 此时矩形区域内已没有物体，控制小车返回发车区
+                    my_state.state_work = RETURN_WORK
+                    my_state.state = my_state.RETURN
+                    # 测试
+                    my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
@@ -866,7 +895,7 @@ def time_pit2_handler(time):
     
     # 任务机
     # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
-    my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

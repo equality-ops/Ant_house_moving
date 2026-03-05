@@ -279,7 +279,6 @@ class Plan:
         else:   
             self.current_path = []
             self.return_to_scan_point = False
-            
 
         # 理想条件下的目标坐标
         self.ideal_target_x = x
@@ -358,8 +357,8 @@ class Plan:
         else:
             self.my_car.alpha_y = 1.0
 
-        # 计算减速距离（长距离时减速距离为20，短距离时为0且短距离时速度恒定）
-        if total_distance >= 55.0:
+        # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
+        if total_distance >= 55.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN:
             self.dec_distance = 25.0
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
@@ -541,8 +540,6 @@ class VisionManager:
         self.sin_servo_fil = sin_servo_fil
         # 注入余弦滑动平均滤波器对象
         self.cos_servo_fil = cos_servo_fil
-        # 注入角度滑动平均滤波器对象
-        # self.angle_fil = angle_fil
         # 注入无线串口对象，用于调试
         self.my_uart3 = my_uart3
         # 注入TOF测距对象，用于测距
@@ -595,7 +592,7 @@ class VisionManager:
         # 目标角度缓冲区
         self.angle_buffer = []     # type: list    # 目标角度缓冲区
         # 边线矫正时小车位置
-        self.car_position = None
+        self.car_position = 0
         # 矫正次数
         self.calibrate_times = 0       # type: int     # 矫正次数
         # 标志位
@@ -699,7 +696,7 @@ class VisionManager:
                 self.tof_buffer.clear()
                 # 测试
                 # self.my_beep.test()
-                self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
+                # self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
         else:
             if self.finish_orbit == False:
                 # 更新当前小车的行驶距离
@@ -732,8 +729,6 @@ class VisionManager:
     def apriltag_calibrate_control(self):
         """0代表下边线左侧,1代表下边线右侧, 2代表上边线左侧, 3代表上边线右侧"""
         if self.if_ready_calibrate == False:
-            # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
-            self.servo_pid.target_y = 10.0
             # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
             if self.car_position == 1:
                 self.my_plan.navigate([[190.0, 0.0]], -90.0)
@@ -745,6 +740,10 @@ class VisionManager:
                 self.my_plan.navigate([[130.0, 240.0]], 90.0)
 
             if self.my_plan.finish_navigate == True:
+                # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
+                self.servo_pid.target_y = 10.0
+                self.counter = 0
+                self.calibrate_times = 0
                 self.if_ready_calibrate = True
                 self.my_plan.finish_navigate = False
                 self.target_rel_turn_angle = self.my_plan.turn_angle_target
@@ -793,15 +792,19 @@ class VisionManager:
                             # 里程计和姿态角硬复位
                             if self.car_position == 0:
                                 self.my_car.now_yaw = self.MATH.PI / 2
+                                self.my_car.x_current = 140.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 1:
                                 self.my_car.now_yaw = -self.MATH.PI / 2
+                                self.my_car.x_current = 180.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 2:
                                 self.my_car.now_yaw = self.MATH.PI / 2
+                                self.my_car.x_current = 140.0
                                 self.my_car.y_current = 240.0
                             elif self.car_position == 3:
                                 self.my_car.now_yaw = -self.MATH.PI / 2
+                                self.my_car.x_current = 180.0
                                 self.my_car.y_current = 240.0
                             self.my_order_manager.finish()
                             self.if_finish_calibrate = True
