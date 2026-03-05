@@ -200,8 +200,8 @@ class ColorDetector:
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=30,  area_threshold=30,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=110,  area_threshold=110,  merge=True)
 
         # 整合所有色块并添加颜色标签
@@ -257,6 +257,7 @@ class CoordinateCorrection:
         self.tag_family = image.TAG25H9
 
     def coordinate_correction(self, img):
+        """寻找并标记Apriltag， 并计算实际偏转角度"""
         tags = img.find_apriltags(families = self.tag_family)
         tag_cx, tag_cy = None, None
 
@@ -421,7 +422,7 @@ def init_threshold():
 # ======================== 初始化 ========================
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
-uart.write("uart test\r\n")
+# uart.write("uart test\r\n")
 
 # 摄像头初始化
 sensor.reset()
@@ -608,6 +609,7 @@ while True:
         for item in other_blobs:
             blob = item[0]
             color_name = item[1]
+            # print(blob.pixels())
             # 绘制色块
             img.draw_rectangle(blob.rect(), color=DRAW_COLORS[color_name])
             img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color_name])
