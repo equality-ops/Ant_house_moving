@@ -40,6 +40,7 @@ LOCK_MAX_LOST_FRAMES = 5  # 丢失5帧解除锁定
 PROTOCOL_HEADER1 = 0xA5
 PROTOCOL_HEADER2_COORD = 0xA6
 PROTOCOL_HEADER2_ANGLE = 0xA7
+PROTOCOL_HEADER2_APRILTAG = 0xA8
 PROTOCOL_FOOTER = 0x5B
 
 # 颜色类型ASCII码映射
@@ -49,6 +50,7 @@ COLOR_TYPE_MAP = {
     'green': ord('T'),
     'brown': ord('B'),
     'white': ord('B'),
+    'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
 
@@ -155,21 +157,17 @@ class Communicator:
         )
         self.uart.write(data)
 
-    def send_angle(self, angle):
-        """发送边界矫正角度（映射到0~180）"""
-        if angle is None:
-            return
-        # 角度映射并限制范围
-        angle_mapped = angle + 90  # 映射到 0～180
-        angle_mapped = max(0, min(180, angle_mapped))  # 范围限制
-        angle_mapped = int(round(angle_mapped))        # 取整
-
-        # 打包并发送数据
+    def send_coordinate_with_angle(self, tag_cx, tag_cy, rotation):
+        tag_cx = int(round(tag_cx))
+        tag_cy = int(round(tag_cy))
+        rotation = int(round(rotation * 10))
         data = ustruct.pack(
-            "<BBBB",
+            "<BBBBHB",
             PROTOCOL_HEADER1,
-            PROTOCOL_HEADER2_ANGLE,
-            angle_mapped,
+            PROTOCOL_HEADER2_APRILTAG,
+            tag_cx,
+            tag_cy,
+            rotation,
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
@@ -253,78 +251,24 @@ class ColorDetector:
                 filtered.append((blob, color))
         return filtered
 
-# ======================== 边界检测模块 ========================
-class BoundaryDetector:
-    # 黄色边界阈值
-    YELLOW_THRESHOLD = [(58, 98, -46, -17, 31, 101), (24, 51, -25, -4, 22, 55)]
-    # 回归分析ROI（中间区域）
-    ROI_MID = (40, 0, 80, 120)
-    # X轴容差（中心偏移允许范围）
-    X_TOLERANCE = 5
+# ======================== 坐标矫正模块 ========================
+class CoordinateCorrection:
+    def __init__(self):
+        self.tag_family = image.TAG25H9
 
-    def boundary_correction(self, mode, img):
-        """
-        边界矫正角度计算
-        mode: 'row'（行/左右）、'column'（列/上下）
-        return: 矫正角度（None表示检测失败）
-        """
-        angle = None
-        blobs = []
-        center_count = 0  # 重命名：center -> center_count，避免歧义
+    def coordinate_correction(self, img):
+        tags = img.find_apriltags(families = self.tag_family)
+        tag_cx, tag_cy = None, None
 
-        # 分区域检测黄色色块
-        if mode == 'row':  # 行：从左到右检测
-            roi_x_list = [0, 26, 52, 80, 106, 132]
-        elif mode == 'column':  # 列：从上到下检测
-            roi_x_list = [0, 20, 40, 60, 80, 100]
-        else:
-            return None
+        if tags:
+            tag = tags[0]
+            tag_cx = tag.cx()
+            tag_cy = tag.cy()
+            rotation = (math.acos(math.cos(tag.y_rotation()) * math.cos(tag.z_rotation())) - math.pi / 2)
+            img.draw_rectangle(tag.rect(), color=(255, 0, 0))
+            img.draw_cross(tag_cx, tag_cy, color=(0, 255, 0))
 
-        for x in roi_x_list:
-            if mode == 'row':
-                # 行检测ROI：[x, 0, 26, 120]
-                roi = [x, 0, 26, SCREEN_HEIGHT]
-            else:
-                # 列检测ROI：[0, x, 160, 20]
-                roi = [0, x, SCREEN_WIDTH, 20]
-
-            # 检测黄色色块
-            result = img.find_blobs(
-                self.YELLOW_THRESHOLD,
-                roi=roi,
-                pixels_threshold=100,
-                area_threshold=100,
-                margin=1,
-                merge=True,
-                invert=0
-            )
-
-            if result:
-                # 选择面积最接近600的色块
-                best_blob = min(result, key=lambda b: abs(b.area() - 600))  # 面积还要调整
-                blobs.append(best_blob)
-                center_count += 1
-                img.draw_rectangle(best_blob.rect(), color=(255, 0, 0), scale=1, thickness=1)
-
-        # 至少检测到3个色块才进行回归分析
-        if center_count >= 3:
-            l = img.get_regression(self.YELLOW_THRESHOLD, roi=self.ROI_MID, robust=True)
-            if l:
-                img.draw_line(l.line(), color=(255, 0, 0), thickness=2)
-                x1, y1, x2, y2 = l.line()
-
-                # 确定底部x坐标
-                bottom_x = x1 if y1 > y2 else x2
-
-                # 中心偏移在容差范围内才计算角度
-                if abs(bottom_x - SCREEN_CENTER_X) <= self.X_TOLERANCE:
-                    theta = l.theta()
-                    angle = theta - 180 if theta > 90 else theta
-                return angle
-            else:
-                return None
-        else:
-            return None
+        return (tag_cx, tag_cy, rotation) if tag_cx is not None else None
 
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
@@ -408,9 +352,8 @@ class KalmanTracker:
 # ======================== 全局状态变量 ========================
 # 模式定义
 MODE_TARGET = 0          # 目标跟踪模式
-MODE_BOUNDARY_UD = 1     # 上下边界矫正模式
-MODE_BOUNDARY_LR = 2     # 左右边界矫正模式
-MODE_WAITING = 3         # 等待模式
+MODE_CORRECTION = 1      # 坐标校正
+MODE_WAITING = 2         # 等待模式
 current_mode = MODE_WAITING
 
 # 锁定状态变量
@@ -451,10 +394,8 @@ def handle_uart_commands():
         cmd = uart.read(1)
         if cmd == b'T':
             current_mode = MODE_TARGET
-        elif cmd == b'U':
-            current_mode = MODE_BOUNDARY_UD
-        elif cmd == b'L':
-            current_mode = MODE_BOUNDARY_LR
+        elif cmd == b'C':
+            current_mode = MODE_CORRECTION
         elif cmd == b'F':
             current_mode = MODE_WAITING
 
@@ -503,7 +444,7 @@ lcd.full()
 
 # 创建模块实例
 color_detector = ColorDetector()
-boundary_detector = BoundaryDetector()
+tag_corrector = CoordinateCorrection()
 brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 communicator = Communicator(uart)
@@ -524,11 +465,11 @@ while True:
 
     # 等待模式：无操作
     if current_mode == MODE_WAITING:
-
+        """
         stats = img.get_statistics()
         l_mean = stats.l_mean()
         print(l_mean)
-
+        """
         """
         LED(1).on()
         LED(1).off()
@@ -537,9 +478,11 @@ while True:
 
     # 目标跟踪模式
     elif current_mode == MODE_TARGET:
+        """
         stats = img.get_statistics()
         l_mean = stats.l_mean()
         print(l_mean)
+        """
         # LED(4).off()
         # LED(4).on()
         # 色块检测与筛选
@@ -558,7 +501,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            print(f"像素数：{blob.pixels()}，密度：{blob.density()}，长宽：({blob.w()}, {blob.h()})")
+            # print(f"像素数：{blob.pixels()}，密度：{blob.density()}，长宽：({blob.w()}, {blob.h()})")
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
@@ -750,25 +693,14 @@ while True:
             target_color = target[2]
             communicator.send_coordinate(target_x, target_y, target_color)
 
-    # 上下边界矫正模式
-    elif current_mode == MODE_BOUNDARY_UD:
-        """
-        LED(3).on()
-        LED(3).off()
-        """
-        angle = boundary_detector.boundary_correction('row', img)
-        if angle is not None:
-            communicator.send_angle(angle)
-
-    # 左右边界矫正模式
-    elif current_mode == MODE_BOUNDARY_LR:
-        """
-        LED(4).on()
-        LED(4).off()
-        """
-        angle = boundary_detector.boundary_correction('column', img)
-        if angle is not None:
-            communicator.send_angle(angle)
+    # 坐标校正模式
+    elif current_mode == MODE_CORRECTION:
+        tag_center = tag_corrector.coordinate_correction(img)
+        if tag_center is not None:
+            tag_cx, tag_cy, rotation = tag_center
+            rotation = (180 * rotation) / math.pi + 90
+            communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
+            # print(tag_cx, tag_cy, rotation)
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
