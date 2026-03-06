@@ -250,26 +250,36 @@ def slave_start():
 
 # 用于准备视觉伺服和环绕
 def ready_servo_and_orbit():
+    # 控制小车面向物体进行视觉伺服控制
+    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
     # 根据物品种类选择伺服距离和环绕半径
     if my_vision_manager.current_servo_object == ord('T'):
         servo_pid.target_y = servo_pid.target_y_T
         my_vision_manager.object_radius = my_vision_manager.radius_T
+        my_vision_manager.orbit_angle = 125.0
     elif my_vision_manager.current_servo_object == ord('S'):
         servo_pid.target_y = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
+        my_vision_manager.orbit_angle = 135.0
     elif my_vision_manager.current_servo_object == ord('B'):
         servo_pid.target_y = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
+        my_vision_manager.orbit_angle = 140.0
 
-# 重置导航相关标志位
+# 重置导航及速度规划相关标志位
 def reset_navigate_flags():
+    # 导航
     my_plan.finish_navigate = False
+    my_plan.arrive_flag = False
     my_plan.dec_speed_index = 0
     plan_data.aimed_point_index = 0
     my_plan.path_points.clear()
     my_plan.if_set_path = False
     my_plan.if_finish_turn = False
     my_plan.transition_flag = False
+    # 速度规划
+    my_plan.stage = my_plan.STOP
+    my_plan.finish_building = False
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -474,15 +484,25 @@ def collaborative_task_machine():
                     my_vision_manager.my_order_manager.mode_target()
                     my_vision_manager.if_send_servo_command = True
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
-                    my_plan.finish_navigate = False
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                    counter = 0
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state = my_state.SERVO
-                    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                    # 测试
-                    my_beep.test()
+                else:
+                    counter += 1
+                    # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                    if counter >= 300:
+                        counter = 0
+                        my_vision_manager.servo_received_count = 0
+                        my_vision_manager.if_lost_object = True
+                        reset_navigate_flags()
+                        my_state.state = my_state.SERVO
+                        my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                        # 测试
+                        my_beep.test()
+
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
@@ -490,7 +510,7 @@ def collaborative_task_machine():
                 # 若丢失物体则退出矩形框等待主车再次扫描
                 my_plan.navigate([[160.0, 20.0]], my_vision_manager.target_rel_turn_angle)
 
-                # 如果小车在寻找物体过程中完成了一个矩形轨迹但仍未找到物体，则认为该边的区域内没有物体，控制小车再次进行扫描
+                # 如果小车未找到物体，向主车发送lost指令
                 if my_plan.finish_navigate == True:
                     # 重置标志位
                     my_plan.finish_navigate = False
@@ -516,7 +536,7 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(-130.0)
+            my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 my_slave_protocol.send_slave_state("finish")
                 my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
@@ -584,15 +604,24 @@ def collaborative_task_machine():
                     my_vision_manager.my_order_manager.mode_target()
                     my_vision_manager.if_send_servo_command = True
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
-                    my_plan.finish_navigate = False
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                    counter = 0
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state = my_state.SERVO
-                    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                    # 测试
-                    my_beep.test()
+                else:
+                    counter += 1
+                    # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                    if counter >= 300:
+                        counter = 0
+                        my_vision_manager.servo_received_count = 0
+                        my_vision_manager.if_lost_object = True
+                        reset_navigate_flags()
+                        my_state.state = my_state.SERVO
+                        my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                        # 测试
+                        my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
@@ -626,7 +655,7 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(130.0)
+            my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 my_slave_protocol.send_slave_state("finish")
                 my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
@@ -755,6 +784,8 @@ def time_pit1_handler(time):
     # 设置电机pwm输出
     my_car.set_motor_pwm()
 
+
+
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
@@ -773,7 +804,7 @@ def time_pit3_handler(time) -> None:
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[30.0, 0.0]], 0.0)
+        my_plan.navigate([[250.0, 120.0], [55.0, 0.0], [5.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
