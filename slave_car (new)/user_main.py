@@ -755,8 +755,6 @@ def time_pit1_handler(time):
     # 设置电机pwm输出
     my_car.set_motor_pwm()
 
-
-
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）

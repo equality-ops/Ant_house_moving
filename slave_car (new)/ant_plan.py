@@ -429,10 +429,15 @@ class Plan:
 
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
-        dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
-        dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
+        # 只有在导航模式下进行航向角滤波以平滑过渡避障点
+        if self.my_state.state == self.my_state.NAVIGATE:
+            dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
+            dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
+        else:
+            dx = target_x - self.my_car.x_current
+            dy = target_y - self.my_car.y_current
         # 计算目标角度，单位：度（注意避免除以0）
-        self.target_yaw = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI        
+        self.target_yaw = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI    
             
     # 计算小车需要转向的角度（一般为0）
     def compute_turn_angle_target(self, turn_angle_target: float):
@@ -826,6 +831,8 @@ class VisionManager:
                                 self.my_car.now_yaw = -self.MATH.PI / 2
                                 self.my_car.x_current = 180.0
                                 self.my_car.y_current = 240.0
+                            # 在切换模式前保持当前转角
+                            self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
                             self.my_order_manager.finish()
                             self.if_finish_calibrate = True
                     else:
