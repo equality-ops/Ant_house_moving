@@ -520,8 +520,7 @@ class CoordinateCorrection:
 # 模式定义
 MODE_TARGET = 0          # 目标跟踪模式
 MODE_CORRECTION = 1      # 坐标校正
-MODE_DETECTION = 2
-MODE_WAITING = 3         # 等待模式
+MODE_WAITING = 2         # 等待模式
 current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
