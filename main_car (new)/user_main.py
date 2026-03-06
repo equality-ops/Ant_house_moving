@@ -180,7 +180,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan)
+my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -252,22 +252,30 @@ def ready_servo_and_orbit():
     if my_vision_manager.current_servo_object == ord('T'):
         servo_pid.target_y = servo_pid.target_y_T
         my_vision_manager.object_radius = my_vision_manager.radius_T
+        my_vision_manager.orbit_angle = 125.0
     elif my_vision_manager.current_servo_object == ord('S'):
         servo_pid.target_y = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
+        my_vision_manager.orbit_angle = 135.0
     elif my_vision_manager.current_servo_object == ord('B'):
         servo_pid.target_y = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
+        my_vision_manager.orbit_angle = 140.0
 
-# 重置导航相关标志位
+# 重置导航及速度规划相关标志位
 def reset_navigate_flags():
+    # 导航
     my_plan.finish_navigate = False
+    my_plan.arrive_flag = False
     my_plan.dec_speed_index = 0
     plan_data.aimed_point_index = 0
     my_plan.path_points.clear()
     my_plan.if_set_path = False
     my_plan.if_finish_turn = False
     my_plan.transition_flag = False
+    # 速度规划
+    my_plan.stage = my_plan.STOP
+    my_plan.finish_building = False
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -333,7 +341,7 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.ORBIT:
+    elif my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
     elif my_state.state == my_state.READY_NAVIGATE:
         my_car.move_ctrl(0, 0.0, my_car.now_yaw * 180.0 / MATH.PI)
@@ -366,7 +374,7 @@ def test_vision_servo():
                 # 测试
                 my_beep.test()
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(130.0)
+        my_vision_manager.orbit_control(180.0)
         if my_vision_manager.finish_orbit == True:
             my_vision_manager.finish_orbit = False
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
@@ -439,7 +447,7 @@ def collaborative_task_machine():
             my_plan.navigate([[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -493,7 +501,7 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(130.0)
+            my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 order = my_main_protocol.get_slave_state()
                 if order == "finish":
@@ -503,9 +511,7 @@ def collaborative_task_machine():
                     my_beep.test()
                 elif order == "lost":
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    # 重回扫描点继续寻找物体
-                    my_plan.return_to_scan_point = True
-                    my_state.state = my_state.NAVIGATE
+                    my_state.state = my_state.REVERSE_ORBIT
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
@@ -550,6 +556,16 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
                 # 测试
                 my_beep.test()
+        # 让小车通过反向环绕恢复原位
+        elif my_state.state == my_state.REVERSE_ORBIT:
+            my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
+            if my_vision_manager.finish_orbit == True:
+                my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                # 重回扫描点继续寻找物体
+                my_plan.return_to_scan_point = True
+                my_state.state = my_state.NAVIGATE
+                # 测试
+                my_beep.test() 
     elif my_state.state_work == UP:
         if my_state.state == my_state.NAVIGATE:
             my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 180.0)
@@ -563,7 +579,7 @@ def collaborative_task_machine():
             my_plan.navigate([[plan_data.fixed_point[7][0], plan_data.fixed_point[7][1]]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -615,7 +631,7 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(-130.0)
+            my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 order = my_main_protocol.get_slave_state()
                 if order == "finish":
@@ -625,9 +641,7 @@ def collaborative_task_machine():
                     my_beep.test()
                 elif order == "lost":
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    # 重回扫描点继续寻找物体
-                    my_plan.return_to_scan_point = True
-                    my_state.state = my_state.NAVIGATE
+                    my_state.state = my_state.REVERSE_ORBIT
                     # 测试
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
@@ -680,12 +694,22 @@ def collaborative_task_machine():
                         my_state.state = my_state.SCAN
                     # 测试
                     my_beep.test()
+        # 让小车通过反向环绕恢复原位
+        elif my_state.state == my_state.REVERSE_ORBIT:
+            my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
+            if my_vision_manager.finish_orbit == True:
+                my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                # 重回扫描点继续寻找物体
+                my_plan.return_to_scan_point = True
+                my_state.state = my_state.NAVIGATE
+                # 测试
+                my_beep.test() 
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.SCAN:
-            my_plan.navigate([[190.0, 150.0], [130.0, 150.0]], 180.0)
+            my_plan.navigate([[210.0, 150.0], [110.0, 150.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -798,10 +822,8 @@ def time_pit3_handler(time) -> None:
 
     # 全向定位测试程序
     """
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
+    if my_state.state == my_state.NAVIGATE:
+        my_plan.navigate([[250.0, 120.0], [55.0, 0.0], [5.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -842,7 +864,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}\n")
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
@@ -864,7 +886,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_plan.turn_angle_target}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    
     
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
@@ -876,7 +899,8 @@ def time_pit2_handler(time):
     
     # 速度规划
     # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
-    
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
+
     # 检测自转角是否准确
     # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
