@@ -130,7 +130,6 @@ class Plan:
         self.if_set_path = False            # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False        # type: bool  # 判断是否完成导航标志位
         self.return_to_scan_point = False   # type: bool  # 判断是否返回扫描点标志位
-        self.if_give_up_move = False     # type: bool  # 判断是否放弃搬运标志位
     
     # 构建减速速度表
     def build_dec_speed_list(self, i):
@@ -267,7 +266,7 @@ class Plan:
         self.plan_data.current_aimed_point_index = 0
         
         # 搬运，扫描，视觉伺服，apriltag矫正，环绕，或返回模式下不需要避开矩形区域行驶
-        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.if_give_up_move == False:
+        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False:
             # 进行避障路径规划
             self.current_path = self.path_planning(x, y)
         else:   

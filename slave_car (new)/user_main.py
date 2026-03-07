@@ -446,8 +446,10 @@ def collaborative_task_machine():
     global counter
     if my_state.state_work == DOWN:
         if my_state.state == my_state.READY_NAVIGATE:
-            plan_data.current_path = my_slave_protocol.get_path_list()
-            if plan_data.current_path:
+            path_message = my_slave_protocol.get_path_list()
+            if path_message:
+                my_slave_protocol.aimed_object = path_message[0] 
+                plan_data.current_path = path_message[1]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
                 # 测试
@@ -456,8 +458,8 @@ def collaborative_task_machine():
                 if plan_data.current_path[0][1] > 170.0:
                     my_state.state_work = UP
                     return 
-                # 当传来的坐标点为[30.0, -20.0]时，将状态工作设为RETURN_WORK，控制小车返回起点
-                elif abs(plan_data.current_path[0][0] - 30.0) < 0.1 and abs(plan_data.current_path[0][1] - (-20.0)) < 0.1:
+                # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
+                elif abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1:
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
                     return
@@ -468,7 +470,8 @@ def collaborative_task_machine():
                     my_vision_manager.my_order_manager.mode_target()
                     my_vision_manager.if_send_servo_command = True
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
+                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     counter = 0
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
@@ -492,11 +495,11 @@ def collaborative_task_machine():
             else:
                 if my_vision_manager.failed_servo_count == 0:
                     # 若丢失物体则退出矩形框等待主车再次扫描
-                    my_plan.navigate([[160.0, -20.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[160.0, 20.0]], my_vision_manager.target_rel_turn_angle)
                 elif my_vision_manager.failed_servo_count == 1:
-                    my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current-30.0], [my_car.x_current-25.0, my_car.y_current-30.0], [my_car.x_current-25.0, my_car.y_current + 10.0], [my_car.x_current+25.0, my_car.y_current + 10.0], [160.0, 20.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current-25.0], [my_car.x_current-25.0, my_car.y_current-25.0], [my_car.x_current-25.0, my_car.y_current+10.0], [my_car.x_current+25.0, my_car.y_current+10.0], [160.0, 20.0]], my_vision_manager.target_rel_turn_angle)
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point:
+                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         my_vision_manager.current_servo_object = target_point[2]
                         ready_servo_and_orbit()
                         reset_navigate_flags()
@@ -544,50 +547,28 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.MOVE:
-            if my_vision_manager.if_give_up_move == False:
                 my_plan.navigate([[my_car.x_current-5.0, -25.0]])
-                if my_art_protocol.get_object_state() == "No" and my_car.y_current >= 0.0 and my_vision_manager.current_servo_object != ord('T'):
-                    my_vision_manager.lost_object_frames += 1
-                if my_vision_manager.lost_object_frames >= 10:
-                    my_vision_manager.lost_object_frames = 0
-                    reset_navigate_flags()
-                    my_order_manager.finish()
-                    # 向主车发送消息丢失物体，此时要停止搬运
-                    my_slave_protocol.send_slave_state("lost")
-                    my_vision_manager.if_give_up_move = True 
-
                 if my_plan.finish_navigate == True:
                     if my_slave_protocol.get_start_signal():
                         my_plan.finish_navigate = False
-                        my_vision_manager.if_give_up_move = False
-                        my_vision_manager.lost_object_frames = 0
                         my_vision_manager.car_position = 1
                         my_state.state = my_state.CALIBRATE
                         my_order_manager.finish()
                         # 测试
                         my_beep.test()
-            else:
-                # 丢失目标物体操控从车移动到场地外等待主车扫描
-                my_plan.navigate([[220.0, 20.0]])
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    my_vision_manager.if_give_up_move = False
-                    my_state.state = my_state.READY_NAVIGATE
-                    # 测试
-                    my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
                 if my_vision_manager.car_position == 0:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], 90)
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current+20.0]], 90)
                 elif my_vision_manager.car_position == 2:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], 90)
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current-20.0]], 90)
                 elif my_vision_manager.car_position == 1:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], -90)
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current+20.0]], -90)
                 elif my_vision_manager.car_position == 3:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], -90)
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current-20.0]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -614,14 +595,16 @@ def collaborative_task_machine():
                 my_beep.test()
     elif my_state.state_work == UP:
         if my_state.state == my_state.READY_NAVIGATE:
-            plan_data.current_path = my_slave_protocol.get_path_list()
-            if plan_data.current_path:
+            path_message = my_slave_protocol.get_path_list()
+            if path_message:
+                my_slave_protocol.aimed_object = path_message[0] 
+                plan_data.current_path = path_message[1]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
                 # 测试
                 my_beep.test()
-                # 当传来的坐标点为[30.0, -20.0]时，将状态工作设为RETURN_WORK，控制小车返回起点
-                if abs(plan_data.current_path[0][0] - 30.0) < 0.1 and abs(plan_data.current_path[0][1] - (-20.0)) < 0.1:
+                # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
+                if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1:
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
                     return
@@ -632,7 +615,8 @@ def collaborative_task_machine():
                     my_vision_manager.my_order_manager.mode_target()
                     my_vision_manager.if_send_servo_command = True
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
+                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     counter = 0
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
@@ -655,11 +639,11 @@ def collaborative_task_machine():
             else:
                 if my_vision_manager.failed_servo_count == 0:
                     # 若丢失物体则退出矩形框等待主车再次扫描
-                    my_plan.navigate([[160.0, 260.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[160.0, 220.0]], my_vision_manager.target_rel_turn_angle)
                 elif my_vision_manager.failed_servo_count == 1:
                     my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current+30.0], [my_car.x_current-25.0, my_car.y_current+30.0], [my_car.x_current-25.0, my_car.y_current-10.0], [my_car.x_current+25.0, my_car.y_current-10.0], [160.0, 220.0]], my_vision_manager.target_rel_turn_angle)
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point:
+                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         my_vision_manager.current_servo_object = target_point[2]
                         ready_servo_and_orbit()
                         reset_navigate_flags()
@@ -707,51 +691,28 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
         elif my_state.state == my_state.MOVE:
-            if my_vision_manager.if_give_up_move == False:
                 my_plan.navigate([[my_car.x_current-5.0, 265.0]])
-                if my_art_protocol.get_object_state() == "No" and my_car.y_current <= 240.0 and my_vision_manager.current_servo_object != ord('T'):
-                    my_vision_manager.lost_object_frames += 1
-                if my_vision_manager.lost_object_frames >= 10:
-                    my_vision_manager.lost_object_frames = 0
-                    reset_navigate_flags()
-                    my_order_manager.finish()
-                    # 向主车发送消息
-                    my_slave_protocol.send_slave_state("lost")
-                    my_vision_manager.if_give_up_move = True 
-
                 if my_plan.finish_navigate == True:
                     if my_slave_protocol.get_start_signal():
                         my_plan.finish_navigate = False
-                        my_vision_manager.if_give_up_move = False
-                        my_vision_manager.lost_object_frames = 0
-                        my_vision_manager.car_position = 1
+                        my_vision_manager.car_position = 3
                         my_state.state = my_state.CALIBRATE
                         my_order_manager.finish()
                         # 测试
                         my_beep.test()
-            else:
-                # 丢失目标物体操控从车移动到场地外等待主车扫描
-                my_plan.navigate([[220.0, 220.0]])
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    my_vision_manager.if_give_up_move = False
-                    my_state.state = my_state.READY_NAVIGATE
-                    # 测试
-                    my_beep.test()
-
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车移动寻找apriltag码
                 if my_vision_manager.car_position == 0:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], 90)
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current+20.0]], 90)
                 elif my_vision_manager.car_position == 2:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], 90)
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current-20.0]], 90)
                 elif my_vision_manager.car_position == 1:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], -90)
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current-15.0, my_car.y_current+20.0]], -90)
                 elif my_vision_manager.car_position == 3:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], -90)
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current-15.0, my_car.y_current-20.0]], -90)
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
                     reset_navigate_flags()

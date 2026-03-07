@@ -175,6 +175,8 @@ class LinkProtocol:
     def __init__(self, uart3):
         # 注入串口对象
         self.my_uart3 = uart3
+        # 当前要伺服的物体
+        self.aimed_object = ''
         # 创建字节流缓冲区
         self.raw_buffer = b''           
         self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
@@ -203,147 +205,96 @@ class LinkProtocol:
             except:
                 pass
         return False
-    
-    # 用于从车解析主车发送的坐标和当前状态数据的接口
-    def get_latest_valid_data(self, target_prefix):
-        """
-        贪婪读取：只返回缓冲区中【最后一个】完整的有效包
-        :param target_prefix: 期望读取的包头 ('M' 或 'S')
-        :return: [x, y, yaw, turn_angle, state] 或 None
-        """
-        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
-        if self.my_uart3.any():
-            try:
-                chunk = self.my_uart3.read()
-                if chunk:
-                    self.raw_buffer += chunk
-            except:
-                pass # 忽略读取错误
-        
-        # 如果缓冲区为空，直接返回
-        if not self.raw_buffer:
-            return None
-
-        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
-        if len(self.raw_buffer) > self.max_buf:
-            self.raw_buffer = self.raw_buffer[-self.max_buf:]
-
-        # 3. 寻找包尾 '!' (寻找最后一个，保证最新)
-        # rfind 从右边（最新）开始找
-        self.end_idx = self.raw_buffer.rfind(b'!')
-        
-        if self.end_idx == -1:
-            return None # 没有完整的包尾，等待下次数据
-
-        # 4. 寻找匹配的包头 '#' (在包尾之前找)
-        # 构造目标头，例如 b'#M'
-        start_tag = ("#" + target_prefix).encode('utf-8')
-        self.start_idx = self.raw_buffer.rfind(start_tag, 0, self.end_idx)
-
-        if self.start_idx == -1:
-            # 有尾无头，说明数据错位或头部还在传输中
-            # 策略：保留 end_idx 之后的数据（可能是下一个包的开头），前面的全是垃圾
-            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
-            return None
-
-        # 5. 提取核心负载
-        # payload_bytes 如: b',120.5,80.1,90.5,1'
-        # start_idx + len(start_tag) 跳过 "#M"
-        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
-        
-        # 6. 关键一步：消费缓冲区
-        # 我们已经拿到了最新的包，end_idx 之前的所有数据（包括旧包）都可以扔掉了
-        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
-        # 7. 解析数据
-        try:
-            # 解码并按逗号分割并过滤掉可能的空字符串
-            parts = (payload_bytes.decode('utf-8')).strip(',').split(',')
-            
-            if len(parts) == 5:
-                return [float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3]), int(parts[4])]
-            else:
-                return None # 字段数量不对（可能是粘包严重导致的残损）
-        except:
-            return None # 浮点转换失败或解码失败
         
 
-    # 用于从车解析主车发送的路径坐标点
     def get_path_list(self):
-        """
-        尝试解析主车发送的路径包
-        发送格式: #P,120.5,80.1;130.2,90.3!
-        :return: 解析成功返回 list [(x1, y1), (x2, y2)...]; 未收到或解析失败返回 None
-        """
-        # 1. 将硬件缓冲区的所有数据读入软件缓冲区
-        if self.my_uart3.any():
-            try:
-                chunk = self.my_uart3.read()
-                if chunk:
-                    self.raw_buffer += chunk
-            except:
-                pass # 忽略读取错误
-        
-        # 如果缓冲区为空，直接返回
-        if not self.raw_buffer:
-            return None
-        
-        # 2. 内存保护：如果堆积太多（比如卡顿了），强制丢弃旧数据，保留最后一部分
-        if len(self.raw_buffer) > self.max_buf:
-            self.raw_buffer = self.raw_buffer[-self.max_buf:]
-
-        # 3. 寻找包尾 '!'
-        self.end_idx = self.raw_buffer.find(b'!')
-        if self.end_idx == -1:
-            return None # 数据还没传完，继续等待
-
-        # 4. 寻找包头 '#P,'
-        start_tag = b'#P,'
-        # 只在 end_idx 之前找，防止跨包
-        self.start_idx = self.raw_buffer.find(start_tag, 0, self.end_idx)
-
-        if self.start_idx == -1:
-            # 有尾巴没头，说明头已经被挤出缓冲区或者数据错乱
-            # 清理掉这个废弃的尾巴
-            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
-            return None
-
-        # 5. 提取中间的纯数据段
-        # payload_bytes 如: b'120.5,80.1;130.2,90.3'
-        payload_bytes = self.raw_buffer[self.start_idx + len(start_tag) : self.end_idx]
-        
-        # 6. 消费缓冲区 (清理掉已读取的这个包)
-        self.raw_buffer = self.raw_buffer[self.end_idx+1:]
-
-        # 7. 纯字符串解析逻辑
-        try:
-            payload_str = payload_bytes.decode('utf-8')
-            # 此时 payload_str = "120.5,80.1;130.2,90.3"
+            """
+            解析主车发送的任务路径包
+            发送格式: #T,120.5,80.1;130.2,90.3!  (或 #S, #B, #P)
+            :return: 成功返回 (task_type, list_of_points), 如 ('T', [(120.5, 80.1)]); 
+                    失败返回 None
+            """
+            # 1. 填充缓冲区 (保持原样)
+            if self.my_uart3.any():
+                try:
+                    chunk = self.my_uart3.read()
+                    if chunk:
+                        self.raw_buffer += chunk
+                except:
+                    pass 
             
-            final_path = []
-            
-            # 第一刀：按分号切开各个点
-            points_str_list = payload_str.split(';')
-            
-            for p_str in points_str_list:
-                # 过滤空字符串 (防止结尾多写了一个分号导致最后是空的)
-                if not p_str: continue 
-                
-                # 第二刀：按逗号切开 x 和 y
-                coords = p_str.split(',')
-                
-                if len(coords) == 2:
-                    x = float(coords[0])
-                    y = float(coords[1])
-                    final_path.append((x, y))
-            
-            if len(final_path) > 0:
-                return final_path
-            else:
+            if not self.raw_buffer:
                 return None
+            
+            # 2. 内存保护 (保持原样)
+            if len(self.raw_buffer) > self.max_buf:
+                self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+            # 3. 寻找包尾 '!'
+            self.end_idx = self.raw_buffer.find(b'!')
+            if self.end_idx == -1:
+                return None 
+
+            # 4. 寻找包头 (核心修改点：支持多种包头)
+            # 逻辑：先找 '#'，再判断后面是不是符合 T, S, B 格式
+            self.start_idx = self.raw_buffer.find(b'#', 0, self.end_idx)
+
+            if self.start_idx == -1:
+                # 没找到包头，清理掉无效的尾部之前的数据
+                self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+                return None
+
+            # 检查包头格式是否完整（# 后面至少要有 "X," 三个字节）
+            if self.start_idx + 2 >= self.end_idx:
+                # 数据不完整，继续等待
+                return None
+
+            # 提取标识符 (T, S, B 或 P)
+            try:
+                # 这里的 tag_type 是 bytes 类型，转成 string 方便后续判断
+                tag_type = self.raw_buffer[self.start_idx + 1 : self.start_idx + 2].decode('utf-8')
                 
-        except Exception as e:
-            # print("解析路径异常:", e)
-            return None
+                # 如果不是我们预期的指令，说明可能是脏数据
+                if tag_type not in ['T', 'S', 'B', 'P']:
+                    # 这种情况下，丢弃这个错误的开头，继续找下一个
+                    self.raw_buffer = self.raw_buffer[self.start_idx + 1:]
+                    return None
+                    
+            except:
+                return None
+
+            # 5. 提取中间的纯数据段
+            # 跳过 "#X," 这三个字节，直到 "!" 之前
+            payload_bytes = self.raw_buffer[self.start_idx + 3 : self.end_idx]
+            
+            # 6. 消费缓冲区
+            self.raw_buffer = self.raw_buffer[self.end_idx+1:]
+
+            # 7. 纯字符串解析逻辑
+            try:
+                payload_str = payload_bytes.decode('utf-8')
+                final_path = []
+                
+                # 按分号切开各个点
+                points_str_list = payload_str.split(';')
+                for p_str in points_str_list:
+                    if not p_str: continue 
+                    
+                    # 按逗号切开 x 和 y
+                    coords = p_str.split(',')
+                    if len(coords) == 2:
+                        x = float(coords[0])
+                        y = float(coords[1])
+                        final_path.append((x, y))
+                
+                if len(final_path) > 0:
+                    # 【关键点】返回类型和路径
+                    return [tag_type, final_path]
+                else:
+                    return None
+                    
+            except Exception as e:
+                return None
 
 # 数学常量类
 class Math:

@@ -89,7 +89,6 @@ class VisionManager:
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
         self.if_gain_calibrate_angle = False   # type: bool  # 判断是否获取校准角度标志位
         self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
-        self.if_give_up_move = False     # type: bool  # 判断是否放弃搬运标志位
 
     # 计算目标航向角
     def compute_target_rel_yaw(self):
