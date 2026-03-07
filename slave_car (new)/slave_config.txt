@@ -1,4 +1,4 @@
-# 修改时间 3.6	23:24
+# 修改时间 3.6	23:25
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -32,7 +32,7 @@ md_low_kp = 50.0
 md_low_ki = 0.22
 md_low_kd = 15.0
 
-angle_normal_kp = 15.0
+angle_normal_kp = 10.0
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 integral_limitmax = 14000
@@ -59,6 +59,7 @@ motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
+# 已弃用
 boost_time_threshold = 60
 
 ###################【路径规划】####################
@@ -67,23 +68,23 @@ plan_point_transition_T = 50
 
 ###################【速度规划】####################
 min_start_v = 40
-long_v_max = 400
-short_v_max = 200
+long_v_max = 450
+short_v_max = 250
 dead_zone_v = 50
 transit_v = 200
 orbit_v = 100
-move_v_max = 150
+move_v_max = 180
 scan_v_max = 200
 
 ###################【视觉伺服】####################
 servo_kp_x = 8.0
 servo_kd_x = 10.0
-servo_kp_y = 8.0
+servo_kp_y = 9.0
 servo_kd_y = 10.0
 servo_target_x = 80
 servo_target_y_T = 7.0
 servo_target_y_S = 10.0
-servo_target_y_B = 30.0
+servo_target_y_B = 20.0
 min_rel_speed = 50
 max_rel_speed = 200
 finish_threshold_x = 1
@@ -93,10 +94,10 @@ servo_pwmout_limitmax = 200
 ###################【环绕控制】####################
 radius_T = 2.5
 radius_S = 3.5
-radius_B = 13.0
+radius_B = 25.5
 angle_T = 125.0
 angle_S = 135.0
-angle_B = 140.0
+angle_B = 150.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500

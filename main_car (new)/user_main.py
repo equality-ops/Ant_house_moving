@@ -13,6 +13,7 @@ from smartcar import ticker, encoder
 import ant_else
 import ant_motor
 import ant_plan
+import ant_vision
 import ant_menu
 
 
@@ -180,7 +181,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_plan.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -501,10 +502,14 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                if my_vision_manager.car_position == 0 or my_vision_manager.car_position == 2:
-                    my_plan.navigate([[my_car.x_current+20.0, my_car.y_current], [my_car.x_current-20.0, my_car.y_current]], 90)
-                elif my_vision_manager.car_position == 1 or my_vision_manager.car_position == 3:
-                    my_plan.navigate([[my_car.x_current-20.0, my_car.y_current], [my_car.x_current+20.0, my_car.y_current]], -90)
+                if my_vision_manager.car_position == 0:
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], 90)
+                elif my_vision_manager.car_position == 2:
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], 90)
+                elif my_vision_manager.car_position == 1:
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], -90)
+                elif my_vision_manager.car_position == 3:
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -519,16 +524,24 @@ def collaborative_task_machine():
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                    # 主车给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
                     # 测试
                     my_beep.test()
             if my_vision_manager.if_finish_calibrate == True:
-                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test()
+                counter += 1
+                # 缓冲500ms防止过冲
+                if counter >= 50:
+                    counter = 0
+                    my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                    my_state.state = my_state.NAVIGATE
+                    # 主车给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
+                    # 测试
+                    my_beep.test()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -676,10 +689,14 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                if my_vision_manager.car_position == 0 or my_vision_manager.car_position == 2:
-                    my_plan.navigate([[150.0, my_car.y_current], [110.0, my_car.y_current]], 90)
-                elif my_vision_manager.car_position == 1 or my_vision_manager.car_position == 3:
-                    my_plan.navigate([[170.0, my_car.y_current], [210.0, my_car.y_current]], -90)
+                if my_vision_manager.car_position == 0:
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], 90)
+                elif my_vision_manager.car_position == 2:
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], 90)
+                elif my_vision_manager.car_position == 1:
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-20.0], [my_car.x_current, my_car.y_current-20.0], [my_car.x_current, my_car.y_current]], -90)
+                elif my_vision_manager.car_position == 3:
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+20.0], [my_car.x_current, my_car.y_current+20.0], [my_car.x_current, my_car.y_current]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -693,6 +710,8 @@ def collaborative_task_machine():
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                    # 主车给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
@@ -703,6 +722,8 @@ def collaborative_task_machine():
                 # 缓冲500ms防止过冲
                 if counter >= 50:
                     counter = 0
+                    # 主车完成矫正后给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
                     if my_state.if_move_easy_object == False:
                         my_state.state = my_state.NAVIGATE
@@ -860,8 +881,6 @@ def time_pit2_handler(time):
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
-    # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
@@ -876,42 +895,25 @@ def time_pit2_handler(time):
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
                                                                         
     # 里程计：
-    # my_uart3.write(f"{my_plan.turn_angle_target}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
-    
-    
-    # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
 
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
-
-    # 测试边线校准
-    # my_uart3.write(f"{my_plan.calibrate_angle}\n")
     
     # 速度规划
-    # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
     # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
-    # 观察速度
-    # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
-    
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
-    
-    # 卡尔曼滤波（速度）
-    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
     
     # 环绕测试
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
     
     # 任务机
-    # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
     # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
