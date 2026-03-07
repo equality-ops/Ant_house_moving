@@ -545,7 +545,7 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
             if my_vision_manager.if_give_up_move == False:
                 my_plan.navigate([[my_car.x_current-5.0, -25.0]])
-                if my_art_protocol.get_object_state() == "No" and my_car.y_current >= 10.0:
+                if my_art_protocol.get_object_state() == "No" and my_car.y_current >= 0.0 and my_vision_manager.current_servo_object != ord('T'):
                     my_vision_manager.lost_object_frames += 1
                 if my_vision_manager.lost_object_frames >= 10:
                     my_vision_manager.lost_object_frames = 0
@@ -703,7 +703,7 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
             if my_vision_manager.if_give_up_move == False:
                 my_plan.navigate([[my_car.x_current-5.0, 265.0]])
-                if my_art_protocol.get_object_state() == "No" and my_car.y_current <= 230.0:
+                if my_art_protocol.get_object_state() == "No" and my_car.y_current <= 240.0 and my_vision_manager.current_servo_object != ord('T'):
                     my_vision_manager.lost_object_frames += 1
                 if my_vision_manager.lost_object_frames >= 10:
                     my_vision_manager.lost_object_frames = 0

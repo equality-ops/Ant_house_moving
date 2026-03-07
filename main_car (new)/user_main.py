@@ -89,7 +89,7 @@ blk = Pin('C21' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
 drv = LCD_Drv(SPI_INDEX = 2, BAUDRATE = 60000000, DC_PIN = dc, RST_PIN = rst, LCD_TYPE = LCD_Drv.LCD200_TYPE)
 lcd = LCD(drv)
 lcd.color(0xFFFF, 0x0000)
-lcd.mode(0)
+lcd.mode(2)
 lcd.clear(0x0000)
 
 # 与定时器2周期一致，都为53ms
@@ -373,7 +373,7 @@ def collaborative_task_machine():
             if my_plan.if_give_up_move == False:
                 my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
             else:
-                my_plan.navigate([[140.0, 10.0]], 0.0)
+                my_plan.navigate([[140.0, 15.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 if my_vision_manager.failed_servo_count >= 2:
@@ -393,7 +393,7 @@ def collaborative_task_machine():
                 my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
             else:
                 # 若刚刚在搬运中丢失物体，则沿矩形下边沿进行扫描
-                my_plan.navigate([[180.0, 10.0]], 0.0)
+                my_plan.navigate([[180.0, 15.0]], 0.0)
 
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
@@ -544,7 +544,7 @@ def collaborative_task_machine():
             if my_plan.if_give_up_move == False:
                 my_plan.navigate([[plan_data.fixed_point[2][0], plan_data.fixed_point[2][1]]], 180.0)
             else:
-                my_plan.navigate([[140.0, 230.0]], 180.0)
+                my_plan.navigate([[140.0, 225.0]], 180.0)
 
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
@@ -567,7 +567,7 @@ def collaborative_task_machine():
                 my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
             else:
                 # 若刚刚在搬运中丢失物体，则沿矩形上边沿进行扫描
-                my_plan.navigate([[180.0, 230.0]], 180.0)
+                my_plan.navigate([[180.0, 225.0]], 180.0)
 
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
