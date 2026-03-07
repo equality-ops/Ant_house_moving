@@ -59,17 +59,13 @@ class order_manager:
     def mode_target(self):
         self.my_uart.write("T")
 
-    # 切换到上下边界识别模式
-    def mode_boundary_ud(self):
-        self.my_uart.write("U")
-
-    # 切换到左右边界识别模式
-    def mode_boundary_lf(self):
-        self.my_uart.write("L")
-
     # 切换到apriltag识别模式
     def mode_apriltag(self):
         self.my_uart.write("C")
+
+    # 切换到搬运检查模式
+    def mode_pickup_check(self):
+        self.my_uart.write("D")
 
     # 当前模式结束
     def finish(self):
@@ -122,7 +118,7 @@ class UARTProtocol:
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame
     
-        # 非阻塞接收并解析apriltag码的像素点坐标和角度  
+    # 非阻塞接收并解析apriltag码的像素点坐标和角度  
     def apriltag_receive(self):
         last_valid_frame = None
         # 持续读取直到处理完当前缓冲区的所有数据
@@ -159,6 +155,20 @@ class UARTProtocol:
                 
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame
+    
+    # 接收来自openart的搬运过程中是否丢失物体的信息
+    def get_object_state(self):
+        if self.my_uart.any():
+            try:
+                byte = self.my_uart.read(1)[0]
+                if byte == ord('N'):
+                    return "No"
+                else:
+                    return None
+            except:
+                return None
+        else:
+            return None
 
 # 主从机通信类
 class LinkProtocol:

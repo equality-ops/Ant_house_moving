@@ -86,7 +86,7 @@ servo_target_y_S = 10.0
 servo_target_y_B = 30.0
 min_rel_speed = 50
 max_rel_speed = 200
-finish_threshold_x = 2
+finish_threshold_x = 1
 finish_threshold_y = 2
 servo_pwmout_limitmax = 200
 
@@ -94,6 +94,9 @@ servo_pwmout_limitmax = 200
 radius_T = 2.5
 radius_S = 3.5
 radius_B = 13.0
+angle_T = 125.0
+angle_S = 135.0
+angle_B = 140.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500
