@@ -95,6 +95,9 @@ servo_pwmout_limitmax = 200
 radius_T = 2.5
 radius_S = 3.5
 radius_B = 13.0
+angle_T = 125.0
+angle_S = 135.0
+angle_B = 140.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500
