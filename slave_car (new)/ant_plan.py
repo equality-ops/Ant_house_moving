@@ -23,8 +23,8 @@ class Plan_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点
-        self.fixed_point = [[30.0, -20.0], [110.0, 50.0], [110.0, 190.0], [210.0, 50.0], [210.0, 190.0]]  # type: list
+        # fixed_point[0]为主车起点，fixed_point[1][2][3][4]分别为矩形区域下、左、上、右扫描起始点，[5][6][7][8]分别为矩形区域下、左、上、右扫描结束点
+        self.fixed_point = [[30.0, -20.0], [130.0, 50.0], [90.0, 90.0], [130.0, 190.0], [230.0, 150.0], [190.0, 50.0], [90.0, 150.0], [190.0, 190.0], [230.0, 90.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]
         # 目标物品坐标及种类信息
@@ -93,6 +93,7 @@ class Plan:
         self.v_max = 0                  # type: int    # 本次移动规划的最大速度
         self.j = 0                      # type: float  # 加加速度    
         self.dec_distance = 0.0         # type: float  # 减速距离
+        self.dec_steps = 0              # type: int    # 减速距离对应的步数
         self.stage = self.STOP          # type: int    # 速度规划阶段标志位
         self.finish_building = False    # type: int    # 检验减速速度表是否构建完成的标志位
         # 死区启动相关变量
@@ -106,9 +107,12 @@ class Plan:
         self.real_target_x = 0.0         # type: float
         self.real_target_y = 0.0         # type: float
         self.target_yaw = 0.0            # type: float
+        # 测试，开始时给一点扰乱角度
+        # self.turn_angle_target = 20.0     # type: float
         self.turn_angle_target = 0.0     # type: float
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
+        self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
@@ -125,6 +129,8 @@ class Plan:
         self.current_path = []     # type: list
         # 距离长短标志位
         self.dis_flag = None
+        # 绕行障碍物方向指示
+        self.direct = 0
         # 标志位
         self.arrive_flag = False        # type: bool  # 判断是否到达目标点标志位
         self.if_pass_transit_point = False # type: bool  # 判断是否到达过渡点标志位
@@ -133,6 +139,10 @@ class Plan:
         self.if_send_path = False       # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False        # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False    # type: bool  # 判断是否完成导航标志位
+
+    def _ease_out_quad(self, t):
+        """二次缓出曲线，用于快速启动"""
+        return t ** 2
     
     # 构建减速速度表
     def build_dec_speed_list(self, i):
@@ -167,7 +177,7 @@ class Plan:
                 self.elapsed_time += 1
                 if self.elapsed_time <= self.boost_time_threshold:
                     # 计算目标速度
-                    self.v_target = self.dead_zone_v + int(((self.elapsed_time / self.boost_time_threshold) ** 2) * (self.v_max - self.dead_zone_v))
+                    self.v_target = self.dead_zone_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.v_max - self.dead_zone_v))
                 else:
                     self.v_target = self.v_max
                     self.stage = self.TRANSIT
@@ -181,7 +191,7 @@ class Plan:
                     if self.v_target < self.v_max:
                         if self.elapsed_time <= self.boost_time_threshold:
                         # 缓慢恢复到巡航速度
-                            self.v_target = self.transit_v + int(((self.elapsed_time / self.boost_time_threshold) ** 2) * (self.v_max - self.transit_v))
+                            self.v_target = self.transit_v + int(self._ease_out_quad(self.elapsed_time / self.boost_time_threshold) * (self.v_max - self.transit_v))
                             self.elapsed_time += 1
                         else:
                             self.v_target = self.v_max
@@ -575,10 +585,8 @@ class VisionManager:
         self.current_servo_object = ''
         # 当前伺服连续丢失物体的帧数
         self.servo_lost_count = 0
-        # 视觉伺服失败的次数
-        self.failed_servo_count = 0 
-        # 搬运过程中丢失物体的帧数
-        self.lost_object_frames = 0
+        # 当前伺服连续接收到的帧数
+        self.servo_received_count = 0
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
@@ -604,9 +612,6 @@ class VisionManager:
         self.radius_T = self.flash_sys.find_value("radius_T")   # type: float   # 网球半径
         self.radius_S = self.flash_sys.find_value("radius_S")   # type: float   # 沙袋半径
         self.radius_B = self.flash_sys.find_value("radius_B")   # type: float   # 玩具熊半径
-        self.angle_T = self.flash_sys.find_value("angle_T")     # type: float   # 网球环绕角度
-        self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
-        self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 0     # 0为顺时针，1为逆时针
 
         # 延时计数器
@@ -628,7 +633,7 @@ class VisionManager:
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
         self.if_gain_calibrate_angle = False   # type: bool  # 判断是否获取校准角度标志位
         self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
-        self.if_give_up_move = False     # type: bool  # 判断是否放弃搬运标志位
+
 
     # 计算目标航向角
     def compute_target_rel_yaw(self):
@@ -769,14 +774,10 @@ class VisionManager:
             # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
             # 进行两阶段的微调
             if self.adjust_stage == 1:
-                if self.car_position == 1:
-                    self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current + 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
-                elif self.car_position == 3:
-                    self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current + 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
-                elif self.car_position == 0:
-                    self.my_plan.navigate([[self.my_car.x_current - 5.0, self.my_car.y_current], [self.my_car.x_current - 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
-                elif self.car_position == 2:
-                    self.my_plan.navigate([[self.my_car.x_current - 5.0, self.my_car.y_current], [self.my_car.x_current - 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                if self.car_position == 1 or self.car_position == 3:
+                    self.my_plan.navigate([[190.0, self.my_car.y_current]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                elif self.car_position == 0 or self.car_position == 2:
+                    self.my_plan.navigate([[130.0, self.my_car.y_current]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 if self.my_plan.finish_navigate == True:
                     self.adjust_stage = 2
                     self.my_plan.finish_navigate = False
