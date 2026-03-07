@@ -128,13 +128,15 @@ class Communicator:
 
     def send_coordinate(self, x, y, obj_type = ''):
         """发送目标坐标（带防抖和范围限制）"""
+        # is_first_send = (self.last_sent_x == SCREEN_CENTER_X) and (self.last_sent_y == SCREEN_CENTER_Y)
+
         # 坐标取整
         x = int(round(x))
         y = int(round(y))
 
-        # 防抖：变化量过小且y坐标在上方时不发送
-        if abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
-            return
+        # 防抖：变化量过小且y坐标在上方时不发送(会造成第一次视觉伺服变迟钝)
+        # if not is_first_send and abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
+            # return
 
         # 限制单次坐标变化幅度（最大±30）
         dx_coord = min(30, max(-30, x - self.last_sent_x))
@@ -251,7 +253,16 @@ class KalmanTracker:
         if is_detected:
             S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
             S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
-            S_inv = np.linalg.inv(S_reg)
+            try:
+                S_inv = np.linalg.inv(S_reg)
+            except np.linalg.LinAlgError:
+                # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
+                diag_vals = []
+                for i in range(S_reg.shape[0]):
+                    val = S_reg[i,i]
+                    # 若对角线元素为0/极小值，用1e-6替代，避免除0报错
+                    diag_vals.append(1.0 / val if abs(val) > 1e-6 else 1e6)
+                S_inv = np.diag(diag_vals)
             K = np.dot(np.dot(p_minus, self.C.T), S_inv)
             self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
             self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
@@ -264,18 +275,19 @@ class KalmanTracker:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 30
+    DISTANCE_THRESHOLD = 400
 
     def __init__(self):
         self.roi_bear = ROI['global']
         self.roi_red_sandbag = ROI['global']
         self.roi_blue_sandbag = ROI['global']
         self.roi_tennis = ROI['global']
+        self.merge_green = True
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
         """计算两点间欧氏距离"""
-        return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+        return (x1 - x2)**2 + (y1 - y2)**2
 
     def detect_colors(self, img):
         """检测所有颜色色块并返回（带颜色标签）"""
@@ -284,8 +296,8 @@ class ColorDetector:
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True, roi=self.roi_red_sandbag)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True, roi=self.roi_tennis)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=110,  area_threshold=110,  merge=True,roi=self.roi_blue_sandbag)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=self.merge_green, roi=self.roi_tennis)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=170,  area_threshold=170,  merge=True,roi=self.roi_blue_sandbag)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -303,16 +315,17 @@ class ColorDetector:
             # 密度过滤（排除稀疏色块）
             if blob.density() < 0.4:
                 continue
-            """
-            if color == 'blue' and blob.density() < 0.5:
+            elif color == 'blue' and blob.density() < 0.5:
                 continue
-            """
+
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            if color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
+            elif color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            if color in ('green', 'blue') and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
+            elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
+                continue
+            elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
@@ -420,8 +433,8 @@ class TargetLocker:
 
     def is_jump_too_large(self, cx, cy):
         """判断坐标跳变是否过大（同色干扰）"""
-        distance = math.sqrt((cx - self.last_cx)**2 + (cy - self.last_cy)**2)
-        return distance > self.JUMP_THRESHOLD
+        squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
+        return squared_distance > (self.JUMP_THRESHOLD**2)
 
     def process_lock(self, filtered_blobs, kalman_coords):
         """处理锁定逻辑，返回目标位置、目标颜色、锁定的色块"""
@@ -467,9 +480,7 @@ class TargetLocker:
                     # 选同色目标中最接近上一帧锁定位置的
                     best_blob, best_cx, best_cy = min(
                         valid_blobs,
-                        key=lambda item: math.sqrt(
-                            (item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2
-                        )
+                        key=lambda item:(item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2
                     )
                     if self.locked_color in kalman_coords:
                         target_pos = kalman_coords[self.locked_color]
@@ -643,7 +654,6 @@ target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 while True:
     clock.tick()
     img = sensor.snapshot()
-
     # 时间戳更新（计算卡尔曼滤波时间步长）
     current_time = time.ticks_ms()
     delta_time = time.ticks_diff(current_time, last_time)
@@ -664,6 +674,7 @@ while True:
             color_detector.roi_red_sandbag = ROI['global']
             color_detector.roi_blue_sandbag = ROI['global']
             color_detector.roi_tennis = ROI['global']
+            color_detector.merge_green = True
             ROI_INIT = True
         # 色块检测与筛选
         all_blobs_with_color = color_detector.detect_colors(img)
@@ -674,6 +685,7 @@ while True:
         target_pos = None  # 最终要发送的目标坐标
         locked_blob = None  # 锁定的目标色块
         target_color = ''
+        is_sent = False # 是否发送了坐标
 
         # 分离棕色、白色、蓝色与其它色块
         brown_blobs = []
@@ -705,6 +717,7 @@ while True:
         if target_locker.is_locked and target_pos is not None:
             # 锁定状态：发送锁定目标坐标
             communicator.send_coordinate(target_pos[0], target_pos[1], target_locker.locked_color)
+            is_sent = True
         elif not target_locker.is_locked and center:
             # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
@@ -712,7 +725,11 @@ while True:
             target_y = target[1]
             target_color = target[2]
             communicator.send_coordinate(target_x, target_y, target_color)
+            is_sent = True
         # 锁定状态但没识别到目标和未锁定状态但未检测到色块，均不发送坐标
+        displayed_text = 'YES' if is_sent else 'NO'
+        displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
+        img.draw_string(5, 5, displayed_text, color = displayed_text_color, scale = 2)
 
     # 坐标校正模式
     elif current_mode == MODE_CORRECTION:
@@ -729,18 +746,21 @@ while True:
             color_detector.roi_red_sandbag = ROI['red_sandbag']
             color_detector.roi_blue_sandbag = ROI['blue_sandbag']
             color_detector.roi_tennis = ROI['tennis']
+            color_detector.merge_green = False
             ROI_INIT = True
         all_blobs = color_detector.detect_colors(img)
         filtered_blobs = color_detector.filter_all_blobs(all_blobs)
+
+        if not filtered_blobs:
+            communicator.warn()
+            img.draw_string(5, 5, 'WARN', color = DRAW_COLORS['red'], scale = 2)
+
         for item in filtered_blobs:
             blob = item[0]
             color_name = item[1]
             # 绘制色块
             img.draw_rectangle(blob.rect(), color=DRAW_COLORS[color_name])
             img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color_name])
-
-        if not filtered_blobs:
-            communicator.warn()
 
             
 
