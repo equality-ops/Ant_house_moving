@@ -223,7 +223,7 @@ class SpeedPositionPID(ControlPID):
         self.kp = 0.0        # type: float
         self.ki = 0.0       # type: float
         self.kd = 0.0       # type: float
-        self.kv = self.flash_sys.find_value("kv")        # type: float  # 速度前馈系数
+        self.kv = self.flash_sys.find_value("kv")  # type: float  # 速度反馈系数
         self.target = 0     # type: int
         self.actual = 0     # type: int
         self.nowError = 0   # type: int
@@ -275,7 +275,7 @@ class SpeedPositionPID(ControlPID):
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
         # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + target * self.kv
+        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
@@ -324,35 +324,6 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
-# 角速度环PID
-class GyroPositionPID(ControlPID):
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-        self.kp = self.flash_sys.find_value("gyro_normal_kp")        # type: float
-        self.kd = self.flash_sys.find_value("gyro_normal_kd")        # type: float
-        self.target = 0     # type: float
-        self.actual = 0     # type: float
-        self.nowError = 0   # type: float
-        self.preError = 0   # type: float
-        self.derivative = 0 # type: float
-        self.pwm_output = 0 # type: float
-
-        self.pwmout_limitmax = self.flash_sys.find_value("gyro_pwmout_limitmax")    # type: float
-        
-    def compute_pid(self, target: float, actual: float):
-        self.target = target
-        self.actual = actual
-        self.preError = self.nowError
-        self.nowError = self.target - self.actual
-            
-        self.derivative = self.nowError - self.preError
-
-        # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError + self.kd * self.derivative
-
-        # pwm_output限幅
-        self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
 # 视觉伺服PD
 class ServoPID(ControlPID):
@@ -408,7 +379,7 @@ class ServoPID(ControlPID):
 
 # 小车姿态控制
 class CarPose:
-    def __init__(self, flash_sys, state_machine, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID, gyro_pid: GyroPositionPID,
+    def __init__(self, flash_sys, state_machine, pose_data: PoseData, math, speed_x_fil: KalmanFilter, speed_y_fil: KalmanFilter, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
                  motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -425,8 +396,6 @@ class CarPose:
         self.MATH = math
         # 注入角度pid对象
         self.angle_pid = angle_pid
-        # 注入角速度环pid对象
-        self.gyro_pid = gyro_pid
         # 注入电机pid对象
         self.motor_ul_pid = motor_ul_pid
         self.motor_ur_pid = motor_ur_pid
@@ -556,12 +525,10 @@ class CarPose:
         self.car_speed_y_target = move_speed_target * math.cos(move_angle_target - self.now_yaw)
         self.car_speed_w_target = self.real_speed_w_target
 
-        self.gyro_pid.compute_pid(0, self.pose_data.gyro_y)
-
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.car_speed_w_target + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.gyro_pid.pwm_output
-        motor_ur_speed_target = self.car_speed_w_target + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.gyro_pid.pwm_output
-        motor_md_speed_target = self.car_speed_w_target - self.car_speed_x_target + self.gyro_pid.pwm_output
+        motor_ul_speed_target = self.car_speed_w_target + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
+        motor_ur_speed_target = self.car_speed_w_target + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
+        motor_md_speed_target = self.car_speed_w_target - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
