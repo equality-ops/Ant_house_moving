@@ -1,4 +1,4 @@
-# 修改时间 3.6	23:25
+# 修改时间 3.6	23:24
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -32,7 +32,7 @@ md_low_kp = 50.0
 md_low_ki = 0.22
 md_low_kd = 15.0
 
-angle_normal_kp = 10.0
+angle_normal_kp = 15.0
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 integral_limitmax = 14000
@@ -59,7 +59,6 @@ motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
-# 已弃用
 boost_time_threshold = 60
 
 ###################【路径规划】####################
@@ -79,12 +78,12 @@ scan_v_max = 200
 ###################【视觉伺服】####################
 servo_kp_x = 8.0
 servo_kd_x = 10.0
-servo_kp_y = 9.0
+servo_kp_y = 10.0
 servo_kd_y = 10.0
 servo_target_x = 80
 servo_target_y_T = 7.0
 servo_target_y_S = 10.0
-servo_target_y_B = 20.0
+servo_target_y_B = 24.0
 min_rel_speed = 50
 max_rel_speed = 200
 finish_threshold_x = 1
