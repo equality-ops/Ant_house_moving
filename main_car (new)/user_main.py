@@ -785,6 +785,34 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == my_state.STOP:
         my_plan.stop()
     """
+
+    # 拍数据集程序
+    """
+    if my_state.state_work == UP:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[-120.0, 0.0]], 0.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state_work = DOWN
+    elif my_state.state_work == DOWN:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[-120.0, 120.0]], 90.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state_work = CHECK
+    elif my_state.state_work == CHECK:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[0.0, 120.0]], 180.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state_work = RETURN_WORK
+    elif my_state.state_work == RETURN_WORK:
+        if my_state.state == my_state.NAVIGATE:
+            my_plan.navigate([[0.0, 0.0]], -90.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                my_state.state_work = UP
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
