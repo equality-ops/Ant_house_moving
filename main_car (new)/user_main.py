@@ -156,8 +156,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(5)
+sin_servo_fil = ant_motor.SlipAveragingFilter(6)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(6)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -390,6 +390,9 @@ def collaborative_task_machine():
                     target_point = my_art_protocol.coordinate_receive()
                     if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
                         my_vision_manager.current_servo_object = target_point[2]
+                        # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
+                        sin_servo_fil.buffer_init(my_plan.scan_v_max)
+                        cos_servo_fil.buffer_init(0)
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
@@ -502,16 +505,12 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
             if my_vision_manager.if_finish_calibrate == True:
-                counter += 1
-                # 缓冲500ms防止过冲
-                if counter >= 50:
-                    counter = 0
-                    my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    my_state.state = my_state.NAVIGATE
-                    # 主车给从车发消息让从车完成矫正
-                    my_main_protocol.send_start()
-                    # 测试
-                    my_beep.test()
+                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                my_state.state = my_state.NAVIGATE
+                # 主车给从车发消息让从车完成矫正
+                my_main_protocol.send_start()
+                # 测试
+                my_beep.test()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -543,6 +542,9 @@ def collaborative_task_machine():
                     target_point = my_art_protocol.coordinate_receive()
                     if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
                         my_vision_manager.current_servo_object = target_point[2]
+                        # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
+                        sin_servo_fil.buffer_init(my_plan.scan_v_max)
+                        cos_servo_fil.buffer_init(0)
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
@@ -652,21 +654,17 @@ def collaborative_task_machine():
                     # 测试
                     my_beep.test()
             if my_vision_manager.if_finish_calibrate == True:
-                counter += 1
-                # 缓冲500ms防止过冲
-                if counter >= 50:
-                    counter = 0
-                    # 主车完成矫正后给从车发消息让从车完成矫正
-                    my_main_protocol.send_start()
-                    my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    if my_state.if_move_easy_object == False:
-                        my_state.state = my_state.NAVIGATE
-                    else:
-                        my_vision_manager.my_order_manager.mode_target()
-                        my_state.state_work = CHECK
-                        my_state.state = my_state.SCAN
-                    # 测试
-                    my_beep.test()
+                # 主车完成矫正后给从车发消息让从车完成矫正
+                my_main_protocol.send_start()
+                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                if my_state.if_move_easy_object == False:
+                    my_state.state = my_state.NAVIGATE
+                else:
+                    my_vision_manager.my_order_manager.mode_target()
+                    my_state.state_work = CHECK
+                    my_state.state = my_state.SCAN
+                # 测试
+                my_beep.test()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(my_vision_manager.orbit_angle)

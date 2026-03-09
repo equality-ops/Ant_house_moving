@@ -426,8 +426,6 @@ class CarPose:
         self.real_speed_w_target = 0.0  # type: float
         # 目标转角
         self.turn_angle_target = 0.0  # type: float
-        # 上一次的航向角
-        self.last_move_yaw = 0.0  # type: float
         # 速度系数
         self.speed_conversion_gamma = self.flash_sys.find_value("speed_conversion_gamma")   # 将速度单位转化为cm每秒
         self.gkd = self.flash_sys.find_value("gkd")  # type: float  # 角速度补偿系数
@@ -448,33 +446,7 @@ class CarPose:
         # self.encouder_ul = 0.0    
         # self.encouder_ur = 0.0
         # self.encouder_md = 0.0
-    
-    def limit_angle_change(self, new_angle, max_rate=5):
-        """
-        限制 new_angle 相对于 last_angle 的变化不超过 max_rate 度
-        返回限制后的新角度，并更新 last_angle
-        """
-        # 计算最小角度差（考虑周期性）
-        diff = new_angle - self.last_move_yaw
-        diff = (diff + 540) % 360 - 180  # 将差值映射到 [-180, 180)
         
-        # 限制变化率
-        if abs(diff) > max_rate:
-            diff = max_rate if diff > 0 else -max_rate
-        
-        # 计算新角度并归一化
-        limited_angle = self.last_move_yaw + diff
-        # 限制新角度范围在[-180, 180]
-        if limited_angle > 180.0:
-            limited_angle -= 360.0
-        elif limited_angle < -180.0:
-            limited_angle += 360.0
-
-        # 重置上一次目标航向角
-        self.last_move_yaw = limited_angle
-
-        return limited_angle
-    
     # 小车姿态更新
     def update_pose(self):
         ###################【速度计算】###################
@@ -533,9 +505,6 @@ class CarPose:
             move_angle_target -= 360.0
         elif move_angle_target < -180.0:
             move_angle_target += 360.0
-
-        # 限制目标航向角的变化率，避免过快转向导致小车失控
-        move_angle_target = self.limit_angle_change(move_angle_target)
 
         # 设置目标转角
         self.turn_angle_target = turn_angle_target
