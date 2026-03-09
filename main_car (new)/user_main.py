@@ -165,10 +165,11 @@ motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filte
 motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
 motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
 angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
+gyro_pid = ant_motor.GyroPositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
-my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil, speed_y_fil, car_yaw_fil, angle_pid,
+my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil, speed_y_fil, car_yaw_fil, angle_pid, gyro_pid,
                         motor_ul_pid, motor_ur_pid, motor_md_pid,
                         motor_ul, motor_ur, motor_md)
 
@@ -246,12 +247,6 @@ def reset_navigate_flags():
     # 速度规划
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
-
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    motor_ul_pid.compute_pid(400, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -813,7 +808,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -829,6 +824,13 @@ def main_start():
                 pit2.stop()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+
+# 调试电机速度环pid函数
+def show_speed_PID_test():
+    motor_ul_pid.compute_pid(450, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(180, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(180, pose_data.encoder_data_md)
+    
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
 voltage_detect(11.4)
@@ -876,12 +878,26 @@ while True:
 
         # 更新小车姿态
         my_car.update_pose()
-
+        
+        # show_speed_PID_test()
+        # complete_angle_circle()
+        
         if (ticker1_count % 5 == 0):
             # 状态机（10ms）
-            collaborative_task_machine()
+            # collaborative_task_machine()
         
-        if (ticker1_count % 3 == 0):
+            if my_state.state == my_state.NAVIGATE:
+                my_plan.navigate([[100.0, 0.0], [100.0, -100.0], [0.0, -100.0], [0.0, 0.0]], 0.0)
+                if my_plan.finish_navigate == True:
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.STOP
+                    my_beep.test()
+            elif my_state.state == my_state.STOP:
+                my_plan.stop()
+            
+            pass
+        
+        if (ticker1_count % 6 == 0):
             # 角度环计算（6ms）
             angle_pid_compute()
 
@@ -891,8 +907,14 @@ while True:
         # 设置电机pwm输出
         my_car.set_motor_pwm()
 
-        if (ticker1_count % 25 == 0):
-            # 串口调试信息输出（50ms）
+        if (ticker1_count % 12 == 0):
+            # 串口调试信息输出（24ms）
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+            # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
+            # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+            my_uart3.write(f"{gyro_pid.target},{gyro_pid.actual},{gyro_pid.pwm_output}\n")
             pass
 
         # 重置定时器1标志位

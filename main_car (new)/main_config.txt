@@ -1,4 +1,4 @@
-# 修改时间 3.6	23:25
+# 修改时间 3.9	20:42
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -24,21 +24,24 @@ md_mid_kd = 20.0
 # speed小于200时
 ul_low_kp = 50.0
 ul_low_ki = 0.2
-ul_low_kd = 15.0
+ul_low_kd = 10.0
 ur_low_kp = 50.0
 ur_low_ki = 0.2
-ur_low_kd = 15.0
+ur_low_kd = 10.0
 md_low_kp = 50.0
 md_low_ki = 0.22
-md_low_kd = 15.0
-
-angle_normal_kp = 10.0
+md_low_kd = 10.0
+kv = 10
+angle_normal_kp = 8.0
 angle_normal_ki = 0.0
-angle_normal_kd = 20.0
-integral_limitmax = 14000
-pwmout_limitmax = 8000
-high_angle_pwmout_limitmax = 600
+angle_normal_kd = 0.0
+integral_limitmax = 15000
+pwmout_limitmax = 9500
+high_angle_pwmout_limitmax = 400
 low_angle_pwmout_limitmax = 200
+gyro_normal_kp = 0.3
+gyro_normal_kd = 0.0
+gyro_pwmout_limitmax = 100
 # A设置为B的2倍左右
 A = 500
 # B大致为最大静差的1.5倍
@@ -48,52 +51,48 @@ B = 200
 # 速度转换系数(不需要调试)
 speed_conversion_gamma = 0.372928
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.19
+gkd = -0.3
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.2
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.164164
 
 ###################【时间规划】####################
-# 已弃用
 motor_control_T = 2
-# 已弃用
 collect_dt = 0.002
-# 已弃用
 plan_calculate_T = 10
-# 已弃用
 uart_and_menu_T = 53
 # 已弃用
 boost_time_threshold = 60
 
 ###################【路径规划】####################
 plan_arrive_threshold = 2.0
-plan_point_transition_T = 50
+plan_point_transition_T = 2
 
 ###################【速度规划】####################
-min_start_v = 40
-long_v_max = 450
+min_start_v = 50
+long_v_max = 300
 short_v_max = 250
 dead_zone_v = 50
 transit_v = 200
-orbit_v = 100
-move_v_max = 150
-scan_v_max = 200
+orbit_v = 150
+move_v_max = 200
+scan_v_max = 250
 
 ###################【视觉伺服】####################
-servo_kp_x = 8.0
+servo_kp_x = 9.0
 servo_kd_x = 10.0
-servo_kp_y = 9.0
+servo_kp_y = 9.5
 servo_kd_y = 10.0
 servo_target_x = 80
 servo_target_y_T = 7.0
 servo_target_y_S = 10.0
 servo_target_y_B = 20.0
 min_rel_speed = 50
-max_rel_speed = 200
-finish_threshold_x = 1
+max_rel_speed = 300
+finish_threshold_x = 2
 finish_threshold_y = 2
-servo_pwmout_limitmax = 200
+servo_pwmout_limitmax = 300
 
 ###################【环绕控制】####################
 radius_T = 2.5
@@ -101,7 +100,7 @@ radius_S = 3.5
 radius_B = 25.5
 angle_T = 125.0
 angle_S = 135.0
-angle_B = 140.0
+angle_B = 150.0
 
 # openart支架上边沿距离车底板17.7cm
 # 小车最高速度为500
