@@ -22,11 +22,13 @@ import gc
 import time
 
 ###################################【变量定义及初始化】###################################
+# 定时器标志位及计数器
+ticker1_flag = False
+ticker1_count = 0
+ticker2_flag = False
+ticker2_count = 0
 # 多路复用时间计数器
 counter = 0      # type: int
-# 按键消抖相关变量
-current_time = 0
-last_left_time = 0
 # 是否按下启动按键标志位
 if_press_start_key = False
 # 是否成功启动标志位
@@ -57,10 +59,6 @@ my_uart6.init(460800)
 """无线串口通信初始化"""
 my_uart3 = UART(2)
 my_uart3.init(115200)
-
-# 测试uart通信是否正常
-# my_uart6.write("hello\r\n")
-# my_uart3.write("hello\r\n")
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
@@ -93,8 +91,8 @@ lcd.color(0xFFFF, 0x0000)
 lcd.mode(2)
 lcd.clear(0x0000)
 
-# 与定时器2周期一致，都为53ms
-key = KEY_HANDLER(53)
+# 与定时器2周期一致，都为20ms
+key = KEY_HANDLER(20)
 key_data = key.get()
 # 按键对应的数据接口
 """
@@ -215,35 +213,6 @@ def angle_pid_compute():
     filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
     # 计算z轴的目标速度
     angle_pid.compute_pid(my_car.turn_angle_target, filter_yaw)
-
-# 用于主车启动的函数
-def main_start():
-    global current_time, last_left_time, start_flag, if_press_start_key
-    if start_flag == False:
-        if if_press_start_key == False:
-            if key_data[3] != 0 and switch2.value() == 0:
-                # 清除按键状态
-                key.clear(4)
-                my_beep.key_test()
-                my_main_protocol.send_start()
-                if_press_start_key = True
-        else:   
-            # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DOWN
-                # my_state.state = my_state.READY_NAVIGATE
-                my_state.state = my_state.NAVIGATE
-                start_flag = True
-                # 延时一秒避免零漂校准不准确
-                time.sleep_ms(1000)
-                # 打开定时器1和3
-                pit1_start()
-                pit3_start()
-                # 检测是否正常初始化所有
-                detect_if_normal()
 
 # 用于准备视觉伺服和环绕
 def ready_servo_and_orbit():
@@ -714,174 +683,220 @@ def collaborative_task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
-""" 定时器类 """
+
+
 # 定时器1中断回调函数
+# 测试角度闭环
+# complete_angle_circle()
+
+# 全向定位测试程序
+# test_global_localization()
+
+# 陀螺仪测试
+# test_imu()
+# ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+
+# 速度环测试
+# show_speed_PID_test()
+    
+
+
+# 路径规划与速度规划计算
+
+# 全向定位测试程序
+"""
+if my_state.state == my_state.NAVIGATE:
+    my_plan.navigate([[250.0, 120.0], [55.0, 0.0], [5.0, 0.0], [0.0, 0.0]], 0.0)
+    if my_plan.finish_navigate == True:
+        my_plan.finish_navigate = False
+        my_state.state = my_state.STOP
+        my_beep.test()
+elif my_state.state == my_state.STOP:
+    my_plan.stop()
+"""
+# my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
+
+# 视觉伺服测试程序
+# test_vision_servo()
+
+# 边线和apriltag码校准测试程序
+# test_apriltag_calibrate()
+
+# 环绕物体测试程序
+# test_orbit_control()
+
+
+
+"""用于无线串口调试"""
+# 视觉伺服
+# my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
+# my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
+# my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
+
+# 速度环输出波形图调参
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+    
+# 角度环输出
+# my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
+# imu原始数据
+# my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
+# my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
+                                                                    
+# 里程计：
+# my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+
+# tof传感器测试
+# my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+
+# 速度规划
+# my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
+
+# 检测自转角是否准确
+# my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+
+# 检测gkd项数量级
+# my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+
+# 环绕测试
+# my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
+
+# 任务机
+# my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+
+
+""" 定时器类 """
+# 定义一个回调函数 需要一个参数 这个参数就是 ticker 实例自身
 def time_pit1_handler(time):
-    # 更新传感器数据
-    pose_data.update_data()
-
-    # 初始化pid参数
-    if motor_ul_pid.target >= 400:
-        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif motor_ul_pid.target >= 200:
-        motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
-    else:
-        motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-        
-    if motor_ur_pid.target >= 400:
-        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif motor_ur_pid.target >= 200:
-        motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
-    else:
-        motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
-
-    if motor_md_pid.target >= 400:
-        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif motor_md_pid.target >= 200:
-        motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
-    else:
-        motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
-    
-    # 更新小车姿态
-    my_car.update_pose()
-    
-    # 测试角度闭环
-    # complete_angle_circle()
-    
-    # 全向定位测试程序
-    # test_global_localization()
-    
-    # 陀螺仪测试
-    # test_imu()
-    # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
-    
-    # 速度环测试
-    # show_speed_PID_test()
-    
-    # 总控制函数
-    master_control()
-
-    # 设置电机pwm输出
-    my_car.set_motor_pwm()
-
-
-
-# 定时器3中断处理函数：路径规划与速度规划计算
-def time_pit3_handler(time) -> None:
-    # 角度环计算（10ms）
-    angle_pid_compute()
-
-    # 任务执行机
-    # task_machine()
-    collaborative_task_machine()
-
-    # 全向定位测试程序
-    """
-    if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[250.0, 120.0], [55.0, 0.0], [5.0, 0.0], [0.0, 0.0]], 0.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
-            my_state.state = my_state.STOP
-            my_beep.test()
-    elif my_state.state == my_state.STOP:
-        my_plan.stop()
-    """
-    # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
-    # 视觉伺服测试程序
-    # test_vision_servo()
-
-    # 边线和apriltag码校准测试程序
-    # test_apriltag_calibrate()
-
-    # 环绕物体测试程序
-    # test_orbit_control()
-    pass
-
-
-# 定时器2中断回调函数
-# 用于无线串口调试和发车启动
-def time_pit2_handler(time):
-    """用于无线串口调试"""
-    # 发车启动函数
-    main_start()
-    
-    if start_flag == False:
-        # 读取按键（中断中避免阻塞，快速返回）
-        key = my_menu.read_key()
-        my_menu.handle_key_from_interrupt(key)
-    # 视觉伺服
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
-    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
-    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
-    
-    # 速度环输出波形图调参
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
-        
-    # 角度环输出
-    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
-    # imu原始数据
-    # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
-    # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
-                                                                        
-    # 里程计：
-    # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
-
-    # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
-    
-    # 速度规划
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
-
-    # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
-    
-    # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
-    
-    # 环绕测试
-    # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
-    
-    # 任务机
-    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+    global ticker1_flag  # 需要注意的是这里得使用 global 修饰全局属性
+    global ticker1_count
+    ticker1_flag = True
+    ticker1_count = (ticker1_count + 1) if (ticker1_count < 100) else (0)
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
     pit1 = ticker(1)
-    pit1.capture_list(encoder_ul, encoder_ur, encoder_md, imu)
+    pit1.capture_list(encoder_ul, encoder_ur, encoder_md, imu, tof)
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
-    pit1.callback(time_pit1_handler)
-    pit1.start(my_flash_sys.find_value("motor_control_T"))
-
-# 定时器2初始化（中断回调函数在 ant_menu 中）
-def pit2_start():
-    pit2 = ticker(2)
-    pit2.callback(time_pit2_handler)
-    pit2.capture_list(key)
-    pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
-
-# 定时器3初始化（中断回调函数在 ant_plan 中）
-def pit3_start():
-    pit3 = ticker(3)
-    pit3.capture_list(tof)
     tof_init()
-    pit3.callback(time_pit3_handler)
-    pit3.start(my_flash_sys.find_value("plan_calculate_T"))
+    pit1.callback(time_pit1_handler)
+    pit1.start(2)
 
+# 定时器2中断回调函数
+# 用于调试和发车启动
+def time_pit2_handler(time):
+    global ticker2_flag  # 需要注意的是这里得使用 global 修饰全局属性
+    global ticker2_count
+    ticker2_flag = True
+    ticker2_count = (ticker2_count + 1) if (ticker2_count < 100) else (0)
+
+pit2 = ticker(2)
+pit2.callback(time_pit2_handler)
+pit2.capture_list(key)
+pit2.start(20)
+
+# 用于主车启动的函数
+def main_start():
+    global start_flag, if_press_start_key
+    if start_flag == False:
+        if if_press_start_key == False:
+            if key_data[3] != 0 and switch2.value() == 0:
+                # 清除按键状态
+                key.clear(4)
+                my_beep.key_test()
+                my_main_protocol.send_start()
+                if_press_start_key = True
+        else:   
+            # 测试，此时只调试主车，双车正常通信时需要解注释  
+            if my_main_protocol.get_slave_state() == "ready":
+                # 初始化小车坐标
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_state.state_work = DOWN
+                # my_state.state = my_state.READY_NAVIGATE
+                my_state.state = my_state.NAVIGATE
+                start_flag = True
+                # 延时一秒避免零漂校准不准确
+                time.sleep_ms(1000)
+                # 打开定时器1
+                pit1_start()
+                # 停止定时器2
+                pit2.stop()
+                # 检测是否正常初始化所有
+                detect_if_normal()
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
 voltage_detect(11.4)
 
-# 打开定时器
-pit2_start()
-
 while True:
+    """定时器2"""
+    if (ticker2_flag == True):
+        # 发车启动函数
+        main_start()
+        # 拨码开关1关闭时，定时器2中断回调函数内读取按键状态并处理
+        if switch2.value() == 1:
+            # 读取按键（中断中避免阻塞，快速返回）
+            key = my_menu.read_key()
+            my_menu.handle_key_from_interrupt(key)
+
+        # 重置定时器2标志位
+        ticker2_flag = False
+
+    if (ticker1_flag == True):
+        # 定时器1中断回调函数内进行小车控制和传感器数据更新
+        # 更新传感器数据
+        pose_data.update_data()
+
+        # 初始化pid参数
+        if motor_ul_pid.target >= 400:
+            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+        elif motor_ul_pid.target >= 200:
+            motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
+        else:
+            motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+            
+        if motor_ur_pid.target >= 400:
+            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+        elif motor_ur_pid.target >= 200:
+            motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
+        else:
+            motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+
+        if motor_md_pid.target >= 400:
+            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+        elif motor_md_pid.target >= 200:
+            motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
+        else:
+            motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+
+        # 更新小车姿态
+        my_car.update_pose()
+
+        if (ticker1_count % 5 == 0):
+            # 状态机（10ms）
+            collaborative_task_machine()
+        
+        if (ticker1_count % 3 == 0):
+            # 角度环计算（6ms）
+            angle_pid_compute()
+
+        # 总控制函数
+        master_control()
+
+        # 设置电机pwm输出
+        my_car.set_motor_pwm()
+
+        if (ticker1_count % 25 == 0):
+            # 串口调试信息输出（50ms）
+            pass
+
+        # 重置定时器1标志位
+        ticker1_flag = False
 
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段

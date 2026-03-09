@@ -439,9 +439,9 @@ class CarPose:
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
-        self.now_yaw = 0.0  # type: float
+        self.now_yaw = 0.0     # type: float
         # 采集周期，单位：秒
-        self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
+        self.collect_dt = 0.002 # type: float  
         # 测试一个电机的里程
         # self.encouder_ul = 0.0    
         # self.encouder_ur = 0.0
@@ -527,7 +527,7 @@ class CarPose:
         # 计算各个电机的目标速度
         motor_ul_speed_target = self.car_speed_w_target + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
         motor_ur_speed_target = self.car_speed_w_target + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
-        motor_md_speed_target = self.car_speed_w_target - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd
+        motor_md_speed_target = self.car_speed_w_target - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd 
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
