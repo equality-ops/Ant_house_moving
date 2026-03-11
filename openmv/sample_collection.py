@@ -22,14 +22,19 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 
 
-save_img_num = 0
+save_img_num = 665
+count = -100
+
 while(True):
     img = sensor.snapshot()             # 获取一幅图像
-    blue.toggle()                       # 蓝灯翻转
-
-    # 修改文件名称，准备保存
-    save_img_num += 1
-    image_pat = "/sd/picture/"+str(save_img_num)+".jpg"
-
-    # 将拷贝之后的图像保存到sd卡
-    img.save(image_pat,quality=99)
+    # blue.toggle()                       # 蓝灯翻转
+    
+    count += 1
+    
+    if (count % 20) == 0 and count > 0:
+        # 修改文件名称，准备保存
+        save_img_num += 1
+        image_pat = "/sd/picture/"+str(save_img_num)+".jpg"
+    
+        # 将拷贝之后的图像保存到sd卡
+        img.save(image_pat,quality=99)
