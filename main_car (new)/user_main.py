@@ -61,15 +61,15 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , False)
-encoder_ur = encoder("D13", "D14", False)
-encoder_md = encoder("D15", "D16", True)
+encoder_ul = encoder("D16", "D15", True)
+encoder_ur = encoder("D13", "D14", True)
+encoder_md = encoder("C2" , "C3" ,True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -142,10 +142,6 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
@@ -158,13 +154,13 @@ sin_servo_fil = ant_motor.SlipAveragingFilter(5)
 cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
 motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
 motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
-angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
+angle_pid = ant_motor.AnglePositionPID(my_flash_sys, pose_data)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
@@ -826,9 +822,21 @@ def main_start():
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
-    # motor_ul_pid.compute_pid(450, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(450, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(450, pose_data.encoder_data_md)
+    global counter
+    counter += 1
+    # motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(50, pose_data.encoder_data_md)
+    if counter >= 6000:
+        counter = 0
+    elif counter >= 4500:
+        motor_ur_pid.compute_pid(150, pose_data.encoder_data_ur)
+    elif counter >= 3000:
+        motor_ur_pid.compute_pid(80, pose_data.encoder_data_ur)
+    elif counter >= 1500:
+        motor_ur_pid.compute_pid(180, pose_data.encoder_data_ur)
+    else:
+        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
     
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
@@ -879,7 +887,7 @@ while True:
         my_car.update_pose()
         
         # show_speed_PID_test()
-        # complete_angle_circle()
+        complete_angle_circle()
         
         if (ticker1_count % 5 == 0):
             # 状态机（10ms）
@@ -896,12 +904,13 @@ while True:
             
             pass
         
-        if (ticker1_count % 3 == 0):
-            # 角度环计算（6ms）
+        # 角度环计算（12ms）
+        if (ticker1_count % 6 == 0):       
             angle_pid_compute()
+            pass
 
         # 总控制函数
-        master_control()
+        # master_control()
 
         # 设置电机pwm输出
         my_car.set_motor_pwm()
@@ -909,10 +918,11 @@ while True:
         if (ticker1_count % 12 == 0):
             # 串口调试信息输出（24ms）
             # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+            my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
             # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
             # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
-            my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+            # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2, pose_data.encoder_data_ur, pose_data.encoder_data_ur_2, pose_data.encoder_data_md, pose_data.encoder_data_md_2))
             pass
 
         # 重置定时器1标志位

@@ -2,55 +2,60 @@
 
 ###################【PID参数】####################
 # speed大于400，小于600时
-ul_high_kp = 25.0
-ul_high_ki = 0.2
+ul_high_kp = 22.0
+ul_high_ki = 0.16
 ul_high_kd = 20.0
-ur_high_kp = 25.0
-ur_high_ki = 0.2
+ur_high_kp = 22.0
+ur_high_ki = 0.16
 ur_high_kd = 20.0
-md_high_kp = 25.0
-md_high_ki = 0.2
+md_high_kp = 22.0
+md_high_ki = 0.16
 md_high_kd = 20.0
 # speed大于200，小于400时
 ul_mid_kp = 20.0
 ul_mid_ki = 0.15
-ul_mid_kd = 15.0
+ul_mid_kd = 20.0
 ur_mid_kp = 20.0
 ur_mid_ki = 0.15
-ur_mid_kd = 15.0
+ur_mid_kd = 20.0
 md_mid_kp = 20.0
-md_mid_ki = 0.15
-md_mid_kd = 15.0
+md_mid_ki = 0.14
+md_mid_kd = 25.0
 # speed小于200时
 ul_low_kp = 10.0
-ul_low_ki = 0.1
-ul_low_kd = 10.0
-ur_low_kp = 10.0
+ul_low_ki = 0.15
+ul_low_kd = 30.0
+ur_low_kp = 12.0
 ur_low_ki = 0.1
-ur_low_kd = 10.0
-md_low_kp = 14.0
-md_low_ki = 0.1
-md_low_kd = 10.0
-kv = 8
-angle_normal_kp = 8.0
-angle_normal_ki = 0.0
-angle_normal_kd = 20.0
-integral_limitmax = 14000
+ur_low_kd = 40.0
+md_low_kp = 12.0
+md_low_ki = 0.12
+md_low_kd = 40.0	
+# 前馈系数
+kv = 16
+integral_limitmax = 11000
 pwmout_limitmax = 8000
-high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 200
 # A设置为B的2倍左右
 A = 500
 # B大致为最大静差的1.5倍
 B = 200
 
+angle_kp = 20.0
+angle_kp2 = 2.0
+angle_kd = 0.0
+# 已弃用
+angle_normal_kp = 0.0
+angle_normal_ki = 0.0
+angle_normal_kd = 0.0
+# 角速度负反馈系数（gkd应为负）
+gkd = -0.6
+high_angle_pwmout_limitmax = 1000
+low_angle_pwmout_limitmax = 400
 ###################【系数】####################
 # 速度转换系数(不需要调试)
 speed_conversion_gamma = 0.372928
-# 角速度负反馈系数（gkd应为负）
-gkd = -0.4
 # 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.2
+speed_fuse_ratio = 0.4
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.164164
 
@@ -67,9 +72,9 @@ plan_arrive_threshold = 2.0
 plan_point_transition_T = 2
 
 ###################【速度规划】####################
-min_start_v = 100
-long_v_max = 400
-short_v_max = 250
+min_start_v = 50
+long_v_max = 150
+short_v_max = 200
 dead_zone_v = 50
 transit_v = 200
 orbit_v = 150

@@ -224,7 +224,7 @@ class VisionManager:
                 diff = abs(self.target_angle - self.my_car.now_yaw * 180 / self.MATH.PI)
                 if diff > 180.0:
                     diff = 360.0 - diff
-                if diff <= 0.5:	
+                if diff <= 1.0:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
