@@ -1,4 +1,4 @@
-# 修改时间 3.10	00:56
+# 修改时间 3.12  23：00
 
 ###################【PID参数】####################
 # speed大于400，小于600时
@@ -40,24 +40,29 @@ A = 500
 # B大致为最大静差的1.5倍
 B = 200
 
-angle_kp = 20.0
-angle_kp2 = 2.0
-angle_kd = 0.0
+angle_kp = 60.0
+angle_kp2 = 0.0
+angle_kd = 20.0
 # 已弃用
 angle_normal_kp = 0.0
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
+#
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.6
-high_angle_pwmout_limitmax = 1000
-low_angle_pwmout_limitmax = 400
+gkd = -1.3
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 200
 ###################【系数】####################
 # 速度转换系数(不需要调试)
-speed_conversion_gamma = 0.372928
+speed_conversion_gamma = 1.096806
 # 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.4
+speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.164164
+# 横向防滑补偿系数
+k_xy = 0.0
+# 里程计打滑补偿系数
+k_slip_xy = 0.0
 
 ###################【时间规划】####################
 motor_control_T = 2
@@ -69,11 +74,11 @@ boost_time_threshold = 60
 
 ###################【路径规划】####################
 plan_arrive_threshold = 2.0
-plan_point_transition_T = 2
+plan_point_transition_T = 20
 
 ###################【速度规划】####################
 min_start_v = 50
-long_v_max = 150
+long_v_max = 200
 short_v_max = 200
 dead_zone_v = 50
 transit_v = 200

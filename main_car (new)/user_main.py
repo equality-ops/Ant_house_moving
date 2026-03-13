@@ -134,18 +134,18 @@ my_main_protocol = ant_else.LinkProtocol(my_uart3)
 pid_data = ant_motor.PID_data(my_flash_sys)
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_ul = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
+diff_filter_ur = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
+diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为5个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(10)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
-speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 2.0)
+speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 2.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(8)
+car_yaw_fil = ant_motor.SlipAveragingFilter(10)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
@@ -887,14 +887,14 @@ while True:
         my_car.update_pose()
         
         # show_speed_PID_test()
-        complete_angle_circle()
+        # complete_angle_circle()
         
         if (ticker1_count % 5 == 0):
             # 状态机（10ms）
             # collaborative_task_machine()
             
             if my_state.state == my_state.NAVIGATE:
-                my_plan.navigate([[60.0, 0.0], [60.0, -60.0], [0.0, -60.0], [0.0, 0.0]], 0.0)
+                my_plan.navigate([[-220.0, 0.0], [0.0, 0.0]], 0.0)
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_state.state = my_state.STOP
@@ -904,13 +904,11 @@ while True:
             
             pass
         
-        # 角度环计算（12ms）
-        if (ticker1_count % 6 == 0):       
-            angle_pid_compute()
-            pass
+        # 角度环计算（2ms）
+        # angle_pid_compute()
 
         # 总控制函数
-        # master_control()
+        master_control()
 
         # 设置电机pwm输出
         my_car.set_motor_pwm()
@@ -918,11 +916,18 @@ while True:
         if (ticker1_count % 12 == 0):
             # 串口调试信息输出（24ms）
             # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-            my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
             # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+            # my_uart3.write(f"{motor_ul_pid.pwm_output},{motor_ur_pid.pwm_output},{motor_md_pid.pwm_output},\n")
             # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
-            # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+            # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+            # my_uart3.write(f"{pose_data.gyro_y * angle_pid.gkd}, {pose_data.gyro_y}, {pose_data.imu_data[4] * angle_pid.gkd}, {pose_data.imu_data[4]}\n")
             # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2, pose_data.encoder_data_ur, pose_data.encoder_data_ur_2, pose_data.encoder_data_md, pose_data.encoder_data_md_2))
+            # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+            # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+            # my_uart3.write(f"{my_car.car_speed_x_target},{my_car.car_speed_y_target}\r\n")
+            # my_uart3.write(f"{my_car.car_speed_x},{my_car.car_speed_x_2},{my_car.car_speed_y},{my_car.car_speed_y_2}\n")
+            my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
             pass
 
         # 重置定时器1标志位
@@ -935,4 +940,4 @@ while True:
         gc.collect()
         break
 
-    gc.collect()
+    gc.collect()	

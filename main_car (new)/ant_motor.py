@@ -270,6 +270,11 @@ class SpeedPositionPID(ControlPID):
         # 对微分项进行滑动平均滤波
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
+        # 当目标速度较小时，直接将输出置0（避免积分反向时产生过大输出）
+        if abs(self.target) <= 5:
+            self.pwm_output = 0
+            return 
+        
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
@@ -314,6 +319,7 @@ class AnglePositionPID(ControlPID):
 
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError + self.kp2 * abs(self.nowError) * self.nowError + self.kd * self.derivative + self.gkd * self.pose_data.gyro_y
+        # self.pwm_output = self.kp * self.nowError + self.kp2 * abs(self.nowError) * self.nowError + self.kd * self.derivative + self.gkd * self.pose_data.imu_data[4]
 
         # pwm_output限幅
         self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
@@ -407,6 +413,8 @@ class CarPose:
         self.car_speed_x = 0.0  # type: float
         self.car_speed_y = 0.0  # type: float
         self.car_speed_w = 0.0  # type: float
+        self.car_speed_x_2 = 0.0  # type: float
+        self.car_speed_y_2 = 0.0  # type: float
         # 小车在世界坐标系下的速度
         self.real_speed_x = 0.0  # type: float
         self.real_speed_y = 0.0  # type: float
@@ -427,9 +435,10 @@ class CarPose:
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
-        self.beta_x = 1.0  # type: float
-        self.beta_y = 1.0  # type: float
-        self.beta_z = 1.0  # type: float
+        # 横向防滑耦合补偿系数
+        self.k_xy = self.flash_sys.find_value("k_xy")  # type: float
+        # 里程计打滑补偿系数
+        self.k_slip_xy = self.flash_sys.find_value("k_slip_xy")
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
@@ -449,19 +458,23 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        #self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
+        # self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
         # self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
         # self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
 
         # 当小车为停止状态时不计算速度，直接将速度置0（避免编码器抖动时积分产生误差）
         if self.my_state.state != self.my_state.STOP:
+            # ================== 【新增：里程计打滑补偿】 ==================
             # 计算小车当前x,y速度（互补融合）
             # car_speed_x, car_speed_y 单位：厘米每5ms
             self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
             self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
+            
+            # 物理上，当 X 轴有巨大速度时，Y 轴其实产生了不可见的滑动速度
+            self.car_speed_y =  self.car_speed_y + self.k_slip_xy * self.car_speed_x
             # 对小车x,y速度卡尔曼滤波
-            self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
-            self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
+            # self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
+            # self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
         else:
             self.car_speed_x, self.car_speed_y = 0.0, 0.0
 
@@ -500,17 +513,17 @@ class CarPose:
         elif move_angle_target < -180.0:
             move_angle_target += 360.0
 
-        # 设置目标转角
-        self.turn_angle_target = turn_angle_target
-
         # 将move_angle_target转换为弧度
         move_angle_target = move_angle_target * self.MATH.PI / 180
         
+        # 对小车的姿态角进行滤波
+        filter_yaw = self.car_yaw_filter.car_yaw_filtering(self.now_yaw * 180 / self.MATH.PI)
+        # 计算z轴的目标速度
+        self.angle_pid.compute_pid(turn_angle_target, filter_yaw)
+
         # 设置小车在世界坐标系下的目标速度
         self.real_speed_x_target = move_speed_target * math.sin(move_angle_target)
         self.real_speed_y_target = move_speed_target * math.cos(move_angle_target)
-        # 计算角度pid得到转角pwm输出
-        # 角度环在6ms中断内
         self.real_speed_w_target = self.angle_pid.pwm_output
 
         # 转换到小车坐标系下的目标速度
@@ -518,10 +531,16 @@ class CarPose:
         self.car_speed_y_target = move_speed_target * math.cos(move_angle_target - self.now_yaw)
         self.car_speed_w_target = self.real_speed_w_target
 
+        # ================== 【新增：横向防滑耦合补偿】 ==================
+        # 这里的 k_xy 是补偿系数。含义：当小车在 X 轴平移时，物理上会往 Y 轴打滑。
+        # 我们人为在 Y 轴目标中加入一个与 X 轴速度成正比的反向速度来抵消它。
+        # 你需要根据实际漂移方向去试凑这个系数，通常在 0.02 到 0.15 之间（也可能是负数）。 
+        car_speed_y_target_comp = self.car_speed_y_target - self.k_xy * self.car_speed_x_target
+
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5
-        motor_ur_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5
-        motor_md_speed_target = self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target
+        motor_ul_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target + car_speed_y_target_comp * self.MATH.SQRT3) * 0.5
+        motor_ur_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target - car_speed_y_target_comp * self.MATH.SQRT3) * 0.5
+        motor_md_speed_target = self.car_speed_w_target / 3 - self.car_speed_x_target
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
