@@ -2,36 +2,36 @@
 
 ###################【PID参数】####################
 # speed大于400，小于600时
-ul_high_kp = 75.0
-ul_high_ki = 0.45
-ul_high_kd = 30.0
-ur_high_kp = 75.0
-ur_high_ki = 0.45
-ur_high_kd = 30.0
-md_high_kp = 75.0
-md_high_ki = 0.45
-md_high_kd = 30.0
+ul_high_kp = 22.0
+ul_high_ki = 0.16
+ul_high_kd = 20.0
+ur_high_kp = 22.0
+ur_high_ki = 0.16
+ur_high_kd = 20.0
+md_high_kp = 22.0
+md_high_ki = 0.16
+md_high_kd = 20.0
 # speed大于200，小于400时
-ul_mid_kp = 62.0
-ul_mid_ki = 0.35
+ul_mid_kp = 20.0
+ul_mid_ki = 0.15
 ul_mid_kd = 20.0
-ur_mid_kp = 62.0
-ur_mid_ki = 0.35
-ur_mid_kd = 30.0
-md_mid_kp = 62.0
-md_mid_ki = 0.35
-md_mid_kd = 20.0
+ur_mid_kp = 20.0
+ur_mid_ki = 0.15
+ur_mid_kd = 20.0
+md_mid_kp = 20.0
+md_mid_ki = 0.14
+md_mid_kd = 25.0
 # speed小于200时
-ul_low_kp = 50.0
-ul_low_ki = 0.2
-ul_low_kd = 15.0
-ur_low_kp = 50.0
-ur_low_ki = 0.2
-ur_low_kd = 15.0
-md_low_kp = 50.0
-md_low_ki = 0.22
-md_low_kd = 15.0
-
+ul_low_kp = 10.0
+ul_low_ki = 0.15
+ul_low_kd = 30.0
+ur_low_kp = 12.0
+ur_low_ki = 0.1
+ur_low_kd = 40.0
+md_low_kp = 12.0
+md_low_ki = 0.12
+md_low_kd = 40.0
+kv = 16
 angle_normal_kp = 10.0
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0

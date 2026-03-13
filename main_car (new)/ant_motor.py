@@ -131,9 +131,9 @@ class PoseData:
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
         # 测试
-        # self.encoder_data_ul_2 = 0    # type: int
-        # self.encoder_data_ur_2 = 0    # type: int
-        # self.encoder_data_md_2 = 0    # type: int
+        self.encoder_data_ul_2 = 0    # type: int
+        self.encoder_data_ur_2 = 0    # type: int
+        self.encoder_data_md_2 = 0    # type: int
         self.gyro_y_bias = 0.0       # type: float
         self.gyro_y_supply = self.flash_sys.find_value("gyro_y_supply")
         self.gyro_y = 0.0             # type: float
@@ -186,13 +186,13 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
-        self.encoder_data_ul = self.encoder_ul.get()
-        self.encoder_data_ur = self.encoder_ur.get()
-        self.encoder_data_md = self.encoder_md.get()
+        self.encoder_data_ul = self.encoder_ul.get() * 4
+        self.encoder_data_ur = self.encoder_ur.get() * 4
+        self.encoder_data_md = self.encoder_md.get() * 4
         # 对编码器数据进行卡尔曼滤波
-        self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
-        self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
-        self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
+        self.encoder_data_ul_2 = int(self.encoder_ul_fil.update(self.encoder_data_ul))
+        self.encoder_data_ur_2 = int(self.encoder_ur_fil.update(self.encoder_data_ur))
+        self.encoder_data_md_2 = int(self.encoder_md_fil.update(self.encoder_data_md))
         # 测试
         # self.encoder_data_ul_2 = int(self.encoder_ul_fil.update(self.encoder_data_ul))
         # self.encoder_data_ur_2 = int(self.encoder_ur_fil.update(self.encoder_data_ur))
@@ -223,6 +223,7 @@ class SpeedPositionPID(ControlPID):
         self.kp = 0.0        # type: float
         self.ki = 0.0       # type: float
         self.kd = 0.0       # type: float
+        self.kv = self.flash_sys.find_value("kv")  # type: float  # 速度前馈系数
         self.target = 0     # type: int
         self.actual = 0     # type: int
         self.nowError = 0   # type: int
@@ -273,8 +274,13 @@ class SpeedPositionPID(ControlPID):
         # 对微分项进行滑动平均滤波
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
+        # 当目标速度较小时，直接将pwm输出置0（避免编码器抖动时积分产生误差）
+        if self.target <= 5:
+            self.pwm_output = 0
+            return 
+        
         # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative
+        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
@@ -525,9 +531,9 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.car_speed_w_target + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
-        motor_ur_speed_target = self.car_speed_w_target + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
-        motor_md_speed_target = self.car_speed_w_target - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd
+        motor_ul_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
+        motor_ur_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
+        motor_md_speed_target = self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
