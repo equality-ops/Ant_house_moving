@@ -2,7 +2,7 @@ import math
 
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, car, protocol, order_manager, plan, state):
+    def __init__(self, flash_sys, beep, math, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -20,10 +20,12 @@ class VisionManager:
         # 注入无线串口对象，用于调试
         self.my_uart3 = my_uart3
         # 注入TOF测距对象，用于测距
+        """
         self.my_tof = tof
         self.tof_distance = 0       # type: float # TOF测距值
         self.tof_buffer = []        # type: list  # TOF测距缓存列表
         self.tof_distance_fil = tof_distance_fil     # TOF测距滤波器对象
+        """
         # 注入小车姿态控制对象
         self.my_car = car
         # 注入通信协议对象
@@ -150,6 +152,7 @@ class VisionManager:
              # 保持静止采集tof数据
             self.orbit_speed = 0
             if self.my_state.state == self.my_state.ORBIT:
+                """
                 # 当时视觉伺服对象不是bear则打开tof
                 if len(self.tof_buffer) <= 35:          
                     # 获取TOF测距值，并添加到缓冲区
@@ -157,28 +160,31 @@ class VisionManager:
                     # 测试
                     # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
                 else:
-                    # 计算最终的TOF测距值（去除前5个的平均值）
-                    self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
-                    if self.current_servo_object != ord('B'):
-                        # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
-                        self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
-                    else:
-                        self.orbit_radius = self.object_radius / 5
-                    self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
-                    self.target_angle = self.record_angle + target_angle
-                    # 限制目标角度在-180到180度之间
-                    if self.target_angle > 180.0:
-                        self.target_angle -= 360.0
-                    elif self.target_angle < -180.0:
-                        self.target_angle += 360.0
-                    # 确定旋转方向（顺时针还是逆时针）
-                    if target_angle >= 0.0:
-                        self.direct = 0
-                    else:
-                        self.direct = 1 
-                    self.current_dis = 0.0
-                    self.if_gain_dis = True
-                    self.tof_buffer.clear()
+                
+                # 计算最终的TOF测距值（去除前5个的平均值）
+                self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
+                if self.current_servo_object != ord('B'):
+                    # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
+                    self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
+                else:
+                """
+                self.orbit_radius = self.object_radius / 5
+                self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
+                self.target_angle = self.record_angle + target_angle
+                # 限制目标角度在-180到180度之间
+                if self.target_angle > 180.0:
+                    self.target_angle -= 360.0
+                elif self.target_angle < -180.0:
+                    self.target_angle += 360.0
+                # 确定旋转方向（顺时针还是逆时针）
+                if target_angle >= 0.0:
+                    self.direct = 0
+                else:
+                    self.direct = 1 
+                self.current_dis = 0.0
+                self.if_gain_dis = True
+                
+                    # self.tof_buffer.clear()
                     # 测试
                     # self.my_beep.test()
                     # self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
@@ -273,7 +279,7 @@ class VisionManager:
             if self.calibrate_times == 1:
                 if self.counter != -1:
                     self.counter += 1
-                if self.counter >= 50:
+                if self.counter >= 10:
                     self.counter = -1
                     self.if_gain_calibrate_angle = False
                     # 测试
@@ -346,7 +352,7 @@ class VisionManager:
                             self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
                             # 当横移角度过大时，速度折半
                             if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                                self.target_rel_speed = int(self.target_rel_speed * 0.5)
+                                self.target_rel_speed = int(self.target_rel_speed * 0.8)
                             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1

@@ -31,6 +31,8 @@ last_left_time = 0
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
+# 是否操控从车提前到达目标点就位标志位
+if_send_preparing_path = False
 DOWN = 1         # 位于矩形下边沿
 UP = 2           # 位于矩形上边沿
 CHECK = 3        # 检验阶段（检查是否搬运完所有物体）
@@ -77,7 +79,7 @@ encoder_md = encoder("D15", "D16", True)
 imu = IMU660RX()
 
 # tof深度传感器初始化
-tof = DL1X()
+# tof = DL1X()
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -149,7 +151,7 @@ encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建tof测距滤波器对象
-tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 # 创建主车正余弦滑动平均滤波器对象
@@ -181,7 +183,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -205,10 +207,12 @@ def voltage_detect(limit_min: float) -> None:
         my_beep.beep_warn()
 
 # tof传感器预热初始化函数
+"""
 def tof_init():
     for i in range(0, 30):
         tof.get()
         time.sleep_ms(5)
+"""
 
 # 角度环计算函数
 def angle_pid_compute():
@@ -369,42 +373,49 @@ def test_apriltag_calibrate():
 
 # 双车版的任务执行机
 def collaborative_task_machine():
-    global counter
+    global counter, if_send_preparing_path
     if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
-                my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    if my_vision_manager.failed_servo_count >= 2:
-                        my_vision_manager.failed_servo_count = 0
-                        my_state.state = my_state.NAVIGATE
-                        my_state.state_work = UP
-                    else:
-                        my_state.state = my_state.SCAN
-                        my_vision_manager.my_order_manager.mode_target()
-                    # 测试
-                    my_beep.test()
-        elif my_state.state == my_state.SCAN:
-                my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
-                if my_plan.finish_navigate == False:
-                    target_point = my_art_protocol.coordinate_receive()
-                    if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
-                        my_vision_manager.current_servo_object = target_point[2]
-                        # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
-                        sin_servo_fil.buffer_init(my_plan.scan_v_max)
-                        cos_servo_fil.buffer_init(0)
-                        ready_servo_and_orbit()
-                        reset_navigate_flags()
-                        my_state.state = my_state.SERVO
-                else:
-                    my_plan.finish_navigate = False
-                    # 此时矩形下区域已没有物体，控制小车移动到上区域寻找物体
-                    my_state.state_work = UP
+            if if_send_preparing_path == False:
+                my_main_protocol.send_path(ord('P'), [[160.0, 20.0]])
+                if_send_preparing_path = True
+
+            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
+            if my_plan.finish_navigate == True:
+                # 重置标志位
+                my_plan.finish_navigate = False
+                if my_vision_manager.failed_servo_count >= 2:
+                    my_vision_manager.failed_servo_count = 0
                     my_state.state = my_state.NAVIGATE
-                    # 将openart置为等待模式
-                    my_order_manager.finish()
-                    # 测试
-                    my_beep.test()
+                    my_state.state_work = UP
+                    if_send_preparing_path = False
+                else:
+                    my_state.state = my_state.SCAN
+                    my_vision_manager.my_order_manager.mode_target()
+                # 测试
+                my_beep.test()
+        elif my_state.state == my_state.SCAN:
+            my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
+            if my_plan.finish_navigate == False:
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                    my_vision_manager.current_servo_object = target_point[2]
+                    # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
+                    sin_servo_fil.buffer_init(my_plan.scan_v_max)
+                    cos_servo_fil.buffer_init(0)
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_state.state = my_state.SERVO
+            else:
+                my_plan.finish_navigate = False
+                if_send_preparing_path = False
+                # 此时矩形下区域已没有物体，控制小车移动到上区域寻找物体
+                my_state.state_work = UP
+                my_state.state = my_state.NAVIGATE
+                # 将openart置为等待模式
+                my_order_manager.finish()
+                # 测试
+                my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
@@ -523,19 +534,25 @@ def collaborative_task_machine():
                 my_beep.test() 
     elif my_state.state_work == UP:
         if my_state.state == my_state.NAVIGATE:
-                my_plan.navigate([[plan_data.fixed_point[2][0], plan_data.fixed_point[2][1]]], 180.0)
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    if my_vision_manager.failed_servo_count >= 2:
-                        my_vision_manager.failed_servo_count = 0
-                        my_state.state_work = CHECK
-                        my_state.state = my_state.SCAN
-                        my_vision_manager.my_order_manager.mode_target()
-                    else:
-                        my_state.state = my_state.SCAN
-                        my_vision_manager.my_order_manager.mode_target()
-                    # 测试
-                    my_beep.test()
+            if if_send_preparing_path == False:
+                # 操控从车从矩形区域左边沿行驶
+                my_main_protocol.send_path(ord('P'), [[110.0, 220.0], [160.0, 220.0]])
+                # 之后不用再重置该标志位
+                if_send_preparing_path = True
+                
+            my_plan.navigate([[plan_data.fixed_point[2][0], plan_data.fixed_point[2][1]]], 180.0)
+            if my_plan.finish_navigate == True:
+                my_plan.finish_navigate = False
+                if my_vision_manager.failed_servo_count >= 2:
+                    my_vision_manager.failed_servo_count = 0
+                    my_state.state_work = CHECK
+                    my_state.state = my_state.SCAN
+                    my_vision_manager.my_order_manager.mode_target()
+                else:
+                    my_state.state = my_state.SCAN
+                    my_vision_manager.my_order_manager.mode_target()
+                # 测试
+                my_beep.test()
         elif my_state.state == my_state.SCAN:
                 my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
                 if my_plan.finish_navigate == False:
@@ -899,8 +916,8 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    pit3.capture_list(tof)
-    tof_init()
+    # pit3.capture_list(tof)
+    # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 

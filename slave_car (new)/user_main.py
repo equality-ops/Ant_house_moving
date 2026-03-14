@@ -79,7 +79,7 @@ encoder_md = encoder("D15", "D16", True)
 imu = IMU660RX()
 
 # tof深度传感器初始化
-tof = DL1X()
+# tof = DL1X()
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -151,7 +151,7 @@ encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 # 创建tof测距滤波器对象
-tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 # 创建主车正余弦滑动平均滤波器对象
@@ -183,7 +183,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, tof, tof_distance_fil, my_car, my_art_protocol, my_order_manager, my_plan)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -207,10 +207,12 @@ def voltage_detect(limit_min: float) -> None:
         my_beep.beep_warn()
 
 # tof传感器预热初始化函数
+"""
 def tof_init():
     for i in range(0, 30):
         tof.get()
         time.sleep_ms(5)
+"""
 
 # 角度环计算函数
 def angle_pid_compute():
@@ -455,39 +457,43 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
                 # 当传来的坐标点的纵坐标大于170.0时，将状态工作设为UP，控制小车绕到矩形上边沿
-                if plan_data.current_path[0][1] > 170.0:
+                if plan_data.current_path[0][1] > 170.0 and my_slave_protocol.aimed_object == 'P':
                     my_state.state_work = UP
                     return 
                 # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
-                elif abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1:
+                elif abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1 and my_slave_protocol.aimed_object == 'P':
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
                     return
         elif my_state.state == my_state.NAVIGATE:
             my_plan.navigate(plan_data.current_path, 0.0)
             if my_plan.finish_navigate == True:
-                if my_vision_manager.if_send_servo_command == False:
-                    my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
-                target_point = my_art_protocol.coordinate_receive()
-                # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
-                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
-                    counter = 0
-                    my_vision_manager.current_servo_object = target_point[2]
-                    ready_servo_and_orbit()
-                    reset_navigate_flags()
-                    my_state.state = my_state.SERVO
+                if my_slave_protocol.aimed_object == 'P':
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.READY_NAVIGATE
                 else:
-                    counter += 1
-                    # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
-                    if counter >= 300:
+                    if my_vision_manager.if_send_servo_command == False:
+                        my_vision_manager.my_order_manager.mode_target()
+                        my_vision_manager.if_send_servo_command = True
+                    target_point = my_art_protocol.coordinate_receive()
+                    # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
+                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         counter = 0
-                        my_vision_manager.if_lost_object = True
+                        my_vision_manager.current_servo_object = target_point[2]
+                        ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
-                        my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                        # 测试
-                        my_beep.test()
+                    else:
+                        counter += 1
+                        # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                        if counter >= 300:
+                            counter = 0
+                            my_vision_manager.if_lost_object = True
+                            reset_navigate_flags()
+                            my_state.state = my_state.SERVO
+                            my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                            # 测试
+                            my_beep.test()
 
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
@@ -604,35 +610,40 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
                 # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
-                if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1:
+                if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1 and my_slave_protocol.aimed_object == 'P':
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
                     return
         elif my_state.state == my_state.NAVIGATE:
             my_plan.navigate(plan_data.current_path, 180.0)
             if my_plan.finish_navigate == True:
-                if my_vision_manager.if_send_servo_command == False:
-                    my_vision_manager.my_order_manager.mode_target()
-                    my_vision_manager.if_send_servo_command = True
-                target_point = my_art_protocol.coordinate_receive()
-                # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
-                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
-                    counter = 0
-                    my_vision_manager.current_servo_object = target_point[2]
-                    ready_servo_and_orbit()
-                    reset_navigate_flags()
-                    my_state.state = my_state.SERVO
+                # 按照主车发送的路径提前移动到指定的矩形边沿附近
+                if my_slave_protocol.aimed_object == 'P':
+                    my_plan.finish_navigate = False
+                    my_state.state = my_state.READY_NAVIGATE
                 else:
-                    counter += 1
-                    # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
-                    if counter >= 300:
+                    if my_vision_manager.if_send_servo_command == False:
+                        my_vision_manager.my_order_manager.mode_target()
+                        my_vision_manager.if_send_servo_command = True
+                    target_point = my_art_protocol.coordinate_receive()
+                    # 与主车发送的物体种类进行对比，若相同则开始搬运，否则lost
+                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         counter = 0
-                        my_vision_manager.if_lost_object = True
+                        my_vision_manager.current_servo_object = target_point[2]
+                        ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
-                        my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                        # 测试
-                        my_beep.test()
+                    else:
+                        counter += 1
+                        # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                        if counter >= 300:
+                            counter = 0
+                            my_vision_manager.if_lost_object = True
+                            reset_navigate_flags()
+                            my_state.state = my_state.SERVO
+                            my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+                            # 测试
+                            my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
@@ -924,8 +935,8 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    pit3.capture_list(tof)
-    tof_init()
+    # pit3.capture_list(tof)
+    # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
