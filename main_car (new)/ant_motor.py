@@ -110,7 +110,7 @@ class ToFFilter:
     
     
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
+    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器对象
@@ -119,7 +119,7 @@ class PoseData:
         self.encoder_ur = encoder_ur
         self.encoder_md = encoder_md
         # 注入滤波器对象
-        self.diff_filter_gyroy = diff_filter_gyroy
+        self.diff_filter_gyroz = diff_filter_gyroz
         # 注入编码器卡尔曼滤波器对象
         self.encoder_ul_fil = encoder_ul_fil
         self.encoder_ur_fil = encoder_ur_fil

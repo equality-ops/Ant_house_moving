@@ -1,94 +1,98 @@
-# 修改时间 3.6	23:24
+# 修改时间 3.14  13:53
 
 ###################【PID参数】####################
-# speed大于400，小于600时
-ul_high_kp = 75.0
-ul_high_ki = 0.45
-ul_high_kd = 30.0
-ur_high_kp = 75.0
-ur_high_ki = 0.45
-ur_high_kd = 30.0
-md_high_kp = 75.0
-md_high_ki = 0.45
-md_high_kd = 30.0
-# speed大于200，小于400时
-ul_mid_kp = 62.0
-ul_mid_ki = 0.35
-ul_mid_kd = 20.0
-ur_mid_kp = 62.0
-ur_mid_ki = 0.35
-ur_mid_kd = 30.0
-md_mid_kp = 62.0
-md_mid_ki = 0.35
-md_mid_kd = 20.0
-# speed小于200时
-ul_low_kp = 50.0
-ul_low_ki = 0.2
-ul_low_kd = 15.0
-ur_low_kp = 50.0
-ur_low_ki = 0.2
-ur_low_kd = 15.0
-md_low_kp = 50.0
-md_low_ki = 0.22
-md_low_kd = 15.0
-
-angle_normal_kp = 15.0
-angle_normal_ki = 0.0
-angle_normal_kd = 20.0
-integral_limitmax = 14000
+# speed大于250，小于600时
+ul_high_kp = 30.0
+ul_high_ki = 0.14
+ul_high_kd = 50.0
+ur_high_kp = 30.0
+ur_high_ki = 0.14
+ur_high_kd = 50.0
+md_high_kp = 30.0
+md_high_ki = 0.14
+md_high_kd = 50.0
+# speed大于120，小于250时
+ul_mid_kp = 25.0
+ul_mid_ki = 0.12
+ul_mid_kd = 50.0
+ur_mid_kp = 25.0
+ur_mid_ki = 0.11
+ur_mid_kd = 60.0
+md_mid_kp = 25.0
+md_mid_ki = 0.12
+md_mid_kd = 50.0
+# speed小于120时
+ul_low_kp = 20.0
+ul_low_ki = 0.1
+ul_low_kd = 50.0
+ur_low_kp = 20.0
+ur_low_ki = 0.1
+ur_low_kd = 50.0
+md_low_kp = 20.0
+md_low_ki = 0.1
+md_low_kd = 50.0	
+# 前馈系数
+kv = 18
+integral_limitmax = 11000
 pwmout_limitmax = 8000
-high_angle_pwmout_limitmax = 600
-low_angle_pwmout_limitmax = 200
 # A设置为B的2倍左右
-A = 500
+A = 80
 # B大致为最大静差的1.5倍
-B = 200
+B = 20
 
+angle_normal_kp = 30.0
+angle_normal_ki = 0.0
+angle_normal_kd = 0.0
+# 角速度负反馈系数（gkd应为负）
+gkd = -0.25
+high_angle_pwmout_limitmax = 500
+low_angle_pwmout_limitmax = 450
 ###################【系数】####################
 # 速度转换系数(不需要调试)
-speed_conversion_gamma = 0.372928
-# 角速度负反馈系数（gkd应为负）
-gkd = -0.19
+speed_conversion_gamma = 1.096806
 # 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.2
+speed_fuse_ratio = 0.5
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.164164
+# 陀螺仪融合系数（可修改）
+gyro_fuse_ratio = 0.4
 
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 53
+uart_and_menu_T = 20
+# 已弃用
 boost_time_threshold = 60
 
 ###################【路径规划】####################
 plan_arrive_threshold = 2.0
-plan_point_transition_T = 5
+plan_point_transition_T = 20
 
 ###################【速度规划】####################
-min_start_v = 40
-long_v_max = 450
-short_v_max = 250
+min_start_v = 50
+long_v_max = 200
+short_v_max = 120
 dead_zone_v = 50
-transit_v = 200
-orbit_v = 100
-move_v_max = 180
-scan_v_max = 200
+transit_v = 100
+orbit_v = 150
+move_v_max = 200
+scan_v_max = 250
 
 ###################【视觉伺服】####################
-servo_kp_x = 8.0
+servo_kp_x = 9.0
 servo_kd_x = 10.0
-servo_kp_y = 10.0
+servo_kp_y = 9.5
 servo_kd_y = 10.0
 servo_target_x = 80
 servo_target_y_T = 7.0
 servo_target_y_S = 10.0
-servo_target_y_B = 24.0
+servo_target_y_B = 20.0
 min_rel_speed = 50
-max_rel_speed = 200
-finish_threshold_x = 1
+max_rel_speed = 300
+finish_threshold_x = 2
 finish_threshold_y = 2
-servo_pwmout_limitmax = 200
+servo_pwmout_limitmax = 300
 
 ###################【环绕控制】####################
 radius_T = 2.5

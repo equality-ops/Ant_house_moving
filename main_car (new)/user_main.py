@@ -90,8 +90,8 @@ lcd.color(0xFFFF, 0x0000)
 lcd.mode(2)
 lcd.clear(0x0000)
 
-# 与定时器2周期一致，都为53ms
-key = KEY_HANDLER(53)
+# 与定时器2周期一致，都为20ms
+key = KEY_HANDLER(20)
 key_data = key.get()
 # 按键对应的数据接口
 """
@@ -774,8 +774,6 @@ def time_pit1_handler(time):
     # 速度环测试
     # show_speed_PID_test()
     
-
-
     # 总控制函数
     master_control()
 

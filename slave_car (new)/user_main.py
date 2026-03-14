@@ -23,6 +23,7 @@ import time
 
 ###################################【变量定义及初始化】###################################
 # 多路复用时间计数器
+ticker1_counter = 0
 counter = 0      # type: int
 # 按键消抖相关变量
 current_time = 0
@@ -66,14 +67,14 @@ my_uart3.init(115200)
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , False)
-encoder_ur = encoder("D13", "D14", False)
-encoder_md = encoder("D15", "D16", True)
+encoder_ul = encoder("D13", "D14", True)
+encoder_ur = encoder("D16", "D15", True)
+encoder_md = encoder("C2" , "C3" ,True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -95,8 +96,8 @@ lcd.color(0xFFFF, 0x0000)
 lcd.mode(0)
 lcd.clear(0x0000)
 
-# 与定时器2周期一致，都为53ms
-key = KEY_HANDLER(53)
+# 与定时器2周期一致，都为20ms
+key = KEY_HANDLER(20)
 key_data = key.get()
 # 按键对应的数据接口
 """
@@ -147,19 +148,19 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(6)  # 滤波窗口为5个
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 1.0)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 1.0)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 1.0)
 # 创建tof测距滤波器对象
 tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(8)
+car_yaw_fil = ant_motor.SlipAveragingFilter(4)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(5)
+sin_servo_fil = ant_motor.SlipAveragingFilter(6)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(6)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -231,7 +232,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -281,12 +282,6 @@ def reset_navigate_flags():
     # 速度规划
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
-
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(400, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -748,30 +743,53 @@ def collaborative_task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
+# 调试电机速度环pid函数
+def show_speed_PID_test():
+    global counter
+    counter += 1
+    # motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+    
+    if counter >= 6000:
+        counter = 0
+    elif counter >= 4500:
+        motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
+    elif counter >= 3000:
+        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
+    elif counter >= 1500:
+        motor_ur_pid.compute_pid(200, pose_data.encoder_data_ur)
+    else:
+        motor_ur_pid.compute_pid(150, pose_data.encoder_data_ur)
+    
+
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
+    global ticker1_counter
+    ticker1_counter += 1
+
     # 更新传感器数据
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 400:
+    if motor_ul_pid.target >= 230:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif motor_ul_pid.target >= 200:
+    elif motor_ul_pid.target >= 120:
         motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 400:
+    if motor_ur_pid.target >= 230:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif motor_ur_pid.target >= 200:
+    elif motor_ur_pid.target >= 120:
         motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 400:
+    if motor_md_pid.target >= 230:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif motor_md_pid.target >= 200:
+    elif motor_md_pid.target >= 120:
         motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
     else:
         motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
@@ -779,6 +797,10 @@ def time_pit1_handler(time):
     # 更新小车姿态
     my_car.update_pose()
     
+    # 角度环计算（8ms）
+    if ticker1_counter % 4 == 0:
+        angle_pid_compute()
+
     # 测试角度闭环
     # complete_angle_circle()
     
@@ -789,10 +811,10 @@ def time_pit1_handler(time):
     # test_imu()
     
     # 速度环测试
-    # show_speed_PID_test()
+    show_speed_PID_test()
     
     # 总控制函数
-    master_control()
+    # master_control()
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
@@ -802,10 +824,10 @@ def time_pit1_handler(time):
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
-    angle_pid_compute()
+    # angle_pid_compute()
 
     # 任务执行机
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
     """
@@ -844,66 +866,6 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
 
-    # 视觉伺服
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
-    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
-    # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
-    
-    # 速度环输出波形图调参
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
-        
-    # 角度环输出
-    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
-    # my_uart3.write(f"{pose_data.gyro_z}, {pose_data.gyro_z_bias}\n")
-    # imu原始数据
-    # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
-    # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
-                                                                          
-    # 里程计：
-    # my_uart3.write(f"{my_plan.target_yaw}\n")
-    # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
-    
-    # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
-
-    # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
-
-    # 测试边线校准
-    # my_uart3.write(f"{my_plan.calibrate_angle}\n")
-    
-    # 速度规划
-    # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
-    
-    # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
-    
-    # 观察速度
-    # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
-    
-    # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
-    
-    # 环绕测试
-    # my_uart3.write(f"{my_vision_manager.orbit_radius}\n")
-    # my_uart3.write(f"{my_vision_manager.x_coordinate},{orbit_pid.pwm_output_x},{orbit_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\n")
-    # 卡尔曼滤波（速度）
-    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
-    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
-
-    # 任务机
-    # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
-    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
-
-    # 搬运检查模式
-    # my_uart3.write(f"pickup_check: {my_vision_manager.lost_object_frames}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data
@@ -937,15 +899,50 @@ voltage_detect(11.4)
 pit2_start()
 
 while True:
-    # 屏幕测试程序
-    # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
-    # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0xF800)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x07E0)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x001F)
+    if ticker1_counter % 2 == 0:
+        # 视觉伺服
+        # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
+        # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
+        # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
+        # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
+        
+        # 速度环输出波形图调参
+        my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+        # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+        # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+        # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+            
+        # 航向角输出
+        # my_uart3.write(f"{my_car.last_move_yaw}\n")
+        # 角度环输出
+        # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
+        # imu原始数据
+        # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
+        # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
+                                                                            
+        # 里程计：
+        # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+        # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+        # my_uart3.write(f"{pose_data.encoder_data_ul}, {pose_data.encoder_data_ur}, {pose_data.encoder_data_md}, {pose_data.encoder_data_ul_2}, {pose_data.encoder_data_ur_2}, {pose_data.encoder_data_md_2}\n")
+
+        # tof传感器测试
+        # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+        
+        # 速度规划
+        # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
+
+        # 检测自转角是否准确
+        # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+        
+        # 检测gkd项数量级
+        # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
+        
+        # 环绕测试
+        # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
+        
+        # 任务机
+        # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+        pass
     
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
