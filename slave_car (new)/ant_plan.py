@@ -454,9 +454,9 @@ class Plan:
             self.plan_data.time_counter = 0
             # self.my_uart3.write("real_arrive_point: {:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))	
             # 进行里程计的硬复位
-            if self.if_finish_turn == True:
-                self.my_car.x_current = self.ideal_target_x
-                self.my_car.y_current = self.ideal_target_y	
+            # if self.if_finish_turn == True:
+                # self.my_car.x_current = self.ideal_target_x
+                # self.my_car.y_current = self.ideal_target_y	
             self.transition_flag = True
 
     # 停止小车运动

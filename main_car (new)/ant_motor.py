@@ -273,6 +273,10 @@ class SpeedPositionPID(ControlPID):
         # 对微分项进行滑动平均滤波
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
+        # 当误差较小时直接将pwm输出置0，避免抖动
+        if abs(self.target) <= 5:
+            self.pwm_output = 0
+            return 
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative
         
