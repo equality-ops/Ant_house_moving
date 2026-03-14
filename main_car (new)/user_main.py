@@ -708,9 +708,9 @@ def collaborative_task_machine():
 def show_speed_PID_test():
     global counter
     counter += 1
-    motor_ul_pid.compute_pid(300, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+    motor_ul_pid.compute_pid(100, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(100, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(100, pose_data.encoder_data_md)
     """
     if counter >= 6000:
         counter = 0
@@ -772,10 +772,10 @@ def time_pit1_handler(time):
     # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
-    # show_speed_PID_test()
+    show_speed_PID_test()
     
     # 总控制函数
-    master_control()
+    # master_control()
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
@@ -855,8 +855,8 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
         
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
-
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

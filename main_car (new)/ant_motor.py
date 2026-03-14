@@ -110,7 +110,7 @@ class ToFFilter:
     
     
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
+    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroy, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器对象
@@ -119,7 +119,7 @@ class PoseData:
         self.encoder_ur = encoder_ur
         self.encoder_md = encoder_md
         # 注入滤波器对象
-        self.diff_filter_gyroz = diff_filter_gyroz
+        self.diff_filter_gyroy = diff_filter_gyroy
         # 注入编码器卡尔曼滤波器对象
         self.encoder_ul_fil = encoder_ul_fil
         self.encoder_ur_fil = encoder_ur_fil
@@ -439,12 +439,14 @@ class CarPose:
         self.speed_conversion_gamma = self.flash_sys.find_value("speed_conversion_gamma")   # 将速度单位转化为cm每秒
         self.gkd = self.flash_sys.find_value("gkd")  # type: float  # 角速度补偿系数
         self.speed_fuse_ratio = self.flash_sys.find_value("speed_fuse_ratio")  # type: float  # 速度融合系数
+        self.k_xy = self.flash_sys.find_value("k_xy")  # type: float  # x和y速度的耦合补偿系数
+        # 电机补偿系数
+        self.ul_ratio = self.flash_sys.find_value("ul_ratio")  # type: float
+        self.ur_ratio = self.flash_sys.find_value("ur_ratio")  # type: float
+        self.md_ratio = self.flash_sys.find_value("md_ratio")  # type: float
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
-        self.beta_x = 1.0  # type: float
-        self.beta_y = 1.0  # type: float
-        self.beta_z = 1.0  # type: float
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
@@ -472,8 +474,9 @@ class CarPose:
         if self.my_state.state != self.my_state.STOP:
             # 计算小车当前x,y速度（互补融合）
             # car_speed_x, car_speed_y 单位：厘米每2ms
-            self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+            car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
             self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
+            self.car_speed_x = car_speed_x - self.k_xy * self.car_speed_y
         else:
             self.car_speed_x, self.car_speed_y = 0.0, 0.0
 
@@ -526,14 +529,16 @@ class CarPose:
         self.real_speed_w_target = self.angle_pid.pwm_output
 
         # 转换到小车坐标系下的目标速度
-        self.car_speed_x_target = move_speed_target * math.sin(move_angle_target - self.now_yaw)
+        car_speed_x_target = move_speed_target * math.sin(move_angle_target - self.now_yaw)
+        
         self.car_speed_y_target = move_speed_target * math.cos(move_angle_target - self.now_yaw)
+        self.car_speed_x_target = car_speed_x_target + self.k_xy * self.car_speed_y_target
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
-        motor_ur_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
-        motor_md_speed_target = self.car_speed_w_target / 3 - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd
+        motor_ul_speed_target = self.ul_ratio * (self.car_speed_w_target / 3 + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
+        motor_ur_speed_target = self.ur_ratio * (self.car_speed_w_target / 3 + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
+        motor_md_speed_target = self.md_ratio * (self.car_speed_w_target / 3 - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd)
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)

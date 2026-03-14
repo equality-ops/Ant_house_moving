@@ -1,4 +1,4 @@
-# 修改时间 3.14  13:53
+# 修改时间 3.13  23：56
 
 ###################【PID参数】####################
 # speed大于250，小于600时
@@ -56,6 +56,12 @@ speed_fuse_ratio = 0.5
 gyro_y_supply = 1.164164
 # 陀螺仪融合系数（可修改）
 gyro_fuse_ratio = 0.4
+# x和y耦合系数
+k_xy = 0.0
+# 电机单因子补偿系数
+ul_ratio = 1.0
+ur_ratio = 1.0
+md_ratio = 1.0
 
 ###################【时间规划】####################
 motor_control_T = 2
@@ -71,7 +77,7 @@ plan_point_transition_T = 20
 
 ###################【速度规划】####################
 min_start_v = 50
-long_v_max = 200
+long_v_max = 100
 short_v_max = 120
 dead_zone_v = 50
 transit_v = 100

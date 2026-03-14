@@ -326,8 +326,8 @@ class Plan:
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
-        x_transit_dis = self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0] 
-        y_transit_dis = self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]
+        x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
+        y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])
         
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 200.0:
@@ -344,7 +344,7 @@ class Plan:
         if y_transit_dis >= 200.0:
             self.my_car.alpha_y = 0.640069
         elif y_transit_dis >= 150.0:
-            self.my_car.alpha_y = 0.634285
+            self.my_car.alpha_y = 1.0
         elif y_transit_dis >= 100.0:
             self.my_car.alpha_y = 1.0
         elif y_transit_dis >= 50.0:
@@ -388,11 +388,11 @@ class Plan:
             self.current_rest_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
             if self.current_rest_dis < 2.0:
                 self.plan_data.current_aimed_point_index += 1
-                x_transit_dis = self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]
-                y_transit_dis = self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]
-
+                x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
+                y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])
+                
                 # 依据到过渡点的距离计算里程计系数
-                if x_transit_dis >= 200.0:  
+                if x_transit_dis >= 200.0:
                     self.my_car.alpha_x = 0.628129
                 elif x_transit_dis >= 150.0:
                     self.my_car.alpha_x = 0.628571
@@ -406,7 +406,7 @@ class Plan:
                 if y_transit_dis >= 200.0:
                     self.my_car.alpha_y = 0.640069
                 elif y_transit_dis >= 150.0:
-                    self.my_car.alpha_y = 0.634285
+                    self.my_car.alpha_y = 1.0
                 elif y_transit_dis >= 100.0:
                     self.my_car.alpha_y = 1.0
                 elif y_transit_dis >= 50.0:

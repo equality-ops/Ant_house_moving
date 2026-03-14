@@ -811,13 +811,17 @@ def time_pit1_handler(time):
     # test_imu()
     
     # 速度环测试
-    show_speed_PID_test()
+    # show_speed_PID_test()
     
     # 总控制函数
     # master_control()
 
+    # 开环测试
+    motor_ul.duty(2000)
+    motor_ur.duty(2000)
+    motor_md.duty(2000)
     # 设置电机pwm输出
-    my_car.set_motor_pwm()
+    # my_car.set_motor_pwm()
 
 
 
