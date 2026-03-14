@@ -134,9 +134,11 @@ class PoseData:
         self.encoder_data_ul_2 = 0    # type: int
         self.encoder_data_ur_2 = 0    # type: int
         self.encoder_data_md_2 = 0    # type: int
-        self.gyro_y_bias = 0.0       # type: float
-        self.gyro_y_supply = self.flash_sys.find_value("gyro_y_supply")
-        self.gyro_y = 0.0             # type: float
+        self.gyro_z_bias = 0.0       # type: float
+        self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
+        self.gyro_fuse_ratio = self.flash_sys.find_value("gyro_fuse_ratio")  # type: float  # 角速度融合系数    
+        self.gyro_z = 0.0             # type: float
+        self.last_gyro_z = 0.0         # type: float
         """暂时不需要这些数据
         self.acc_x = 0              # type: int
         self.acc_y = 0              # type: int
@@ -160,13 +162,13 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         """
-        gyro_y_sum = 0
+        gyro_z_sum = 0
         sample_count = 1000
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
             self.imu_data = self.imu.read()
-            gyro_y_sum += self.imu_data[4]
+            gyro_z_sum += self.imu_data[5]
             """暂时不需要处理这些数据
             acc_x_sum += imu_data[0]
             acc_y_sum += imu_data[1]
@@ -182,7 +184,7 @@ class PoseData:
         self.gyro_x_bias = gyro_x_sum / sample_count
         self.gyro_y_bias = gyro_y_sum / sample_count
         """
-        self.gyro_y_bias = gyro_y_sum / sample_count
+        self.gyro_z_bias = gyro_z_sum / sample_count
 
     # 传感器数据更新函数
     def update_data(self):
@@ -204,9 +206,10 @@ class PoseData:
         self.gyro_x = imu_data[3] - self.gyro_x_bias
         self.gyro_y = imu_data[4] - self.gyro_y_bias
         """
-        # 去零漂后滑动平均滤波（单位：角度每秒）
-        self.gyro_y = self.diff_filter_gyroy.filtering(self.imu_data[4] - self.gyro_y_bias) / 16.4 * self.gyro_y_supply
-
+        # 去零漂后一阶低通滤波（单位：角度每秒）
+        gyro_z = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_z = gyro_z * (1 - self.gyro_fuse_ratio) + self.last_gyro_z * self.gyro_fuse_ratio
+        self.last_gyro_z = self.gyro_z
 
 
 # 定义一个抽象类用于顶层设计
@@ -275,7 +278,7 @@ class SpeedPositionPID(ControlPID):
         self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
 
         # 当目标速度较小时，直接将pwm输出置0（避免编码器抖动时积分产生误差）
-        if self.target <= 5:
+        if abs(self.target) <= 5:
             self.pwm_output = 0
             return 
         
@@ -468,20 +471,17 @@ class CarPose:
         # 当小车为停止状态时不计算速度，直接将速度置0（避免编码器抖动时积分产生误差）
         if self.my_state.state != self.my_state.STOP:
             # 计算小车当前x,y速度（互补融合）
-            # car_speed_x, car_speed_y 单位：厘米每5ms
+            # car_speed_x, car_speed_y 单位：厘米每2ms
             self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
             self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
-            # 对小车x,y速度卡尔曼滤波
-            self.car_speed_x = self.speed_x_fil.update(self.car_speed_x)
-            self.car_speed_y = self.speed_y_fil.update(self.car_speed_y)
         else:
             self.car_speed_x, self.car_speed_y = 0.0, 0.0
 
         # car_speed_w单位：度每秒
-        self.car_speed_w = self.pose_data.gyro_y
+        self.car_speed_w = self.pose_data.gyro_z
         # 计算小车在世界坐标系下的偏航角
         # now_yaw单位：弧度
-        self.now_yaw += self.pose_data.gyro_y * self.collect_dt * self.MATH.PI / 180
+        self.now_yaw += self.pose_data.gyro_z * self.collect_dt * self.MATH.PI / 180
         # 限定now_yaw在-180到180度之间
         if self.now_yaw > self.MATH.PI:  self.now_yaw -= 2 * self.MATH.PI
         elif self.now_yaw < -self.MATH.PI:  self.now_yaw += 2 * self.MATH.PI
@@ -531,9 +531,9 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
-        motor_ur_speed_target = self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_y * self.gkd
-        motor_md_speed_target = self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_y * self.gkd
+        motor_ul_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
+        motor_ur_speed_target = self.car_speed_w_target / 3 + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd
+        motor_md_speed_target = self.car_speed_w_target / 3 - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
