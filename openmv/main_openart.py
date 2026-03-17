@@ -44,10 +44,10 @@ PROTOCOL_FOOTER = 0x5B
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
     'red': ord('S'),
-    'blue': ord('S'),
+    'blue': ord('E'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('B'),
+    'white': ord('W'),
     'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
@@ -69,12 +69,15 @@ THRESHOLD = {'dark':{
     (14, 61, -7, 18, 12, 52)], # 30
     'red':[(15, 39, 18, 59, 17, 49), # 27
     (5, 34, 8, 52, -7, 41)], # 30
-    'green':[(35, 84, -47, -14, -20, 87), # 27
-    (32, 85, -43, -12, 13, 84)], # 30
+    'green':[# (35, 84, -47, -14, -20, 87), # 27
+    (35, 84, -47, -20, -20, 87), # 27(new)
+    # (32, 85, -43, -12, 13, 84), # 30
+    (32, 85, -43, -20, 13, 84)], # 30(new)
     'blue':[(25, 53, -29, -9, -26, -8), # 27
     (17, 58, -24, -3, -36, -17), # 29
     (18, 53, -20, -5, -35, -13)], # 30
-    'white':[(47, 76, -17, 0, 2, 39),  # 27
+    'white':[# (47, 76, -17, 0, 2, 39),  # 27
+    (31, 72, -18, 0, 8, 50), # 26(new)
     (39, 79, -15, 2, -5, 9)] # 30
 }, 'normal':{
     'brown':[(40, 83, -6, 22, 11, 69), # 45
@@ -82,13 +85,18 @@ THRESHOLD = {'dark':{
 
     'red':[(32, 55, 38, 85, -23, 52), # 45
     (25, 56, 34, 87, 11, 53)], # 50
-    'green':[(58, 100, -49, -20, 44, 97), # 45
-    (71, 98, -52, -10, 39, 98)], # 50
+    'green':[# (58, 100, -49, -20, 44, 97), # 45
+    (50, 100, -56, -27, 37, 97), # 46(new)
+    # (71, 98, -52, -10, 39, 98)], # 50
+    (71, 98, -52, -10, 68, 98)], # 50(new)
     'blue':[(33, 79, -29, -2, -52, -24), # 45
     (33, 74, -31, -8, -46, -16), # 42
     (44, 83, -33, -6, -54, -27)], # 50
-    'white':[(56, 100, -18, 0, -9, 16), # 45
-    (69, 100, -23, 5, -5, 24)] # 50
+    'white':[# (56, 100, -18, 0, -9, 16), # 45
+    (53, 100, -30, -2, -2, 53), # 46(new)
+    (59, 100, -26, -2, 3, 56), # 50(new)
+    # (69, 100, -23, 5, -5, 24)
+    ] # 50
 }, 'bright':{
     'brown':[(40, 83, -6, 22, 11, 69)],
     'red':[(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)],
@@ -258,7 +266,7 @@ class KalmanTracker:
             self.p = p_minus
 
         return self.x_hat
-    
+
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
@@ -273,11 +281,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=90,  area_threshold=90,  merge=True)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=110,  area_threshold=110,  merge=True)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -293,7 +301,9 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4:
+            if blob.density() < 0.4 and color not in('white', 'brown'):
+                continue
+            elif color in ('white', 'brown') and blob.density() < 0.3:
                 continue
             elif color == 'green' and blob.density() < 0.55:
                 continue
@@ -323,13 +333,13 @@ class ColorDetector:
         """封装卡尔曼处理单颜色逻辑（棕/白/蓝通用）"""
         detected = False
         target_blob = None
-        
+
         if blobs:
             # 选择面积最大的色块
             target_blob = max(blobs, key=lambda b: b.area())
             cx, cy = target_blob.cx(), target_blob.cy()
             w, h = target_blob.w(), target_blob.h()
-            
+
             # 计算速度
             dx_raw = (cx - tracker.last_cx) / Ts
             dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
@@ -372,7 +382,7 @@ class ColorDetector:
             kalman_coords_dict[color] = (kcx, kcy)
         else:
             kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
-        
+
         return target_blob
 
     def draw_other_blobs(self, img, blobs, center_list):
@@ -503,7 +513,7 @@ class TargetLocker:
                 lock_cx = locked_blob.cx()
                 lock_cy = locked_blob.cy()
             img.draw_circle(lock_cx, lock_cy, 5, color=DRAW_COLORS['black'], thickness=2)
-    
+
 # ======================== 坐标矫正模块 ========================
 class CoordinateCorrection:
     def __init__(self):
@@ -598,6 +608,9 @@ sensor.set_auto_gain(False)  # 关闭自动增益
 sensor.set_auto_whitebal(False)  # 关闭自动白平衡
 sensor.set_brightness(CAMERA_BRIGHTNESS)
 sensor.set_contrast(2) # 对比度
+sensor.set_vflip(True)
+sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
+sensor.set_hmirror(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 
@@ -654,7 +667,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            # print(blob.density(),blob.pixels())
+            # print(blob.w(), blob.h(),blob.density(), blob.pixels())
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
@@ -701,4 +714,4 @@ while True:
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
-    # (clock.fps())
+    # print(clock.fps())
