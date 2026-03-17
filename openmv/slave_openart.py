@@ -301,11 +301,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True, roi=self.roi_red_sandbag)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=self.merge_green, roi=self.roi_tennis)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=170,  area_threshold=170,  merge=True,roi=self.roi_blue_sandbag)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True, roi=self.roi_bear)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -321,10 +321,12 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4:
+            if blob.density() < 0.4 and color not in ('white', 'brown'):
                 continue
-            elif color == 'blue' and blob.density() < 0.5:
+            elif color in ('white', 'brown') and blob.density() < 0.3:
                 continue
+            #elif color == 'blue' and blob.density() < 0.4:
+                #continue
 
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
@@ -333,7 +335,7 @@ class ColorDetector:
                 continue
             elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
                 continue
-            elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
+            elif color == 'blue' and (blob.w() > 1.7 * blob.h() or blob.h() > 1.7 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
@@ -707,7 +709,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            # print(blob.density(),blob.pixels())
+            # print(blob.w(), blob.h(),blob.density(), blob.pixels())
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
