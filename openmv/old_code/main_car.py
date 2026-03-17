@@ -44,10 +44,10 @@ PROTOCOL_FOOTER = 0x5B
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
     'red': ord('S'),
-    'blue': ord('E'),
+    'blue': ord('S'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('W'),
+    'white': ord('B'),
     'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
@@ -69,15 +69,12 @@ THRESHOLD = {'dark':{
     (14, 61, -7, 18, 12, 52)], # 30
     'red':[(15, 39, 18, 59, 17, 49), # 27
     (5, 34, 8, 52, -7, 41)], # 30
-    'green':[(35, 84, -47, -20, -20, 87), # 27(new)
-    # (35, 84, -47, -14, -20, 87), # 27
-    # (32, 85, -43, -12, 13, 84), # 30
-    (32, 85, -43, -20, 13, 84)], # 30(new)
+    'green':[(35, 84, -47, -14, -20, 87), # 27
+    (32, 85, -43, -12, 13, 84)], # 30
     'blue':[(25, 53, -29, -9, -26, -8), # 27
     (17, 58, -24, -3, -36, -17), # 29
     (18, 53, -20, -5, -35, -13)], # 30
-    'white':[# (47, 76, -17, 0, 2, 39),  # 27
-    (31, 72, -18, 0, 8, 50), # 26(new)
+    'white':[(47, 76, -17, 0, 2, 39),  # 27
     (39, 79, -15, 2, -5, 9)] # 30
 }, 'normal':{
     'brown':[(40, 83, -6, 22, 11, 69), # 45
@@ -85,17 +82,12 @@ THRESHOLD = {'dark':{
 
     'red':[(32, 55, 38, 85, -23, 52), # 45
     (25, 56, 34, 87, 11, 53)], # 50
-    'green':[# (58, 100, -49, -20, 44, 97), # 45
-    (50, 100, -56, -27, 37, 97), # 46(new)
-    # (71, 98, -52, -10, 39, 98)], # 50
-    (71, 98, -52, -10, 68, 98)], # 50(new)
-    'blue':[(33, 79, -29, -2, -52, -30), # 45(new)
-    # (33, 79, -29, -2, -52, -24), # 45
+    'green':[(58, 100, -49, -20, 44, 97), # 45
+    (71, 98, -52, -10, 39, 98)], # 50
+    'blue':[(33, 79, -29, -2, -52, -24), # 45
     (33, 74, -31, -8, -46, -16), # 42
     (44, 83, -33, -6, -54, -27)], # 50
     'white':[(56, 100, -18, 0, -9, 16), # 45
-    (53, 100, -30, -2, -2, 53), # 46(new)
-    (59, 100, -26, -2, 3, 56), # 50(new)
     (69, 100, -23, 5, -5, 24)] # 50
 }, 'bright':{
     'brown':[(40, 83, -6, 22, 11, 69)],
@@ -116,16 +108,6 @@ BRIGHTNESS_RANGES = {
 # 锁定的阈值集
 LOCKED_THRESHOLD = None
 LOCKED_TYPE = ''
-
-# 目标检测模式和搬运检测模式中的感兴趣区
-ROI = {
-    'global':(0, 0, 160, 120),
-    'bear':(0, 0, 160, 120),
-    'red_sandbag':(0, 48, 160 ,72),
-    'blue_sandbag':(0, 30, 160, 90),
-    'tennis':(0, 30, 160, 90)
-}
-ROI_INIT = False
 
 # ======================== 通信模块 ========================
 class Communicator:
@@ -189,9 +171,6 @@ class Communicator:
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
-
-    def warn(self):
-        self.uart.write('N'.encode('utf-8'))
 
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
@@ -285,13 +264,6 @@ class ColorDetector:
     # 距离阈值（过滤过近的色块）
     DISTANCE_THRESHOLD = 400
 
-    def __init__(self):
-        self.roi_bear = ROI['global']
-        self.roi_red_sandbag = ROI['global']
-        self.roi_blue_sandbag = ROI['global']
-        self.roi_tennis = ROI['global']
-        self.merge_green = True
-
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
         """计算两点间欧氏距离"""
@@ -301,11 +273,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True, roi=self.roi_bear)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=110,  area_threshold=110,  merge=True)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -321,12 +293,10 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4 and color not in ('white', 'brown'):
+            if blob.density() < 0.4:
                 continue
-            elif color in ('white', 'brown') and blob.density() < 0.3:
+            elif color == 'green' and blob.density() < 0.55:
                 continue
-            #elif color == 'blue' and blob.density() < 0.4:
-                #continue
 
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
@@ -335,15 +305,14 @@ class ColorDetector:
                 continue
             elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
                 continue
-            elif color == 'blue' and (blob.w() > 1.7 * blob.h() or blob.h() > 1.7 * blob.w()):
+            elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
             cx, cy = blob.cx(), blob.cy()
             keep = True
             for saved_blob, _ in filtered:
-                d = self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy())
-                if d < self.DISTANCE_THRESHOLD:
+                if self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy()) < self.DISTANCE_THRESHOLD:
                     keep = False
                     break
             if keep:
@@ -416,7 +385,6 @@ class ColorDetector:
             img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color_name])
             # 添加到中心列表
             center_list.append((blob.cx(), blob.cy(), color_name))
-
 
 # ======================== 锁定逻辑模块 ========================
 class TargetLocker:
@@ -561,8 +529,7 @@ class CoordinateCorrection:
 # 模式定义
 MODE_TARGET = 0          # 目标跟踪模式
 MODE_CORRECTION = 1      # 坐标校正
-MODE_DETECTION = 2       # 检测模式
-MODE_WAITING = 3         # 等待模式
+MODE_WAITING = 2         # 等待模式
 current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
@@ -578,33 +545,23 @@ last_time = time.ticks_ms()
 # ======================== 工具函数 ========================
 def handle_uart_commands(uart):
     """处理串口命令，切换运行模式"""
-    global current_mode, ROI_INIT
+    global current_mode
     if uart.any():
         cmd = uart.read(1)
         if cmd == b'T':
             current_mode = MODE_TARGET
-            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
             target_locker.reset()
         elif cmd == b'C':
             current_mode = MODE_CORRECTION
-            ROI_INIT = False
-            brown_tracker.reset()
-            white_tracker.reset()
-            blue_tracker.reset()
-            target_locker.reset()
-        elif cmd == b'D':
-            current_mode = MODE_DETECTION
-            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
             target_locker.reset()
         elif cmd == b'F':
             current_mode = MODE_WAITING
-            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
@@ -675,22 +632,10 @@ while True:
 
     # 等待模式：无操作
     if current_mode == MODE_WAITING:
-        """
-        stats = img.get_statistics()
-        l_mean = stats.l_mean()
-        print(l_mean)
-        """
         continue
 
     # 目标跟踪模式
     elif current_mode == MODE_TARGET:
-        if not ROI_INIT: 
-            color_detector.roi_bear = ROI['global']
-            color_detector.roi_red_sandbag = ROI['global']
-            color_detector.roi_blue_sandbag = ROI['global']
-            color_detector.roi_tennis = ROI['global']
-            color_detector.merge_green = True
-            ROI_INIT = True
         # 色块检测与筛选
         all_blobs_with_color = color_detector.detect_colors(img)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
@@ -709,7 +654,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            # print(blob.w(), blob.h(),blob.density(), blob.pixels())
+            # print(blob.density(),blob.pixels())
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
@@ -753,31 +698,6 @@ while True:
             tag_cx, tag_cy, rotation = tag_center
             rotation = (180 * rotation) / math.pi + 90
             communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
-
-    # 检测模式
-    elif current_mode == MODE_DETECTION:
-        if not ROI_INIT: 
-            color_detector.roi_bear = ROI['bear']
-            color_detector.roi_red_sandbag = ROI['red_sandbag']
-            color_detector.roi_blue_sandbag = ROI['blue_sandbag']
-            color_detector.roi_tennis = ROI['tennis']
-            color_detector.merge_green = False
-            ROI_INIT = True
-        all_blobs = color_detector.detect_colors(img)
-        filtered_blobs = color_detector.filter_all_blobs(all_blobs)
-
-        if not filtered_blobs:
-            communicator.warn()
-            img.draw_string(5, 5, 'WARN', color = DRAW_COLORS['red'], scale = 2)
-
-        for item in filtered_blobs:
-            blob = item[0]
-            color_name = item[1]
-            # 绘制色块
-            img.draw_rectangle(blob.rect(), color=DRAW_COLORS[color_name])
-            img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color_name])
-
-            
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)

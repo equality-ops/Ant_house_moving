@@ -44,10 +44,10 @@ PROTOCOL_FOOTER = 0x5B
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
     'red': ord('S'),
-    'blue': ord('E'),
+    'blue': ord('S'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('W'),
+    'white': ord('B'),
     'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
@@ -69,15 +69,12 @@ THRESHOLD = {'dark':{
     (14, 61, -7, 18, 12, 52)], # 30
     'red':[(15, 39, 18, 59, 17, 49), # 27
     (5, 34, 8, 52, -7, 41)], # 30
-    'green':[(35, 84, -47, -20, -20, 87), # 27(new)
-    # (35, 84, -47, -14, -20, 87), # 27
-    # (32, 85, -43, -12, 13, 84), # 30
-    (32, 85, -43, -20, 13, 84)], # 30(new)
+    'green':[(35, 84, -47, -14, -20, 87), # 27
+    (32, 85, -43, -12, 13, 84)], # 30
     'blue':[(25, 53, -29, -9, -26, -8), # 27
     (17, 58, -24, -3, -36, -17), # 29
     (18, 53, -20, -5, -35, -13)], # 30
-    'white':[# (47, 76, -17, 0, 2, 39),  # 27
-    (31, 72, -18, 0, 8, 50), # 26(new)
+    'white':[(47, 76, -17, 0, 2, 39),  # 27
     (39, 79, -15, 2, -5, 9)] # 30
 }, 'normal':{
     'brown':[(40, 83, -6, 22, 11, 69), # 45
@@ -85,17 +82,12 @@ THRESHOLD = {'dark':{
 
     'red':[(32, 55, 38, 85, -23, 52), # 45
     (25, 56, 34, 87, 11, 53)], # 50
-    'green':[# (58, 100, -49, -20, 44, 97), # 45
-    (50, 100, -56, -27, 37, 97), # 46(new)
-    # (71, 98, -52, -10, 39, 98)], # 50
-    (71, 98, -52, -10, 68, 98)], # 50(new)
-    'blue':[(33, 79, -29, -2, -52, -30), # 45(new)
-    # (33, 79, -29, -2, -52, -24), # 45
+    'green':[(58, 100, -49, -20, 44, 97), # 45
+    (71, 98, -52, -10, 39, 98)], # 50
+    'blue':[(33, 79, -29, -2, -52, -24), # 45
     (33, 74, -31, -8, -46, -16), # 42
     (44, 83, -33, -6, -54, -27)], # 50
     'white':[(56, 100, -18, 0, -9, 16), # 45
-    (53, 100, -30, -2, -2, 53), # 46(new)
-    (59, 100, -26, -2, 3, 56), # 50(new)
     (69, 100, -23, 5, -5, 24)] # 50
 }, 'bright':{
     'brown':[(40, 83, -6, 22, 11, 69)],
@@ -301,11 +293,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True, roi=self.roi_bear)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=80,  area_threshold=80,  merge=True, roi=self.roi_red_sandbag)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=self.merge_green, roi=self.roi_tennis)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=170,  area_threshold=170,  merge=True,roi=self.roi_blue_sandbag)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -321,12 +313,10 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4 and color not in ('white', 'brown'):
+            if blob.density() < 0.4:
                 continue
-            elif color in ('white', 'brown') and blob.density() < 0.3:
+            elif color == 'blue' and blob.density() < 0.5:
                 continue
-            #elif color == 'blue' and blob.density() < 0.4:
-                #continue
 
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
@@ -335,7 +325,7 @@ class ColorDetector:
                 continue
             elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
                 continue
-            elif color == 'blue' and (blob.w() > 1.7 * blob.h() or blob.h() > 1.7 * blob.w()):
+            elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
@@ -675,11 +665,6 @@ while True:
 
     # 等待模式：无操作
     if current_mode == MODE_WAITING:
-        """
-        stats = img.get_statistics()
-        l_mean = stats.l_mean()
-        print(l_mean)
-        """
         continue
 
     # 目标跟踪模式
@@ -709,7 +694,7 @@ while True:
         other_blobs = []
         for item in filtered_blobs_with_color:
             blob = item[0]
-            # print(blob.w(), blob.h(),blob.density(), blob.pixels())
+            # print(blob.density(),blob.pixels())
             color = item[1]
             if color == 'brown':
                 brown_blobs.append(blob)
