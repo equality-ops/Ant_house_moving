@@ -44,10 +44,10 @@ PROTOCOL_FOOTER = 0x5B
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
     'red': ord('S'),
-    'blue': ord('S'),
+    'blue': ord('E'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('B'),
+    'white': ord('W'),
     'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }

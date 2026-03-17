@@ -44,10 +44,10 @@ PROTOCOL_FOOTER = 0x5B
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
     'red': ord('S'),
-    'blue': ord('S'),
+    'blue': ord('E'),
     'green': ord('T'),
     'brown': ord('B'),
-    'white': ord('B'),
+    'white': ord('W'),
     'Apriltag':ord('A'),
     '': 0x00  # 默认值
 }
@@ -605,6 +605,7 @@ sensor.set_auto_gain(False)  # 关闭自动增益
 sensor.set_auto_whitebal(False)  # 关闭自动白平衡
 sensor.set_brightness(CAMERA_BRIGHTNESS)
 sensor.set_contrast(2) # 对比度
+sensor.set_vflip(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 
