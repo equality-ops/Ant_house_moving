@@ -172,7 +172,7 @@ angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
-my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, speed_x_fil, speed_y_fil, car_yaw_fil, angle_pid,
+my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, car_yaw_fil, angle_pid,
                            motor_ul_pid, motor_ur_pid, motor_md_pid,
                            motor_ul, motor_ur, motor_md)
 
@@ -457,14 +457,15 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
                 # 当传来的坐标点的纵坐标大于170.0时，将状态工作设为UP，控制小车绕到矩形上边沿
-                if plan_data.current_path[0][1] > 170.0 and my_slave_protocol.aimed_object == 'P':
-                    my_state.state_work = UP
-                    return 
-                # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
-                elif abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1 and my_slave_protocol.aimed_object == 'P':
-                    my_state.state_work = RETURN_WORK
-                    my_state.state = my_state.RETURN
-                    return
+                if my_slave_protocol.aimed_object == 'P':
+                    if plan_data.current_path[0][1] > 170.0:
+                        my_state.state_work = UP
+                        return 
+                    # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
+                    elif abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 1.0 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 1.0:
+                        my_state.state_work = RETURN_WORK
+                        my_state.state = my_state.RETURN
+                        return
         elif my_state.state == my_state.NAVIGATE:
             my_plan.navigate(plan_data.current_path, 0.0)
             if my_plan.finish_navigate == True:
@@ -610,7 +611,7 @@ def collaborative_task_machine():
                 # 测试
                 my_beep.test()
                 # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
-                if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 0.1 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 0.1 and my_slave_protocol.aimed_object == 'P':
+                if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 1.0 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 1.0 and my_slave_protocol.aimed_object == 'P':
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
                     return
@@ -749,7 +750,8 @@ def collaborative_task_machine():
                 my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
-            my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
+            # 最终返回主车的起点（避免回程途中与主车碰撞）
+            my_plan.navigate([[15.0, 10.0], [15.0, -15.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP

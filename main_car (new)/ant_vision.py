@@ -238,13 +238,13 @@ class VisionManager:
                     self.my_plan.finish_navigate = False
             elif self.adjust_stage == 2:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[190.0, 0.0]], -90.0)
+                    self.my_plan.navigate([[180.0, 0.0]], -90.0)
                 elif self.car_position == 0:
-                    self.my_plan.navigate([[130.0, 0.0]], 90.0)
+                    self.my_plan.navigate([[140.0, 0.0]], 90.0)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[190.0, 240.0]], -90.0)
+                    self.my_plan.navigate([[140.0, 240.0]], -90.0)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[130.0, 240.0]], 90.0)
+                    self.my_plan.navigate([[180.0, 240.0]], 90.0)
                 if self.my_plan.finish_navigate == True:
                     # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
                     self.servo_pid.target_y = 10.0

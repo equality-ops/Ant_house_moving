@@ -61,10 +61,6 @@ my_uart6.init(460800)
 my_uart3 = UART(2)
 my_uart3.init(115200)
 
-# 测试uart通信是否正常
-# my_uart6.write("hello\r\n")
-# my_uart3.write("hello\r\n")
-
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
@@ -715,7 +711,7 @@ def collaborative_task_machine():
                     my_state.state = my_state.SERVO
             else:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(ord('P'), [[15.0, 10.0], [15.0, -25.0]])
+                    my_main_protocol.send_path(ord('P'), [[35.0, -15.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -731,7 +727,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回从车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[35.0, 10.0], [35.0, -25.0]], 0.0)
+            my_plan.navigate([[35.0, 10.0], [35.0, -15.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -813,35 +809,6 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == my_state.STOP:
         my_plan.stop()
     """
-
-    # 拍数据集程序
-    """
-    if my_state.state_work == UP:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[-120.0, 0.0]], 0.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state_work = DOWN
-    elif my_state.state_work == DOWN:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[-120.0, 120.0]], 90.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state_work = CHECK
-    elif my_state.state_work == CHECK:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[0.0, 120.0]], 180.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state_work = RETURN_WORK
-    elif my_state.state_work == RETURN_WORK:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[0.0, 0.0]], -90.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state_work = UP
-    """
-    # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
     # test_vision_servo()
