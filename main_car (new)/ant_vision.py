@@ -133,7 +133,7 @@ class VisionManager:
                         self.compute_target_rel_yaw()
                         # 当横移角度过大时，速度减小%20
                         if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.8)
+                            self.target_rel_speed = int(self.target_rel_speed * 0.5)
                         self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1

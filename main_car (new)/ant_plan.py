@@ -26,7 +26,9 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # 为测试里程计方便
+        # self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]  
         # 已到达的目标点索引
@@ -294,7 +296,7 @@ class Plan:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
-            self.error_correct_x = 0.0
+            self.error_correct_x = 0.8
             self.error_correct_y = 0.0
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
             self.error_correct_x = 0.0
@@ -306,7 +308,7 @@ class Plan:
             self.error_correct_x = -0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
-            self.error_correct_x = -0.0
+            self.error_correct_x = -0.8
             self.error_correct_y = -0.0
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
             self.error_correct_x = -0.0
@@ -327,14 +329,14 @@ class Plan:
 
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 0.981964
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.968222
         elif y_transit_dis >= 10.0:
             self.my_car.alpha_y = 1.0
         else:
@@ -346,16 +348,16 @@ class Plan:
             
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
-                self.boost_time_threshold = 20
+                self.boost_time_threshold = 30
                 self.dec_distance = 10.0
             elif self.my_state.state == self.my_state.SCAN:
                 self.v_max = self.scan_v_max
-                self.boost_time_threshold = 20
+                self.boost_time_threshold = 30
                 self.dec_distance = 10.0
             else:
                 self.v_max = self.long_v_max
-                self.boost_time_threshold = 40
-                self.dec_distance = 25.0
+                self.boost_time_threshold = 60
+                self.dec_distance = 30.0
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.LONG_DISTANCE
@@ -363,7 +365,7 @@ class Plan:
         elif total_distance >= 10.0 and total_distance < 50.0:
             # 设置减速距离和加速时间阈值
             self.dec_distance = 8.0
-            self.boost_time_threshold = 30
+            self.boost_time_threshold = 20
             self.v_max = self.short_v_max
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
@@ -386,14 +388,14 @@ class Plan:
 
                 # 依据到过渡点的距离计算里程计系数
                 if x_transit_dis >= 50.0:
-                    self.my_car.alpha_x = 1.0
+                    self.my_car.alpha_x = 0.981964
                 elif x_transit_dis >= 10.0:
                     self.my_car.alpha_x = 1.0
                 else:
                     self.my_car.alpha_x = 1.0
 
                 if y_transit_dis >= 50.0:
-                    self.my_car.alpha_y = 1.0
+                    self.my_car.alpha_y = 0.968222
                 elif y_transit_dis >= 10.0:
                     self.my_car.alpha_y = 1.0
                 else:
