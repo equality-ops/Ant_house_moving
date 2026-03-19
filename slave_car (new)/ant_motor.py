@@ -186,9 +186,9 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
-        self.encoder_data_ul = self.encoder_ul.get()
-        self.encoder_data_ur = self.encoder_ur.get()
-        self.encoder_data_md = self.encoder_md.get()
+        self.encoder_data_ul = self.encoder_ul.get() / 4
+        self.encoder_data_ur = self.encoder_ur.get() / 4
+        self.encoder_data_md = self.encoder_md.get() / 4
         # 对编码器数据进行卡尔曼滤波
         self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
         self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))

@@ -68,15 +68,15 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_ul = encoder("C2" , "C3" , False)
-encoder_ur = encoder("D13", "D14", False)
-encoder_md = encoder("D15", "D16", True)
+encoder_ul = encoder("D13", "D14", True)
+encoder_ur = encoder("D16", "D15", True)
+encoder_md = encoder("C2" , "C3" ,True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -150,9 +150,9 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
+encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
+encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 # 创建tof测距滤波器对象
 # tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
@@ -236,7 +236,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -286,12 +286,6 @@ def reset_navigate_flags():
     # 速度规划
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
-
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    motor_ul_pid.compute_pid(400, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -729,6 +723,26 @@ def collaborative_task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
+# 调试电机速度环pid函数
+def show_speed_PID_test():
+    global counter
+    counter += 1
+    # motor_ul_pid.compute_pid(290, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+
+    # 测试不同速度下的pid参数切换情况
+    if counter >= 8000:
+        counter = 0
+    elif counter >= 6000:
+        motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
+    elif counter >= 4000:
+        motor_md_pid.compute_pid(210, pose_data.encoder_data_md)
+    elif counter >= 2000:
+        motor_md_pid.compute_pid(-50, pose_data.encoder_data_md)
+    else:
+        motor_md_pid.compute_pid(250, pose_data.encoder_data_md)
+    
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -736,23 +750,45 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # 初始化pid参数
-    if motor_ul_pid.target >= 400:
+    """
+    if motor_ul_pid.target >= 200:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif motor_ul_pid.target >= 200:
+    elif motor_ul_pid.target >= 100:
         motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if motor_ur_pid.target >= 400:
+    if motor_ur_pid.target >= 200:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif motor_ur_pid.target >= 200:
+    elif motor_ur_pid.target >= 100:
         motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target >= 400:
+    if motor_md_pid.target >= 200:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif motor_md_pid.target >= 200:
+    elif motor_md_pid.target >= 100:
+        motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
+    else:
+        motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+    """
+    if abs(motor_ul_pid.target) >= 200:
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+    elif abs(motor_ul_pid.target) >= 100:
+        motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
+    else:
+        motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+        
+    if abs(motor_ur_pid.target) >= 200:
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+    elif abs(motor_ur_pid.target) >= 100:
+        motor_ur_pid.set_pid_params(pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd)
+    else:
+        motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+
+    if abs(motor_md_pid.target) >= 200:
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    elif abs(motor_md_pid.target) >= 100:
         motor_md_pid.set_pid_params(pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd)
     else:
         motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
@@ -788,19 +824,19 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
+    
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[250.0, 120.0], [160.0, 220.0], [55.0, 0.0], [5.0, 0.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[35.0, 30.0],[35.0, -15.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+    
     
     # 视觉伺服测试程序
     # test_vision_servo()
@@ -839,7 +875,7 @@ def time_pit2_handler(time):
     # 航向角输出
     # my_uart3.write(f"{my_car.last_move_yaw}\n")
     # 角度环输出
-    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual},{angle_pid.derivative}\n")
+    # my_uart3.write(f"{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output},{angle_pid.derivative}\n")
     # imu原始数据
     # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
     # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
@@ -858,7 +894,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_y * my_car.gkd}, {pose_data.gyro_y}\n")
+    # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
     
     # 环绕测试
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")

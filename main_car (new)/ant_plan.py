@@ -363,7 +363,7 @@ class Plan:
         elif total_distance >= 10.0 and total_distance < 50.0:
             # 设置减速距离和加速时间阈值
             self.dec_distance = 8.0
-            self.boost_time_threshold = 20
+            self.boost_time_threshold = 30
             self.v_max = self.short_v_max
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
