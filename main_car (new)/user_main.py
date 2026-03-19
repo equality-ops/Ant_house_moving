@@ -33,11 +33,17 @@ if_press_start_key = False
 start_flag = False
 # 是否操控从车提前到达目标点就位标志位
 if_send_preparing_path = False
+# 任务阶段变量
 DEPART = 0       # 出发（离开发车区）
 DOWN = 1         # 位于矩形下边沿
 UP = 2           # 位于矩形上边沿
 CHECK = 3        # 检验阶段（检查是否搬运完所有物体）
 RETURN_WORK = 4  # 返回阶段（搬运完所有物体后返回起点）
+# 小车位置（用于apriltag矫正模式）
+DOWN_LEFT = 0
+DOWN_RIGHT = 1
+UP_LEFT = 2
+UP_RIGHT = 3
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -234,7 +240,7 @@ def main_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DOWN
+                my_state.state_work = DEPART
                 my_state.state = my_state.NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
@@ -383,7 +389,7 @@ def collaborative_task_machine():
     elif my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
-                my_main_protocol.send_path(ord('P'), [[plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
+                my_main_protocol.send_path(ord('P'), [[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
             my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
@@ -483,7 +489,7 @@ def collaborative_task_machine():
                 my_plan.navigate([[my_car.x_current + 5.0, -25.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
-                    my_vision_manager.car_position = 0
+                    my_vision_manager.car_position = DOWN_LEFT
                     my_state.state = my_state.CALIBRATE
                     # 测试
                     my_beep.test()
@@ -492,14 +498,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                if my_vision_manager.car_position == 0:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0]], 90)
-                elif my_vision_manager.car_position == 2:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0]], 90)
-                elif my_vision_manager.car_position == 1:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0]], -90)
-                elif my_vision_manager.car_position == 3:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0]], -90)
+                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0]], 90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -542,7 +541,7 @@ def collaborative_task_machine():
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
                 # 操控从车从矩形区域左边沿行驶
-                my_main_protocol.send_path(ord('P'), [[110.0, 220.0], [160.0, 220.0]])
+                my_main_protocol.send_path(ord('P'), [[110.0, 220.0], [plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
                 
@@ -639,7 +638,7 @@ def collaborative_task_machine():
                 my_plan.navigate([[my_car.x_current + 5.0, 265.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
-                    my_vision_manager.car_position = 3
+                    my_vision_manager.car_position = UP_RIGHT
                     my_state.state = my_state.CALIBRATE
                     # 测试
                     my_beep.test()
@@ -648,14 +647,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                if my_vision_manager.car_position == 0:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0]], 90)
-                elif my_vision_manager.car_position == 2:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0]], 90)
-                elif my_vision_manager.car_position == 1:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0]], -90)
-                elif my_vision_manager.car_position == 3:
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0]], -90)
+                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -711,7 +703,7 @@ def collaborative_task_machine():
                     my_state.state = my_state.SERVO
             else:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(ord('P'), [[35.0, -15.0]])
+                    my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -726,8 +718,8 @@ def collaborative_task_machine():
                     my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
-            # 最终返回从车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[35.0, 10.0], [35.0, -15.0]], 0.0)
+            # 最终返回主车的起点（避免回程途中与从车碰撞）
+            my_plan.navigate([[plan_data.fixed_point[0][0], 10.0], [plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
