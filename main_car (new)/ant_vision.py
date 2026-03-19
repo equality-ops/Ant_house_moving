@@ -106,7 +106,6 @@ class VisionManager:
     
     # 视觉伺服控制
     def visual_servo_control(self):
-        # 单独测试该模式时需要解开这段注释
         if self.finish_servo == False:
             self.target_point = self.my_art_protocol.coordinate_receive()
             if self.target_point:
@@ -132,7 +131,7 @@ class VisionManager:
                         # 固定伺服速度
                         self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
                         self.compute_target_rel_yaw()
-                        # 当横移角度过大时，速度折半
+                        # 当横移角度过大时，速度减小%20
                         if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
                             self.target_rel_speed = int(self.target_rel_speed * 0.8)
                         self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
@@ -149,61 +148,45 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):
         if self.if_gain_dis == False:
-             # 保持静止采集tof数据
+            """
+            # 当时视觉伺服对象不是bear则打开tof
+            if len(self.tof_buffer) <= 35:          
+                # 获取TOF测距值，并添加到缓冲区
+                self.tof_buffer.append(self.tof_distance_fil.update(self.my_tof.get()))
+                # 测试
+                # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
+            else:
+            
+            # 计算最终的TOF测距值（去除前5个的平均值）
+            self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
+            if self.current_servo_object != ord('B'):
+                # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
+                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
+            else:
+            """
+            # 保持静止采集tof数据
             self.orbit_speed = 0
+            # 如果当前状态为环绕模式则根据物体半径设置环绕半径，如果在反环绕模式下则设置成上一次的值
             if self.my_state.state == self.my_state.ORBIT:
-                """
-                # 当时视觉伺服对象不是bear则打开tof
-                if len(self.tof_buffer) <= 35:          
-                    # 获取TOF测距值，并添加到缓冲区
-                    self.tof_buffer.append(self.tof_distance_fil.update(self.my_tof.get()))
-                    # 测试
-                    # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
-                else:
-                
-                # 计算最终的TOF测距值（去除前5个的平均值）
-                self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
-                if self.current_servo_object != ord('B'):
-                    # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
-                    self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
-                else:
-                """
                 self.orbit_radius = self.object_radius / 5
-                self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
-                self.target_angle = self.record_angle + target_angle
-                # 限制目标角度在-180到180度之间
-                if self.target_angle > 180.0:
-                    self.target_angle -= 360.0
-                elif self.target_angle < -180.0:
-                    self.target_angle += 360.0
-                # 确定旋转方向（顺时针还是逆时针）
-                if target_angle >= 0.0:
-                    self.direct = 0
-                else:
-                    self.direct = 1 
-                self.current_dis = 0.0
-                self.if_gain_dis = True
-                
-                    # self.tof_buffer.clear()
-                    # 测试
-                    # self.my_beep.test()
-                    # self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
-            elif self.my_state.state == self.my_state.REVERSE_ORBIT:
-                    # 若此时模式为反向环绕，则环绕半径不变
-                    self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
-                    self.target_angle = self.record_angle + target_angle
-                    # 限制目标角度在-180到180度之间
-                    if self.target_angle > 180.0:
-                        self.target_angle -= 360.0
-                    elif self.target_angle < -180.0:
-                        self.target_angle += 360.0
-                    # 确定旋转方向（顺时针还是逆时针）
-                    if target_angle >= 0.0:
-                        self.direct = 0
-                    else:
-                        self.direct = 1 
-                    self.current_dis = 0.0
-                    self.if_gain_dis = True
+            self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
+            self.target_angle = self.record_angle + target_angle
+            # 限制目标角度在-180到180度之间
+            if self.target_angle > 180.0:
+                self.target_angle -= 360.0
+            elif self.target_angle < -180.0:
+                self.target_angle += 360.0
+            # 确定旋转方向（顺时针还是逆时针）
+            if target_angle >= 0.0:
+                self.direct = 0
+            else:
+                self.direct = 1 
+            self.current_dis = 0.0
+            self.if_gain_dis = True
+            # self.tof_buffer.clear()
+            # 测试
+            # self.my_beep.test()
+            # self.my_uart3.write("final_tof: {:<f}, orbit_radius: {:<f}\n".format(self.tof_distance, self.orbit_radius))
         else:
             if self.finish_orbit == False:
                 # 更新当前小车的行驶距离
@@ -255,13 +238,13 @@ class VisionManager:
                     self.my_plan.finish_navigate = False
             elif self.adjust_stage == 2:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[190.0, 0.0]], -90.0)
+                    self.my_plan.navigate([[180.0, 0.0]], -90.0)
                 elif self.car_position == 0:
-                    self.my_plan.navigate([[130.0, 0.0]], 90.0)
+                    self.my_plan.navigate([[140.0, 0.0]], 90.0)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[190.0, 240.0]], -90.0)
+                    self.my_plan.navigate([[140.0, 240.0]], -90.0)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[130.0, 240.0]], 90.0)
+                    self.my_plan.navigate([[180.0, 240.0]], 90.0)
                 if self.my_plan.finish_navigate == True:
                     # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
                     self.servo_pid.target_y = 10.0
@@ -276,6 +259,7 @@ class VisionManager:
                     self.my_beep.test()
                     self.my_order_manager.mode_apriltag()
         else:
+            # 延时100ms后进行第二次的转角调整
             if self.calibrate_times == 1:
                 if self.counter != -1:
                     self.counter += 1
@@ -356,8 +340,8 @@ class VisionManager:
                             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1
-                # 连续丢失100帧apriltag坐标后（在1s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
-                if self.servo_lost_count >= 100:
+                # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
+                if self.servo_lost_count >= 150:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
