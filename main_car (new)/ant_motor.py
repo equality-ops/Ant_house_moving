@@ -278,13 +278,14 @@ class SpeedPositionPID(ControlPID):
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
+                
         # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:
-            if self.nowError < 5 and self.nowError > 0.5:
-                self.pwm_output += self.pwm_output + 800
-            elif self.nowError > -5 and self.nowError < -0.5:
-                self.pwm_output += self.pwm_output - 800
-
+            if self.nowError < 5 and self.nowError > 0:
+                self.pwm_output += self.pwm_output + 500
+            elif self.nowError > -5 and self.nowError < 0:
+                self.pwm_output += self.pwm_output - 500
+        
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
@@ -362,8 +363,8 @@ class ServoPID(ControlPID):
         self.actual_x = actual_x
         self.actual_y = actual_y    
         # 根据拟合公式计算出当前物体中心所在图片宽度与高度的实际距离(cm)
-        self.current_x = 1 / (2.99 * 0.0001 * self.actual_y + 7.72 * 0.001)  # type: float
-        self.current_y = (-24.824 * self.actual_y + 2826.1) / (self.actual_y + 26.881)  # type: float
+        self.current_x = 0.0063 * (self.actual_y ** 2) - 1.4406 * self.actual_y + 118.88  # type: float
+        self.current_y = (-34.0734 * self.actual_y + 4060.2) / (self.actual_y + 52.0064)  # type: float
         self.preError_x = self.nowError_x
         self.preError_y = self.nowError_y
         self.nowError_x = -(self.target_x - self.actual_x) / 160 * self.current_x  # 将像素差转换为实际距离差(cm)
@@ -446,9 +447,9 @@ class CarPose:
         # 采集周期，单位：秒
         self.collect_dt = self.flash_sys.find_value("collect_dt")  # type: float  
         # 测试一个电机的里程
-        # self.encouder_ul = 0.0    
-        # self.encouder_ur = 0.0
-        # self.encouder_md = 0.0
+        self.encouder_ul = 0.0    
+        self.encouder_ur = 0.0
+        self.encouder_md = 0.0
         
     # 小车姿态更新
     def update_pose(self):
@@ -458,18 +459,14 @@ class CarPose:
         self.last_car_speed_y = self.car_speed_y
         self.last_car_speed_w = self.car_speed_w
         # 测试一个电机的里程
-        #self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
-        # self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
-        # self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
+        self.encouder_ul += self.speed_conversion_gamma * self.pose_data.encoder_data_ul / 1000
+        self.encouder_ur += self.speed_conversion_gamma * self.pose_data.encoder_data_ur / 1000
+        self.encouder_md += self.speed_conversion_gamma * self.pose_data.encoder_data_md / 1000
 
-        # 当小车为停止状态时不计算速度，直接将速度置0（避免编码器抖动时积分产生误差）
-        if self.my_state.state != self.my_state.STOP:
-            # 计算小车当前x,y速度（互补融合）
-            # car_speed_x, car_speed_y 单位：厘米每5ms
-            self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
-            self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
-        else:
-            self.car_speed_x, self.car_speed_y = 0.0, 0.0
+        # 计算小车当前x,y速度（互补融合）
+        # car_speed_x, car_speed_y 单位：厘米每5ms
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
 
         # car_speed_w单位：度每秒
         self.car_speed_w = self.pose_data.gyro_z
