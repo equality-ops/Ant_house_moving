@@ -284,7 +284,7 @@ class ColorDetector:
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=90,  area_threshold=90,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=70,  area_threshold=70,  merge=True)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
@@ -305,7 +305,7 @@ class ColorDetector:
                 continue
             elif color in ('white', 'brown') and blob.density() < 0.3:
                 continue
-            elif color == 'green' and blob.density() < 0.55:
+            elif color == 'green' and blob.density() < 0.5:
                 continue
 
             # 长宽比过滤（不同颜色有不同规则）
