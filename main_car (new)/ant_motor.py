@@ -245,6 +245,10 @@ class SpeedPositionPID(ControlPID):
         self.kd = kd
 
     def compute_pid(self, target: int, actual: int):
+        # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
+        if target == 0 and self.target != 0:
+            self.integral = 0
+
         self.target = target
         self.actual = actual
         self.preError = self.nowError
@@ -334,10 +338,18 @@ class ServoPID(ControlPID):
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        self.servo_kp_x = self.flash_sys.find_value("servo_kp_x")        # type: float
-        self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")        # type: float
-        self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")        # type: float
-        self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
+        self.servo_normal_kp_x = self.flash_sys.find_value("servo_normal_kp_x")        # type: float
+        self.servo_normal_kd_x = self.flash_sys.find_value("servo_normal_kd_x")        # type: float
+        self.servo_normal_kp_y = self.flash_sys.find_value("servo_normal_kp_y")        # type: float
+        self.servo_normal_kd_y = self.flash_sys.find_value("servo_normal_kd_y")        # type: float
+        self.servo_calibrate_kp_x = self.flash_sys.find_value("servo_calibrate_kp_x")        # type: float
+        self.servo_calibrate_kd_x = self.flash_sys.find_value("servo_calibrate_kd_x")        # type: float
+        self.servo_calibrate_kp_y = self.flash_sys.find_value("servo_calibrate_kp_y")        # type: float
+        self.servo_calibrate_kd_y = self.flash_sys.find_value("servo_calibrate_kd_y")        # type: float
+        self.servo_kp_x = 0.0
+        self.servo_kd_x = 0.0
+        self.servo_kp_y = 0.0
+        self.servo_kd_y = 0.0
         self.target_x = self.flash_sys.find_value("servo_target_x")      # type: int
         self.actual_x = 0     # type: float
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
@@ -363,11 +375,13 @@ class ServoPID(ControlPID):
         self.actual_x = actual_x
         self.actual_y = actual_y    
         # 根据拟合公式计算出当前物体中心所在图片宽度与高度的实际距离(cm)
-        self.current_x = 0.0063 * (self.actual_y ** 2) - 1.4406 * self.actual_y + 118.88  # type: float
+        self.current_x = 1 / (2.99 * 0.0001 * self.actual_y + 7.72 * 0.001)  # type: float
         self.current_y = (-34.0734 * self.actual_y + 4060.2) / (self.actual_y + 52.0064)  # type: float
         self.preError_x = self.nowError_x
         self.preError_y = self.nowError_y
         self.nowError_x = -(self.target_x - self.actual_x) / 160 * self.current_x  # 将像素差转换为实际距离差(cm)
+        # 测试拟合后的函数公式是否正确
+        # self.nowError_x = -(self.target_x - self.actual_x)  # 直接将距离差作为误差输入
         self.nowError_y = -(self.target_y - self.current_y)
         # 计算微分项
         self.derivative_x = self.nowError_x - self.preError_x

@@ -161,8 +161,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(6)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(6)
+sin_servo_fil = ant_motor.SlipAveragingFilter(8)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(8)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -236,7 +236,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -261,12 +261,12 @@ def ready_servo_and_orbit():
         my_vision_manager.object_radius = my_vision_manager.radius_T
         my_vision_manager.orbit_angle = my_vision_manager.angle_T
         my_plan.move_v_max = my_plan.move_v_max_T
-    elif my_vision_manager.current_servo_object == ord('S'):
+    elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
         servo_pid.target_y = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
         my_vision_manager.orbit_angle = my_vision_manager.angle_S
         my_plan.move_v_max = my_plan.move_v_max_S
-    elif my_vision_manager.current_servo_object == ord('B'):
+    elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
         servo_pid.target_y = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
         my_vision_manager.orbit_angle = my_vision_manager.angle_B
@@ -323,6 +323,10 @@ def master_control():
 def test_vision_servo():
     global counter
     if my_state.state == my_state.NAVIGATE:
+        # 直接测试环绕模式
+        my_state.state = my_state.ORBIT
+        my_vision_manager.object_radius = 3.1
+
         my_order_manager.mode_target()
         my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
@@ -335,13 +339,13 @@ def test_vision_servo():
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
-            my_state.state = my_state.STOP
+            my_state.state = my_state.ORBIT
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
             # 重置标志位
             my_vision_manager.if_send_servo_command = False
             my_vision_manager.finish_servo = False
             # 测试
-            my_beep.test()
+            # my_beep.test()
     elif my_state.state == my_state.ORBIT:
         my_vision_manager.orbit_control(180.0)
         if my_vision_manager.finish_orbit == True:
@@ -349,7 +353,7 @@ def test_vision_servo():
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
             my_state.state = my_state.STOP
             # 测试
-            my_beep.test()
+            # my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
 
@@ -362,6 +366,7 @@ def test_apriltag_calibrate():
         if my_vision_manager.if_finish_calibrate == True:
             my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
             my_state.state = my_state.STOP
+            my_plan.turn_angle_target = my_vision_manager.target_rel_turn_angle
     elif my_state.state == my_state.STOP:
         my_plan.stop()
 
@@ -400,7 +405,7 @@ def collaborative_task_machine():
             my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
                     my_vision_manager.current_servo_object = target_point[2]
                     # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
                     sin_servo_fil.buffer_init(my_plan.scan_v_max)
@@ -466,6 +471,8 @@ def collaborative_task_machine():
                     my_vision_manager.failed_servo_count = 0
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     my_state.state = my_state.MOVE
+                    # 提前设置小车转向目标角度为当前角度
+                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     # 测试
                     my_beep.test()
                 elif order == "lost":
@@ -476,7 +483,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current + 5.0, -25.0]])
+                my_plan.navigate([[my_car.x_current, -15.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = DOWN_LEFT
@@ -552,7 +559,7 @@ def collaborative_task_machine():
                 my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                    if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
                         my_vision_manager.current_servo_object = target_point[2]
                         # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
                         sin_servo_fil.buffer_init(my_plan.scan_v_max)
@@ -615,6 +622,8 @@ def collaborative_task_machine():
                     my_vision_manager.failed_servo_count = 0
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     my_state.state = my_state.MOVE
+                    # 提前设置小车转向目标角度为当前角度
+                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     # 测试
                     my_beep.test()
                 elif order == "lost":
@@ -625,7 +634,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current + 5.0, 265.0]])
+                my_plan.navigate([[my_car.x_current, 255.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = UP_RIGHT
@@ -728,18 +737,16 @@ def show_speed_PID_test():
     # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
 
     # 测试不同速度下的pid参数切换情况
-    
     if counter >= 8000:
         counter = 0
     elif counter >= 6000:
-        motor_md_pid.compute_pid(0, pose_data.encoder_data_md)
+        motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
     elif counter >= 4000:
-        motor_md_pid.compute_pid(210, pose_data.encoder_data_md)
+        motor_ul_pid.compute_pid(-250, pose_data.encoder_data_ul)
     elif counter >= 2000:
-        motor_md_pid.compute_pid(-50, pose_data.encoder_data_md)
+        motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
     else:
-        motor_md_pid.compute_pid(250, pose_data.encoder_data_md)
-    
+        motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
         
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -755,8 +762,11 @@ def time_pit1_handler(time):
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     else:
     """
+    brake_threshold = 30
     # 初始化pid参数（线性回归）
-    if abs(motor_ul_pid.target) >= 290:
+    if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+    elif abs(motor_ul_pid.target) >= 290:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
     elif abs(motor_ul_pid.target) >= 150:
         now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 150) / 140
@@ -769,7 +779,9 @@ def time_pit1_handler(time):
     else:
         motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
         
-    if abs(motor_ur_pid.target) >= 290:
+    if motor_ur_pid.target == 0 and abs(motor_ur_pid.nowError) >= brake_threshold:
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+    elif abs(motor_ur_pid.target) >= 290:
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
     elif abs(motor_ur_pid.target) >= 150:
         now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 150) / 140
@@ -782,7 +794,9 @@ def time_pit1_handler(time):
     else:
         motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if abs(motor_md_pid.target) >= 290:
+    if motor_md_pid.target == 0 and abs(motor_md_pid.nowError) >= brake_threshold:
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    elif abs(motor_md_pid.target) >= 290:
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     elif abs(motor_md_pid.target) >= 150:
         now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 150) / 140
@@ -826,19 +840,19 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    # collaborative_task_machine()
+    collaborative_task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 20.0], [160.0, 220.0], [220.0, 120.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[160.0, 220.0], [220.0, 120.0], [160.0, 20.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     
     # 视觉伺服测试程序
     # test_vision_servo()
@@ -864,10 +878,11 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     # 视觉伺服
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
+    # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
-    my_uart3.write(f"{servo_pid.current_x},{servo_pid.current_y}\n")
+    # my_uart3.write(f"{servo_pid.current_x},{servo_pid.current_y}\n")
+    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
 
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
@@ -894,7 +909,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")

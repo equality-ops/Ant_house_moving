@@ -210,7 +210,7 @@ class LinkProtocol:
     def get_path_list(self):
             """
             解析主车发送的任务路径包
-            发送格式: #T,120.5,80.1;130.2,90.3!  (或 #S, #B, #P)
+            发送格式: #T,120.5,80.1;130.2,90.3!  (或 #S, #B, #P, #E, #W)
             :return: 成功返回 (task_type, list_of_points), 如 ('T', [(120.5, 80.1)]); 
                     失败返回 None
             """
@@ -255,7 +255,7 @@ class LinkProtocol:
                 tag_type = self.raw_buffer[self.start_idx + 1 : self.start_idx + 2].decode('utf-8')
                 
                 # 如果不是我们预期的指令，说明可能是脏数据
-                if tag_type not in ['T', 'S', 'B', 'P']:
+                if tag_type not in ['T', 'S', 'B', 'P', 'E', 'W']:
                     # 这种情况下，丢弃这个错误的开头，继续找下一个
                     self.raw_buffer = self.raw_buffer[self.start_idx + 1:]
                     return None
