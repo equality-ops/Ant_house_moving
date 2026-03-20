@@ -196,7 +196,7 @@ class KalmanTracker:
         ], dtype=np.float)
 
         # 测量噪声R
-        self.R = np.diag([4, 4, 10, 10, 50, 50])
+        self.R = np.diag([0.1, 0.1, 0.3, 0.3, 1, 1])
 
         # 初始化状态
         self.reset()
@@ -282,9 +282,9 @@ class ColorDetector:
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=90,  area_threshold=90,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=75,  area_threshold=75,  merge=True)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=True)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
@@ -305,7 +305,7 @@ class ColorDetector:
                 continue
             elif color in ('white', 'brown') and blob.density() < 0.3:
                 continue
-            elif color == 'green' and blob.density() < 0.55:
+            elif color == 'green' and blob.density() < 0.5:
                 continue
 
             # 长宽比过滤（不同颜色有不同规则）

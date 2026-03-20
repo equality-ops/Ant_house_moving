@@ -209,7 +209,7 @@ class KalmanTracker:
         ], dtype=np.float)
 
         # 测量噪声R
-        self.R = np.diag([4, 4, 10, 10, 50, 50])
+        self.R = np.diag([0.1, 0.1, 0.3, 0.3, 1, 1])
 
         # 初始化状态
         self.reset()
@@ -302,7 +302,7 @@ class ColorDetector:
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True, roi=self.roi_bear)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=220, area_threshold=220, merge=True, roi=self.roi_bear)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)
