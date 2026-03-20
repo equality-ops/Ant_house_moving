@@ -86,7 +86,7 @@ THRESHOLD = {'dark':{
     'red':[(32, 55, 38, 85, -23, 52), # 45
     (25, 56, 34, 87, 11, 53)], # 50
     'green':[# (58, 100, -49, -20, 44, 97), # 45
-    (50, 100, -56, -27, 37, 97), # 46(new)
+    (34, 73, -36, -17, 24, 74), # 46(new)
     # (71, 98, -52, -10, 39, 98)], # 50
     (71, 98, -52, -10, 68, 98)], # 50(new)
     'blue':[(33, 79, -29, -2, -52, -30), # 45(new)
@@ -108,9 +108,9 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 35),
-    'normal':(35, 58),
-    'bright':(58, 100)
+    'dark':(0, 47),
+    'normal':(47, 75),
+    'bright':(75, 100)
 }
 
 # 锁定的阈值集
@@ -209,7 +209,7 @@ class KalmanTracker:
         ], dtype=np.float)
 
         # 测量噪声R
-        self.R = np.diag([4, 4, 10, 10, 50, 50])
+        self.R = np.diag([0.1, 0.1, 0.3, 0.3, 1, 1])
 
         # 初始化状态
         self.reset()
@@ -302,7 +302,7 @@ class ColorDetector:
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=260, area_threshold=260, merge=True, roi=self.roi_bear)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)

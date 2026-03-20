@@ -396,124 +396,6 @@ class ColorDetector:
             # 添加到中心列表
             center_list.append((blob.cx(), blob.cy(), color_name))
 
-# ======================== 锁定逻辑模块 ========================
-class TargetLocker:
-    def __init__(self, jump_threshold, max_lost_frames):
-        self.is_locked = False        # 是否锁定目标
-        self.locked_color = ''        # 锁定的目标颜色
-        self.locked_cx = SCREEN_CENTER_X  # 锁定目标的初始x坐标
-        self.locked_cy = SCREEN_CENTER_Y  # 锁定目标的初始y坐标
-        self.last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
-        self.last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
-        self.lost_count = 0           # 锁定目标丢失帧数
-        self.JUMP_THRESHOLD = jump_threshold
-        self.MAX_LOST_FRAMES = max_lost_frames
-
-    def reset(self):
-        """重置锁定状态"""
-        self.is_locked = False
-        self.locked_color = ''
-        self.locked_cx = SCREEN_CENTER_X
-        self.locked_cy = SCREEN_CENTER_Y
-        self.last_cx = SCREEN_CENTER_X
-        self.last_cy = SCREEN_CENTER_Y
-        self.lost_count = 0
-
-    def is_jump_too_large(self, cx, cy):
-        """判断坐标跳变是否过大（同色干扰）"""
-        squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
-        return squared_distance > (self.JUMP_THRESHOLD**2)
-
-    def process_lock(self, filtered_blobs, kalman_coords):
-        """处理锁定逻辑，返回目标位置、目标颜色、锁定的色块"""
-        target_pos = None
-        target_color = ''
-        locked_blob = None
-
-        if filtered_blobs:
-            # 未锁定：选择y最大的目标作为锁定对象
-            if not self.is_locked:
-                max_y_blob, max_y_color = max(
-                    filtered_blobs,
-                    key=lambda item: item[0].cy()
-                )
-                self.locked_color = max_y_color
-                if self.locked_color in kalman_coords:
-                    self.locked_cx, self.locked_cy = kalman_coords[self.locked_color]
-                else:
-                    self.locked_cx = max_y_blob.cx()
-                    self.locked_cy = max_y_blob.cy()
-                self.last_cx = self.locked_cx
-                self.last_cy = self.locked_cy
-                self.is_locked = True
-                self.lost_count = 0
-                target_pos = (self.locked_cx, self.locked_cy)
-                target_color = max_y_color
-                locked_blob = max_y_blob
-            # 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
-            else:
-                # 筛选同色目标
-                same_color_blobs = [
-                    item for item in filtered_blobs
-                    if item[1] == self.locked_color
-                ]
-                valid_blobs = []
-                for blob, color in same_color_blobs:
-                    cx, cy = blob.cx(), blob.cy()
-                    # 跳变不超过阈值才视为有效目标
-                    if not self.is_jump_too_large(cx, cy):
-                        valid_blobs.append((blob, cx, cy))
-
-                if valid_blobs:
-                    # 选同色目标中最接近上一帧锁定位置的
-                    best_blob, best_cx, best_cy = min(
-                        valid_blobs,
-                        key=lambda item:(item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2
-                    )
-                    if self.locked_color in kalman_coords:
-                        target_pos = kalman_coords[self.locked_color]
-                    else:
-                        target_pos = (best_cx, best_cy)
-                    self.last_cx = best_cx
-                    self.last_cy = best_cy
-                    self.lost_count = 0
-                    target_color = self.locked_color
-                    locked_blob = best_blob
-                else:
-                    # 无有效同色目标，计数+1
-                    self.lost_count += 1
-                    if self.locked_color in kalman_coords and self.is_locked:
-                        target_pos = kalman_coords[self.locked_color]
-                    else:
-                        target_pos = None
-        else:
-            # 无任何色块，锁定计数+1
-            if self.is_locked:
-                self.lost_count += 1
-                if self.locked_color in kalman_coords:
-                    target_pos = kalman_coords[self.locked_color]
-                else:
-                    target_pos = None
-            else:
-                target_pos = None
-
-        # 超过最大丢失帧数，解除锁定
-        if self.is_locked and self.lost_count >= self.MAX_LOST_FRAMES:
-            self.reset()
-            target_color = ''
-
-        return target_pos, target_color, locked_blob
-
-    def draw_lock_mark(self, img, locked_blob, kalman_coords):
-        """绘制锁定标识（黑色圆）"""
-        if self.is_locked and locked_blob is not None:
-            if self.locked_color in kalman_coords:
-                lock_cx, lock_cy = kalman_coords[self.locked_color]
-            else:
-                lock_cx = locked_blob.cx()
-                lock_cy = locked_blob.cy()
-            img.draw_circle(lock_cx, lock_cy, 5, color=DRAW_COLORS['black'], thickness=2)
-
 # ======================== 坐标矫正模块 ========================
 class CoordinateCorrection:
     def __init__(self):
@@ -563,19 +445,16 @@ def handle_uart_commands(uart):
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
-            target_locker.reset()
         elif cmd == b'C':
             current_mode = MODE_CORRECTION
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
-            target_locker.reset()
         elif cmd == b'F':
             current_mode = MODE_WAITING
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
-            target_locker.reset()
 
 def init_threshold():
     """依据当前亮度自动匹配阈值"""
@@ -627,8 +506,6 @@ brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 blue_tracker = KalmanTracker()
 communicator = Communicator(uart)
-# 初始化锁定类实例
-target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
 # ======================== 主循环 ========================
 while True:
@@ -655,9 +532,6 @@ while True:
 
         # 初始化变量
         center = []  # 所有有效色块的中心坐标 (cx, cy, color)
-        target_pos = None  # 最终要发送的目标坐标
-        locked_blob = None  # 锁定的目标色块
-        target_color = ''
         is_sent = False # 是否发送了坐标
 
         # 分离棕色、白色、蓝色与其它色块
@@ -682,24 +556,13 @@ while True:
         color_detector.process_kalman_color(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
         color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
-
-        target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords)
-        target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
-
-        # 发送目标坐标
-        if target_locker.is_locked and target_pos is not None:
-            # 锁定状态：发送锁定目标坐标
-            communicator.send_coordinate(target_pos[0], target_pos[1], target_locker.locked_color)
-            is_sent = True
-        elif not target_locker.is_locked and center:
-            # 未锁定：按原有逻辑选y最大的坐标
+        if center:
             target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]
             target_color = target[2]
             communicator.send_coordinate(target_x, target_y, target_color)
             is_sent = True
-        # 锁定状态但没识别到目标和未锁定状态但未检测到色块，均不发送坐标
         displayed_text = 'YES' if is_sent else 'NO'
         displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
         img.draw_string(5, 5, displayed_text, color = displayed_text_color, scale = 2)
