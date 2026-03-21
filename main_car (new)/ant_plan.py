@@ -297,7 +297,7 @@ class Plan:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
-            self.error_correct_x = 0.8
+            self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
             self.error_correct_x = 0.0
@@ -309,7 +309,7 @@ class Plan:
             self.error_correct_x = -0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
-            self.error_correct_x = -0.8
+            self.error_correct_x = -0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
             self.error_correct_x = -0.0
@@ -382,7 +382,7 @@ class Plan:
     def update_distance(self):
         if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             self.current_rest_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
-            if self.current_rest_dis < 2.0:
+            if self.current_rest_dis < 3.0:
                 self.plan_data.current_aimed_point_index += 1
                 x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
                 y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
@@ -450,19 +450,9 @@ class Plan:
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
     def navigate(self, path: list, target_turn_angle = None):
-        # 若超过12秒还未完成导航，则强制认为导航完成以防止小车长时间停在原地
-        if self.navigate_counter <= 1200:
-            self.navigate_counter += 1
-        else:
-            self.navigate_counter = 0
-            self.finish_navigate, self.if_finish_turn, self.if_set_path = True, True, True
-
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_turn == False and self.finish_navigate == False:
             if target_turn_angle is not None:
-                # 自转时里程计不计算
-                self.my_car.alpha_x = 0.0
-                self.my_car.alpha_y = 0.0
                 self.v_target = 0
                 self.turn_angle_target = target_turn_angle
                 # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
@@ -476,13 +466,11 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.5:
+            if diff <= 0.6:
                 if self.transition_flag == False:
                     self.path_transition()
                 else:
                     self.transition_flag = False
-                    self.my_car.alpha_x = 1.0
-                    self.my_car.alpha_y = 1.0
                     self.if_finish_turn = True
                     # 恢复正常的角度环限幅
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax

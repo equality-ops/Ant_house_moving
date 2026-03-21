@@ -1,6 +1,16 @@
-# 修改时间 3.21	  17:59
+# 修改时间 3.21	  22:19
 
 ###################【PID参数】####################
+# 搬运模式下
+ul_move_kp = 30.0
+ul_move_ki = 0.2
+ul_move_kd = 40.0
+ur_move_kp = 30.0
+ur_move_ki = 0.2
+ur_move_kd = 40.0
+md_move_kp = 30.0
+md_move_ki = 0.2
+md_move_kd = 40.0
 # speed大于200时
 ul_high_kp = 35.0
 ul_high_ki = 0.65
@@ -83,14 +93,14 @@ transit_v = 100
 # 已弃用
 orbit_v = 80
 
-orbit_v_max = 80
-orbit_v_min = 20
+orbit_v_max = 70
+orbit_v_min = 10
 # 已弃用
 move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
-move_v_max_T = 60
-move_v_max_S = 60
+move_v_max_T = 70
+move_v_max_S = 70
 move_v_max_B = 50
 
 ###################【视觉伺服】####################
@@ -106,14 +116,14 @@ servo_normal_kd_x = 5.0
 servo_normal_kp_y = 3.5
 servo_normal_kd_y = 5.0
 # apriltag矫正的视觉伺服pid参数
-servo_calibrate_kp_x = 4.0
-servo_calibrate_kd_x = 10.0
-servo_calibrate_kp_y = 4.0
-servo_calibrate_kd_y = 10.0
+servo_calibrate_kp_x = 3.0
+servo_calibrate_kd_x = 3.0
+servo_calibrate_kp_y = 3.0
+servo_calibrate_kd_y = 3.0
 
 servo_target_x = 80
 servo_target_y_A = 9.0
-servo_target_y_T = 7.5
+servo_target_y_T = 8.0
 servo_target_y_S = 10.0
 servo_target_y_B = 22.0
 # 普通的视觉伺服阈值
@@ -128,10 +138,10 @@ max_rel_speed = 150
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 3.15
-radius_S = 3.15
+radius_T = 2.85
+radius_S = 3.1
 radius_B = 4.5
-angle_T = 140.0
+angle_T = 139.0
 angle_S = 140.0
 angle_B = 150.0
 

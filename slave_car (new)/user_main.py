@@ -518,17 +518,13 @@ def collaborative_task_machine():
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
-                if my_vision_manager.failed_servo_count == 0:
-                    # 若丢失物体则退出矩形框等待主车再次扫描
-                    my_plan.navigate([plan_data.fixed_point[5]], my_vision_manager.target_rel_turn_angle)
-                elif my_vision_manager.failed_servo_count == 1:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current+10.0], [my_car.x_current+15.0, my_car.y_current+10.0], plan_data.fixed_point[5]], my_vision_manager.target_rel_turn_angle)
-                    target_point = my_art_protocol.coordinate_receive()
-                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
-                        my_vision_manager.current_servo_object = target_point[2]
-                        ready_servo_and_orbit()
-                        reset_navigate_flags()
-                        my_vision_manager.if_lost_object = False
+                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-5.0], [my_car.x_current+15.0, my_car.y_current-5.0], [my_car.x_current+15.0, my_car.y_current+5.0], [my_car.x_current, my_car.y_current+5.0], plan_data.fixed_point[5]], my_vision_manager.target_rel_turn_angle)
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
+                    my_vision_manager.current_servo_object = target_point[2]
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_vision_manager.if_lost_object = False
 
                 # 如果小车未找到物体，向主车发送lost指令
                 if my_plan.finish_navigate == True:
@@ -577,8 +573,8 @@ def collaborative_task_machine():
                     # 提前设置小车转向目标角度为当前角度
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI            
         elif my_state.state == my_state.MOVE:
-                # 延时40ms
-                if counter <= 4:
+                # 延时30ms
+                if counter <= 3:
                     counter += 1
                 else:
                     my_plan.navigate([[my_car.x_current-3.0, -25.0]])
@@ -592,7 +588,7 @@ def collaborative_task_machine():
                         # 测试
                         my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
-                        # 延时1s在进行apriltag矫正防止与主车相碰
+            # 延时1s在进行apriltag矫正防止与主车相碰
             if counter <= 100:
                 counter += 1
             else:
@@ -600,7 +596,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车前后移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0]], -90)
+                    my_plan.navigate([[my_car.x_current, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
 
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -675,17 +671,13 @@ def collaborative_task_machine():
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
-                if my_vision_manager.failed_servo_count == 0:
-                    # 若丢失物体则退出矩形框等待主车再次扫描
-                    my_plan.navigate([plan_data.fixed_point[6]], my_vision_manager.target_rel_turn_angle)
-                elif my_vision_manager.failed_servo_count == 1:
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+10.0], [my_car.x_current-15.0, my_car.y_current-10.0], [my_car.x_current+15.0, my_car.y_current-10.0], plan_data.fixed_point[6]], my_vision_manager.target_rel_turn_angle)
-                    target_point = my_art_protocol.coordinate_receive()
-                    if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
-                        my_vision_manager.current_servo_object = target_point[2]
-                        ready_servo_and_orbit()
-                        reset_navigate_flags()
-                        my_vision_manager.if_lost_object = False
+                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+5.0], [my_car.x_current-15.0, my_car.y_current+5.0], [my_car.x_current-15.0, my_car.y_current-5.0], [my_car.x_current, my_car.y_current-5.0], plan_data.fixed_point[6]], my_vision_manager.target_rel_turn_angle)
+                target_point = my_art_protocol.coordinate_receive()
+                if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
+                    my_vision_manager.current_servo_object = target_point[2]
+                    ready_servo_and_orbit()
+                    reset_navigate_flags()
+                    my_vision_manager.if_lost_object = False
 
                 # 如果小车在寻找物体过程中完成了一个矩形轨迹但仍未找到物体，则认为该边的区域内没有物体，控制小车再次进行扫描
                 if my_plan.finish_navigate == True:
@@ -731,8 +723,8 @@ def collaborative_task_machine():
                     my_beep.test()
                     my_slave_protocol.send_slave_state("finish")
         elif my_state.state == my_state.MOVE:
-                # 延时40ms
-                if counter <= 4:
+                # 延时30ms
+                if counter <= 3:
                     counter += 1
                 else:
                     my_plan.navigate([[my_car.x_current+3.0, 265.0]])
@@ -754,7 +746,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0]], 90)
+                    my_plan.navigate([[my_car.x_current, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                     
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -799,53 +791,62 @@ def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
 
-    brake_threshold = 30
-    # 初始化pid参数（线性回归）
-    if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
-        motor_ul_pid.set_pid_params(pid_data.ul_high_kp * 1.5, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif abs(motor_ul_pid.target) >= 290:
-        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-    elif abs(motor_ul_pid.target) >= 150:
-        now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 150) / 140
-        now_ul_ki = pid_data.ul_mid_ki + (pid_data.ul_high_ki - pid_data.ul_mid_ki) * (abs(motor_ul_pid.target) - 150) / 140
-        motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_mid_kd)
-    elif abs(motor_ul_pid.target) >= 70:
-        now_ul_kp = pid_data.ul_low_kp + (pid_data.ul_mid_kp - pid_data.ul_low_kp) * (abs(motor_ul_pid.target) - 70) / 80
-        now_ul_ki = pid_data.ul_low_ki + (pid_data.ul_mid_ki - pid_data.ul_low_ki) * (abs(motor_ul_pid.target) - 70) / 80
-        motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_low_kd)
+    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT:
+        motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
+        motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
+        motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
+    elif my_state.state == my_state.CALIBRATE:
+        motor_ul_pid.set_pid_params(pid_data.ul_move_kp * 0.75, pid_data.ul_move_ki, pid_data.ul_move_kd)
+        motor_ur_pid.set_pid_params(pid_data.ur_move_kp * 0.75, pid_data.ur_move_ki, pid_data.ur_move_kd)
+        motor_md_pid.set_pid_params(pid_data.md_move_kp * 0.75, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
-        motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-        
-    if motor_ur_pid.target == 0 and abs(motor_ur_pid.nowError) >= brake_threshold:
-        motor_ur_pid.set_pid_params(pid_data.ur_high_kp * 1.5, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif abs(motor_ur_pid.target) >= 290:
-        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-    elif abs(motor_ur_pid.target) >= 150:
-        now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 150) / 140
-        now_ur_ki = pid_data.ur_mid_ki + (pid_data.ur_high_ki - pid_data.ur_mid_ki) * (abs(motor_ur_pid.target) - 150) / 140
-        motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_mid_kd)
-    elif abs(motor_ur_pid.target) >= 70:
-        now_ur_kp = pid_data.ur_low_kp + (pid_data.ur_mid_kp - pid_data.ur_low_kp) * (abs(motor_ur_pid.target) - 70) / 80
-        now_ur_ki = pid_data.ur_low_ki + (pid_data.ur_mid_ki - pid_data.ur_low_ki) * (abs(motor_ur_pid.target) - 70) / 80
-        motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_low_kd)
-    else:
-        motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+        brake_threshold = 30
+        # 初始化pid参数（线性回归）
+        if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
+            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+        elif abs(motor_ul_pid.target) >= 290:
+            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+        elif abs(motor_ul_pid.target) >= 150:
+            now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 150) / 140
+            now_ul_ki = pid_data.ul_mid_ki + (pid_data.ul_high_ki - pid_data.ul_mid_ki) * (abs(motor_ul_pid.target) - 150) / 140
+            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_mid_kd)
+        elif abs(motor_ul_pid.target) >= 70:
+            now_ul_kp = pid_data.ul_low_kp + (pid_data.ul_mid_kp - pid_data.ul_low_kp) * (abs(motor_ul_pid.target) - 70) / 80
+            now_ul_ki = pid_data.ul_low_ki + (pid_data.ul_mid_ki - pid_data.ul_low_ki) * (abs(motor_ul_pid.target) - 70) / 80
+            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_low_kd)
+        else:
+            motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+            
+        if motor_ur_pid.target == 0 and abs(motor_ur_pid.nowError) >= brake_threshold:
+            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+        elif abs(motor_ur_pid.target) >= 290:
+            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+        elif abs(motor_ur_pid.target) >= 150:
+            now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 150) / 140
+            now_ur_ki = pid_data.ur_mid_ki + (pid_data.ur_high_ki - pid_data.ur_mid_ki) * (abs(motor_ur_pid.target) - 150) / 140
+            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_mid_kd)
+        elif abs(motor_ur_pid.target) >= 70:
+            now_ur_kp = pid_data.ur_low_kp + (pid_data.ur_mid_kp - pid_data.ur_low_kp) * (abs(motor_ur_pid.target) - 70) / 80
+            now_ur_ki = pid_data.ur_low_ki + (pid_data.ur_mid_ki - pid_data.ur_low_ki) * (abs(motor_ur_pid.target) - 70) / 80
+            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_low_kd)
+        else:
+            motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-    if motor_md_pid.target == 0 and abs(motor_md_pid.nowError) >= brake_threshold:
-        motor_md_pid.set_pid_params(pid_data.md_high_kp * 1.5, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif abs(motor_md_pid.target) >= 290:
-        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-    elif abs(motor_md_pid.target) >= 150:
-        now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 150) / 140
-        now_md_ki = pid_data.md_mid_ki + (pid_data.md_high_ki - pid_data.md_mid_ki) * (abs(motor_md_pid.target) - 150) / 140
-        motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_mid_kd)
-    elif abs(motor_md_pid.target) >= 70:
-        now_md_kp = pid_data.md_low_kp + (pid_data.md_mid_kp - pid_data.md_low_kp) * (abs(motor_md_pid.target) - 70) / 80
-        now_md_ki = pid_data.md_low_ki + (pid_data.md_mid_ki - pid_data.md_low_ki) * (abs(motor_md_pid.target) - 70) / 80
-        motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_low_kd)
-    else:
-        motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
-    
+        if motor_md_pid.target == 0 and abs(motor_md_pid.nowError) >= brake_threshold:
+            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+        elif abs(motor_md_pid.target) >= 290:
+            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+        elif abs(motor_md_pid.target) >= 150:
+            now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 150) / 140
+            now_md_ki = pid_data.md_mid_ki + (pid_data.md_high_ki - pid_data.md_mid_ki) * (abs(motor_md_pid.target) - 150) / 140
+            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_mid_kd)
+        elif abs(motor_md_pid.target) >= 70:
+            now_md_kp = pid_data.md_low_kp + (pid_data.md_mid_kp - pid_data.md_low_kp) * (abs(motor_md_pid.target) - 70) / 80
+            now_md_ki = pid_data.md_low_ki + (pid_data.md_mid_ki - pid_data.md_low_ki) * (abs(motor_md_pid.target) - 70) / 80
+            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_low_kd)
+        else:
+            motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+        
     # 更新小车姿态
     my_car.update_pose()
     

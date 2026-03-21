@@ -253,19 +253,19 @@ class VisionManager:
                 elif self.car_position == 0:
                     self.my_plan.navigate([[self.my_car.x_current - 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current - 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                    self.my_plan.navigate([[self.my_car.x_current - 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 if self.my_plan.finish_navigate == True:
                     self.adjust_stage = 2
                     self.my_plan.finish_navigate = False
             elif self.adjust_stage == 2:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[175.0, 0.0]], -90.0)
+                    self.my_plan.navigate([[185.0, 0.0]], -90.0)
                 elif self.car_position == 0:
                     self.my_plan.navigate([[135.0, 0.0]], 90.0)
                 elif self.car_position == 2:
                     self.my_plan.navigate([[135.0, 240.0]], 90.0)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[175.0, 240.0]], -90.0)
+                    self.my_plan.navigate([[185.0, 240.0]], -90.0)
                 if self.my_plan.finish_navigate == True:
                     # 选择合适的里程计系数
                     self.my_car.alpha_x = 1.0
@@ -374,4 +374,4 @@ class VisionManager:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
-                    self.if_lost_object = True  
+                    self.if_lost_object = True 
