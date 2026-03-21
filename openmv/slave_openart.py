@@ -108,8 +108,8 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 47),
-    'normal':(47, 75),
+    'dark':(0, 20),
+    'normal':(20, 75),
     'bright':(75, 100)
 }
 
@@ -304,8 +304,8 @@ class ColorDetector:
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True, roi=self.roi_bear)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True, roi=self.roi_bear)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True, roi=self.roi_red_sandbag)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=65,  area_threshold=65,  merge=self.merge_green, roi=self.roi_tennis)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=140,  area_threshold=140,  merge=True,roi=self.roi_blue_sandbag)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=self.merge_green, roi=self.roi_tennis)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=80,  area_threshold=80,  merge=True,roi=self.roi_blue_sandbag)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -333,7 +333,7 @@ class ColorDetector:
                 continue
             elif color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
+            elif color == 'green' and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
                 continue
             elif color == 'blue' and (blob.w() > 1.7 * blob.h() or blob.h() > 1.7 * blob.w()):
                 continue

@@ -108,8 +108,8 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 47),
-    'normal':(47, 75),
+    'dark':(0, 20),
+    'normal':(20, 75),
     'bright':(75, 100)
 }
 
@@ -283,8 +283,8 @@ class ColorDetector:
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=90,  area_threshold=90,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=70,  area_threshold=70,  merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=50,  area_threshold=50,  merge=True)
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=True)
         blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
@@ -313,7 +313,7 @@ class ColorDetector:
                 continue
             elif color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
-            elif color == 'green' and (blob.w() > 1.3 * blob.h() or blob.h() > 1.3 * blob.w()):
+            elif color == 'green' and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
                 continue
             elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
