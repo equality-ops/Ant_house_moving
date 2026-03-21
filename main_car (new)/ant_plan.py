@@ -26,7 +26,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
         # self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
@@ -364,8 +364,8 @@ class Plan:
         # 中距离移动
         elif total_distance >= 10.0 and total_distance < 50.0:
             # 设置减速距离和加速时间阈值
-            self.dec_distance = 8.0
-            self.boost_time_threshold = 20
+            self.dec_distance = 9.0
+            self.boost_time_threshold = 10
             self.v_max = self.short_v_max
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
@@ -465,7 +465,7 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 1.0:
+            if diff <= 0.5:
                 self.if_finish_turn = True
                 # 恢复正常的角度环限幅
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax

@@ -120,8 +120,6 @@ class VisionManager:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
                         self.my_order_manager.finish()
-                        # 测试
-                        self.my_beep.test()
                         self.finish_servo = True
                     else:
                         # 计算综合目标速度和航向角
@@ -133,7 +131,7 @@ class VisionManager:
                         self.compute_target_rel_yaw()
                         # 当横移角度过大时，速度减小%20
                         if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.8)
+                            self.target_rel_speed = int(self.target_rel_speed * 0.5)
                         self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1
@@ -161,12 +159,14 @@ class VisionManager:
             self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
             if self.current_servo_object != ord('B'):
                 # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
-                self.orbit_radius = ((self.tof_distance - 58.0) / 10 + 10.5 + self.object_radius) / 5
+                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
             else:
             """
             # 保持静止采集tof数据
             self.orbit_speed = 0
-            self.orbit_radius = self.object_radius / 5
+            # 如果当前状态为环绕模式则根据物体半径设置环绕半径，如果在反环绕模式下则设置成上一次的值
+            if self.my_state.state == self.my_state.ORBIT:
+                self.orbit_radius = self.object_radius / 5
             self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
             self.target_angle = self.record_angle + target_angle
             # 限制目标角度在-180到180度之间
@@ -343,4 +343,4 @@ class VisionManager:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
-                    self.if_lost_object = True  
+                    self.if_lost_object = True 
