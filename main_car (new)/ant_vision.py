@@ -144,7 +144,7 @@ class VisionManager:
                         self.compute_target_rel_yaw()
                         # 当横移角度过大时，速度减小%20
                         if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.6)
+                            self.target_rel_speed = int(self.target_rel_speed * 0.8)
                         self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
             else:
                 self.servo_lost_count += 1
@@ -262,10 +262,10 @@ class VisionManager:
                     self.my_plan.navigate([[185.0, 0.0]], -90.0)
                 elif self.car_position == 0:
                     self.my_plan.navigate([[135.0, 0.0]], 90.0)
-                elif self.car_position == 3:
-                    self.my_plan.navigate([[135.0, 240.0]], -90.0)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[185.0, 240.0]], 90.0)
+                    self.my_plan.navigate([[135.0, 240.0]], 90.0)
+                elif self.car_position == 3:
+                    self.my_plan.navigate([[185.0, 240.0]], -90.0)
                 if self.my_plan.finish_navigate == True:
                     # 选择合适的里程计系数
                     self.my_car.alpha_x = 1.0
@@ -275,8 +275,6 @@ class VisionManager:
                     self.servo_pid.servo_kd_x = self.servo_pid.servo_calibrate_kd_x
                     self.servo_pid.servo_kp_y = self.servo_pid.servo_calibrate_kp_y
                     self.servo_pid.servo_kd_y = self.servo_pid.servo_calibrate_kd_y
-                    # 测试
-                    self.car_position = 0
                     # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
                     self.servo_pid.target_y = self.servo_pid.target_y_A
                     self.counter = 0
@@ -308,9 +306,9 @@ class VisionManager:
                     # 计算目标转角
                     now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
                     if self.car_position == 0 or self.car_position == 2:
-                        self.target_rel_turn_angle = now_yaw - target_point[2]
-                    elif self.car_position == 1 or self.car_position == 3:
                         self.target_rel_turn_angle = now_yaw + target_point[2]
+                    elif self.car_position == 1 or self.car_position == 3:
+                        self.target_rel_turn_angle = now_yaw - target_point[2]
                     self.if_gain_calibrate_angle = True
 
                 self.servo_pid.compute_pid(target_point[0], target_point[1])

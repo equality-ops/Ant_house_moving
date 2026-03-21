@@ -105,6 +105,7 @@ class Plan:
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
         self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
+        self.navigate_counter = 0        # type: int   # 导航用时计数器
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
@@ -449,9 +450,19 @@ class Plan:
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
     def navigate(self, path: list, target_turn_angle = None):
+        # 若超过12秒还未完成导航，则强制认为导航完成以防止小车长时间停在原地
+        if self.navigate_counter <= 1200:
+            self.navigate_counter += 1
+        else:
+            self.navigate_counter = 0
+            self.finish_navigate, self.if_finish_turn, self.if_set_path = True, True, True
+
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_turn == False and self.finish_navigate == False:
             if target_turn_angle is not None:
+                # 自转时里程计不计算
+                self.my_car.alpha_x = 0.0
+                self.my_car.alpha_y = 0.0
                 self.v_target = 0
                 self.turn_angle_target = target_turn_angle
                 # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
@@ -466,9 +477,15 @@ class Plan:
             if diff > 180.0:
                 diff = 360.0 - diff
             if diff <= 0.5:
-                self.if_finish_turn = True
-                # 恢复正常的角度环限幅
-                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+                if self.transition_flag == False:
+                    self.path_transition()
+                else:
+                    self.transition_flag = False
+                    self.my_car.alpha_x = 1.0
+                    self.my_car.alpha_y = 1.0
+                    self.if_finish_turn = True
+                    # 恢复正常的角度环限幅
+                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化
@@ -507,9 +524,12 @@ class Plan:
             else:
                 self.stop()
                 self.if_finish_turn = False
+                self.navigate_counter = 0
                 self.plan_data.aimed_point_index = 0
                 self.dec_speed_index = 0
                 self.path_points.clear()
                 self.if_set_path = False
                 self.transition_flag = False
                 self.finish_navigate = True
+                self.stage = self.STOP
+                self.finish_building = False

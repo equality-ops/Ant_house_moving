@@ -1,4 +1,4 @@
-# 修改时间 3.20	3:20
+# 修改时间 3.21	  17:59
 
 ###################【PID参数】####################
 # speed大于200时
@@ -37,12 +37,13 @@ integral_limitmax = 8000
 pwmout_limitmax = 8000
 
 angle_normal_kp = 25.0
+# 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 20.0
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.3
+gkd = -0.34
 high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 450
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -54,7 +55,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.164164
+gyro_y_supply = 1.239669
 # 电机补偿系数
 ul_compensation = 1.0
 ur_compensation = 1.0
@@ -64,13 +65,13 @@ md_compensation = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 20
+uart_and_menu_T = 10
 # 已弃用
 boost_time_threshold = 60
 
 ###################【路径规划】####################
-plan_arrive_threshold = 2.0
-plan_point_transition_T = 5
+plan_arrive_threshold = 1.5
+plan_point_transition_T = 1
 
 ###################【速度规划】####################
 min_start_v = 30
@@ -78,37 +79,60 @@ long_v_max = 180
 short_v_max = 100
 dead_zone_v = 30
 transit_v = 100
+
+# 已弃用
 orbit_v = 80
-move_v_max = 100
+
+orbit_v_max = 80
+orbit_v_min = 20
+# 已弃用
+move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
-move_v_max_T = 100
-move_v_max_S = 100
-move_v_max_B = 100
+move_v_max_T = 60
+move_v_max_S = 60
+move_v_max_B = 50
 
 ###################【视觉伺服】####################
+# 已弃用
 servo_kp_x = 3.5
 servo_kd_x = 5.0
 servo_kp_y = 3.5
 servo_kd_y = 5.0
+
+# 普通的视觉伺服pid参数
+servo_normal_kp_x = 3.5
+servo_normal_kd_x = 5.0
+servo_normal_kp_y = 3.5
+servo_normal_kd_y = 5.0
+# apriltag矫正的视觉伺服pid参数
+servo_calibrate_kp_x = 4.0
+servo_calibrate_kd_x = 10.0
+servo_calibrate_kp_y = 4.0
+servo_calibrate_kd_y = 10.0
+
 servo_target_x = 80
-servo_target_y_A = 10.0
-servo_target_y_T = 9.0
-servo_target_y_S = 11.0
+servo_target_y_A = 9.0
+servo_target_y_T = 7.5
+servo_target_y_S = 10.0
 servo_target_y_B = 22.0
+# 普通的视觉伺服阈值
+finish_threshold_x = 1.0
+finish_threshold_y = 2.0
+# 用于apriltag矫正的阈值
+apriltag_threshold_x = 2.0
+apriltag_threshold_y = 2.0
+
 min_rel_speed = 30
 max_rel_speed = 150
-finish_threshold_x = 1.4
-finish_threshold_y = 2.0
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 2.5
-radius_S = 3.5
-radius_B = 25.5
-angle_T = 125.0
-angle_S = 135.0
+radius_T = 3.15
+radius_S = 3.15
+radius_B = 4.5
+angle_T = 140.0
+angle_S = 140.0
 angle_B = 150.0
 
-# openart支架上边沿距离车底板17.7cm
-# 小车最高速度为500
+# 小车最高速度为450

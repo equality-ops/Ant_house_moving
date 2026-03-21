@@ -240,7 +240,7 @@ def main_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DEPART
+                my_state.state_work = DOWN
                 my_state.state = my_state.NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
@@ -373,18 +373,10 @@ def test_apriltag_calibrate():
 # 双车版的任务执行机
 def collaborative_task_machine():
     global counter, if_send_preparing_path
-    if my_state.state_work == DEPART:
-        if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[my_car.x_current, 10.0]], 0.0)
-            if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
-                my_state.state_work = DOWN
-                # 测试
-                my_beep.test()
-    elif my_state.state_work == DOWN:
+    if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
-                my_main_protocol.send_path(ord('P'), [[plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
+                my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
             my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
@@ -483,7 +475,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current, -15.0]])
+                my_plan.navigate([[my_car.x_current+3.0, -25.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = DOWN_LEFT
@@ -510,13 +502,13 @@ def collaborative_task_machine():
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    # 主车给从车发消息让从车完成矫正
-                    my_main_protocol.send_start()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
                     # 测试
                     my_beep.test()
+                    # 主车给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
             if my_vision_manager.if_finish_calibrate == True:
                 my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
                 my_state.state = my_state.NAVIGATE
@@ -634,7 +626,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current, 255.0]])
+                my_plan.navigate([[my_car.x_current-3.0, 265.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = UP_RIGHT
@@ -660,13 +652,13 @@ def collaborative_task_machine():
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    # 主车给从车发消息让从车完成矫正
-                    my_main_protocol.send_start()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
                     # 测试
                     my_beep.test()
+                    # 主车给从车发消息让从车完成矫正
+                    my_main_protocol.send_start()
             if my_vision_manager.if_finish_calibrate == True:
                 # 主车完成矫正后给从车发消息让从车完成矫正
                 my_main_protocol.send_start()
@@ -718,7 +710,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0], 10.0], [plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -845,7 +837,8 @@ def time_pit3_handler(time) -> None:
     # 全向定位测试程序
     """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 220.0], [220.0, 120.0], [160.0, 20.0], [0.0, 0.0]], 0.0)
+        # my_plan.navigate([[35.0, -15.0]], 180.0)
+        my_plan.navigate([[160.0, 220.0], [90.0, 120.0], [160.0, 20.0], [35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -909,7 +902,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
-    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
