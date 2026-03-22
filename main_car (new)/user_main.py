@@ -144,7 +144,7 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(5)  # 滤波窗口为5个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为3个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -161,8 +161,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(8)
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(8)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(8)
+sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -297,7 +297,7 @@ def complete_angle_circle():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE :
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -325,10 +325,10 @@ def test_vision_servo():
     if my_state.state == my_state.NAVIGATE:
         # 直接测试环绕模式
         my_state.state = my_state.ORBIT
-        my_vision_manager.object_radius = 3.1
+        my_vision_manager.object_radius = 2.9
 
         my_order_manager.mode_target()
-        my_plan.finish_navigate = False
+        # my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
             my_vision_manager.current_servo_object = target_point[2]
@@ -347,10 +347,19 @@ def test_vision_servo():
             # 测试
             # my_beep.test()
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(180.0)
+        my_vision_manager.orbit_control(120.0)
         if my_vision_manager.finish_orbit == True:
-            my_vision_manager.finish_orbit = False
-            my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+            if my_main_protocol.get_slave_state() == "finish":
+                my_vision_manager.finish_orbit = False
+                my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+                my_state.state = my_state.MOVE
+                my_plan.move_v_max = 60
+                # 测试
+                my_beep.test()
+    elif my_state.state == my_state.MOVE:
+        my_plan.navigate([[my_car.x_current, my_car.y_current-120.0]])
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             # 测试
             # my_beep.test()
@@ -477,7 +486,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current+3.0, -25.0]])
+                my_plan.navigate([[my_car.x_current-10.0, -25.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = DOWN_LEFT
@@ -630,7 +639,7 @@ def collaborative_task_machine():
                     my_beep.test()
         elif my_state.state == my_state.MOVE:
                 # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current-5.0, 265.0]])
+                my_plan.navigate([[my_car.x_current-4.0, 265.0]])
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.car_position = UP_RIGHT
@@ -762,14 +771,11 @@ def time_pit1_handler(time):
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     else:
     """
-    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
+    # if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
+    if my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
-    elif my_state.state == my_state.CALIBRATE:
-        motor_ul_pid.set_pid_params(pid_data.ul_move_kp * 0.75, pid_data.ul_move_ki, pid_data.ul_move_kd)
-        motor_ur_pid.set_pid_params(pid_data.ur_move_kp * 0.75, pid_data.ur_move_ki, pid_data.ur_move_kd)
-        motor_md_pid.set_pid_params(pid_data.md_move_kp * 0.75, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
         brake_threshold = 30
         # 初始化pid参数（线性回归）
@@ -855,7 +861,7 @@ def time_pit3_handler(time) -> None:
     """
     if my_state.state == my_state.NAVIGATE:
         # my_plan.navigate([[35.0, -15.0]], 180.0)
-        my_plan.navigate([[160.0, 220.0], [90.0, 120.0], [160.0, 20.0], [35.0, -15.0]], 180.0)
+        my_plan.navigate([[35.0, -15.0]], 120.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -971,4 +977,4 @@ while True:
         gc.collect()
         break
 
-    gc.collect()
+    gc.collect()	

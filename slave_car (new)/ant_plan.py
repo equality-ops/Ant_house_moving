@@ -171,7 +171,8 @@ class Plan:
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
             elif self.stage == self.TRANSIT:
-                if self.current_rest_dis < 30.0 and self.if_pass_transit_point == False:
+                # 当当前模式不为搬运模式时进行角点过渡时的速度规划
+                if self.current_rest_dis < 30.0 and self.if_pass_transit_point == False and self.my_state.state != self.my_state.MOVE:
                     self.v_target = int(self.current_rest_dis/ 20.0 * (self.v_max - self.transit_v) + self.transit_v)
                 else:
                     if self.v_target < self.v_max:
@@ -321,7 +322,17 @@ class Plan:
 
         # 将终点加入避障路径
         self.current_path.append((self.real_target_x, self.real_target_y))
-
+        
+        # 搬运模式下如果已经在搬运过程中途，则在当前路径前加入过渡点以保证小车平稳过渡到搬运模式的目标点，否则直接将目标点加入当前路径
+        if self.my_state.state == self.my_state.MOVE:
+            temp_list = []
+            diff_x = self.real_target_x - self.my_car.x_current
+            diff_y = self.real_target_y - self.my_car.y_current
+            # 将路径分成15小段
+            for i in range(1, 15):
+                temp_list.append((self.my_car.x_current + diff_x / 15 * i, self.my_car.y_current + diff_y / 15 * i))
+            self.current_path = temp_list + self.current_path
+        
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
@@ -382,7 +393,7 @@ class Plan:
     def update_distance(self):
         if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             self.current_rest_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
-            if self.current_rest_dis < 3.0:
+            if self.current_rest_dis < 4.0:
                 self.plan_data.current_aimed_point_index += 1
                 x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
                 y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
@@ -420,7 +431,7 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        if len(self.current_path) > 1:
+        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
         else:
