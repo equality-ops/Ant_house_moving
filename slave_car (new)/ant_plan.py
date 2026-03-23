@@ -27,8 +27,8 @@ class Plan_data:
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
         # 为测试里程计方便
-        # self.fixed_point = [[0.0, 0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
-        self.fixed_point = [[15.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # self.fixed_point = [[15.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]  
         # 已到达的目标点索引
@@ -431,7 +431,8 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
+        # if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
+        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:  
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
         else:

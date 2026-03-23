@@ -26,9 +26,9 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
-        # 为测试里程计方便
         # self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # 为测试里程计方便
+        self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]  
         # 已到达的目标点索引
@@ -321,7 +321,7 @@ class Plan:
 
         # 将终点加入避障路径
         self.current_path.append((self.real_target_x, self.real_target_y))
-        
+        """
         # 搬运模式下如果已经在搬运过程中途，则在当前路径前加入过渡点以保证小车平稳过渡到搬运模式的目标点，否则直接将目标点加入当前路径
         if self.my_state.state == self.my_state.MOVE:
             temp_list = []
@@ -331,7 +331,7 @@ class Plan:
             for i in range(1, 15):
                 temp_list.append((self.my_car.x_current + diff_x / 15 * i, self.my_car.y_current + diff_y / 15 * i))
             self.current_path = temp_list + self.current_path
-        
+        """
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
@@ -430,7 +430,8 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
+        # if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
+        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1: 
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
         else:

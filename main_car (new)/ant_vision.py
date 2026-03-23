@@ -234,7 +234,7 @@ class VisionManager:
                 self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
                 # 判断是否完成环绕
-                if diff <= 1.0:	
+                if diff <= 0.5:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
@@ -306,9 +306,9 @@ class VisionManager:
                     # 计算目标转角
                     now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
                     if self.car_position == 0 or self.car_position == 2:
-                        self.target_rel_turn_angle = now_yaw + target_point[2]
-                    elif self.car_position == 1 or self.car_position == 3:
                         self.target_rel_turn_angle = now_yaw - target_point[2]
+                    elif self.car_position == 1 or self.car_position == 3:
+                        self.target_rel_turn_angle = now_yaw + target_point[2]
                     self.if_gain_calibrate_angle = True
 
                 self.servo_pid.compute_pid(target_point[0], target_point[1])

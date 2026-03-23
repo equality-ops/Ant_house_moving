@@ -234,7 +234,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -300,13 +300,13 @@ def show_speed_PID_test():
     if counter >= 8000:
         counter = 0
     elif counter >= 6000:
-        motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
+        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
     elif counter >= 4000:
-        motor_ul_pid.compute_pid(-250, pose_data.encoder_data_ul)
+        motor_ur_pid.compute_pid(-200, pose_data.encoder_data_ur)
     elif counter >= 2000:
-        motor_ul_pid.compute_pid(0, pose_data.encoder_data_ul)
+        motor_ur_pid.compute_pid(-100, pose_data.encoder_data_ur)
     else:
-        motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
+        motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
 
 # 测试陀螺仪函数
 def test_imu():
@@ -877,21 +877,21 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
+    
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[15.0, 135.0]], 0.0)
+        my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+    
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -941,7 +941,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
+    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
     
     # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
     

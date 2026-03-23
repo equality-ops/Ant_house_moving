@@ -186,9 +186,9 @@ class PoseData:
         self.encoder_data_ur = self.encoder_ur.get() * 4
         self.encoder_data_md = self.encoder_md.get() * 4
         # 对编码器数据进行卡尔曼滤波
-        self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
-        self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
-        self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
+        # self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
+        # self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
+        # self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
 
         self.gyro_z = -self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # 测试
@@ -269,14 +269,14 @@ class SpeedPositionPID(ControlPID):
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
-                
+        
         # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:
             if self.nowError < 5 and self.nowError > 0:
                 self.pwm_output += self.pwm_output + 500
             elif self.nowError > -5 and self.nowError < 0:
                 self.pwm_output += self.pwm_output - 500
-        
+    
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
@@ -520,6 +520,7 @@ class CarPose:
 
         # 设置目标转角
         self.turn_angle_target = turn_angle_target
+        # self.angle_pid.compute_pid(turn_angle_target, self.now_yaw * 180 / self.MATH.PI)
 
         # 将move_angle_target转换为弧度
         move_angle_target = move_angle_target * self.MATH.PI / 180
