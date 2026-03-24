@@ -283,7 +283,7 @@ class KalmanTracker:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 400
+    DISTANCE_THRESHOLD = 100
 
     def __init__(self):
         self.roi_bear = ROI['global']
