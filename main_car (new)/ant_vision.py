@@ -247,13 +247,13 @@ class VisionManager:
             # 进行两阶段的微调
             if self.adjust_stage == 1:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[self.my_car.x_current + 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                    self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current + 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[self.my_car.x_current + 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                    self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current + 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 elif self.car_position == 0:
-                    self.my_plan.navigate([[self.my_car.x_current - 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                    self.my_plan.navigate([[self.my_car.x_current - 5.0, self.my_car.y_current], [self.my_car.x_current - 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[self.my_car.x_current - 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
+                    self.my_plan.navigate([[self.my_car.x_current - 5.0, self.my_car.y_current], [self.my_car.x_current - 5.0, 240.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 if self.my_plan.finish_navigate == True:
                     self.adjust_stage = 2
                     self.my_plan.finish_navigate = False

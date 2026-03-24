@@ -26,11 +26,11 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        # self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
-        self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
-        self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]  
+        self.rectangle_corners = [[95.0, 55.0], [95.0, 185.0], [225.0, 185.0], [225.0, 55.0]] 
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
@@ -265,7 +265,8 @@ class Plan:
         self.plan_data.current_aimed_point_index = 0
         
         # 搬运，扫描，视觉伺服，apriltag矫正，环绕，或返回模式下不需要避开矩形区域行驶
-        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False:
+        # "3"为检查模式，此时也不进行避障处理
+        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.my_state.state_work != 3:
             # 进行避障路径规划
             self.current_path = self.path_planning(x, y)
         else:   
@@ -531,4 +532,4 @@ class Plan:
                 self.transition_flag = False
                 self.finish_navigate = True
                 self.stage = self.STOP
-                self.finish_building = False
+                self.finish_building = False    

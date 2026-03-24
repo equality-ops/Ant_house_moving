@@ -234,7 +234,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -577,7 +577,7 @@ def collaborative_task_machine():
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     # 测试搬运角度是否合适
                     # my_state.state = my_state.STOP
-                    # my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     my_state.state = my_state.MOVE
                     my_slave_protocol.send_slave_state("finish")
                     # 提前设置小车转向目标角度为当前角度
@@ -589,7 +589,7 @@ def collaborative_task_machine():
                     counter += 1
                 else:
                 '''
-                my_plan.navigate([[my_car.x_current, -25.0]])
+                my_plan.navigate([[my_car.x_current-2, -25.0]])
                 if my_plan.finish_navigate == True:
                     counter = 0
                     if my_slave_protocol.get_start_signal():
@@ -741,7 +741,7 @@ def collaborative_task_machine():
                     counter += 1
                 else:
                 '''
-                my_plan.navigate([[my_car.x_current+1.0, 265.0]])
+                my_plan.navigate([[my_car.x_current+2.0, 265.0]])
                 if my_plan.finish_navigate == True:
                     counter = 0
                     if my_slave_protocol.get_start_signal():
@@ -805,7 +805,7 @@ def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
 
-    if my_state.state == my_state.ORBIT:
+    if my_state.state == my_state.ORBIT or my_state.state == my_state.MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
@@ -886,7 +886,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # collaborative_task_machine()
+    collaborative_task_machine()
 
     # 全向定位测试程序
     """
@@ -904,7 +904,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_apriltag_calibrate()
@@ -967,7 +967,7 @@ def time_pit2_handler(time):
     # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
     
     # 检测自转角是否准确
-    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 观察速度
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
