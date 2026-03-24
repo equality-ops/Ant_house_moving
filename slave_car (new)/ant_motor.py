@@ -269,7 +269,6 @@ class SpeedPositionPID(ControlPID):
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
-        
         # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:
             if self.nowError < 5 and self.nowError > 0:

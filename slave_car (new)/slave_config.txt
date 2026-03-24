@@ -1,4 +1,4 @@
-# 修改时间 3.23	  22:55
+# 修改时间 3.21	  22:19
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -49,7 +49,7 @@ pwmout_limitmax = 8000
 angle_normal_kp = 25.0
 # 已弃用
 angle_normal_ki = 0.0
-angle_normal_kd = 20.0
+angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
 high_angle_pwmout_limitmax = 500
@@ -65,7 +65,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.239669
+gyro_y_supply = 1.208216
 # 电机补偿系数
 ul_compensation = 1.0
 ur_compensation = 1.0
@@ -75,7 +75,7 @@ md_compensation = 1.0
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 50
+uart_and_menu_T = 53
 # 已弃用
 boost_time_threshold = 60
 
@@ -85,7 +85,7 @@ plan_point_transition_T = 1
 
 ###################【速度规划】####################
 min_start_v = 30
-long_v_max = 180
+long_v_max = 160
 short_v_max = 100
 dead_zone_v = 30
 transit_v = 100
@@ -93,14 +93,14 @@ transit_v = 100
 # 已弃用
 orbit_v = 80
 
-orbit_v_max = 70
-orbit_v_min = 10
+orbit_v_max = 80
+orbit_v_min = 30
 # 已弃用
 move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
-move_v_max_T = 80
-move_v_max_S = 80
+move_v_max_T = 60
+move_v_max_S = 60
 move_v_max_B = 40
 
 ###################【视觉伺服】####################

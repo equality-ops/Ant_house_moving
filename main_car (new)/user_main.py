@@ -772,7 +772,7 @@ def time_pit1_handler(time):
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
     """
-    brake_threshold = 30
+    brake_threshold = 20
     # 初始化pid参数（线性回归）
     if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -853,19 +853,19 @@ def time_pit3_handler(time) -> None:
     # collaborative_task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[200.0, 0.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[0.0, 0.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线和apriltag码校准测试程序
     # test_apriltag_calibrate()
@@ -910,7 +910,7 @@ def time_pit2_handler(time):
                                                                         
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
@@ -919,7 +919,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")

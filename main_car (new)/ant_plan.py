@@ -340,14 +340,14 @@ class Plan:
 
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.981964
+            self.my_car.alpha_x = 0.966702
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.968222
+            self.my_car.alpha_y = 0.954061
         elif y_transit_dis >= 10.0:
             self.my_car.alpha_y = 1.0
         else:
@@ -399,14 +399,14 @@ class Plan:
 
                 # 依据到过渡点的距离计算里程计系数
                 if x_transit_dis >= 50.0:
-                    self.my_car.alpha_x = 0.981964
+                    self.my_car.alpha_x = 0.966702
                 elif x_transit_dis >= 10.0:
                     self.my_car.alpha_x = 1.0
                 else:
                     self.my_car.alpha_x = 1.0
 
                 if y_transit_dis >= 50.0:
-                    self.my_car.alpha_y = 0.968222
+                    self.my_car.alpha_y = 0.954061
                 elif y_transit_dis >= 10.0:
                     self.my_car.alpha_y = 1.0
                 else:

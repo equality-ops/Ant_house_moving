@@ -323,6 +323,7 @@ class Plan:
         # 将终点加入避障路径
         self.current_path.append((self.real_target_x, self.real_target_y))
         
+        """
         # 搬运模式下如果已经在搬运过程中途，则在当前路径前加入过渡点以保证小车平稳过渡到搬运模式的目标点，否则直接将目标点加入当前路径
         if self.my_state.state == self.my_state.MOVE:
             temp_list = []
@@ -332,7 +333,7 @@ class Plan:
             for i in range(1, 15):
                 temp_list.append((self.my_car.x_current + diff_x / 15 * i, self.my_car.y_current + diff_y / 15 * i))
             self.current_path = temp_list + self.current_path
-        
+        """
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
@@ -341,14 +342,14 @@ class Plan:
 
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.974385
+            self.my_car.alpha_x = 0.961144
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.944623
+            self.my_car.alpha_y = 0.959816
         elif y_transit_dis >= 10.0:
             self.my_car.alpha_y = 1.0
         else:
@@ -400,14 +401,14 @@ class Plan:
 
                 # 依据到过渡点的距离计算里程计系数
                 if x_transit_dis >= 50.0:
-                    self.my_car.alpha_x = 0.974385
+                    self.my_car.alpha_x = 0.961144
                 elif x_transit_dis >= 10.0:
                     self.my_car.alpha_x = 1.0
                 else:
                     self.my_car.alpha_x = 1.0
 
                 if y_transit_dis >= 50.0:
-                    self.my_car.alpha_y = 0.944623
+                    self.my_car.alpha_y = 0.959816
                 elif y_transit_dis >= 10.0:
                     self.my_car.alpha_y = 1.0
                 else:
@@ -431,8 +432,7 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        # if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
-        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:  
+        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
         else:

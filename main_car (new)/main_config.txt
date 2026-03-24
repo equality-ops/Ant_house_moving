@@ -1,4 +1,4 @@
-# 修改时间 3.23	  22:55
+# 修改时间 3.21	  17:57
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -65,7 +65,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.239669
+gyro_y_supply = 1.197525
 # 电机补偿系数
 ul_compensation = 1.0
 ur_compensation = 1.0
@@ -92,15 +92,15 @@ transit_v = 100
 # 已弃用
 orbit_v = 100
 
-orbit_v_max = 70
-orbit_v_min = 10
+orbit_v_max = 80
+orbit_v_min = 20
 # 已弃用
 move_v_max = 35
 scan_v_max = 120
 # 不同物体的搬运速度
-move_v_max_T = 80
-move_v_max_S = 80
-move_v_max_B = 40
+move_v_max_T = 60
+move_v_max_S = 60
+move_v_max_B = 50
 
 ###################【视觉伺服】####################
 # 已弃用
