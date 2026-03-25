@@ -65,8 +65,8 @@ THRESHOLD = {'dark':{
     (14, 61, -7, 18, 12, 52)], # 30
     'red':[(15, 39, 18, 59, 17, 49), # 27
     (5, 34, 8, 52, -7, 41)], # 30
-    'green':[# (35, 84, -47, -14, -20, 87), # 27
-    (35, 84, -47, -20, -20, 87), # 27(new)
+    'green':[(35, 84, -47, -20, -20, 87), # 27(new)
+    # (35, 84, -47, -14, -20, 87), # 27
     # (32, 85, -43, -12, 13, 84), # 30
     (32, 85, -43, -20, 13, 84)], # 30(new)
     'blue':[(25, 53, -29, -9, -26, -8), # 27
@@ -85,14 +85,14 @@ THRESHOLD = {'dark':{
     (34, 73, -36, -17, 24, 74), # 46(new)
     # (71, 98, -52, -10, 39, 98)], # 50
     (71, 98, -52, -10, 68, 98)], # 50(new)
-    'blue':[(33, 79, -29, -2, -52, -24), # 45
+    'blue':[(33, 79, -29, -2, -52, -30), # 45(new)
+    # (33, 79, -29, -2, -52, -24), # 45
     (33, 74, -31, -8, -46, -16), # 42
     (44, 83, -33, -6, -54, -27)], # 50
-    'white':[# (56, 100, -18, 0, -9, 16), # 45
+    'white':[(56, 100, -18, 0, -9, 16), # 45
     (53, 100, -30, -2, -2, 53), # 46(new)
     (59, 100, -26, -2, 3, 56), # 50(new)
-    # (69, 100, -23, 5, -5, 24)
-    ] # 50
+    (69, 100, -23, 5, -5, 24)] # 50
 }, 'bright':{
     'brown':[(40, 83, -6, 22, 11, 69)],
     'red':[(5, 24, 12, 41, -5, 37), (30, 58, 39, 83, 10, 51)],
@@ -104,8 +104,8 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 20),
-    'normal':(20, 75),
+    'dark':(0, 40),
+    'normal':(40, 75),
     'bright':(75, 100)
 }
 
@@ -175,6 +175,9 @@ class Communicator:
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
+
+    def warn(self):
+        self.uart.write('N'.encode('utf-8'))
 
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
@@ -262,11 +265,11 @@ class KalmanTracker:
             self.p = p_minus
 
         return self.x_hat
-
+    
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 400
+    DISTANCE_THRESHOLD = 100
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
@@ -279,9 +282,9 @@ class ColorDetector:
         # 检测各颜色色块
         brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=140, area_threshold=140, merge=True)
         white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=200, area_threshold=200, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=90,  area_threshold=90,  merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=65,  area_threshold=65,  merge=True)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=30,  area_threshold=30,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=80,  area_threshold=80,  merge=True)
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -297,12 +300,12 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4 and color not in('white', 'brown'):
+            if blob.density() < 0.4 and color not in ('white', 'brown'):
                 continue
             elif color in ('white', 'brown') and blob.density() < 0.3:
                 continue
-            # elif color == 'green' and blob.density() < 0.5:
-            #     continue
+            #elif color == 'blue' and blob.density() < 0.4:
+                #continue
 
             # 长宽比过滤（不同颜色有不同规则）
             if color == 'brown' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
@@ -311,14 +314,15 @@ class ColorDetector:
                 continue
             elif color == 'green' and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
                 continue
-            elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
+            elif color == 'blue' and (blob.w() > 1.7 * blob.h() or blob.h() > 1.7 * blob.w()):
                 continue
 
             # 距离过滤（排除与已保存色块过近的色块）
             cx, cy = blob.cx(), blob.cy()
             keep = True
             for saved_blob, _ in filtered:
-                if self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy()) < self.DISTANCE_THRESHOLD:
+                d = self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy())
+                if d < self.DISTANCE_THRESHOLD:
                     keep = False
                     break
             if keep:
@@ -329,13 +333,13 @@ class ColorDetector:
         """封装卡尔曼处理单颜色逻辑（棕/白/蓝通用）"""
         detected = False
         target_blob = None
-
+        
         if blobs:
             # 选择面积最大的色块
             target_blob = max(blobs, key=lambda b: b.area())
             cx, cy = target_blob.cx(), target_blob.cy()
             w, h = target_blob.w(), target_blob.h()
-
+            
             # 计算速度
             dx_raw = (cx - tracker.last_cx) / Ts
             dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
@@ -378,7 +382,7 @@ class ColorDetector:
             kalman_coords_dict[color] = (kcx, kcy)
         else:
             kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
-
+        
         return target_blob
 
     def draw_other_blobs(self, img, blobs, center_list):
@@ -411,6 +415,17 @@ class CoordinateCorrection:
             img.draw_cross(tag_cx, tag_cy, color=(0, 255, 0))
 
         return (tag_cx, tag_cy, rotation) if tag_cx is not None else None
+    
+# ======================== 坐标筛选模块 ========================
+class CoordinateFilter:
+    def __init__(self):
+        self.datum_coordinate = (80, 85)
+
+    def filter_coordinates(self, center):
+        dx = self.datum_coordinate[0]
+        dy = self.datum_coordinate[1]
+
+        return min(center, key = lambda c:(c[0] - dx) ** 2 + (c[1] - dy) ** 2)
 
 # ======================== 全局状态变量 ========================
 
@@ -433,21 +448,24 @@ last_time = time.ticks_ms()
 # ======================== 工具函数 ========================
 def handle_uart_commands(uart):
     """处理串口命令，切换运行模式"""
-    global current_mode
+    global current_mode, ROI_INIT
     if uart.any():
         cmd = uart.read(1)
         if cmd == b'T':
             current_mode = MODE_TARGET
+            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
         elif cmd == b'C':
             current_mode = MODE_CORRECTION
+            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            ROI_INIT = False
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
@@ -502,6 +520,7 @@ brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 blue_tracker = KalmanTracker()
 communicator = Communicator(uart)
+coordinate_filter = CoordinateFilter()
 
 # ======================== 主循环 ========================
 while True:
@@ -518,6 +537,11 @@ while True:
 
     # 等待模式：无操作
     if current_mode == MODE_WAITING:
+        """
+        stats = img.get_statistics()
+        l_mean = stats.l_mean()
+        print(l_mean)
+        """
         continue
 
     # 目标跟踪模式
@@ -528,6 +552,9 @@ while True:
 
         # 初始化变量
         center = []  # 所有有效色块的中心坐标 (cx, cy, color)
+        target_pos = None  # 最终要发送的目标坐标
+        locked_blob = None  # 锁定的目标色块
+        target_color = ''
         is_sent = False # 是否发送了坐标
 
         # 分离棕色、白色、蓝色与其它色块
@@ -553,7 +580,7 @@ while True:
         color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
         if center:
-            target = max(center, key=lambda coordinate: coordinate[1])
+            target = coordinate_filter.filter_coordinates(center)
             target_x = target[0]
             target_y = target[1]
             target_color = target[2]
@@ -573,4 +600,4 @@ while True:
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
-    # print(clock.fps())
+    # (clock.fps())
