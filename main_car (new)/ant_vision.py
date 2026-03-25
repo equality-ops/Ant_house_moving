@@ -86,6 +86,8 @@ class VisionManager:
         self.adjust_stage = 1      
         # 边线矫正时小车位置
         self.car_position = 0
+        # 临时用于测试的角度变量
+        self.angle_temp = 0.0
         # 矫正次数
         self.calibrate_times = 0       # type: int     # 矫正次数
         # 标志位
@@ -279,6 +281,8 @@ class VisionManager:
                     self.servo_pid.target_y = self.servo_pid.target_y_A
                     self.counter = 0
                     self.calibrate_times = 0
+                    # 清空目标角度缓冲区
+                    self.angle_buffer.clear()
                     # 重置阶段标志
                     self.adjust_stage = 1
                     self.if_ready_calibrate = True
@@ -288,28 +292,25 @@ class VisionManager:
                     self.my_beep.test()
                     self.my_order_manager.mode_apriltag()
         else:
-            # 延时200ms后进行第二次的转角调整
-            if self.calibrate_times == 1:
-                if self.counter != -1:
-                    self.counter += 1
-                if self.counter >= 20:
-                    self.counter = -1
-                    self.if_gain_calibrate_angle = False
-                    # 测试
-                    self.my_beep.test()
-                elif self.counter != -1:
-                    return
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
                 self.servo_lost_count = 0
-                if self.if_gain_calibrate_angle == False:
-                    # 计算目标转角
-                    now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
-                    if self.car_position == 0 or self.car_position == 2:
-                        self.target_rel_turn_angle = now_yaw - target_point[2]
-                    elif self.car_position == 1 or self.car_position == 3:
-                        self.target_rel_turn_angle = now_yaw + target_point[2]
-                    self.if_gain_calibrate_angle = True
+                if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
+                    self.angle_temp = target_point[2]
+                    if self.calibrate_times == 1:
+                        # 计算目标转角(多次测量取平均值)
+                        if self.car_position == 0 or self.car_position == 2:
+                            self.angle_buffer.append(90.0 + target_point[2])
+                        elif self.car_position == 1 or self.car_position == 3:
+                            self.angle_buffer.append(-90.0 - target_point[2])
+                    else:
+                        now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
+                        # 计算目标转角
+                        if self.car_position == 0 or self.car_position == 2:
+                            self.target_rel_turn_angle = now_yaw + target_point[2]
+                        elif self.car_position == 1 or self.car_position == 3:
+                            self.target_rel_turn_angle = now_yaw + target_point[2]
+                        self.if_gain_calibrate_angle = True
 
                 self.servo_pid.compute_pid(target_point[0], target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
@@ -320,7 +321,7 @@ class VisionManager:
                     diff = abs(self.target_rel_turn_angle - self.my_car.now_yaw * 180.0 / self.MATH.PI)
                     if diff > 180.0:
                         diff = 360.0 - diff
-                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) or self.calibrate_times == 1) and diff <= 0.5:
+                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 0.5 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
                         # 测试
@@ -331,20 +332,18 @@ class VisionManager:
                             self.calibrate_times = 0
                             self.counter = 0
                             # 里程计和姿态角硬复位
+                            self.my_car.now_yaw = sum(self.angle_buffer) / len(self.angle_buffer) * self.MATH.PI / 180.0
+                            self.angle_buffer.clear()
                             if self.car_position == 0:
-                                self.my_car.now_yaw = self.MATH.PI / 2
                                 self.my_car.x_current = 143.5
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 1:
-                                self.my_car.now_yaw = -self.MATH.PI / 2
                                 self.my_car.x_current = 176.5
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 2:
-                                self.my_car.now_yaw = self.MATH.PI / 2
                                 self.my_car.x_current = 143.5
                                 self.my_car.y_current = 240.0
                             elif self.car_position == 3:
-                                self.my_car.now_yaw = -self.MATH.PI / 2
                                 self.my_car.x_current = 176.5
                                 self.my_car.y_current = 240.0
                             # 在切换模式前保持当前转角
@@ -374,4 +373,4 @@ class VisionManager:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
-                    self.if_lost_object = True  
+                    self.if_lost_object = True 

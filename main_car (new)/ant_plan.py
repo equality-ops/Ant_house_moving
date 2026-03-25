@@ -26,7 +26,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[35.0, -15.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
@@ -393,7 +393,7 @@ class Plan:
     def update_distance(self):
         if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             self.current_rest_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
-            if self.current_rest_dis < 4.0:
+            if self.current_rest_dis < 5.0:
                 self.plan_data.current_aimed_point_index += 1
                 x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
                 y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
@@ -478,14 +478,10 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.6:
-                if self.transition_flag == False:
-                    self.path_transition()
-                else:
-                    self.transition_flag = False
-                    self.if_finish_turn = True
-                    # 恢复正常的角度环限幅
-                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            if diff <= 0.5:
+                self.if_finish_turn = True
+                # 恢复正常的角度环限幅
+                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化

@@ -156,7 +156,7 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 # 创建tof测距滤波器对象
 # tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(8)
+car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
@@ -696,14 +696,14 @@ def collaborative_task_machine():
                 my_beep.test() 
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[110.0, 140.0]], 180.0)
+            my_plan.navigate([[120.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
                 my_beep.test()
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[210.0, 140.0]], 180.0)
+            my_plan.navigate([[200.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
@@ -771,7 +771,7 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
-    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
+    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT or my_state.state == my_state.CALIBRATE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
@@ -859,7 +859,7 @@ def time_pit3_handler(time) -> None:
     # 全向定位测试程序
     """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[0.0, 0.0]], 180.0)
+        my_plan.navigate([[160.0, 220.0], [160.0, 20.0], [70.0, 120.0], [35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -896,8 +896,10 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
     # my_uart3.write(f"{servo_pid.current_x},{servo_pid.current_y}\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI},{my_vision_manager.angle_temp}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
-
+    # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
+    
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))

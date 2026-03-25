@@ -478,13 +478,10 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.6:
-                if self.transition_flag == False:
-                    self.path_transition()
-                else:
-                    self.if_finish_turn = True
-                    # 恢复正常的角度环限幅
-                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            if diff <= 0.5:
+                self.if_finish_turn = True
+                # 恢复正常的角度环限幅
+                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化

@@ -1,4 +1,4 @@
-# 修改时间 3.25	  00:12
+# 修改时间 3.26	  00:29
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -52,8 +52,8 @@ angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
-high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 450
+high_angle_pwmout_limitmax = 600
+low_angle_pwmout_limitmax = 540
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -81,7 +81,7 @@ boost_time_threshold = 60
 
 ###################【路径规划】####################
 plan_arrive_threshold = 1.5
-plan_point_transition_T = 1
+plan_point_transition_T = 0
 
 ###################【速度规划】####################
 min_start_v = 30
@@ -100,7 +100,7 @@ move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
 move_v_max_T = 70
-move_v_max_S = 80
+move_v_max_S = 90
 move_v_max_B = 60
 
 ###################【视觉伺服】####################
@@ -116,10 +116,10 @@ servo_normal_kd_x = 4.0
 servo_normal_kp_y = 5.0
 servo_normal_kd_y = 4.0
 # apriltag矫正的视觉伺服pid参数
-servo_calibrate_kp_x = 6.0
-servo_calibrate_kd_x = 3.0
-servo_calibrate_kp_y = 6.0
-servo_calibrate_kd_y = 3.0
+servo_calibrate_kp_x = 8.0
+servo_calibrate_kd_x = 10.0
+servo_calibrate_kp_y = 8.0
+servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
 servo_target_y_A = 9.0
@@ -140,7 +140,7 @@ servo_pwmout_limitmax = 140
 ###################【环绕控制】####################
 radius_T = 3.1
 radius_S = 3.6
-radius_B = 4.7
+radius_B = 4.9
 angle_T = 128.0
 angle_S = 135.0
 angle_B = 146.0
