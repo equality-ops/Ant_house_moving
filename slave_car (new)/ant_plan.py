@@ -26,15 +26,15 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, 0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
-        # self.fixed_point = [[35.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # self.fixed_point = [[0.0, 0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[15.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
-        self.rectangle_corners = [[100.0, 60.0], [100.0, 180.0], [220.0, 180.0], [220.0, 60.0]]  
+        self.rectangle_corners = [[95.0, 55.0], [95.0, 185.0], [225.0, 185.0], [225.0, 55.0]]  
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
-        self.current_path = []     # type: list
         # 当前避障路径中的目标点索引
+        self.current_path = []        # type: list
         self.current_aimed_point_index = 0    # type: int
         # 时间计数器
         self.time_counter = 0          # type: int
@@ -106,6 +106,7 @@ class Plan:
         self.error_correct_x = 0.0       # type: float
         self.error_correct_y = 0.0       # type: float
         self.calibrate_angle = 0.0       # type: float # 摄像头识别到的矫正角度
+        self.navigate_counter = 0        # type: int   # 导航用时计数器
         # 判断小车是否到达目标点的阈值
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
@@ -170,7 +171,8 @@ class Plan:
                     self.stage = self.TRANSIT
                     self.elapsed_time = 0
             elif self.stage == self.TRANSIT:
-                if self.current_rest_dis < 30.0 and self.if_pass_transit_point == False:
+                # 当当前模式不为搬运模式时进行角点过渡时的速度规划
+                if self.current_rest_dis < 30.0 and self.if_pass_transit_point == False and self.my_state.state != self.my_state.MOVE:
                     self.v_target = int(self.current_rest_dis/ 20.0 * (self.v_max - self.transit_v) + self.transit_v)
                 else:
                     if self.v_target < self.v_max:
@@ -291,24 +293,24 @@ class Plan:
         # 根据大致航向角选择合适的坐标修正量（解决因惯性造成的打滑问题）
         if blurry_yaw >= -30.0 and blurry_yaw < 30.0:
             self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_y = 1.2
         elif blurry_yaw >= 30.0 and blurry_yaw < 60.0:
             self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 60.0 and blurry_yaw < 120.0:
-            self.error_correct_x = 0.8
+            self.error_correct_x = 0.0
             self.error_correct_y = 0.0
         elif blurry_yaw >= 120.0 and blurry_yaw < 150.0:
             self.error_correct_x = 0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= 150.0 and blurry_yaw <= 180.0 or blurry_yaw >= -180.0 and blurry_yaw < -150.0:
             self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_y = -1.2
         elif blurry_yaw >= -150.0 and blurry_yaw < -120.0:
             self.error_correct_x = -0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= -120.0 and blurry_yaw < -60.0:
-            self.error_correct_x = -0.8
+            self.error_correct_x = -0.0
             self.error_correct_y = -0.0
         elif blurry_yaw >= -60.0 and blurry_yaw < -30.0:
             self.error_correct_x = -0.0
@@ -320,7 +322,18 @@ class Plan:
 
         # 将终点加入避障路径
         self.current_path.append((self.real_target_x, self.real_target_y))
-
+        
+        """
+        # 搬运模式下如果已经在搬运过程中途，则在当前路径前加入过渡点以保证小车平稳过渡到搬运模式的目标点，否则直接将目标点加入当前路径
+        if self.my_state.state == self.my_state.MOVE:
+            temp_list = []
+            diff_x = self.real_target_x - self.my_car.x_current
+            diff_y = self.real_target_y - self.my_car.y_current
+            # 将路径分成15小段
+            for i in range(1, 15):
+                temp_list.append((self.my_car.x_current + diff_x / 15 * i, self.my_car.y_current + diff_y / 15 * i))
+            self.current_path = temp_list + self.current_path
+        """
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
@@ -329,14 +342,14 @@ class Plan:
 
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.981964
+            self.my_car.alpha_x = 0.961144
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.968222
+            self.my_car.alpha_y = 0.959816
         elif y_transit_dis >= 10.0:
             self.my_car.alpha_y = 1.0
         else:
@@ -364,8 +377,8 @@ class Plan:
         # 中距离移动
         elif total_distance >= 10.0 and total_distance < 50.0:
             # 设置减速距离和加速时间阈值
-            self.dec_distance = 8.0
-            self.boost_time_threshold = 20
+            self.dec_distance = 9.0
+            self.boost_time_threshold = 10
             self.v_max = self.short_v_max
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
@@ -381,21 +394,21 @@ class Plan:
     def update_distance(self):
         if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             self.current_rest_dis = math.sqrt((self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0]) ** 2 + (self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1]) ** 2)
-            if self.current_rest_dis < 2.0:
+            if self.current_rest_dis < 4.0:
                 self.plan_data.current_aimed_point_index += 1
                 x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
                 y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
 
                 # 依据到过渡点的距离计算里程计系数
                 if x_transit_dis >= 50.0:
-                    self.my_car.alpha_x = 0.981964
+                    self.my_car.alpha_x = 0.961144
                 elif x_transit_dis >= 10.0:
                     self.my_car.alpha_x = 1.0
                 else:
                     self.my_car.alpha_x = 1.0
 
                 if y_transit_dis >= 50.0:
-                    self.my_car.alpha_y = 0.968222
+                    self.my_car.alpha_y = 0.959816
                 elif y_transit_dis >= 10.0:
                     self.my_car.alpha_y = 1.0
                 else:
@@ -419,7 +432,7 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        if len(self.current_path) > 1:
+        if self.plan_data.current_aimed_point_index < len(self.current_path) - 1:
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
         else:
@@ -465,10 +478,13 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 1.0:
-                self.if_finish_turn = True
-                # 恢复正常的角度环限幅
-                self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
+            if diff <= 0.6:
+                if self.transition_flag == False:
+                    self.path_transition()
+                else:
+                    self.if_finish_turn = True
+                    # 恢复正常的角度环限幅
+                    self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
         if self.if_set_path == False and self.finish_navigate == False and self.if_finish_turn == True:
             # 路径初始化
@@ -507,9 +523,12 @@ class Plan:
             else:
                 self.stop()
                 self.if_finish_turn = False
+                self.navigate_counter = 0
                 self.plan_data.aimed_point_index = 0
                 self.dec_speed_index = 0
                 self.path_points.clear()
                 self.if_set_path = False
                 self.transition_flag = False
                 self.finish_navigate = True
+                self.stage = self.STOP
+                self.finish_building = False
