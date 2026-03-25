@@ -108,8 +108,8 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 20),
-    'normal':(20, 75),
+    'dark':(0, 45),
+    'normal':(45, 75),
     'bright':(75, 100)
 }
 
@@ -281,11 +281,11 @@ class ColorDetector:
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=200, area_threshold=200, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=280, area_threshold=280, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=60,  area_threshold=60,  merge=True)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=260, area_threshold=200, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=320, area_threshold=280, merge=True)
+        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
         green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=50,  area_threshold=50,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=130,  area_threshold=130,  merge=True) # bright 130 dark <110
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=80,  area_threshold=80,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -301,9 +301,9 @@ class ColorDetector:
         filtered = []
         for blob, color in blobs:
             # 密度过滤（排除稀疏色块）
-            if blob.density() < 0.4 and color not in('white', 'brown'):
+            if blob.density() < 0.4 and color not in('white', 'brown', 'blue'):
                 continue
-            elif color in ('white', 'brown') and blob.density() < 0.3:
+            elif color in ('white', 'brown', 'blue') and blob.density() < 0.3:
                 continue
             elif color == 'green' and blob.density() < 0.5:
                 continue

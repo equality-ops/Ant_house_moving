@@ -104,8 +104,8 @@ THRESHOLD = {'dark':{
 
 # 亮度区间划分
 BRIGHTNESS_RANGES = {
-    'dark':(0, 20),
-    'normal':(20, 75),
+    'dark':(0, 40),
+    'normal':(40, 75),
     'bright':(75, 100)
 }
 
