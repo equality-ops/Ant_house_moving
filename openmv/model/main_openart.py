@@ -67,6 +67,7 @@ DRAW_COLORS = {
 
 #设置模型路径
 face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
+
 #载入模型
 net = tf.load(face_detect)
 
