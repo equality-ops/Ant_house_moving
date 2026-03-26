@@ -57,7 +57,9 @@ class order_manager:
     
     # 切换到目标识别模式
     def mode_target(self):
+        # 测试，一定要修改，现在在测试模型
         self.my_uart.write("T")
+        # self.my_uart.write("M")
 
     # 切换到上下边界识别模式
     def mode_boundary_ud(self):
