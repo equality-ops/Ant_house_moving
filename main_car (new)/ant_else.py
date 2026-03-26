@@ -303,27 +303,3 @@ class flash_system:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
             self.beep.beep_warn()
             return 0
-    
-
- 
-# 调试程序
-"""
-if __name__ == "__main__":
-    test_strings = ["123", "45.67", "hello", "-89", "3.14159", "world123"]
-
-    # 检测phase_num_string函数
-    for s in test_strings:
-        result = phase_num_string(s)
-        print(f"Input: {s} => Output: {result} (Type: {type(result).__name__})")
-
-    # 检测find_aimed_value函数
-    config = phase_config("config.txt")
-
-    print("Parsed Successfully:")
-    for key, value in config.items():
-        print(f"{key} = {value} (Type: {type(value).__name__})")
-
-    # 检测phase_config函数
-    print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, "encouder_l_normal_kp")}")
-    print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, "encouder_l_normal_ks")}")
-"""

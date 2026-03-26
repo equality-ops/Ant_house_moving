@@ -258,16 +258,19 @@ def ready_servo_and_orbit():
     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
     # 根据物品种类选择伺服距离、环绕半径和搬运速度
     if my_vision_manager.current_servo_object == ord('T'):
+        my_plan.error_x = my_plan.error_x_T
         servo_pid.target_y = servo_pid.target_y_T
         my_vision_manager.object_radius = my_vision_manager.radius_T
         my_vision_manager.orbit_angle = my_vision_manager.angle_T
         my_plan.move_v_max = my_plan.move_v_max_T
     elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
+        my_plan.error_x = my_plan.error_x_S
         servo_pid.target_y = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
         my_vision_manager.orbit_angle = my_vision_manager.angle_S
         my_plan.move_v_max = my_plan.move_v_max_S
     elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
+        my_plan.error_x = my_plan.error_x_B
         servo_pid.target_y = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
         my_vision_manager.orbit_angle = my_vision_manager.angle_B
@@ -285,6 +288,7 @@ def reset_navigate_flags():
     my_plan.if_finish_turn = False
     my_plan.transition_flag = False
     # 速度规划
+    my_plan.elapsed_time = 0
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
 
@@ -480,8 +484,6 @@ def collaborative_task_machine():
                 plan_data.current_path = path_message[1]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test()
                 # 当传来的坐标点的纵坐标大于170.0时，将状态工作设为UP，控制小车绕到矩形上边沿
                 if my_slave_protocol.aimed_object == 'P':
                     if plan_data.current_path[0][1] > 170.0:
@@ -512,8 +514,8 @@ def collaborative_task_machine():
                         my_state.state = my_state.SERVO
                     else:
                         counter += 1
-                        # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
-                        if counter >= 300:
+                        # 若连续2s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                        if counter >= 200:
                             counter = 0
                             my_vision_manager.if_lost_object = True
                             reset_navigate_flags()
@@ -551,56 +553,48 @@ def collaborative_task_machine():
                     my_state.state = my_state.READY_NAVIGATE
 
             if my_vision_manager.finish_servo == True:
-                counter = 0
-                my_state.state = my_state.ORBIT
-                # 重置标志位
-                my_vision_manager.if_send_servo_command = False
-                my_vision_manager.finish_servo = False
-                # 重置视觉伺服失败次数
-                my_vision_manager.failed_servo_count = 0
-                # 在采集tof数据时固定小车姿态角
-                my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                # 测试
-                my_beep.test()
+                counter += 1
+                # 延时200ms
+                if counter >= 20:
+                    # 重置计数器
+                    counter = 0
+                    my_state.state = my_state.ORBIT
+                    # 重置标志位
+                    my_vision_manager.if_send_servo_command = False
+                    my_vision_manager.finish_servo = False
+                    # 重置视觉伺服失败次数
+                    my_vision_manager.failed_servo_count = 0
+                    # 在采集tof数据时固定小车姿态角
+                    my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
         elif my_state.state == my_state.ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 counter += 1
-                # 延时500ms防止惯性过冲
-                if counter >= 50:
+                # 延时200ms防止惯性过冲
+                if counter >= 20:
                     # 测试
                     counter = 0
-                    my_beep.test()
-                    # 打开openart搬运辅助检查模式
-                    # my_order_manager.mode_pickup_check()
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     # 测试搬运角度是否合适
                     # my_state.state = my_state.STOP
-                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     my_state.state = my_state.MOVE
                     my_slave_protocol.send_slave_state("finish")
                     # 提前设置小车转向目标角度为当前角度
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI            
         elif my_state.state == my_state.MOVE:
-                '''
-                # 延时10ms
-                if counter <= 1:
-                    counter += 1
-                else:
-                '''
-                my_plan.navigate([[my_car.x_current-2, -25.0]])
-                if my_plan.finish_navigate == True:
-                    counter = 0
-                    if my_slave_protocol.get_start_signal():
-                        my_plan.finish_navigate = False
-                        my_vision_manager.car_position = DOWN_RIGHT
-                        my_state.state = my_state.CALIBRATE
-                        my_order_manager.finish()
-                        # 测试
-                        my_beep.test()
+            my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
+            if my_plan.finish_navigate == True:
+                counter = 0
+                if my_slave_protocol.get_start_signal():
+                    my_plan.finish_navigate = False
+                    my_vision_manager.car_position = DOWN_RIGHT
+                    my_state.state = my_state.CALIBRATE
+                    my_order_manager.finish()
+                    # 测试
+                    my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
-            # 延时1.5s在进行apriltag矫正防止与主车相碰
-            if counter <= 150:
+            # 延时800ms在进行apriltag矫正防止与主车相碰
+            if counter <= 80:
                 counter += 1
             else:
                 if my_vision_manager.if_lost_object == False:
@@ -641,8 +635,6 @@ def collaborative_task_machine():
                 plan_data.current_path = path_message[1]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test()
                 # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
                 if abs(plan_data.current_path[0][0] - plan_data.fixed_point[0][0]) < 1.0 and abs(plan_data.current_path[0][1] - plan_data.fixed_point[0][1]) < 1.0 and my_slave_protocol.aimed_object == 'P':
                     my_state.state_work = RETURN_WORK
@@ -669,8 +661,8 @@ def collaborative_task_machine():
                         my_state.state = my_state.SERVO
                     else:
                         counter += 1
-                        # 若连续3s没有收到openart发来的消息,强制小车进入视觉伺服模式
-                        if counter >= 300:
+                        # 若连续2s没有收到openart发来的消息,强制小车进入视觉伺服模式
+                        if counter >= 200:
                             counter = 0
                             my_vision_manager.if_lost_object = True
                             reset_navigate_flags()
@@ -707,22 +699,25 @@ def collaborative_task_machine():
                     my_state.state = my_state.READY_NAVIGATE
 
             if my_vision_manager.finish_servo == True:
-                my_state.state = my_state.ORBIT
-                # 重置视觉伺服失败次数
-                my_vision_manager.failed_servo_count = 0
-                # 重置标志位
-                my_vision_manager.if_send_servo_command = False
-                my_vision_manager.finish_servo = False
-                # 在采集tof数据时固定小车姿态角
-                my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                # 测试
-                my_beep.test()
+                counter += 1
+                # 延时200ms
+                if counter >= 20:
+                    # 重置计数器
+                    counter = 0
+                    my_state.state = my_state.ORBIT
+                    # 重置视觉伺服失败次数
+                    my_vision_manager.failed_servo_count = 0
+                    # 重置标志位
+                    my_vision_manager.if_send_servo_command = False
+                    my_vision_manager.finish_servo = False
+                    # 在采集tof数据时固定小车姿态角
+                    my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
         elif my_state.state == my_state.ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
                 counter += 1
-                # 延时500ms防止惯性过冲
-                if counter >= 50:
+                # 延时200ms防止惯性过冲
+                if counter >= 20:
                     counter = 0
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                     # 打开openart搬运辅助检查模式
@@ -731,16 +726,10 @@ def collaborative_task_machine():
                     # 提前设置小车转向目标角度为当前角度
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     # 测试
-                    my_beep.test()
+                    # my_beep.test()
                     my_slave_protocol.send_slave_state("finish")
         elif my_state.state == my_state.MOVE:
-                '''
-                # 延时10ms
-                if counter <= 1:
-                    counter += 1
-                else:
-                '''
-                my_plan.navigate([[my_car.x_current+2.0, 265.0]])
+                my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
                 if my_plan.finish_navigate == True:
                     counter = 0
                     if my_slave_protocol.get_start_signal():
@@ -751,8 +740,8 @@ def collaborative_task_machine():
                         # 测试
                         my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
-            # 延时1.5s在进行apriltag矫正防止与主车相碰
-            if counter <= 150:
+            # 延时0.8s在进行apriltag矫正防止与主车相碰
+            if counter <= 80:
                 counter += 1
             else:
                 if my_vision_manager.if_lost_object == False:
@@ -788,7 +777,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与主车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0], 10.0], plan_data.fixed_point[0]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, 10.0], [plan_data.fixed_point[0][0]-10.0, -25.0]], 0.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -892,7 +881,7 @@ def time_pit3_handler(time) -> None:
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[0.0, -150.0]], 120.0)
+        my_plan.navigate([[160.0, 240.0], [70.0, 120.0], [160.0, 20.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -965,7 +954,7 @@ def time_pit2_handler(time):
     
     # 速度规划
     # my_uart3.write(("v_target: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.v_target, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
-    
+    # my_uart3.write(f"{my_plan.stage}")
     # 检测自转角是否准确
     # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     

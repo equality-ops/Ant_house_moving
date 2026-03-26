@@ -26,7 +26,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, -0.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[35.0, -15.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
@@ -110,6 +110,11 @@ class Plan:
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
         self.finished_distance = 0.0    # type: float
+        # 用于搬运你物体时矫正里程计的误差
+        self.error_x_T = self.flash_sys.find_value("error_x_T")       # type: float
+        self.error_x_S = self.flash_sys.find_value("error_x_S")       # type: float
+        self.error_x_B = self.flash_sys.find_value("error_x_B")       # type: float
+        self.error_x = 0.0
         # 到终点的剩余距离
         self.rest_distance = 0.0        # type: float
         # 当前与下一避障目标点的距离
@@ -197,6 +202,7 @@ class Plan:
                     self.dec_speed_index = 0
         else:
             self.v_target = 0
+            self.elapsed_time = 0
             self.stage = self.STOP
             self.finish_building = False
 
@@ -305,7 +311,7 @@ class Plan:
             self.error_correct_y = -0.0
         elif blurry_yaw >= 150.0 and blurry_yaw <= 180.0 or blurry_yaw >= -180.0 and blurry_yaw < -150.0:
             self.error_correct_x = 0.0
-            self.error_correct_y = 0.0
+            self.error_correct_y = -0.0
         elif blurry_yaw >= -150.0 and blurry_yaw < -120.0:
             self.error_correct_x = -0.0
             self.error_correct_y = -0.0
@@ -336,28 +342,31 @@ class Plan:
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
-        x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
-        y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
+        if self.my_state.state != self.my_state.MOVE:
+            x_transit_dis = abs(self.my_car.x_current - self.current_path[self.plan_data.current_aimed_point_index][0])
+            y_transit_dis = abs(self.my_car.y_current - self.current_path[self.plan_data.current_aimed_point_index][1])    
 
-        # 依据到过渡点的距离计算里程计系数
-        if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.966702
-        elif x_transit_dis >= 10.0:
-            self.my_car.alpha_x = 1.0
+            # 依据到过渡点的距离计算里程计系数
+            if x_transit_dis >= 50.0:
+                self.my_car.alpha_x = 0.966702
+            elif x_transit_dis >= 10.0:
+                self.my_car.alpha_x = 1.0
+            else:
+                self.my_car.alpha_x = 1.0
+
+            if y_transit_dis >= 50.0:
+                self.my_car.alpha_y = 0.932782
+            elif y_transit_dis >= 10.0:
+                self.my_car.alpha_y = 0.955172
+            else:
+                self.my_car.alpha_y = 1.0
         else:
             self.my_car.alpha_x = 1.0
-
-        if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.932782
-        elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 0.955172
-        else:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.961538
 
         # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN:
             # 根据当前模式设置减速距离和加速时间阈值
-            
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
                 self.boost_time_threshold = 30
@@ -383,7 +392,7 @@ class Plan:
             self.build_dec_speed_list(0)
             self.dis_flag = self.plan_data.MID_DISTANCE
         else:
-            self.v_target = self.min_start_v
+            self.v_target = self.dead_zone_v
             self.dis_flag = self.plan_data.SHORT_DISTANCE
 
         self.if_pass_transit_point = False
@@ -417,7 +426,7 @@ class Plan:
 
         self.rest_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
         # 当剩余距离小于阈值时，推断小车已经到达目标点
-        if self.rest_distance <= self.plan_arrive_threshold and abs(self.my_car.angle_pid.nowError) <= 0.5 and self.if_pass_transit_point == True:
+        if self.rest_distance <= self.plan_arrive_threshold and self.if_pass_transit_point == True:
             self.arrive_flag = True
             self.transition_flag = False
             self.finished_distance = 0.0
@@ -431,7 +440,7 @@ class Plan:
     # 计算目标航向角
     def compute_target_yaw(self, target_x, target_y):
         # 只有在需要避障时开启航向角滤波以平滑过渡避障点
-        # if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state != self.my_state.MOVE:
+        # if self.plan_data.current_aimed_point_index < len(self.current_path) - 1 and self.my_state.state == self.my_state.MOVE:
         if self.plan_data.current_aimed_point_index < len(self.current_path) - 1: 
             dx = self.sin_diff_fil.filtering(target_x - self.my_car.x_current)
             dy = self.cos_diff_fil.filtering(target_y - self.my_car.y_current)
@@ -478,7 +487,7 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.5:
+            if diff <= 0.9:
                 self.if_finish_turn = True
                 # 恢复正常的角度环限幅
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
