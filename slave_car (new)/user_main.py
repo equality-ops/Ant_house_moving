@@ -154,7 +154,7 @@ encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
 # 创建tof测距滤波器对象
 # tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_motor.SlipAveragingFilter(8)
+car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
@@ -465,7 +465,6 @@ def test_apriltag_calibrate():
         my_vision_manager.apriltag_calibrate_control()
         if my_vision_manager.if_finish_calibrate == True:
             my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-            my_plan.turn_angle_target = my_vision_manager.target_rel_turn_angle
             my_state.state = my_state.STOP
     elif my_state.state == my_state.STOP:
         my_plan.stop()
@@ -805,7 +804,7 @@ def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
 
-    if my_state.state == my_state.ORBIT or my_state.state == my_state.MOVE:
+    if my_state.state == my_state.ORBIT or my_state.state == my_state.MOVE or my_state.state == my_state.CALIBRATE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
@@ -929,9 +928,10 @@ def time_pit2_handler(time):
     # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
     # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
+    # my_uart3.write(f"{my_vision_manager.angle_buffer},{my_vision_manager.calibrate_times}\n")
     
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
