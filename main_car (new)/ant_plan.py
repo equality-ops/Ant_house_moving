@@ -26,7 +26,7 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[35.0, -15.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[0.0, -0.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
@@ -348,9 +348,9 @@ class Plan:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.954061
+            self.my_car.alpha_y = 0.932782
         elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.955172
         else:
             self.my_car.alpha_y = 1.0
 
@@ -407,9 +407,9 @@ class Plan:
                     self.my_car.alpha_x = 1.0
 
                 if y_transit_dis >= 50.0:
-                    self.my_car.alpha_y = 0.954061
+                    self.my_car.alpha_y = 0.932782
                 elif y_transit_dis >= 10.0:
-                    self.my_car.alpha_y = 1.0
+                    self.my_car.alpha_y = 0.955172
                 else:
                     self.my_car.alpha_y = 1.0
         else:

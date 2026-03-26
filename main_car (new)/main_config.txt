@@ -1,4 +1,4 @@
-# 修改时间 3.26	  00:29
+# 修改时间 3.26	  11:53
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -46,7 +46,7 @@ kv = 6.0
 integral_limitmax = 8000
 pwmout_limitmax = 8000
 
-angle_normal_kp = 25.0
+angle_normal_kp = 20.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
@@ -80,15 +80,15 @@ uart_and_menu_T = 53
 boost_time_threshold = 60
 
 ###################【路径规划】####################
-plan_arrive_threshold = 2.0
+plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
 
 ###################【速度规划】####################
-min_start_v = 30
-long_v_max = 180
-short_v_max = 100
+min_start_v = 20
+long_v_max = 200
+short_v_max = 130
 dead_zone_v = 30
-transit_v = 100
+transit_v = 120
 # 已弃用
 orbit_v = 100
 
