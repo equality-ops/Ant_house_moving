@@ -675,7 +675,6 @@ brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 blue_tracker = KalmanTracker()
 communicator = Communicator(uart)
-# 初始化锁定类实例
 target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
 # ======================== 主循环 ========================
@@ -763,10 +762,11 @@ while True:
     # 模型模式
     elif current_mode == MODE_MODEL:
         is_sent = False # 是否发送了坐标
+        center = []
         img1 = img.copy(0.75, 1)
         for obj in tf.detect(net,img1):
             x1,y1,x2,y2,label,scores = obj
-            if(scores>0.70):
+            if(scores>0.60):
                 x1 = int(x1 * img.width())
                 y1 = int(y1 * img.height())
                 x2 = int(x2 * img.width())
@@ -777,10 +777,17 @@ while True:
                 cx = (x1 + x2) // 2
                 cy = (y1 + y2) // 2
                 color = LABEL_TO_COLOR[label]
-                communicator.send_coordinate(cx, cy, color)
-                is_sent = True
+                center.append((cx, cy, color))
                 img.draw_rectangle((x1,y1,w,h), color=DRAW_COLORS[color])
                 img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+        
+        if center:
+            target = max(center, key=lambda coordinate: coordinate[1])
+            target_x = target[0]
+            target_y = target[1]
+            target_color = target[2]
+            communicator.send_coordinate(target_x, target_y, target_color)
+            is_sent = True
 
         displayed_text = 'YES' if is_sent else 'NO'
         displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
