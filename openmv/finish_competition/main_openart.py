@@ -2,6 +2,7 @@ import sensor
 import image
 import time
 import math
+import tf
 import mjpeg
 from pyb import LED
 from machine import UART
@@ -40,6 +41,15 @@ PROTOCOL_HEADER2_COORD = 0xA6
 PROTOCOL_HEADER2_ANGLE = 0xA7
 PROTOCOL_HEADER2_APRILTAG = 0xA8
 PROTOCOL_FOOTER = 0x5B
+
+# 颜色标签映射（label → 名称）
+LABEL_TO_COLOR = {
+    0: 'red',
+    1: 'blue',
+    2: 'brown',
+    3: 'white',
+    4: 'green'
+}
 
 # 颜色类型ASCII码映射
 COLOR_TYPE_MAP = {
@@ -116,6 +126,24 @@ BRIGHTNESS_RANGES = {
 # 锁定的阈值集
 LOCKED_THRESHOLD = None
 LOCKED_TYPE = ''
+
+# 像素和面积阈值
+WHITE_NORMAL_PIXELS = 400
+WHITE_NORMAL_AREA = 400
+
+WHITE_DARK_PIXELS = 320
+WHITE_DARK_AREA = 320
+
+BLUE_NORMAL_PIXELS = 130
+BLUE_NORMAL_AREA = 130
+
+BLUE_DARK_PIXELS = 80
+BLUE_DARK_AREA = 80
+
+#设置模型路径
+face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
+#载入模型
+net = tf.load(face_detect)
 
 # ======================== 通信模块 ========================
 class Communicator:
@@ -280,12 +308,25 @@ class ColorDetector:
     def detect_colors(self, img):
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
+
+        # 根据当前亮度模式自动选择白色阈值
+        if LOCKED_TYPE == 'dark':
+            white_pix = WHITE_DARK_PIXELS
+            white_area = WHITE_DARK_AREA
+            blue_pix = BLUE_DARK_PIXELS
+            blue_area = BLUE_DARK_AREA
+        else:
+            white_pix = WHITE_NORMAL_PIXELS
+            white_area = WHITE_NORMAL_AREA
+            blue_pix = BLUE_NORMAL_PIXELS
+            blue_area = BLUE_NORMAL_AREA
+
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=260, area_threshold=200, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=320, area_threshold=280, merge=True)
+        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=260, area_threshold=260, merge=True)
+        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
         red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=50,  area_threshold=50,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=80,  area_threshold=80,  merge=True) # bright 130 dark <110
+        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
+        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=blue_pix,  area_threshold=blue_area,  merge=True) # bright 130 dark <110
 
         # 整合所有色块并添加颜色标签
         all_blobs = []
@@ -305,7 +346,7 @@ class ColorDetector:
                 continue
             elif color in ('white', 'brown', 'blue') and blob.density() < 0.3:
                 continue
-            elif color == 'green' and blob.density() < 0.5:
+            elif color == 'green' and blob.density() < 0.45:
                 continue
 
             # 长宽比过滤（不同颜色有不同规则）
@@ -539,7 +580,8 @@ class CoordinateCorrection:
 # 模式定义
 MODE_TARGET = 0          # 目标跟踪模式
 MODE_CORRECTION = 1      # 坐标校正
-MODE_WAITING = 2         # 等待模式
+MODE_MODEL = 2           # 模型模式
+MODE_WAITING = 3         # 等待模式
 current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
@@ -566,6 +608,12 @@ def handle_uart_commands(uart):
             target_locker.reset()
         elif cmd == b'C':
             current_mode = MODE_CORRECTION
+            brown_tracker.reset()
+            white_tracker.reset()
+            blue_tracker.reset()
+            target_locker.reset()
+        elif cmd == b'M':
+            current_mode = MODE_MODEL
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
@@ -711,6 +759,32 @@ while True:
             tag_cx, tag_cy, rotation = tag_center
             rotation = (180 * rotation) / math.pi + 90
             communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
+
+    # 模型模式
+    elif current_mode == MODE_MODEL:
+        is_sent = False # 是否发送了坐标
+        img1 = img.copy(0.75, 1)
+        for obj in tf.detect(net,img1):
+            x1,y1,x2,y2,label,scores = obj
+            if(scores>0.70):
+                x1 = int(x1 * img.width())
+                y1 = int(y1 * img.height())
+                x2 = int(x2 * img.width())
+                y2 = int(y2 * img.height())
+
+                w = x2 - x1
+                h = y2 - y1
+                cx = (x1 + x2) // 2
+                cy = (y1 + y2) // 2
+                color = LABEL_TO_COLOR[label]
+                communicator.send_coordinate(cx, cy, color)
+                is_sent = True
+                img.draw_rectangle((x1,y1,w,h), color=DRAW_COLORS[color])
+                img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+
+        displayed_text = 'YES' if is_sent else 'NO'
+        displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
+        img.draw_string(5, 5, displayed_text, color = displayed_text_color, scale = 2)
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
