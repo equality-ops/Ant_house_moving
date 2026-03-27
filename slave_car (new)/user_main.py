@@ -776,8 +776,8 @@ def collaborative_task_machine():
                 my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
-            # 最终返回主车的起点（避免回程途中与主车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0]-15.0, 10.0], [plan_data.fixed_point[0][0]-10.0, -25.0]], 0.0)
+            # 最终返回从车的起点（避免回程途中与主车碰撞）
+            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, -30.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP

@@ -366,7 +366,7 @@ class Plan:
             self.my_car.alpha_y = 0.961538
 
         # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
-        if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN:
+        if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.RETURN:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
@@ -376,6 +376,11 @@ class Plan:
                 self.v_max = self.scan_v_max
                 self.boost_time_threshold = 30
                 self.dec_distance = 10.0
+            elif self.my_state.state == self.my_state.RETURN:
+                # 回城模式时将速度调到最大以尽快返回起点
+                self.v_max = self.long_v_max
+                self.boost_time_threshold = 30
+                self.dec_distance = 15.0
             else:
                 self.v_max = self.long_v_max
                 self.boost_time_threshold = 60
