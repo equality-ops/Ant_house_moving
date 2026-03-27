@@ -849,7 +849,7 @@ def time_pit3_handler(time) -> None:
     # 全向定位测试程序
     """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 240.0], [160.0, 20.0], [35.0, -15.0]], 0.0)
+        my_plan.navigate([[160.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
