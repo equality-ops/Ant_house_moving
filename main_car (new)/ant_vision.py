@@ -261,13 +261,13 @@ class VisionManager:
                     self.my_plan.finish_navigate = False
             elif self.adjust_stage == 2:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[185.0, 0.0]], -90.0)
+                    self.my_plan.navigate([[182.0, 0.0]], -90.0)
                 elif self.car_position == 0:
-                    self.my_plan.navigate([[135.0, 0.0]], 90.0)
+                    self.my_plan.navigate([[138.0, 0.0]], 90.0)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[135.0, 240.0]], 90.0)
+                    self.my_plan.navigate([[138.0, 240.0]], 90.0)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[185.0, 240.0]], -90.0)
+                    self.my_plan.navigate([[182.0, 240.0]], -90.0)
                 if self.my_plan.finish_navigate == True:
                     # 选择合适的里程计系数
                     self.my_car.alpha_x = 1.0
@@ -307,7 +307,7 @@ class VisionManager:
                         now_yaw = self.my_car.now_yaw * 180.0 / self.MATH.PI
                         # 计算目标转角
                         if self.car_position == 0 or self.car_position == 2:
-                            self.target_rel_turn_angle = now_yaw + target_point[2]
+                            self.target_rel_turn_angle = now_yaw - target_point[2]
                         elif self.car_position == 1 or self.car_position == 3:
                             self.target_rel_turn_angle = now_yaw + target_point[2]
                         self.if_gain_calibrate_angle = True
@@ -321,7 +321,7 @@ class VisionManager:
                     diff = abs(self.target_rel_turn_angle - self.my_car.now_yaw * 180.0 / self.MATH.PI)
                     if diff > 180.0:
                         diff = 360.0 - diff
-                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 0.5 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
+                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
                         # 测试
@@ -335,16 +335,16 @@ class VisionManager:
                             self.my_car.now_yaw = sum(self.angle_buffer) / len(self.angle_buffer) * self.MATH.PI / 180.0
                             self.angle_buffer.clear()
                             if self.car_position == 0:
-                                self.my_car.x_current = 143.5
+                                self.my_car.x_current = 141.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 1:
-                                self.my_car.x_current = 176.5
+                                self.my_car.x_current = 179.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 2:
-                                self.my_car.x_current = 143.5
+                                self.my_car.x_current = 141.0
                                 self.my_car.y_current = 240.0
                             elif self.car_position == 3:
-                                self.my_car.x_current = 176.5
+                                self.my_car.x_current = 179.0
                                 self.my_car.y_current = 240.0
                             # 在切换模式前保持当前转角
                             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
@@ -373,4 +373,4 @@ class VisionManager:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
-                    self.if_lost_object = True 
+                    self.if_lost_object = True
