@@ -111,6 +111,11 @@ class Plan:
         self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
         self.total_distance = 0.0       # type: float
         self.finished_distance = 0.0    # type: float
+        # 用于搬运你物体时矫正里程计的误差
+        self.error_x_T = self.flash_sys.find_value("error_x_T")       # type: float
+        self.error_x_S = self.flash_sys.find_value("error_x_S")       # type: float
+        self.error_x_B = self.flash_sys.find_value("error_x_B")       # type: float
+        self.error_x = 0.0
         # 到终点的剩余距离
         self.rest_distance = 0.0        # type: float
         # 当前与下一避障目标点的距离
