@@ -1,4 +1,4 @@
-# 修改时间 3.27	  00:29
+# 修改时间 3.27	  16:16
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -84,7 +84,7 @@ plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
 error_x_T = -1.0
 error_x_S = -2.0
-error_x_B = -2.0
+error_x_B = 0.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 200
@@ -101,9 +101,9 @@ orbit_v_min = 20
 move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
-move_v_max_T = 70
-move_v_max_S = 90
-move_v_max_B = 60
+move_v_max_T = 90
+move_v_max_S = 100
+move_v_max_B = 80
 
 ###################【视觉伺服】####################
 # 已弃用
@@ -143,8 +143,8 @@ servo_pwmout_limitmax = 140
 radius_T = 3.1
 radius_S = 3.6
 radius_B = 4.9
-angle_T = 136.0
-angle_S = 140.0
-angle_B = 146.0
+angle_T = 135.0
+angle_S = 143.0
+angle_B = 143.0
 
 # 小车最高速度为450
