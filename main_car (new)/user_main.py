@@ -411,8 +411,6 @@ def collaborative_task_machine():
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state = my_state.SERVO
-                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                    plan_data.fixed_point[1][0] = my_car.x_current
             else:
                 my_plan.finish_navigate = False
                 if_send_preparing_path = False
@@ -460,6 +458,8 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
+                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[1][0] = my_car.x_current
         elif my_state.state == my_state.ORBIT:
             # 延时100ms，等待稳定后再开始环绕
             if counter <= 10:
@@ -566,8 +566,6 @@ def collaborative_task_machine():
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
-                        # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                        plan_data.fixed_point[2][0] = my_car.x_current
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
                     my_plan.finish_navigate = False
@@ -613,6 +611,8 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
+                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[2][0] = my_car.x_current
         elif my_state.state == my_state.ORBIT:
             # 延时100ms，等待视觉伺服稳定后再开始环绕
             if counter <= 10:
@@ -695,6 +695,8 @@ def collaborative_task_machine():
         if my_state.state == my_state.NAVIGATE:
             my_plan.navigate([[120.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
+                # 提前让从车到目标点等候
+                my_main_protocol.send_path(ord('P'), [[160.0, plan_data.fixed_point[2][1]]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
@@ -727,7 +729,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0], -25.0]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, -30.0]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
