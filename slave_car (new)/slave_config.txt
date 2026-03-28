@@ -1,4 +1,4 @@
-# 修改时间 3.27	  21:14
+# 修改时间 3.28	  15:45
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -115,7 +115,7 @@ servo_kd_y = 5.0
 # 普通的视觉伺服pid参数
 servo_normal_kp_x = 6.0
 servo_normal_kd_x = 8.0
-servo_normal_kp_y = 6.0
+servo_normal_kp_y = 5.0
 servo_normal_kd_y = 8.0
 # apriltag矫正的视觉伺服pid参数
 servo_calibrate_kp_x = 8.0
@@ -124,12 +124,12 @@ servo_calibrate_kp_y = 8.0
 servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
-servo_target_y_A = 9.0
-servo_target_y_T = 7.5
+servo_target_y_A = 11.0
+servo_target_y_T = 6.0
 servo_target_y_S = 11.0
 servo_target_y_B = 18.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 1.0
+finish_threshold_x = 0.5
 finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
@@ -140,10 +140,10 @@ max_rel_speed = 140
 servo_pwmout_limitmax = 140
 
 ###################【环绕控制】####################
-radius_T = 3.1
+radius_T = 3.15
 radius_S = 3.6
 radius_B = 4.9
-angle_T = 134.0
+angle_T = 133.0
 angle_S = 141.0
 angle_B = 143.0
 

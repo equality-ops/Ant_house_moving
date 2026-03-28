@@ -1,4 +1,4 @@
-# 修改时间 3.27	  21:13
+# 修改时间 3.28	  15:46
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -46,7 +46,7 @@ kv = 6.0
 integral_limitmax = 8000
 pwmout_limitmax = 8000
 
-angle_normal_kp = 20.0
+angle_normal_kp = 25.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
@@ -83,7 +83,7 @@ boost_time_threshold = 60
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
 
-error_x_T = -5.0
+error_x_T = -3.0
 error_x_S = 2.0
 error_x_B = -2.0
 ###################【速度规划】####################
@@ -115,7 +115,7 @@ servo_kd_y = 5.0
 # 普通的视觉伺服pid参数
 servo_normal_kp_x = 7.0
 servo_normal_kd_x = 10.0
-servo_normal_kp_y = 7.0
+servo_normal_kp_y = 6.0
 servo_normal_kd_y = 10.0
 # apriltag矫正的视觉伺服pid参数
 servo_calibrate_kp_x = 7.0
@@ -124,12 +124,12 @@ servo_calibrate_kp_y = 7.0
 servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
-servo_target_y_A = 9.0
+servo_target_y_A = 11.0
 servo_target_y_T = 7.5
 servo_target_y_S = 11.0
 servo_target_y_B = 18.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 1.0
+finish_threshold_x = 0.5
 finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
@@ -140,10 +140,10 @@ max_rel_speed = 150
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 3.1
+radius_T = 3.2
 radius_S = 3.6
 radius_B = 5.0
-angle_T = 134.0
+angle_T = 133.0
 angle_S = 141.0
 angle_B = 143.0
 

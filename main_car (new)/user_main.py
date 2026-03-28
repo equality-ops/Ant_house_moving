@@ -447,7 +447,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]], [my_car.x_current, my_car.y_current - 6.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-8.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -480,9 +480,10 @@ def collaborative_task_machine():
                         counter = 0
                         my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                         my_vision_manager.failed_servo_count += 1
+                        my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体
-            my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
+            my_plan.navigate([[my_car.x_current+my_plan.error_x, -20.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 my_plan.finish_navigate = False
@@ -600,7 +601,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]], [my_car.x_current, my_car.y_current + 6.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+8.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -636,7 +637,7 @@ def collaborative_task_machine():
                         my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体
-            my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
+            my_plan.navigate([[my_car.x_current-my_plan.error_x, 260.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 my_plan.finish_navigate = False
@@ -696,7 +697,7 @@ def collaborative_task_machine():
             my_plan.navigate([[120.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
                 # 提前让从车到目标点等候
-                my_main_protocol.send_path(ord('P'), [[160.0, plan_data.fixed_point[2][1]]])
+                my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
@@ -775,7 +776,7 @@ def time_pit1_handler(time):
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
-        brake_threshold = 20
+        brake_threshold = 15
         # 初始化pid参数（线性回归）
         if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
             motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -851,7 +852,7 @@ def time_pit3_handler(time) -> None:
     # 全向定位测试程序
     """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 0.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
@@ -859,7 +860,6 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == my_state.STOP:
         my_plan.stop()
     """
-
     # 测试搬运的里程计系数
     """
     if my_state.state == my_state.NAVIGATE:

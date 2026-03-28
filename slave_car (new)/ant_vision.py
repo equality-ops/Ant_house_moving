@@ -231,12 +231,12 @@ class VisionManager:
                 if diff < 40.0:
                     self.orbit_speed = self.orbit_v_max - (self.orbit_v_max - self.orbit_v_min) * (40.0 - diff) / 40.0
                 else:
-                    self.orbit_speed = self.orbit_v_max   
+                    self.orbit_speed = self.orbit_v_max
                 # 速度限幅
                 self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
                 # 判断是否完成环绕
-                if diff <= 0.5:	
+                if diff <= 1.0:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
@@ -261,13 +261,13 @@ class VisionManager:
                     self.my_plan.finish_navigate = False
             elif self.adjust_stage == 2:
                 if self.car_position == 1:
-                    self.my_plan.navigate([[182.0, 0.0]], -90.0)
+                    self.my_plan.navigate([[185.0, 0.0]], -90.0)
                 elif self.car_position == 0:
-                    self.my_plan.navigate([[138.0, 0.0]], 90.0)
+                    self.my_plan.navigate([[135.0, 0.0]], 90.0)
                 elif self.car_position == 2:
-                    self.my_plan.navigate([[138.0, 240.0]], 90.0)
+                    self.my_plan.navigate([[135.0, 240.0]], 90.0)
                 elif self.car_position == 3:
-                    self.my_plan.navigate([[182.0, 240.0]], -90.0)
+                    self.my_plan.navigate([[185.0, 240.0]], -90.0)
                 if self.my_plan.finish_navigate == True:
                     # 选择合适的里程计系数
                     self.my_car.alpha_x = 1.0
@@ -332,19 +332,19 @@ class VisionManager:
                             self.calibrate_times = 0
                             self.counter = 0
                             # 里程计和姿态角硬复位
-                            self.my_car.now_yaw = sum(self.angle_buffer) / len(self.angle_buffer) * self.MATH.PI / 180.0
+                            self.my_car.now_yaw = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]) * self.MATH.PI / 180.0
                             self.angle_buffer.clear()
                             if self.car_position == 0:
-                                self.my_car.x_current = 141.0
+                                self.my_car.x_current = 137.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 1:
-                                self.my_car.x_current = 179.0
+                                self.my_car.x_current = 183.0
                                 self.my_car.y_current = 0.0
                             elif self.car_position == 2:
-                                self.my_car.x_current = 141.0
+                                self.my_car.x_current = 137.0
                                 self.my_car.y_current = 240.0
                             elif self.car_position == 3:
-                                self.my_car.x_current = 179.0
+                                self.my_car.x_current = 183.0
                                 self.my_car.y_current = 240.0
                             # 在切换模式前保持当前转角
                             self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / self.MATH.PI
@@ -373,4 +373,4 @@ class VisionManager:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
-                    self.if_lost_object = True 
+                    self.if_lost_object = True

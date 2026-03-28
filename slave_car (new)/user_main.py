@@ -777,7 +777,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回从车的起点（避免回程途中与主车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, -30.0]])
+            my_plan.navigate([[plan_data.fixed_point[0][0]-5.0, -30.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -798,7 +798,7 @@ def time_pit1_handler(time):
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
-        brake_threshold = 20
+        brake_threshold = 15
         # 初始化pid参数（线性回归）
         if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
             motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
