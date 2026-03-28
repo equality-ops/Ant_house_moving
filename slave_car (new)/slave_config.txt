@@ -90,7 +90,7 @@ min_start_v = 20
 long_v_max = 200
 short_v_max = 130
 dead_zone_v = 40
-transit_v = 100
+transit_v = 120
 
 # 已弃用
 orbit_v = 80
