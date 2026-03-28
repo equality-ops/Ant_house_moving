@@ -288,8 +288,6 @@ class VisionManager:
                     self.if_ready_calibrate = True
                     self.my_plan.finish_navigate = False
                     self.target_rel_turn_angle = self.my_plan.turn_angle_target
-                    # 测试
-                    self.my_beep.test()
                     self.my_order_manager.mode_apriltag()
         else:
             target_point = self.my_art_protocol.apriltag_receive()
@@ -324,8 +322,6 @@ class VisionManager:
                     if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
-                        # 测试
-                        self.my_beep.test()
                         self.calibrate_times += 1
                         # 完成两次矫正才算结束
                         if self.calibrate_times >= 2:
