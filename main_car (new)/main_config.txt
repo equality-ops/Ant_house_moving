@@ -82,7 +82,7 @@ boost_time_threshold = 60
 ###################【路径规划】####################
 plan_arrive_threshold = 2.0
 plan_point_transition_T = 0
-error_x_T = -2.0
+error_x_T = -3.0
 error_x_S = 2.0
 error_x_B = 0.0
 
@@ -144,7 +144,7 @@ radius_T = 3.1
 radius_S = 3.6
 radius_B = 5.0
 angle_T = 128.0
-angle_S = 135.0
-angle_B = 146.0
+angle_S = 138.0
+angle_B = 143.0
 
 # 小车最高速度为290

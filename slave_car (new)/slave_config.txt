@@ -145,7 +145,7 @@ radius_T = 3.1
 radius_S = 3.6
 radius_B = 4.9
 angle_T = 128.0
-angle_S = 135.0
-angle_B = 146.0
+angle_S = 138.0
+angle_B = 143.0
 
 # 小车最高速度为450
