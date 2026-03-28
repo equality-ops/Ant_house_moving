@@ -12,8 +12,9 @@ class StateMachine:
         self.MOVE = 5           # 搬运状态
         self.CALIBRATE = 6      # 校准状态
         self.RETURN = 7		    # 返回状态
-        self.STOP = 8           # 停止状态
+        self.ADJUST = 8         # 微调模式
         self.REVERSE_ORBIT  = 9 # 反向环绕状态
+        self.STOP = 10          # 停止状态
         
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
@@ -31,6 +32,13 @@ class Plan_data:
         self.fixed_point = [[15.0, -15.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[95.0, 55.0], [95.0, 185.0], [225.0, 185.0], [225.0, 55.0]]  
+        # 每种物体需要扫描apriltag的重要程度
+        self.T_degree = 3
+        self.S_degree = 2
+        self.B_degree = 5
+        # 已累计的重要程度（用于判断是否需要进行里程计矫正）
+        self.current_degree = 0       # type: int
+        self.degree_threholds = 5     # type: int 
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引

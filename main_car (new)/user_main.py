@@ -290,9 +290,41 @@ def reset_navigate_flags():
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
 
+# 更新矫正里程计的累计重要程度
+def update_degree():
+    if my_vision_manager.current_servo_object == ord('T'):
+        plan_data.current_degree += plan_data.T_degree
+    elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
+        plan_data.current_degree += plan_data.S_degree
+    elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
+        plan_data.current_degree += plan_data.B_degree
+    # 根据当前累计程度来选择进行apriltag识别还是继续扫描
+    if plan_data.current_degree >= plan_data.degree_threholds:
+        # 清零重要程度
+        plan_data.current_degree = 0
+        my_state.state = my_state.CALIBRATE
+    else:
+        my_state.state = my_state.ADJUST
+
+# 微调模式，防止与从车或者物体卡住
+def adjust_car_position():
+    if my_vision_manager.car_position == DOWN_RIGHT:
+        my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 0.0]])
+    elif my_vision_manager.car_position == UP_RIGHT:
+        my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 240.0]])
+    elif my_vision_manager.car_position == DOWN_LEFT:
+        my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 0.0]])
+    elif my_vision_manager.car_position == UP_LEFT:
+        my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 240.0]])
+    if my_plan.finish_navigate == True:
+        my_plan.finish_navigate = False
+        my_state.state = my_state.NAVIGATE
+        # 主车给从车发消息让从车完成微调
+        my_main_protocol.send_start()
+
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE or my_state.state == my_state.ADJUST:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -482,7 +514,9 @@ def collaborative_task_machine():
                 counter = 0
                 my_plan.finish_navigate = False
                 my_vision_manager.car_position = DOWN_LEFT
-                my_state.state = my_state.CALIBRATE
+                update_degree()
+        elif my_state.state == my_state.ADJUST:
+            adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
@@ -624,7 +658,9 @@ def collaborative_task_machine():
                 counter = 0
                 my_plan.finish_navigate = False
                 my_vision_manager.car_position = UP_RIGHT
-                my_state.state = my_state.CALIBRATE
+                update_degree()
+        elif my_state.state == my_state.ADJUST:
+            adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
