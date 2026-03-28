@@ -521,8 +521,6 @@ def collaborative_task_machine():
                             reset_navigate_flags()
                             my_state.state = my_state.SERVO
                             my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                            # 测试
-                            my_beep.test()
 
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
@@ -590,8 +588,6 @@ def collaborative_task_machine():
                     my_vision_manager.car_position = DOWN_RIGHT
                     my_state.state = my_state.CALIBRATE
                     my_order_manager.finish()
-                    # 测试
-                    my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
             # 延时800ms在进行apriltag矫正防止与主车相碰
             if counter <= 80:
@@ -601,7 +597,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车前后移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -610,23 +606,21 @@ def collaborative_task_machine():
                         my_vision_manager.calibrate_times = 0
                         my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
 
-                # 若找不到apriltag码但完成了一个来回的移动轨迹，则认为该边的区域内没有apriltag码，控制小车返回等待模式
-                if my_plan.finish_navigate == True:
+                    # 若找不到apriltag码但完成了一个来回的移动轨迹，则认为该边的区域内没有apriltag码，控制小车返回等待模式
+                    if my_plan.finish_navigate == True:
+                        counter = 0
+                        # 重置标志位
+                        my_plan.finish_navigate = False
+                        my_vision_manager.if_lost_object = False
+                        my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                        # 将openart置为等待模式
+                        my_order_manager.finish()
+                        my_state.state = my_state.READY_NAVIGATE
+
+                if my_vision_manager.if_finish_calibrate == True:
                     counter = 0
-                    # 重置标志位
-                    my_plan.finish_navigate = False
-                    my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    # 将openart置为等待模式
-                    my_order_manager.finish()
                     my_state.state = my_state.READY_NAVIGATE
-                    # 测试
-                    my_beep.test()
-            if my_vision_manager.if_finish_calibrate == True:
-                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                my_state.state = my_state.READY_NAVIGATE
-                # 测试
-                my_beep.test()
     elif my_state.state_work == UP:
         if my_state.state == my_state.READY_NAVIGATE:
             path_message = my_slave_protocol.get_path_list()
@@ -668,8 +662,6 @@ def collaborative_task_machine():
                             reset_navigate_flags()
                             my_state.state = my_state.SERVO
                             my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-                            # 测试
-                            my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
@@ -720,13 +712,9 @@ def collaborative_task_machine():
                 if counter >= 20:
                     counter = 0
                     my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    # 打开openart搬运辅助检查模式
-                    # my_order_manager.mode_pickup_check()
                     my_state.state = my_state.MOVE
                     # 提前设置小车转向目标角度为当前角度
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-                    # 测试
-                    # my_beep.test()
                     my_slave_protocol.send_slave_state("finish")
         elif my_state.state == my_state.MOVE:
                 my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
@@ -737,8 +725,6 @@ def collaborative_task_machine():
                         my_vision_manager.car_position = UP_LEFT
                         my_state.state = my_state.CALIBRATE
                         my_order_manager.finish()
-                        # 测试
-                        my_beep.test()
         elif my_state.state == my_state.CALIBRATE:
             # 延时0.8s在进行apriltag矫正防止与主车相碰
             if counter <= 80:
@@ -748,7 +734,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[[my_car.x_current-15.0, my_car.y_current], my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
                     
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -757,23 +743,21 @@ def collaborative_task_machine():
                         my_vision_manager.calibrate_times = 0
                         my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
 
-                # 若找不到apriltag码但完成了一个来回的移动轨迹，则认为该边的区域内没有apriltag码，控制小车返回等待模式
-                if my_plan.finish_navigate == True:
+                    # 若找不到apriltag码但完成了一个来回的移动轨迹，则认为该边的区域内没有apriltag码，控制小车返回等待模式
+                    if my_plan.finish_navigate == True:
+                        counter = 0
+                        # 重置标志位
+                        my_plan.finish_navigate = False
+                        my_vision_manager.if_lost_object = False
+                        my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                        # 将openart置为等待模式
+                        my_order_manager.finish()
+                        my_state.state = my_state.READY_NAVIGATE
+
+                if my_vision_manager.if_finish_calibrate == True:
                     counter = 0
-                    # 重置标志位
-                    my_plan.finish_navigate = False
-                    my_vision_manager.if_lost_object = False
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                    # 将openart置为等待模式
-                    my_order_manager.finish()
                     my_state.state = my_state.READY_NAVIGATE
-                    # 测试
-                    my_beep.test()
-            if my_vision_manager.if_finish_calibrate == True:
-                my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                my_state.state = my_state.READY_NAVIGATE
-                # 测试
-                my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回从车的起点（避免回程途中与主车碰撞）
@@ -782,8 +766,6 @@ def collaborative_task_machine():
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
                 my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-                # 测试
-                my_beep.test()
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
