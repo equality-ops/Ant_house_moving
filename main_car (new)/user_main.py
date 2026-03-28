@@ -452,8 +452,8 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                    plan_data.fixed_point[1][0] = my_car.x_current
+                    # 将下一次的扫描点置为当前点偏左，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[1][0] = my_car.x_current-10.0
         elif my_state.state == my_state.ORBIT:
             # 延时100ms，等待稳定后再开始环绕
             if counter <= 10:
@@ -594,8 +594,8 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                    plan_data.fixed_point[2][0] = my_car.x_current
+                    # 将下一次的扫描点置为当前点偏右，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[2][0] = my_car.x_current+10.0
         elif my_state.state == my_state.ORBIT:
             # 延时100ms，等待视觉伺服稳定后再开始环绕
             if counter <= 10:
