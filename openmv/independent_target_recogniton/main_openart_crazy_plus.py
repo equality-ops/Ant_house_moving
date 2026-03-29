@@ -291,7 +291,7 @@ class ColorDetector:
         """计算两点间欧氏距离"""
         return (x1 - x2)**2 + (y1 - y2)**2
 
-    def detect_colors(self, img):
+    def detect_colors(self, img, target_color = ''):
         """检测所有颜色色块并返回（带颜色标签）"""
         current_threshold = LOCKED_THRESHOLD
 
@@ -308,20 +308,38 @@ class ColorDetector:
             blue_area = BLUE_NORMAL_AREA
 
         # 检测各颜色色块
-        brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=300, area_threshold=300, merge=True)
-        white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
-        red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
-        green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
-        blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=blue_pix,  area_threshold=blue_area,  merge=True) # bright 130 dark <110
+        if target_color:
+            blobs = []
+            if target_color == 'brown':
+                target_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=300, area_threshold=300, merge=True)
+            elif target_color == 'white':
+                target_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
+            elif target_color == 'red':
+                target_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
+            elif target_color == 'green':
+                target_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
+            elif target_color == 'blue':
+                target_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=blue_pix,  area_threshold=blue_area,  merge=True)
+            else:
+                target_blobs = []
 
-        # 整合所有色块并添加颜色标签
-        all_blobs = []
-        for blob in brown_blobs: all_blobs.append((blob, 'brown'))
-        for blob in white_blobs: all_blobs.append((blob, 'white'))
-        for blob in red_blobs:   all_blobs.append((blob, 'red'))
-        for blob in green_blobs: all_blobs.append((blob, 'green'))
-        for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
-        return all_blobs
+            for blob in target_blobs:blobs.append((blob, target_color))
+            return blobs
+        else:
+            brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=300, area_threshold=300, merge=True)
+            white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
+            red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
+            green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
+            blue_blobs  = img.find_blobs(current_threshold['blue'],  pixels_threshold=blue_pix,  area_threshold=blue_area,  merge=True) # bright 130 dark <110
+
+            # 整合所有色块并添加颜色标签
+            all_blobs = []
+            for blob in brown_blobs: all_blobs.append((blob, 'brown'))
+            for blob in white_blobs: all_blobs.append((blob, 'white'))
+            for blob in red_blobs:   all_blobs.append((blob, 'red'))
+            for blob in green_blobs: all_blobs.append((blob, 'green'))
+            for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
+            return all_blobs
 
     def filter_all_blobs(self, blobs):
         """过滤无效色块（密度、像素数、长宽比、距离）"""
@@ -422,6 +440,7 @@ class ColorDetector:
             img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color_name])
             # 添加到中心列表
             center_list.append((blob.cx(), blob.cy(), color_name))
+
 
 # ======================== 锁定逻辑模块 ========================
 class TargetLocker:
@@ -569,6 +588,9 @@ MODE_CORRECTION = 1      # 坐标校正
 MODE_WAITING = 2         # 等待模式
 current_mode = MODE_WAITING
 
+# 要寻找的目标物体颜色
+target_object_color = ''
+
 # 存储各颜色卡尔曼坐标的字典
 kalman_coords = {
     'brown': (SCREEN_CENTER_X, SCREEN_CENTER_Y),
@@ -581,28 +603,37 @@ last_time = time.ticks_ms()
 
 # ======================== 工具函数 ========================
 def handle_uart_commands(uart):
-    """处理串口命令，切换运行模式"""
-    global current_mode
+    """处理串口命令，切换运行模式或目标物体"""
+    global current_mode, target_object_color
     if uart.any():
         cmd = uart.read(1)
+
+        def reset_all():
+            brown_tracker.reset()
+            white_tracker.reset()
+            blue_tracker.reset()
+            target_locker.reset()
+        
         if cmd == b'T':
             current_mode = MODE_TARGET
-            brown_tracker.reset()
-            white_tracker.reset()
-            blue_tracker.reset()
-            target_locker.reset()
+            reset_all()
         elif cmd == b'C':
             current_mode = MODE_CORRECTION
-            brown_tracker.reset()
-            white_tracker.reset()
-            blue_tracker.reset()
-            target_locker.reset()
+            reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
-            brown_tracker.reset()
-            white_tracker.reset()
-            blue_tracker.reset()
-            target_locker.reset()
+            reset_all()
+        elif current_mode == MODE_TARGET:
+            color_map = {
+                b's': 'red',
+                b'e': 'blue',
+                b't': 'green',
+                b'b': 'brown',
+                b'w': 'white'
+            }
+            if cmd in color_map:
+                target_object_color = color_map[cmd]
+                reset_all()
 
 def init_threshold():
     """依据当前亮度自动匹配阈值"""
@@ -677,7 +708,7 @@ while True:
     # 目标跟踪模式
     elif current_mode == MODE_TARGET:
         # 色块检测与筛选
-        all_blobs_with_color = color_detector.detect_colors(img)
+        all_blobs_with_color = color_detector.detect_colors(img, target_object_color)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
         # 初始化变量
