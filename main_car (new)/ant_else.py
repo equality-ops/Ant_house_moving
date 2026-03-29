@@ -203,6 +203,10 @@ class LinkProtocol:
     def send_start(self):
         self.my_uart3.write('S'.encode('utf-8'))
 
+    # 像从车发送跳过扫描apriltag码的信息
+    def send_pass_message(self):
+        self.my_uart3.write('P'.encode('utf-8'))
+
     def get_slave_state(self):
         """
         解析从车状态包 (非阻塞)

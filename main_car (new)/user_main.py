@@ -34,11 +34,13 @@ start_flag = False
 # 是否操控从车提前到达目标点就位标志位
 if_send_preparing_path = False
 # 任务阶段变量
-DEPART = 0       # 出发（离开发车区）
-DOWN = 1         # 位于矩形下边沿
-UP = 2           # 位于矩形上边沿
-CHECK = 3        # 检验阶段（检查是否搬运完所有物体）
-RETURN_WORK = 4  # 返回阶段（搬运完所有物体后返回起点）
+DEPART = -1       # 出发（离开发车区）
+DOWN = 0          # 位于矩形下边沿
+UP = 1            # 位于矩形上边沿
+CHECK = 2         # 检验阶段（检查是否搬运完所有物体）
+RETURN_WORK = 3   # 返回阶段（搬运完所有物体后返回起点）
+current_area = DOWN # 当前所在区域
+current_object = 0  # 当前需要搬运的物体的编号
 # 小车位置（用于apriltag矫正模式）
 DOWN_LEFT = 0
 DOWN_RIGHT = 1
@@ -416,7 +418,7 @@ def collaborative_task_machine():
                 my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
-            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
+            my_plan.navigate([[plan_data.rogue_planning[current_area][current_object][0][0], plan_data.fixed_point[1][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 # 重置标志位
                 my_plan.finish_navigate = False
@@ -428,8 +430,9 @@ def collaborative_task_machine():
                 else:
                     my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
+        # 沿着y轴靠近物体进行扫描
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
+            my_plan.navigate([[my_car.x_current, plan_data.rogue_planning[current_area][current_object][0][1]]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
@@ -455,8 +458,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
-                    my_vision_manager.current_servo_object = target_point[2]
+                if target_point and my_vision_manager.current_servo_object == target_point[2]:
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_vision_manager.if_lost_object = False
