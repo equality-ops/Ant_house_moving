@@ -52,6 +52,11 @@ DOWN_LEFT = 0
 DOWN_RIGHT = 1
 UP_LEFT = 2
 UP_RIGHT = 3
+# 主车所在半区
+main_car_pos = None
+# 左右半区
+LEFT_AREA = 1
+RIGHT_AREA = 2
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -476,7 +481,7 @@ def test_apriltag_calibrate():
 
 # 双车版的任务执行机
 def collaborative_task_machine():
-    global counter, if_send_preparing_path, if_not_find_object
+    global counter, if_send_preparing_path, if_not_find_object, main_car_pos
     if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
@@ -502,7 +507,7 @@ def collaborative_task_machine():
                     my_art_protocol.send_object_kind(my_vision_manager.current_servo_object)
         # 沿着y轴靠近物体进行扫描
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[my_car.x_current, plan_data.rogue_planning[current_area][current_object][0][1]]], 0.0)
+            my_plan.navigate([[my_car.x_current, plan_data.rogue_planning[current_area][current_object][0][1]], [my_car.x_current, my_car.y_current]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord(my_vision_manager.current_servo_object)):  
@@ -627,18 +632,29 @@ def collaborative_task_machine():
     elif my_state.state_work == UP:
         if my_state.state == my_state.DOWN_TO_UP:
             if if_send_preparing_path == False:
+                if my_car.x_current >= 160.0:
+                    main_car_pos = RIGHT_AREA
+                else:
+                    main_car_pos = LEFT_AREA
                 # 如果下边沿没有物体则更换从车移动到上边沿的路径
                 if len(plan_data.rogue_planning[DOWN]) == 0:
-                    # 操控从车从矩形区域右边沿行驶
-                    my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [110.0, 220.0]])
+                    # 操控从车从矩形区域左边沿行驶
+                    my_main_protocol.send_path(ord('P'), [[15.0, 15.0], [80.0, 220.0], [130.0, 220.0]])
                 else:
-                    # 操控从车从矩形区域右边沿行驶
-                    my_main_protocol.send_path(ord('P'), [[110.0, 220.0]])
+                    if main_car_pos == LEFT_AREA:
+                        # 操控从车从矩形区域右边沿行驶
+                        my_main_protocol.send_path(ord('P'), [[210.0, 220.0]])
+                    elif main_car_pos == RIGHT_AREA:
+                        # 操控从车从矩形区域左边沿行驶
+                        my_main_protocol.send_path(ord('P'), [[110.0, 220.0]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
 
             # 操控主车从矩形区域左边沿行驶
-            my_plan.navigate([plan_data.fixed_point[4]], 180.0)
+            if main_car_pos == LEFT_AREA:
+                my_plan.navigate([plan_data.fixed_point[4]], 180.0)
+            elif main_car_pos == RIGHT_AREA:
+                my_plan.navigate([plan_data.fixed_point[2]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.NAVIGATE
@@ -660,7 +676,7 @@ def collaborative_task_machine():
                     my_art_protocol.send_object_kind(my_vision_manager.current_servo_object)
         # 沿着y轴靠近物体进行扫描
         elif my_state.state == my_state.SCAN:
-                my_plan.navigate([[my_car.x_current, plan_data.rogue_planning[current_area][current_object][0][1]]], 180.0)
+                my_plan.navigate([[my_car.x_current, plan_data.rogue_planning[current_area][current_object][0][1]], [my_car.x_current, my_car.y_current]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
                     if target_point and (target_point[2] == ord(my_vision_manager.current_servo_object)):

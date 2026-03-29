@@ -29,7 +29,7 @@ class Plan_data:
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
         # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
-        self.rogue_planning = [[[[140.0, 90.0], 'S', 'Y']], [[[140.0, 180.0], 'E', 'N']]]  # type: list              
+        self.rogue_planning = [[[(140.0, 80.0), 'T', 'N'], [(185.0, 80.0), 'W', 'Y']], [[(140.0, 160.0), 'E', 'Y']]]  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标
@@ -396,7 +396,7 @@ class Plan:
                 self.boost_time_threshold = 30
                 self.dec_distance = 25.0
             elif self.my_state.state == self.my_state.DOWN_TO_UP:
-                self.v_max = self.transit_v + 40
+                self.v_max = self.transit_v + 60
                 self.boost_time_threshold = 60
                 self.dec_distance = 30.0
             else:

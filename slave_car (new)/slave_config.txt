@@ -1,4 +1,4 @@
-# 修改时间 3.28	  20:37
+# 修改时间 3.29	  19:12
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -53,7 +53,7 @@ angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
 high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -147,4 +147,4 @@ angle_T = 134.0
 angle_S = 141.0
 angle_B = 145.0
 
-# 小车最高速度为450
+# 小车最高速度为290
