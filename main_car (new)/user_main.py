@@ -231,7 +231,7 @@ def angle_pid_compute():
 
 # 用于主车启动的函数
 def main_start():
-    global current_time, last_left_time, start_flag, if_press_start_key
+    global current_time, last_left_time, start_flag, if_press_start_key, current_area
     if start_flag == False:
         if if_press_start_key == False:
             if key_data[3] != 0 and switch2.value() == 0:
@@ -247,8 +247,17 @@ def main_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DOWN
-                my_state.state = my_state.NAVIGATE
+                # 处理出现空列表的情况
+                if len(plan_data.rogue_planning[current_area]) == 0:
+                    current_area = UP
+                    my_state.state_work = UP
+                    my_state.state = my_state.DOWN_TO_UP
+                    if len(plan_data.rogue_planning[current_area]) == 0:
+                        my_state.state_work = RETURN_WORK
+                        my_state.state = my_state.STOP
+                else:
+                    my_state.state_work = DOWN
+                    my_state.state = my_state.NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -319,6 +328,7 @@ def judge_if_calibrate():
 def mode_transition():
     global current_area, current_object, if_send_preparing_path, if_not_find_object, if_check
     if plan_data.moved_objects_num >= plan_data.total_objects_num:
+        my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
         my_state.state_work = RETURN_WORK
         my_state.state = my_state.RETURN
         return # 搬运完所有物体后直接进入返回模式
@@ -334,8 +344,19 @@ def mode_transition():
         if current_area == DOWN:
             current_area = UP
             if_send_preparing_path = False
-            my_state.state_work = UP
-            my_state.state = my_state.DOWN_TO_UP
+            # 处理空列表的情况
+            if len(plan_data.rogue_planning[current_area]) == 0:
+                if if_check == True:
+                    current_area = CHECK
+                    my_state.state_work = CHECK
+                    my_state.state = my_state.NAVIGATE
+                else:
+                    my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
+                    my_state.state_work = RETURN_WORK
+                    my_state.state = my_state.NAVIGATE   
+            else:
+                my_state.state_work = UP
+                my_state.state = my_state.DOWN_TO_UP
         elif current_area == UP:
             my_state.if_move_easy_object = True
             if if_check == True:
@@ -343,10 +364,12 @@ def mode_transition():
                 my_state.state_work = CHECK
                 my_state.state = my_state.NAVIGATE
             else:
+                my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
                 my_state.state_work = RETURN_WORK
-                my_state.state = my_state.NAVIGATE
+                my_state.state = my_state.NAVIGATE  
     else:
         my_state.state = my_state.NAVIGATE
+        
 
 # 微调模式，防止与从车或者物体卡住
 def adjust_car_position():
@@ -361,9 +384,10 @@ def adjust_car_position():
         my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 240.0]])
     if my_plan.finish_navigate == True:
         my_plan.finish_navigate = False
-        mode_transition()
         # 主车给从车发消息让从车完成微调
         my_main_protocol.send_pass_message()
+        mode_transition()
+
 
 # 小车姿态总控制函数
 def master_control():
@@ -582,14 +606,16 @@ def collaborative_task_machine():
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
                     # 将openart置为等待模式
                     my_order_manager.finish()
-                    mode_transition()
                     # 主车给从车发消息让从车完成矫正
+                    # 先发送矫正信息再进行模式过渡，顺序不能颠倒
                     my_main_protocol.send_start()
+                    mode_transition()
             if my_vision_manager.if_finish_calibrate == True:
                 my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
-                mode_transition()
                 # 主车给从车发消息让从车完成矫正
+                # 先发送矫正信息再进行模式过渡，顺序不能颠倒
                 my_main_protocol.send_start()
+                mode_transition()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -601,17 +627,23 @@ def collaborative_task_machine():
     elif my_state.state_work == UP:
         if my_state.state == my_state.DOWN_TO_UP:
             if if_send_preparing_path == False:
-                # 操控从车从矩形区域右边沿行驶
-                my_main_protocol.send_path(ord('P'), [[200.0, 220.0]])
+                # 如果下边沿没有物体则更换从车移动到上边沿的路径
+                if len(plan_data.rogue_planning[DOWN]) == 0:
+                    # 操控从车从矩形区域右边沿行驶
+                    my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [110.0, 220.0]])
+                else:
+                    # 操控从车从矩形区域右边沿行驶
+                    my_main_protocol.send_path(ord('P'), [[110.0, 220.0]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
-            # 操控从车从矩形区域左边沿行驶
-            my_plan.navigate([[80.0, 120.0]], 180.0)
+
+            # 操控主车从矩形区域左边沿行驶
+            my_plan.navigate([plan_data.fixed_point[4]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.NAVIGATE
         elif my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[plan_data.rogue_planning[current_area][current_object][0][0], plan_data.fixed_point[1][1]]], 180.0)
+            my_plan.navigate([[plan_data.rogue_planning[current_area][current_object][0][0], plan_data.fixed_point[2][1]]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 if my_vision_manager.failed_servo_count >= 1:
@@ -733,18 +765,21 @@ def collaborative_task_machine():
                     my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
                     # 将openart置为等待模式
                     my_order_manager.finish()
-                    mode_transition()
                     # 主车给从车发消息让从车完成矫正
+                    # 先发送矫正信息再进行模式过渡，顺序不能颠倒
                     my_main_protocol.send_start()
+                    mode_transition()
             if my_vision_manager.if_finish_calibrate == True:
                 my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
+                # 主车完成矫正后给从车发消息让从车完成矫正
+                # 先发送矫正信息再进行模式过渡，顺序不能颠倒
+                my_main_protocol.send_start()
                 if my_state.if_move_easy_object == False:
                     mode_transition()
                 else:
                     my_state.state_work = CHECK
                     my_state.state = my_state.NAVIGATE
-                # 主车完成矫正后给从车发消息让从车完成矫正
-                my_main_protocol.send_start()
+                
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -788,7 +823,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, -30.0]])
+            my_plan.navigate([[plan_data.fixed_point[0][0]-5.0, -40.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
@@ -999,8 +1034,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
     
     # 任务机
-    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
-
+    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, area: {current_area}, object_num: {current_object}, current_object: {my_vision_manager.current_servo_object}, total: {plan_data.total_objects_num}\n")
+    # my_uart3.write(f"if_check: {if_check}, if_lost: {if_not_find_object}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

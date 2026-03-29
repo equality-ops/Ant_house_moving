@@ -29,7 +29,7 @@ class Plan_data:
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
         # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
-        self.rogue_planning = [[[[160.0, 50.0], 'T', 'Y']], []]  # type: list              
+        self.rogue_planning = [[[[140.0, 90.0], 'S', 'Y']], [[[140.0, 180.0], 'E', 'N']]]  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标
@@ -287,7 +287,7 @@ class Plan:
         
         # 搬运，扫描，视觉伺服，apriltag矫正，环绕，或返回模式下不需要避开矩形区域行驶
         # "3"为检查模式，此时也不进行避障处理
-        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.my_state.state_work != 2 and self.plan_data.aimed_point_index == 0:
+        if (self.my_state.state == self.my_state.NAVIGATE or self.my_state.state == self.my_state.DOWN_TO_UP) and self.return_to_scan_point == False and self.my_state.state_work != 2 and self.plan_data.aimed_point_index == 0:
             # 进行避障路径规划
             self.current_path = self.path_planning(x, y)
         else:   
@@ -380,7 +380,7 @@ class Plan:
             self.my_car.alpha_y = 0.961538
 
         # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
-        if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.RETURN:
+        if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.RETURN or self.my_state.state == self.my_state.DOWN_TO_UP:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
@@ -395,6 +395,10 @@ class Plan:
                 self.v_max = self.long_v_max
                 self.boost_time_threshold = 30
                 self.dec_distance = 25.0
+            elif self.my_state.state == self.my_state.DOWN_TO_UP:
+                self.v_max = self.transit_v + 40
+                self.boost_time_threshold = 60
+                self.dec_distance = 30.0
             else:
                 self.v_max = self.long_v_max
                 self.boost_time_threshold = 60

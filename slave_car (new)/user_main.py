@@ -530,9 +530,9 @@ def collaborative_task_machine():
                 plan_data.current_path = path_message[1]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
-                # 当传来的坐标点的纵坐标大于170.0时，将状态工作设为UP，控制小车绕到矩形上边沿
+                # 当传来的坐标点的纵坐标大于120.0时，将状态工作设为UP，控制小车绕到矩形上边沿
                 if my_slave_protocol.aimed_object == 'P':
-                    if plan_data.current_path[0][1] > 170.0:
+                    if plan_data.current_path[0][1] > 170.0 or plan_data.current_path[1][1] > 170.0:
                         my_state.state_work = UP
                         return 
                     # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
@@ -628,12 +628,13 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
             my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
             if my_plan.finish_navigate == True:
-                my_plan.finish_navigate = False
                 order = my_slave_protocol.get_main_signal()
                 my_vision_manager.car_position = DOWN_RIGHT
                 if order == "Start":
+                    my_plan.finish_navigate = False
                     my_state.state = my_state.CALIBRATE
                 elif order == "Pass":
+                    my_plan.finish_navigate = False
                     my_state.state = my_state.ADJUST
         elif my_state.state == my_state.ADJUST:
             adjust_car_position()
@@ -768,12 +769,13 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
                 my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
                 if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
                     order = my_slave_protocol.get_main_signal()
                     my_vision_manager.car_position = UP_LEFT
                     if order == "Start":
+                        my_plan.finish_navigate = False
                         my_state.state = my_state.CALIBRATE
                     elif order == "Pass":
+                        my_plan.finish_navigate = False
                         my_state.state = my_state.ADJUST
         elif my_state.state == my_state.ADJUST:
             adjust_car_position()
@@ -786,7 +788,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车移动寻找apriltag码
-                    my_plan.navigate([[[my_car.x_current-15.0, my_car.y_current], my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current],[my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
                     
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:

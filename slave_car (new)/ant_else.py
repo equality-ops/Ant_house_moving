@@ -200,10 +200,8 @@ class LinkProtocol:
             try:
                 byte = self.my_uart3.read(1)[0]
                 if byte == ord('S'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
                     return "Start"
                 elif byte == ord('P'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
                     return "Pass"
             except:
                 pass
