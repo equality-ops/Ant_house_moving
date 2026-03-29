@@ -248,6 +248,7 @@ class VisionManager:
             # 判断小车处于上下左右哪个边线，并微调小车位置使其更靠近边线（避免因惯性过大导致无法识别边线）
             # 进行两阶段的微调
             if self.adjust_stage == 1:
+                """
                 if self.car_position == 1:
                     self.my_plan.navigate([[self.my_car.x_current + 5.0, self.my_car.y_current], [self.my_car.x_current + 5.0, 0.0]], self.my_car.now_yaw * 180.0 / self.MATH.PI)
                 elif self.car_position == 3:
@@ -269,32 +270,32 @@ class VisionManager:
                 elif self.car_position == 3:
                     self.my_plan.navigate([[185.0, 240.0]], -90.0)
                 if self.my_plan.finish_navigate == True:
-                    # 选择合适的里程计系数
-                    self.my_car.alpha_x = 1.0
-                    self.my_car.alpha_y = 1.0
-                    # 选择矫正状态下的pid参数
-                    self.servo_pid.servo_kp_x = self.servo_pid.servo_calibrate_kp_x
-                    self.servo_pid.servo_kd_x = self.servo_pid.servo_calibrate_kd_x
-                    self.servo_pid.servo_kp_y = self.servo_pid.servo_calibrate_kp_y
-                    self.servo_pid.servo_kd_y = self.servo_pid.servo_calibrate_kd_y
-                    # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
-                    self.servo_pid.target_y = self.servo_pid.target_y_A
-                    self.counter = 0
-                    self.calibrate_times = 0
-                    # 清空目标角度缓冲区
-                    self.angle_buffer.clear()
-                    # 重置阶段标志
-                    self.adjust_stage = 1
-                    self.if_ready_calibrate = True
-                    self.my_plan.finish_navigate = False
-                    self.target_rel_turn_angle = self.my_plan.turn_angle_target
-                    self.my_order_manager.mode_apriltag()
+                """
+                # 选择合适的里程计系数
+                self.my_car.alpha_x = 1.0
+                self.my_car.alpha_y = 1.0
+                # 选择矫正状态下的pid参数
+                self.servo_pid.servo_kp_x = self.servo_pid.servo_calibrate_kp_x
+                self.servo_pid.servo_kd_x = self.servo_pid.servo_calibrate_kd_x
+                self.servo_pid.servo_kp_y = self.servo_pid.servo_calibrate_kp_y
+                self.servo_pid.servo_kd_y = self.servo_pid.servo_calibrate_kd_y
+                # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
+                self.servo_pid.target_y = self.servo_pid.target_y_A
+                self.counter = 0
+                self.calibrate_times = 0
+                # 清空目标角度缓冲区
+                self.angle_buffer.clear()
+                # 重置阶段标志
+                self.adjust_stage = 1
+                self.if_ready_calibrate = True
+                self.my_plan.finish_navigate = False
+                self.target_rel_turn_angle = self.my_plan.turn_angle_target
+                self.my_order_manager.mode_apriltag()
         else:
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
                 self.servo_lost_count = 0
                 if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
-                    self.angle_temp = target_point[2]
                     if self.calibrate_times == 1:
                         # 计算目标转角(多次测量取平均值)
                         if self.car_position == 0 or self.car_position == 2:
@@ -327,6 +328,7 @@ class VisionManager:
                         if self.calibrate_times >= 2:
                             self.calibrate_times = 0
                             self.counter = 0
+                            self.angle_temp = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])
                             # 里程计和姿态角硬复位
                             self.my_car.now_yaw = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]) * self.MATH.PI / 180.0
                             self.angle_buffer.clear()
