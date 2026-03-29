@@ -111,7 +111,6 @@ key_run:    key_data[3]
 
 # 菜单编码器初始化
 enc_rotation = encoder("C0", "C1", True)
-# enc_rotation = encoder("D15", "D16", True)
 
 """""""""创建对象"""""""""
 # 创建状态机对象
@@ -236,7 +235,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -257,16 +256,19 @@ def ready_servo_and_orbit():
     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
     # 根据物品种类选择伺服距离、环绕半径和搬运速度
     if my_vision_manager.current_servo_object == ord('T'):
+        my_plan.error_x = my_plan.error_x_T
         servo_pid.target_y = servo_pid.target_y_T
         my_vision_manager.object_radius = my_vision_manager.radius_T
         my_vision_manager.orbit_angle = my_vision_manager.angle_T
         my_plan.move_v_max = my_plan.move_v_max_T
     elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
+        my_plan.error_x = my_plan.error_x_S
         servo_pid.target_y = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
         my_vision_manager.orbit_angle = my_vision_manager.angle_S
         my_plan.move_v_max = my_plan.move_v_max_S
     elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
+        my_plan.error_x = my_plan.error_x_B
         servo_pid.target_y = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
         my_vision_manager.orbit_angle = my_vision_manager.angle_B
@@ -284,20 +286,45 @@ def reset_navigate_flags():
     my_plan.if_finish_turn = False
     my_plan.transition_flag = False
     # 速度规划
+    my_plan.elapsed_time = 0
     my_plan.stage = my_plan.STOP
     my_plan.finish_building = False
 
-# 测试陀螺仪函数
-def test_imu():
-    my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.gyro_z, pose_data.imu_data[4], pose_data.gyro_z_bias))           
-    
-# 测试角度闭环函数
-def complete_angle_circle():
-    my_car.move_ctrl(0, 0, 0)
+# 更新矫正里程计的累计重要程度
+def update_degree():
+    if my_vision_manager.current_servo_object == ord('T'):
+        plan_data.current_degree += plan_data.T_degree
+    elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
+        plan_data.current_degree += plan_data.S_degree
+    elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
+        plan_data.current_degree += plan_data.B_degree
+    # 根据当前累计程度来选择进行apriltag识别还是继续扫描
+    if plan_data.current_degree >= plan_data.degree_threholds:
+        # 清零重要程度
+        plan_data.current_degree = 0
+        my_state.state = my_state.CALIBRATE
+    else:
+        my_state.state = my_state.ADJUST
+
+# 微调模式，防止与从车或者物体卡住
+def adjust_car_position():
+    if my_vision_manager.car_position == DOWN_RIGHT:
+        my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 0.0]])
+    elif my_vision_manager.car_position == UP_RIGHT:
+        my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 240.0]])
+    elif my_vision_manager.car_position == DOWN_LEFT:
+        my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 0.0]])
+    elif my_vision_manager.car_position == UP_LEFT:
+        my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 240.0]])
+    if my_plan.finish_navigate == True:
+        my_plan.finish_navigate = False
+        my_state.state = my_state.NAVIGATE
+        # 主车给从车发消息让从车完成微调
+        my_main_protocol.send_start()
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE:
+    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE or my_state.state == my_state.ADJUST:
         my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -325,7 +352,7 @@ def test_vision_servo():
     if my_state.state == my_state.NAVIGATE:
         # 直接测试环绕模式
         my_state.state = my_state.ORBIT
-        my_vision_manager.object_radius = 2.9
+        my_vision_manager.object_radius = 3.1
 
         my_order_manager.mode_target()
         # my_plan.finish_navigate = False
@@ -347,14 +374,14 @@ def test_vision_servo():
             # 测试
             # my_beep.test()
     elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(120.0)
+        my_vision_manager.orbit_control(132.0)
         if my_vision_manager.finish_orbit == True:
                 counter += 1
                 if counter >= 50:
                     my_vision_manager.finish_orbit = False
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     my_state.state = my_state.MOVE
-                    my_plan.move_v_max = 60
+                    my_plan.move_v_max = 80
                     # 测试
                     # my_beep.test()
     elif my_state.state == my_state.MOVE:
@@ -401,8 +428,6 @@ def collaborative_task_machine():
                 else:
                     my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
-                # 测试
-                my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
             if my_plan.finish_navigate == False:
@@ -415,8 +440,6 @@ def collaborative_task_machine():
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state = my_state.SERVO
-                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                    plan_data.fixed_point[1][0] = my_car.x_current
             else:
                 my_plan.finish_navigate = False
                 if_send_preparing_path = False
@@ -425,14 +448,12 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
                 # 将openart置为等待模式
                 my_order_manager.finish()
-                # 测试
-                my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
                 # 若丢失物体则按矩形轨迹行驶寻找物体
-                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point:
                     my_vision_manager.current_servo_object = target_point[2]
@@ -444,7 +465,6 @@ def collaborative_task_machine():
                 if my_plan.finish_navigate == True:
                     my_plan.finish_navigate = False
                     my_vision_manager.if_lost_object = False
-                    my_beep.test()
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     # 重回扫描点继续寻找物体
@@ -453,7 +473,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]], [my_car.x_current, my_car.y_current - 2.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-8.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -464,42 +484,45 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                    # 测试
-                    my_beep.test()
+                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[1][0] = my_car.x_current
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
-            if my_vision_manager.finish_orbit == True:
-                order = my_main_protocol.get_slave_state()
-                if order == "finish":
-                    # 重置从车视觉伺服失败次数
-                    my_vision_manager.failed_servo_count = 0
-                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    my_state.state = my_state.MOVE
-                    # 提前设置小车转向目标角度为当前角度
-                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-                    # 测试
-                    my_beep.test()
-                elif order == "lost":
-                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    my_vision_manager.failed_servo_count += 1
-                    my_state.state = my_state.REVERSE_ORBIT
-                    # 测试
-                    my_beep.test()
+            # 延时100ms，等待稳定后再开始环绕
+            if counter <= 10:
+                counter += 1
+            else:
+                my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
+                if my_vision_manager.finish_orbit == True:
+                    order = my_main_protocol.get_slave_state()
+                    if order == "finish":
+                        counter = 0
+                        # 重置从车视觉伺服失败次数
+                        my_vision_manager.failed_servo_count = 0
+                        my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                        my_state.state = my_state.MOVE
+                        # 提前设置小车转向目标角度为当前角度
+                        my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+                    elif order == "lost":
+                        counter = 0
+                        my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                        my_vision_manager.failed_servo_count += 1
+                        my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
-                # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current+2.0, -25.0]])
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    my_vision_manager.car_position = DOWN_LEFT
-                    my_state.state = my_state.CALIBRATE
-                    # 测试
-                    my_beep.test()
+            # 控制小车夹紧物体，控制主车提前停止
+            my_plan.navigate([[my_car.x_current+my_plan.error_x, -20.0]])
+            if my_plan.finish_navigate == True:
+                counter = 0
+                my_plan.finish_navigate = False
+                my_vision_manager.car_position = DOWN_LEFT
+                update_degree()
+        elif my_state.state == my_state.ADJUST:
+            adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -517,8 +540,6 @@ def collaborative_task_machine():
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
-                    # 测试
-                    my_beep.test()
                     # 主车给从车发消息让从车完成矫正
                     my_main_protocol.send_start()
             if my_vision_manager.if_finish_calibrate == True:
@@ -526,8 +547,6 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
                 # 主车给从车发消息让从车完成矫正
                 my_main_protocol.send_start()
-                # 测试
-                my_beep.test()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -536,13 +555,11 @@ def collaborative_task_machine():
                 # 重回扫描点继续寻找物体
                 my_plan.return_to_scan_point = True
                 my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test() 
     elif my_state.state_work == UP:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
                 # 操控从车从矩形区域左边沿行驶
-                my_main_protocol.send_path(ord('P'), [[110.0, 220.0], [plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
+                my_main_protocol.send_path(ord('P'), [[120.0, 220.0], [plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
                 
@@ -556,8 +573,6 @@ def collaborative_task_machine():
                 else:
                     my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
-                # 测试
-                my_beep.test()
         elif my_state.state == my_state.SCAN:
                 my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
                 if my_plan.finish_navigate == False:
@@ -570,8 +585,6 @@ def collaborative_task_machine():
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
-                        # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
-                        plan_data.fixed_point[2][0] = my_car.x_current
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
                     my_plan.finish_navigate = False
@@ -579,14 +592,12 @@ def collaborative_task_machine():
                     my_state.state_work = CHECK
                     my_state.state = my_state.NAVIGATE
                     my_order_manager.finish()
-                    # 测试
-                    my_beep.test()
         elif my_state.state == my_state.SERVO:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
                 # 若丢失物体则按矩形轨迹行驶寻找物体
-                my_plan.navigate([[my_car.x_current, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current-11.0, my_car.y_current], [my_car.x_current-11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point:
                     my_vision_manager.current_servo_object = target_point[2]
@@ -606,7 +617,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]], [my_car.x_current, my_car.y_current + 2.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+8.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -617,46 +628,50 @@ def collaborative_task_machine():
                     my_state.state = my_state.ORBIT
                     # 在采集tof数据时固定小车姿态角
                     my_vision_manager.orbit_turn_angle = my_car.now_yaw * 180 / MATH.PI
-                    # 测试
-                    my_beep.test()
+                    # 将下一次的扫描点置为当前点，控制小车在该区域内寻找物体
+                    plan_data.fixed_point[2][0] = my_car.x_current
         elif my_state.state == my_state.ORBIT:
-            my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
-            if my_vision_manager.finish_orbit == True:
-                order = my_main_protocol.get_slave_state()
-                if order == "finish":
-                    # 重置从车视觉伺服失败次数
-                    my_vision_manager.failed_servo_count = 0
-                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    my_state.state = my_state.MOVE
-                    # 提前设置小车转向目标角度为当前角度
-                    my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-                    # 测试
-                    my_beep.test()
-                elif order == "lost":
-                    my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
-                    my_vision_manager.failed_servo_count += 1
-                    my_state.state = my_state.REVERSE_ORBIT
-                    # 测试
-                    my_beep.test()
+            # 延时100ms，等待视觉伺服稳定后再开始环绕
+            if counter <= 10:
+                counter += 1
+            else:
+                my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
+                if my_vision_manager.finish_orbit == True:
+                    order = my_main_protocol.get_slave_state()
+                    if order == "finish":
+                        counter = 0
+                        # 重置从车视觉伺服失败次数
+                        my_vision_manager.failed_servo_count = 0
+                        my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                        my_state.state = my_state.MOVE
+                        # 提前设置小车转向目标角度为当前角度
+                        my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
+                    elif order == "lost":
+                        counter = 0
+                        my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
+                        my_vision_manager.failed_servo_count += 1
+                        my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
-                # 控制小车夹紧物体
-                my_plan.navigate([[my_car.x_current-2.0, 265.0]])
-                if my_plan.finish_navigate == True:
-                    my_plan.finish_navigate = False
-                    my_vision_manager.car_position = UP_RIGHT
-                    my_state.state = my_state.CALIBRATE
-                    # 测试
-                    my_beep.test()
+            # 控制小车夹紧物体，控制主车提前停止
+            my_plan.navigate([[my_car.x_current-my_plan.error_x, 260.0]])
+            if my_plan.finish_navigate == True:
+                counter = 0
+                my_plan.finish_navigate = False
+                my_vision_manager.car_position = UP_RIGHT
+                update_degree()
+        elif my_state.state == my_state.ADJUST:
+            adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-15.0, my_car.y_current-15.0]], -90)
+                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
                     reset_navigate_flags()
+                    my_vision_manager.counter = 0
                     my_vision_manager.calibrate_times = 0
                     my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
 
@@ -669,8 +684,6 @@ def collaborative_task_machine():
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     my_state.state = my_state.NAVIGATE
-                    # 测试
-                    my_beep.test()
                     # 主车给从车发消息让从车完成矫正
                     my_main_protocol.send_start()
             if my_vision_manager.if_finish_calibrate == True:
@@ -682,8 +695,6 @@ def collaborative_task_machine():
                 else:
                     my_state.state_work = CHECK
                     my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test()
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
@@ -692,21 +703,20 @@ def collaborative_task_machine():
                 # 重回扫描点继续寻找物体
                 my_plan.return_to_scan_point = True
                 my_state.state = my_state.NAVIGATE
-                # 测试
-                my_beep.test() 
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
             my_plan.navigate([[120.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
+                # 提前让从车到目标点等候
+                my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
-                my_beep.test()
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[200.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B')):
+                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -725,18 +735,14 @@ def collaborative_task_machine():
                     # 此时矩形区域内已没有物体，控制小车返回发车区
                     my_state.state_work = RETURN_WORK
                     my_state.state = my_state.RETURN
-                    # 测试
-                    my_beep.test()
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0], plan_data.fixed_point[0][1]]], 0.0)
+            my_plan.navigate([[plan_data.fixed_point[0][0]-10.0, -30.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
                 my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-                # 测试
-                my_beep.test()
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
@@ -776,7 +782,7 @@ def time_pit1_handler(time):
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
-        brake_threshold = 20
+        brake_threshold = 15
         # 初始化pid参数（线性回归）
         if motor_ul_pid.target == 0 and abs(motor_ul_pid.nowError) >= brake_threshold:
             motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -826,15 +832,8 @@ def time_pit1_handler(time):
     # 更新小车姿态
     my_car.update_pose()
     
-    # 测试角度闭环
-    # complete_angle_circle()
-    
     # 全向定位测试程序
     # test_global_localization()
-    
-    # 陀螺仪测试
-    # test_imu()
-    # ant_else.my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 速度环测试
     # show_speed_PID_test()
@@ -854,20 +853,33 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    # collaborative_task_machine()
+    collaborative_task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 220.0]], 180.0)
+        my_plan.navigate([[35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
-    
+    """
+    # 测试搬运的里程计系数
+    """
+    if my_state.state == my_state.NAVIGATE:
+        my_state.state = my_state.MOVE
+        my_plan.move_v_max = 60
+    elif my_state.state == my_state.MOVE:
+        my_plan.navigate([[my_car.x_current, my_car.y_current-100.0]], 120.0)
+        if my_plan.finish_navigate == True:
+            my_plan.finish_navigate = False
+            my_state.state = my_state.STOP
+            my_beep.test()
+    elif my_state.state == my_state.STOP:
+        my_plan.stop()
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -905,9 +917,12 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
-        
+    
+    # 路径规划
+    # my_uart3.write(f"{my_plan.current_path}\n")
+    
     # 航向角输出
-    # my_uart3.write(f"{my_car.last_move_yaw}\n")
+    # my_uart3.write(f"{my_plan.target_yaw}\n")
     # 角度环输出
     # my_uart3.write(f"{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output},{angle_pid.derivative}\n")
     # imu原始数据
@@ -916,7 +931,7 @@ def time_pit2_handler(time):
                                                                         
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
