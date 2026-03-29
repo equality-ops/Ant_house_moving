@@ -87,6 +87,10 @@ class UARTProtocol:
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
 
+    # 向openart发送物体种类信息
+    def send_object_kind(self, object_kind):
+        self.my_uart.write(object_kind.lower())
+
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
         last_valid_frame = None

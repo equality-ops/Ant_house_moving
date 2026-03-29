@@ -236,7 +236,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_main_signal() == "Start":
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -628,11 +628,13 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
             my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
             if my_plan.finish_navigate == True:
-                if my_slave_protocol.get_start_signal():
-                    my_plan.finish_navigate = False
-                    my_order_manager.finish()
-                    my_vision_manager.car_position = DOWN_RIGHT
-                    update_degree()
+                my_plan.finish_navigate = False
+                order = my_slave_protocol.get_main_signal()
+                my_vision_manager.car_position = DOWN_RIGHT
+                if order == "Start":
+                    my_state.state = my_state.CALIBRATE
+                elif order == "Pass":
+                    my_state.state = my_state.ADJUST
         elif my_state.state == my_state.ADJUST:
             adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
@@ -766,12 +768,13 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
                 my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
                 if my_plan.finish_navigate == True:
-                    counter = 0
-                    if my_slave_protocol.get_start_signal():
-                        my_plan.finish_navigate = False
-                        my_order_manager.finish()
-                        my_vision_manager.car_position = UP_LEFT
-                        update_degree()
+                    my_plan.finish_navigate = False
+                    order = my_slave_protocol.get_main_signal()
+                    my_vision_manager.car_position = UP_LEFT
+                    if order == "Start":
+                        my_state.state = my_state.CALIBRATE
+                    elif order == "Pass":
+                        my_state.state = my_state.ADJUST
         elif my_state.state == my_state.ADJUST:
             adjust_car_position()
         elif my_state.state == my_state.CALIBRATE:
@@ -1009,6 +1012,7 @@ def time_pit2_handler(time):
 
     # 搬运检查模式
     # my_uart3.write(f"pickup_check: {my_vision_manager.lost_object_frames}\n")
+
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

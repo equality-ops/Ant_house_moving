@@ -12,9 +12,10 @@ class StateMachine:
         self.MOVE = 5           # 搬运状态
         self.CALIBRATE = 6      # 校准状态
         self.RETURN = 7		    # 返回状态
-        self.ADJUST = 8         # 微调模式
-        self.REVERSE_ORBIT = 9  # 反向环绕状态
-        self.STOP = 10          # 停止状态
+        self.DOWN_TO_UP = 8     # 从下边沿到上边沿过渡状态
+        self.ADJUST = 9         # 微调模式
+        self.REVERSE_ORBIT = 10 # 反向环绕状态
+        self.STOP = 11          # 停止状态
         
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
@@ -26,11 +27,11 @@ class Plan_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
-        # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体，rogue_planning[2]记录检查模式下的物体
+        # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
         # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
-        self.rogue_planning = [[[[160.0, 50.0], 'Y']], [], []]  # type: list              
+        self.rogue_planning = [[[[160.0, 50.0], 'T', 'Y']], []]  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
-        self.total_objects_num = 0      # 需要搬运的物体总数
+        self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
         self.fixed_point = [[35.0, -15.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
@@ -286,7 +287,7 @@ class Plan:
         
         # 搬运，扫描，视觉伺服，apriltag矫正，环绕，或返回模式下不需要避开矩形区域行驶
         # "3"为检查模式，此时也不进行避障处理
-        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.my_state.state_work != 2:
+        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.my_state.state_work != 2 and self.plan_data.aimed_point_index == 0:
             # 进行避障路径规划
             self.current_path = self.path_planning(x, y)
         else:   

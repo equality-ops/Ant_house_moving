@@ -194,14 +194,17 @@ class LinkProtocol:
         elif state == "get":
             self.my_uart3.write('G'.encode('utf-8'))
 
-    # 用于从车解析主车发送的开始信号
-    def get_start_signal(self):
+    # 用于从车解析主车发送的信号
+    def get_main_signal(self):
         if self.my_uart3.any():
             try:
                 byte = self.my_uart3.read(1)[0]
                 if byte == ord('S'):
                     byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
-                    return True
+                    return "Start"
+                elif byte == ord('P'):
+                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲区
+                    return "Pass"
             except:
                 pass
         return False
