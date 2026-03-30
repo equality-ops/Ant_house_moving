@@ -143,7 +143,7 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为3个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -488,7 +488,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current-25.0, my_car.y_current], [my_car.x_current-25.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -630,7 +630,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], -90)
+                my_plan.navigate([[my_car.x_current-25.0, my_car.y_current], [my_car.x_current-25.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:

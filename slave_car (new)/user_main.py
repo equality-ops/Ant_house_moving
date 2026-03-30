@@ -597,7 +597,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车前后移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -734,7 +734,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车移动寻找apriltag码
-                    my_plan.navigate([[[my_car.x_current-15.0, my_car.y_current], my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current-25.0, my_car.y_current], [my_car.x_current-25.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
                     
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
