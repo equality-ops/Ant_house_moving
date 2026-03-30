@@ -580,7 +580,11 @@ def collaborative_task_machine():
                     # 提前设置小车转向目标角度为当前角度
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI            
         elif my_state.state == my_state.MOVE:
-            my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
+            # 搬运小熊时搬远一些防止与主车或者物体卡住
+            if my_vision_manager.current_servo_object == ord('W') or my_vision_manager.current_servo_object == ord('B'):
+                my_plan.navigate([[my_car.x_current+my_plan.error_x, -35.0]])
+            else:
+                my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 if my_slave_protocol.get_start_signal():
@@ -717,14 +721,18 @@ def collaborative_task_machine():
                     my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
                     my_slave_protocol.send_slave_state("finish")
         elif my_state.state == my_state.MOVE:
+            # 搬运小熊时搬远一些防止与主车或者物体卡住
+            if my_vision_manager.current_servo_object == ord('W') or my_vision_manager.current_servo_object == ord('B'):
+                my_plan.navigate([[my_car.x_current-my_plan.error_x, 275.0]])
+            else:
                 my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
-                if my_plan.finish_navigate == True:
-                    counter = 0
-                    if my_slave_protocol.get_start_signal():
-                        my_plan.finish_navigate = False
-                        my_vision_manager.car_position = UP_LEFT
-                        my_state.state = my_state.CALIBRATE
-                        my_order_manager.finish()
+            if my_plan.finish_navigate == True:
+                counter = 0
+                if my_slave_protocol.get_start_signal():
+                    my_plan.finish_navigate = False
+                    my_vision_manager.car_position = UP_LEFT
+                    my_state.state = my_state.CALIBRATE
+                    my_order_manager.finish()
         elif my_state.state == my_state.CALIBRATE:
             # 延时0.8s在进行apriltag矫正防止与主车相碰
             if counter <= 80:

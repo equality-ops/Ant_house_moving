@@ -1,4 +1,4 @@
-# 修改时间 3.30	  17:48
+# 修改时间 3.30	  22:09
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -83,9 +83,9 @@ boost_time_threshold = 60
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
 
-error_x_T = -2.0
+error_x_T = 0.0
 error_x_S = 2.0
-error_x_B = -1.0
+error_x_B = 3.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 200
