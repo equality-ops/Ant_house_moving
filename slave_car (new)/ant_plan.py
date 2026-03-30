@@ -379,7 +379,8 @@ class Plan:
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
                 self.boost_time_threshold = 30
-                self.dec_distance = 10.0
+                # 搬运模式下取消S型减速曲线规划，防止pwm驱动不足被卡住
+                self.dec_distance = 0.5
             elif self.my_state.state == self.my_state.SCAN:
                 self.v_max = self.scan_v_max
                 self.boost_time_threshold = 30
