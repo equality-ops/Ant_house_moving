@@ -156,7 +156,7 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为3个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -319,7 +319,7 @@ def judge_if_calibrate():
         当此时上边沿的物体已全部搬运完成且当前搬运物体数小于总物体数时，在检查模式前
     强制进行apriltag矫正
     """
-    if (if_check == True and current_area == UP and current_object >= len(plan_data.rogue_planning[UP]) - 1) or if_check == CHECK:
+    if (if_check == True and current_area == UP and current_object >= len(plan_data.rogue_planning[UP]) - 1) or current_area == CHECK:
         my_state.state = my_state.CALIBRATE
     else:
         # 如果物体包装信息第二个元素为'Y'则进行apriltag矫正，否则不进行
@@ -344,13 +344,27 @@ def mode_transition():
         if_not_find_object = False
         if_check = True
     current_object += 1
-    if current_object >= len(plan_data.rogue_planning[current_area]):
-        current_object = 0
-        if current_area == DOWN:
-            current_area = UP
-            if_send_preparing_path = False
-            # 处理空列表的情况
-            if len(plan_data.rogue_planning[current_area]) == 0:
+    if current_area != CHECK:
+        if current_object >= len(plan_data.rogue_planning[current_area]):
+            current_object = 0
+            if current_area == DOWN:
+                current_area = UP
+                if_send_preparing_path = False
+                # 处理空列表的情况
+                if len(plan_data.rogue_planning[current_area]) == 0:
+                    if if_check == True:
+                        current_area = CHECK
+                        my_state.state_work = CHECK
+                        my_state.state = my_state.NAVIGATE
+                    else:
+                        my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
+                        my_state.state_work = RETURN_WORK
+                        my_state.state = my_state.NAVIGATE   
+                else:
+                    my_state.state_work = UP
+                    my_state.state = my_state.DOWN_TO_UP
+            elif current_area == UP:
+                my_state.if_move_easy_object = True
                 if if_check == True:
                     current_area = CHECK
                     my_state.state_work = CHECK
@@ -358,24 +372,13 @@ def mode_transition():
                 else:
                     my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
                     my_state.state_work = RETURN_WORK
-                    my_state.state = my_state.NAVIGATE   
-            else:
-                my_state.state_work = UP
-                my_state.state = my_state.DOWN_TO_UP
-        elif current_area == UP:
-            my_state.if_move_easy_object = True
-            if if_check == True:
-                current_area = CHECK
-                my_state.state_work = CHECK
-                my_state.state = my_state.NAVIGATE
-            else:
-                my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
-                my_state.state_work = RETURN_WORK
-                my_state.state = my_state.NAVIGATE  
+                    my_state.state = my_state.NAVIGATE  
+        else:
+            my_state.state = my_state.NAVIGATE
     else:
+        my_state.state_work = CHECK
         my_state.state = my_state.NAVIGATE
         
-
 # 微调模式，防止与从车或者物体卡住
 def adjust_car_position():
     global current_area, current_object
@@ -594,7 +597,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current-25.0, my_car.y_current], [my_car.x_current-25.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -643,10 +646,10 @@ def collaborative_task_machine():
                 else:
                     if main_car_pos == LEFT_AREA:
                         # 操控从车从矩形区域右边沿行驶
-                        my_main_protocol.send_path(ord('P'), [[210.0, 220.0]])
+                        my_main_protocol.send_path(ord('P'), [[220.0, 220.0]])
                     elif main_car_pos == RIGHT_AREA:
                         # 操控从车从矩形区域左边沿行驶
-                        my_main_protocol.send_path(ord('P'), [[110.0, 220.0]])
+                        my_main_protocol.send_path(ord('P'), [[100.0, 220.0]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
 
@@ -764,7 +767,7 @@ def collaborative_task_machine():
                 my_vision_manager.apriltag_calibrate_control()
             else:
                 # 控制小车前后移动寻找apriltag码
-                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], -90)
+                my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], -90)
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
@@ -806,19 +809,20 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[120.0, 140.0]], 180.0)
+            my_plan.navigate([[110.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
-                # 提前让从车到目标点等候
-                my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
+                # 提前让从车转好角度
+                my_main_protocol.send_path(ord('P'), [[137.0, 240.0]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
+                my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[200.0, 140.0]], 180.0)
+            my_plan.navigate([[210.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
-                    my_vision_manager.current_servo_object = target_point[2]
+                    my_vision_manager.current_servo_object = chr(target_point[2])
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state_work = UP

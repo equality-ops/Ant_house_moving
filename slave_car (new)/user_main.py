@@ -420,24 +420,26 @@ def update_degree():
 # 微调模式，防止与主车或者物体卡住
 def adjust_car_position():
     global adjust_stage
+    # 阶段1从车进行微调防止与物体卡住
     if adjust_stage == 1:
         if my_vision_manager.car_position == DOWN_RIGHT:
-            my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 0.0]])
+            my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, -10.0]])
         elif my_vision_manager.car_position == UP_RIGHT:
-            my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 240.0]])
+            my_plan.navigate([[my_car.x_current + 5.0, my_car.y_current], [my_car.x_current + 5.0, 250.0]])
         elif my_vision_manager.car_position == DOWN_LEFT:
-            my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 0.0]])
+            my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, -10.0]])
         elif my_vision_manager.car_position == UP_LEFT:
-            my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 240.0]])
+            my_plan.navigate([[my_car.x_current - 5.0, my_car.y_current], [my_car.x_current - 5.0, 250.0]])
         
         if my_plan.finish_navigate == True:
             adjust_stage = 2
             my_plan.finish_navigate = False
+    # 阶段2从车提前转动到视觉伺服所需要的角度
     elif adjust_stage == 2:
-        if my_vision_manager.car_position == DOWN_LEFT or my_vision_manager.car_position == DOWN_RIGHT:
-            my_plan.navigate([plan_data.fixed_point[5]], 0.0)
-        elif my_vision_manager.car_position == UP_LEFT or my_vision_manager.car_position == UP_RIGHT:
-            my_plan.navigate([plan_data.fixed_point[6]], 180.0)
+        if my_vision_manager.car_position == DOWN_RIGHT or my_vision_manager.car_position == DOWN_LEFT:
+            my_plan.navigate([[my_car.x_current, my_car.y_current]], 0.0)
+        elif my_vision_manager.car_position == UP_RIGHT or my_vision_manager.car_position == UP_LEFT:
+            my_plan.navigate([[my_car.x_current, my_car.y_current]], 180.0)
 
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
@@ -572,7 +574,7 @@ def collaborative_task_machine():
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
-                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-5.0], [my_car.x_current+15.0, my_car.y_current-5.0], [my_car.x_current+15.0, my_car.y_current+5.0], [my_car.x_current, my_car.y_current+5.0], plan_data.fixed_point[5]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current-15.0, my_car.y_current], [my_car.x_current-15.0, my_car.y_current-10.0], [my_car.x_current+15.0, my_car.y_current-10.0], [my_car.x_current+15.0, my_car.y_current+10.0], [my_car.x_current, my_car.y_current+10.0], plan_data.fixed_point[5]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     my_vision_manager.current_servo_object = target_point[2]
@@ -647,7 +649,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车前后移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current+25.0, my_car.y_current], [my_car.x_current+25.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current-15.0], [my_car.x_current-10.0, my_car.y_current+15.0], [my_car.x_current, my_car.y_current+15.0]], my_vision_manager.target_rel_turn_angle)
 
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
@@ -716,7 +718,7 @@ def collaborative_task_machine():
             if my_vision_manager.if_lost_object == False:
                 my_vision_manager.visual_servo_control()
             else:
-                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+5.0], [my_car.x_current-15.0, my_car.y_current+5.0], [my_car.x_current-15.0, my_car.y_current-5.0], [my_car.x_current, my_car.y_current-5.0], plan_data.fixed_point[6]], my_vision_manager.target_rel_turn_angle)
+                my_plan.navigate([[my_car.x_current+15.0, my_car.y_current], [my_car.x_current+15.0, my_car.y_current+10.0], [my_car.x_current-15.0, my_car.y_current+10.0], [my_car.x_current-15.0, my_car.y_current-10.0], [my_car.x_current, my_car.y_current-10.0], plan_data.fixed_point[6]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     my_vision_manager.current_servo_object = target_point[2]
@@ -788,7 +790,7 @@ def collaborative_task_machine():
                     my_vision_manager.apriltag_calibrate_control()
                 else:
                     # 控制小车移动寻找apriltag码
-                    my_plan.navigate([[my_car.x_current-15.0, my_car.y_current],[my_car.x_current-15.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
+                    my_plan.navigate([[my_car.x_current-25.0, my_car.y_current],[my_car.x_current-25.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current+15.0], [my_car.x_current+10.0, my_car.y_current-15.0], [my_car.x_current, my_car.y_current-15.0]], my_vision_manager.target_rel_turn_angle)
                     
                     target_point = my_art_protocol.apriltag_receive()
                     if target_point:
