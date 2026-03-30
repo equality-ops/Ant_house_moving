@@ -634,6 +634,9 @@ def handle_uart_commands(uart):
             if cmd in color_map:
                 target_object_color = color_map[cmd]
                 reset_all()
+            elif cmd == b'c':
+                target_object_color = ''
+                reset_all()
 
 def init_threshold():
     """依据当前亮度自动匹配阈值"""
