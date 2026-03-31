@@ -311,7 +311,7 @@ class ColorDetector:
         if target_color:
             blobs = []
             if target_color == 'brown':
-                target_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=300, area_threshold=300, merge=True)
+                target_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=400, area_threshold=400, merge=True)
             elif target_color == 'white':
                 target_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
             elif target_color == 'red':
@@ -326,7 +326,7 @@ class ColorDetector:
             for blob in target_blobs:blobs.append((blob, target_color))
             return blobs
         else:
-            brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=300, area_threshold=300, merge=True)
+            brown_blobs = img.find_blobs(current_threshold['brown'], pixels_threshold=400, area_threshold=400, merge=True)
             white_blobs = img.find_blobs(current_threshold['white'], pixels_threshold=white_pix, area_threshold=white_area, merge=True)
             red_blobs   = img.find_blobs(current_threshold['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
             green_blobs = img.find_blobs(current_threshold['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
