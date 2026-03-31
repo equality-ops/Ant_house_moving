@@ -121,7 +121,8 @@ class VisionManager:
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         if self.finish_servo == False:
             self.target_point = self.my_art_protocol.coordinate_receive()
-            if self.target_point:
+            # 检查当前伺服的物体是否与第一帧接收到的物体一致
+            if self.target_point and self.target_point[2] == self.current_servo_object:
                 self.servo_lost_count = 0
                 self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
