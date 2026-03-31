@@ -321,7 +321,7 @@ def test_vision_servo():
         # 直接测试环绕模式
         my_state.state = my_state.ORBIT
         my_vision_manager.object_radius = 3.1
-
+        my_art_protocol.send_object_kind('C')
         my_order_manager.mode_target()
         # my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
@@ -395,7 +395,8 @@ def collaborative_task_machine():
                     if_send_preparing_path = False
                 else:
                     my_state.state = my_state.SCAN
-                    my_vision_manager.my_order_manager.mode_target()
+                    my_order_manager.mode_target()
+                    my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
             if my_plan.finish_navigate == False:
@@ -539,6 +540,7 @@ def collaborative_task_machine():
                 else:
                     my_state.state = my_state.SCAN
                     my_vision_manager.my_order_manager.mode_target()
+                    my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
                 my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
                 if my_plan.finish_navigate == False:
@@ -676,6 +678,7 @@ def collaborative_task_machine():
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
+                my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
             my_plan.navigate([[200.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
@@ -817,10 +820,9 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
     if my_state.state == my_state.NAVIGATE:
         my_plan.navigate([[35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
@@ -829,7 +831,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+    
     # 测试搬运的里程计系数
     """
     if my_state.state == my_state.NAVIGATE:
@@ -904,7 +906,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
@@ -919,7 +921,7 @@ def time_pit2_handler(time):
 def pit1_start():
     global imu_data
     pit1 = ticker(1)
-    pit1.capture_list(encoder_ul, encoder_ur, encoder_md, imu)
+    pit1.capture_list(imu, encoder_ul, encoder_ur, encoder_md)
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)

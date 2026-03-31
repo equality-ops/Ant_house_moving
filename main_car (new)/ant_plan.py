@@ -381,7 +381,11 @@ class Plan:
                 self.boost_time_threshold = 30
                 self.dec_distance = 25.0
             else:
-                self.v_max = self.long_v_max
+                # 当需要避障时放慢速度
+                if len(self.current_path) > 1:
+                    self.v_max = self.transit_v + 40
+                else:
+                    self.v_max = self.long_v_max
                 self.boost_time_threshold = 60
                 self.dec_distance = 30.0
             # 创建s型曲线减速速度表
