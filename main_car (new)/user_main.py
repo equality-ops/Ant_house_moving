@@ -384,7 +384,8 @@ def collaborative_task_machine():
                 my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
-            my_plan.navigate([[plan_data.fixed_point[1][0], plan_data.fixed_point[1][1]]], 0.0)
+            my_plan.navigate([plan_data.fixed_point[1]], 0.0)
+            # my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 # 重置标志位
                 my_plan.finish_navigate = False
@@ -398,7 +399,8 @@ def collaborative_task_machine():
                     my_order_manager.mode_target()
                     my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[plan_data.fixed_point[3][0], plan_data.fixed_point[3][1]]], 0.0)
+            # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3]], 0.0)
+            my_plan.navigate([plan_data.fixed_point[3]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
@@ -530,7 +532,8 @@ def collaborative_task_machine():
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
                 
-            my_plan.navigate([[plan_data.fixed_point[2][0], plan_data.fixed_point[2][1]]], 180.0)
+            my_plan.navigate([plan_data.fixed_point[2]], 180.0)
+            # my_plan.navigate([[160.0, plan_data.fixed_point[2][1]]], 180.0)
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 if my_vision_manager.failed_servo_count >= 2:
@@ -542,7 +545,8 @@ def collaborative_task_machine():
                     my_vision_manager.my_order_manager.mode_target()
                     my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-                my_plan.navigate([[plan_data.fixed_point[4][0], plan_data.fixed_point[4][1]]], 180.0)
+                my_plan.navigate([plan_data.fixed_point[4]], 180.0)
+                # my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[4]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
                     if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
@@ -671,7 +675,7 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[90.0, 140.0]], 180.0)
+            my_plan.navigate([[120.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
                 # 提前让从车到目标点等候
                 my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
