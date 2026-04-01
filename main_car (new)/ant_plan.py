@@ -369,7 +369,7 @@ class Plan:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
-                self.boost_time_threshold = 30
+                self.boost_time_threshold = 40
                 self.dec_distance = 0.5
             elif self.my_state.state == self.my_state.SCAN:
                 self.v_max = self.scan_v_max

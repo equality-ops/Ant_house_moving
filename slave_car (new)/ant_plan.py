@@ -370,7 +370,7 @@ class Plan:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
-                self.boost_time_threshold = 30
+                self.boost_time_threshold = 40
                 self.dec_distance = 0.5
             elif self.my_state.state == self.my_state.SCAN:
                 self.v_max = self.scan_v_max
@@ -380,7 +380,7 @@ class Plan:
                 # 回城模式时将速度调到最大以尽快返回起点
                 self.v_max = self.long_v_max
                 self.boost_time_threshold = 30
-                self.dec_distance = 15.0
+                self.dec_distance = 20.0
             else:
                 if len(self.current_path) > 1:
                     self.v_max = self.transit_v + 50

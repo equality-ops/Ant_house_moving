@@ -675,16 +675,16 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[120.0, 140.0]], 180.0)
+            my_plan.navigate([plan_data.fixed_point[4]], 180.0)
             if my_plan.finish_navigate == True:
                 # 提前让从车到目标点等候
-                my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
+                my_main_protocol.send_path(ord('P'), [[137.0, 240.0]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
                 my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[200.0, 140.0]], 180.0)
+            my_plan.navigate([[110.0, 140.0], [210.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
