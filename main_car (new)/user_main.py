@@ -156,7 +156,7 @@ pid_data = ant_motor.PID_data(my_flash_sys)
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为3个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -364,7 +364,6 @@ def mode_transition():
                     my_state.state_work = UP
                     my_state.state = my_state.DOWN_TO_UP
             elif current_area == UP:
-                my_state.if_move_easy_object = True
                 if if_check == True:
                     current_area = CHECK
                     my_state.state_work = CHECK
@@ -793,11 +792,7 @@ def collaborative_task_machine():
                 # 主车完成矫正后给从车发消息让从车完成矫正
                 # 先发送矫正信息再进行模式过渡，顺序不能颠倒
                 my_main_protocol.send_start()
-                if my_state.if_move_easy_object == False:
-                    mode_transition()
-                else:
-                    my_state.state_work = CHECK
-                    my_state.state = my_state.NAVIGATE
+                mode_transition()
                 
         # 让小车通过反向环绕恢复原位
         elif my_state.state == my_state.REVERSE_ORBIT:
@@ -809,16 +804,16 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[110.0, 140.0]], 180.0)
+            my_plan.navigate([[240.0, 230.0]], 180.0)
             if my_plan.finish_navigate == True:
                 # 提前让从车转好角度
-                my_main_protocol.send_path(ord('P'), [[137.0, 240.0]])
+                my_main_protocol.send_path(ord('P'), [[137.0, 260.0]])
                 my_plan.finish_navigate = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
                 my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[210.0, 140.0]], 180.0)
+            my_plan.navigate([[80.0, 230.0], [80.0, 150.0], [240.0, 150.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
@@ -967,7 +962,7 @@ def time_pit3_handler(time) -> None:
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
-            my_beep.test()
+            # my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
     """
@@ -975,7 +970,7 @@ def time_pit3_handler(time) -> None:
     """
     if my_state.state == my_state.NAVIGATE:
         my_state.state = my_state.MOVE
-        my_plan.move_v_max = 60
+        my_plan.move_v_max = 120
     elif my_state.state == my_state.MOVE:
         my_plan.navigate([[my_car.x_current, my_car.y_current-100.0]], 120.0)
         if my_plan.finish_navigate == True:

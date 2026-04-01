@@ -121,7 +121,8 @@ class VisionManager:
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         if self.finish_servo == False:
             self.target_point = self.my_art_protocol.coordinate_receive()
-            if self.target_point:
+            # 对发送的物体种类进行检验
+            if self.target_point and self.current_servo_object == self.target_point[2]:
                 self.servo_lost_count = 0
                 self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
@@ -319,7 +320,7 @@ class VisionManager:
                     diff = abs(self.target_rel_turn_angle - self.my_car.now_yaw * 180.0 / self.MATH.PI)
                     if diff > 180.0:
                         diff = 360.0 - diff
-                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
+                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 6:
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
                         self.calibrate_times += 1
@@ -328,7 +329,7 @@ class VisionManager:
                             self.calibrate_times = 0
                             self.counter = 0
                             # 里程计和姿态角硬复位
-                            self.my_car.now_yaw = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]) * self.MATH.PI / 180.0
+                            self.my_car.now_yaw = sum(self.angle_buffer[1:]) / len(self.angle_buffer[1:]) * self.MATH.PI / 180.0
                             self.angle_buffer.clear()
                             if self.car_position == 0:
                                 self.my_car.x_current = 137.0

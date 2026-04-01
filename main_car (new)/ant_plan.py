@@ -28,8 +28,14 @@ class Plan_data:
         self.flash_sys = flash_sys
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
+
+        # y坐标靠近下边沿:70，中等:85，靠近中心:100    
+        # 靠近上边沿:170，中等:155，靠近中心:140 
+        # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
         # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
-        self.rogue_planning = [[[(195.0, 70.0), 'W', 'Y'], [(130.0, 70.0), 'E', 'Y']], [[(125.0, 170.0), 'T', 'Y'], [(190.0, 170.0), 'B', 'Y'], [(145.0, 160.0), 'S', 'N']]]  # type: list              
+
+        # 示例：[(160.0, 85.0), 'E', 'Y']
+        self.rogue_planning = [[[(125,70),'T','N'],[(140,85),'T','N'],[(190,70),'B','Y']], [[(190,170),'E','N'],[(135,170),'W','Y']]]  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标
@@ -377,14 +383,14 @@ class Plan:
                 self.my_car.alpha_y = 1.0
         else:
             self.my_car.alpha_x = 1.0
-            self.my_car.alpha_y = 0.961538
+            self.my_car.alpha_y = 0.975
 
         # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.RETURN or self.my_state.state == self.my_state.DOWN_TO_UP:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
-                self.boost_time_threshold = 30
+                self.boost_time_threshold = 50
                 self.dec_distance = 0.5
             elif self.my_state.state == self.my_state.SCAN:
                 self.v_max = self.scan_v_max
@@ -511,7 +517,7 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.5:
+            if diff <= 1.2:
                 self.if_finish_turn = True
                 # 恢复正常的角度环限幅
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax

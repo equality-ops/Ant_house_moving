@@ -371,14 +371,14 @@ class Plan:
                 self.my_car.alpha_y = 1.0
         else:
             self.my_car.alpha_x = 1.0
-            self.my_car.alpha_y = 0.961538
+            self.my_car.alpha_y = 0.975
 
         # 计算减速距离（长距离或者搬运、扫描模式时减速距离为20，短距离时为0且短距离时速度恒定）
         if total_distance >= 50.0 or self.my_state.state == self.my_state.MOVE or self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.RETURN:
             # 根据当前模式设置减速距离和加速时间阈值
             if self.my_state.state == self.my_state.MOVE:
                 self.v_max = self.move_v_max
-                self.boost_time_threshold = 30
+                self.boost_time_threshold = 50
                 # 搬运模式下取消S型减速曲线规划，防止pwm驱动不足被卡住
                 self.dec_distance = 0.5
             elif self.my_state.state == self.my_state.SCAN:
@@ -389,7 +389,7 @@ class Plan:
                 # 回城模式时将速度调到最大以尽快返回起点
                 self.v_max = self.long_v_max
                 self.boost_time_threshold = 30
-                self.dec_distance = 15.0
+                self.dec_distance = 25.0
             else:
                 if len(self.current_path) > 1:
                     self.v_max = self.transit_v + 50
@@ -504,7 +504,7 @@ class Plan:
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
             if diff > 180.0:
                 diff = 360.0 - diff
-            if diff <= 0.9:
+            if diff <= 1.5:
                 self.if_finish_turn = True
                 # 恢复正常的角度环限幅
                 self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
