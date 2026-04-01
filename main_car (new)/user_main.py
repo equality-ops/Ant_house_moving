@@ -671,7 +671,7 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[120.0, 140.0]], 180.0)
+            my_plan.navigate([[90.0, 140.0]], 180.0)
             if my_plan.finish_navigate == True:
                 # 提前让从车到目标点等候
                 my_main_protocol.send_path(ord('P'), [plan_data.fixed_point[6]])
@@ -820,9 +820,10 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    # collaborative_task_machine()
+    collaborative_task_machine()
 
     # 全向定位测试程序
+    """
     if my_state.state == my_state.NAVIGATE:
         my_plan.navigate([[35.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
@@ -831,7 +832,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    
+    """
     # 测试搬运的里程计系数
     """
     if my_state.state == my_state.NAVIGATE:
@@ -906,7 +907,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
     # 检测自转角是否准确
-    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
