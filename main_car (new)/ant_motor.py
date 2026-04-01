@@ -189,6 +189,7 @@ class PoseData:
         # self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
         # self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
         # self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
+
         self.gyro_z = -self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # 测试
         # self.encoder_data_ul_2 = int(self.encoder_ul_fil.update(self.encoder_data_ul))

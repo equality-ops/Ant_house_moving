@@ -35,7 +35,7 @@ class Plan_data:
         # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
 
         # 示例：[(160.0, 85.0), 'E', 'Y']
-        self.rogue_planning = [[[(125,70),'T','N'],[(140,85),'T','N'],[(190,70),'B','Y']], [[(190,170),'E','N'],[(135,170),'W','Y']]]  # type: list              
+        self.rogue_planning = [[[(135,85),'W','Y'], [(185,100),'B','Y']], [[(125,155),'T','Y'], [(160,155),'S','Y'],[(185,140),'E','N']]]  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标

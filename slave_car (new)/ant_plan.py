@@ -392,7 +392,7 @@ class Plan:
                 self.dec_distance = 25.0
             else:
                 if len(self.current_path) > 1:
-                    self.v_max = self.transit_v + 50
+                    self.v_max = self.transit_v + 60
                 else:
                     self.v_max = self.long_v_max
                 self.boost_time_threshold = 60
