@@ -1,0 +1,149 @@
+# fast版本修改时间 4.2   12:07
+###################【PID参数】####################
+# 搬运模式下
+ul_move_kp = 30.0
+ul_move_ki = 0.2
+ul_move_kd = 40.0
+ur_move_kp = 30.0
+ur_move_ki = 0.2
+ur_move_kd = 40.0
+md_move_kp = 30.0
+md_move_ki = 0.2
+md_move_kd = 40.0
+# speed大于200时
+ul_high_kp = 35.0
+ul_high_ki = 0.65
+ul_high_kd = 40.0
+ur_high_kp = 35.0
+ur_high_ki = 0.65
+ur_high_kd = 40.0
+md_high_kp = 35.0
+md_high_ki = 0.65
+md_high_kd = 40.0
+# speed大于100，小于200时
+ul_mid_kp = 25.0
+ul_mid_ki = 0.425
+ul_mid_kd = 40.0
+ur_mid_kp = 25.0
+ur_mid_ki = 0.425
+ur_mid_kd = 40.0
+md_mid_kp = 25.0
+md_mid_ki = 0.425
+md_mid_kd = 40.0
+# speed小于100时
+ul_low_kp = 15.0
+ul_low_ki = 0.2
+ul_low_kd = 40.0
+ur_low_kp = 15.0
+ur_low_ki = 0.2
+ur_low_kd = 40.0
+md_low_kp = 15.0
+md_low_ki = 0.2
+md_low_kd = 40.0
+# 速度前馈系数
+kv = 6.0
+integral_limitmax = 8000
+pwmout_limitmax = 8000
+
+angle_normal_kp = 25.0
+# 已弃用
+angle_normal_ki = 0.0
+angle_normal_kd = 0.0
+# 角速度负反馈系数（gkd应为负）
+gkd = -0.25
+high_angle_pwmout_limitmax = 500
+low_angle_pwmout_limitmax = 360
+# A设置为B的2倍左右
+A = 300
+# B大致为最大静差的1.5倍
+B = 100
+
+###################【系数】####################
+# 速度转换系数(不需要调试)
+speed_conversion_gamma = 1.0
+# 速度互补滤波系数（可修改）
+speed_fuse_ratio = 0.3
+# 陀螺仪补偿系数(不需要调试)
+gyro_y_supply = 1.197525
+# 电机补偿系数
+ul_compensation = 1.0
+ur_compensation = 1.0
+md_compensation = 1.0
+
+###################【时间规划】####################
+motor_control_T = 2
+collect_dt = 0.002
+plan_calculate_T = 10
+uart_and_menu_T = 53
+# 已弃用
+boost_time_threshold = 60
+
+###################【路径规划】####################
+plan_arrive_threshold = 1.5
+plan_point_transition_T = 0
+
+error_x_T = -2.0
+error_x_S = 2.0
+error_x_B = -1.0
+###################【速度规划】####################
+min_start_v = 20
+long_v_max = 200
+short_v_max = 130
+dead_zone_v = 40
+transit_v = 100
+# 已弃用
+orbit_v = 100
+
+orbit_v_max = 80
+orbit_v_min = 20
+# 已弃用
+move_v_max = 35
+scan_v_max = 125
+# 不同物体的搬运速度
+move_v_max_T = 120
+move_v_max_S = 140
+move_v_max_B = 140
+
+###################【视觉伺服】####################
+# 已弃用
+servo_kp_x = 3.5
+servo_kd_x = 5.0
+servo_kp_y = 3.5
+servo_kd_y = 5.0
+
+# 普通的视觉伺服pid参数
+servo_normal_kp_x = 7.0
+servo_normal_kd_x = 10.0
+servo_normal_kp_y = 6.0
+servo_normal_kd_y = 10.0
+# apriltag矫正的视觉伺服pid参数
+servo_calibrate_kp_x = 7.0
+servo_calibrate_kd_x = 10.0
+servo_calibrate_kp_y = 7.0
+servo_calibrate_kd_y = 10.0
+
+servo_target_x = 80
+servo_target_y_A = 11.0
+servo_target_y_T = 7.5
+servo_target_y_S = 11.0
+servo_target_y_B = 18.0
+# 普通的视觉伺服阈值
+finish_threshold_x = 0.5
+finish_threshold_y = 1.0
+# 用于apriltag矫正的阈值
+apriltag_threshold_x = 1.0
+apriltag_threshold_y = 1.0
+
+min_rel_speed = 20
+max_rel_speed = 150
+servo_pwmout_limitmax = 150
+
+###################【环绕控制】####################
+radius_T = 3.2
+radius_S = 3.6
+radius_B = 5.0
+angle_T = 137.0
+angle_S = 141.0
+angle_B = 145.0
+
+# 小车最高速度为290
