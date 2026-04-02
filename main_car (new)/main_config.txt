@@ -1,4 +1,4 @@
-# normal版本修改时间 4.1   23:03
+# normal版本修改时间 4.2   12:39
 ###################【PID参数】####################
 # 搬运模式下
 ul_move_kp = 30.0
@@ -84,7 +84,7 @@ plan_point_transition_T = 0
 
 error_x_T = -2.0
 error_x_S = 2.0
-error_x_B = -1.0
+error_x_B = 0.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 200
@@ -102,7 +102,7 @@ scan_v_max = 125
 # 不同物体的搬运速度
 move_v_max_T = 100
 move_v_max_S = 130
-move_v_max_B = 100
+move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 已弃用
@@ -142,7 +142,7 @@ servo_pwmout_limitmax = 150
 radius_T = 3.2
 radius_S = 3.6
 radius_B = 5.0
-angle_T = 134.0
+angle_T = 137.0
 angle_S = 141.0
 angle_B = 145.0
 

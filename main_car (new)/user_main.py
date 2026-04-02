@@ -487,7 +487,7 @@ def collaborative_task_machine():
     if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
-                my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
+                my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.rogue_planning[current_area][current_object][0][0], 10.0]])
                 if_send_preparing_path = True
 
             my_plan.navigate([[plan_data.rogue_planning[current_area][current_object][0][0], plan_data.fixed_point[1][1]]], 0.0)
@@ -643,12 +643,7 @@ def collaborative_task_machine():
                     # 操控从车从矩形区域左边沿行驶
                     my_main_protocol.send_path(ord('P'), [[15.0, 15.0], [80.0, 220.0], [130.0, 220.0]])
                 else:
-                    if main_car_pos == LEFT_AREA:
-                        # 操控从车从矩形区域右边沿行驶
-                        my_main_protocol.send_path(ord('P'), [[220.0, 220.0]])
-                    elif main_car_pos == RIGHT_AREA:
-                        # 操控从车从矩形区域左边沿行驶
-                        my_main_protocol.send_path(ord('P'), [[100.0, 220.0]])
+                    my_main_protocol.send_path(ord('P'), [[plan_data.rogue_planning[current_area][current_object][0][0], 220.0]])        
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
 
@@ -804,16 +799,20 @@ def collaborative_task_machine():
                 my_state.state = my_state.NAVIGATE
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
-            my_plan.navigate([[240.0, 230.0]], 180.0)
-            if my_plan.finish_navigate == True:
-                # 提前让从车转好角度
+            if my_plan.if_send_path == False:
+                # 提前让从车远离场外
                 my_main_protocol.send_path(ord('P'), [[137.0, 260.0]])
+                my_plan.if_send_path = True
+
+            my_plan.navigate([[240.0, 220.0]], 180.0)
+            if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
+                my_plan.if_send_path = False
                 my_state.state = my_state.SCAN
                 my_order_manager.mode_target()
                 my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            my_plan.navigate([[80.0, 230.0], [80.0, 150.0], [240.0, 150.0]], 180.0)
+            my_plan.navigate([[80.0, 220.0], [80.0, 150.0], [240.0, 150.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
