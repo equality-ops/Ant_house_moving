@@ -515,6 +515,8 @@ def collaborative_task_machine():
                 if target_point and (target_point[2] == ord(my_vision_manager.current_servo_object)):  
                     ready_servo_and_orbit()
                     reset_navigate_flags()
+                    sin_servo_fil.buffer_init(0.0)
+                    cos_servo_fil.buffer_init(my_plan.scan_v_max)
                     my_state.state = my_state.SERVO
             else:
                 my_plan.finish_navigate = False
@@ -679,6 +681,8 @@ def collaborative_task_machine():
                     if target_point and (target_point[2] == ord(my_vision_manager.current_servo_object)):
                         ready_servo_and_orbit()
                         reset_navigate_flags()
+                        sin_servo_fil.buffer_init(0.0)
+                        cos_servo_fil.buffer_init(my_plan.scan_v_max)
                         my_state.state = my_state.SERVO
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
@@ -819,6 +823,8 @@ def collaborative_task_machine():
                     my_vision_manager.current_servo_object = chr(target_point[2])
                     ready_servo_and_orbit()
                     reset_navigate_flags()
+                    sin_servo_fil.buffer_init(0.0)
+                    cos_servo_fil.buffer_init(my_plan.scan_v_max)
                     my_state.state_work = UP
                     my_state.state = my_state.SERVO
             else:
@@ -837,7 +843,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[plan_data.fixed_point[0][0]-5.0, -40.0]])
+            my_plan.navigate([[25.0, -40.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP
