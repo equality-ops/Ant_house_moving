@@ -26,16 +26,17 @@ class Plan_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
+
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
 
-                                #           y坐标靠近下边沿:70，中等:85，靠近中心:100    
-                                #           靠近上边沿:170，中等:155，靠近中心:140 
-                                #           T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-                                #           用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
+        # y坐标靠近下边沿:70，中等:85，靠近中心:100    
+        # 靠近上边沿:170，中等:155，靠近中心:140 
+        # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
+        # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
 
         # 示例：[(160.0, 85.0), 'E', 'Y']
-        self.rogue_planning = [[[(140,85),'T','Y'], [(185,85),'B','Y'], [(170,100),'S','Y'], [(190,100),'E','Y']], [[(135,155),'W','Y']]]  # type: list              
+        self.rogue_planning = self.flash_sys.gain_rogue_planning()  # type: list              
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning[0]) + len(self.rogue_planning[1]) # 需要搬运的物体总数
         # 地图固定点坐标

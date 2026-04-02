@@ -1052,7 +1052,6 @@ def time_pit2_handler(time):
     
     # 环绕测试
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
-    
     # 任务机
     # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, area: {current_area}, object_num: {current_object}, current_object: {my_vision_manager.current_servo_object}, total: {plan_data.total_objects_num}\n")
     # my_uart3.write(f"if_check: {if_check}, if_lost: {if_not_find_object}\n")
