@@ -1,4 +1,4 @@
-# 修改时间 4.1	  19:09
+# 修改时间 4.2	  19:49
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -83,7 +83,7 @@ boost_time_threshold = 60
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
 
-error_x_T = -1.5
+error_x_T = 0.0
 error_x_S = 2.0
 error_x_B = 2.0
 ###################【速度规划】####################
@@ -143,7 +143,7 @@ servo_pwmout_limitmax = 150
 radius_T = 3.2
 radius_S = 3.6
 radius_B = 5.0
-angle_T = 134.0
+angle_T = 137.0
 angle_S = 141.0
 angle_B = 145.0
 
