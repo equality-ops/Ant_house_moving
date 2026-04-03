@@ -1,4 +1,4 @@
-# normal版本修改时间 4.2   12:40
+# normal版本修改时间 4.3   18:03
 ###################【PID参数】####################
 # 搬运模式下
 ul_move_kp = 30.0
@@ -81,7 +81,7 @@ boost_time_threshold = 60
 ###################【路径规划】####################
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
-error_x_T = 0.0
+error_x_T = -1.0
 error_x_S = -2.0
 error_x_B = -2.0
 ###################【速度规划】####################
@@ -100,7 +100,7 @@ orbit_v_min = 20
 move_v_max = 35
 scan_v_max = 100
 # 不同物体的搬运速度
-move_v_max_T = 100
+move_v_max_T = 120
 move_v_max_S = 130
 move_v_max_B = 120
 
@@ -142,7 +142,7 @@ servo_pwmout_limitmax = 140
 radius_T = 3.15
 radius_S = 3.6
 radius_B = 4.9
-angle_T = 136.0
+angle_T = 137.0
 angle_S = 141.0
 angle_B = 145.0
 

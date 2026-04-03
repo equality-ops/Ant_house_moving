@@ -516,7 +516,7 @@ def collaborative_task_machine():
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     sin_servo_fil.buffer_init(0.0)
-                    cos_servo_fil.buffer_init(my_plan.scan_v_max)
+                    cos_servo_fil.buffer_init(0.0)
                     my_state.state = my_state.SERVO
             else:
                 my_plan.finish_navigate = False
@@ -682,7 +682,7 @@ def collaborative_task_machine():
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         sin_servo_fil.buffer_init(0.0)
-                        cos_servo_fil.buffer_init(my_plan.scan_v_max)
+                        cos_servo_fil.buffer_init(0.0)
                         my_state.state = my_state.SERVO
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
@@ -824,7 +824,7 @@ def collaborative_task_machine():
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     sin_servo_fil.buffer_init(0.0)
-                    cos_servo_fil.buffer_init(my_plan.scan_v_max)
+                    cos_servo_fil.buffer_init(0.0)
                     my_state.state_work = UP
                     my_state.state = my_state.SERVO
             else:
