@@ -549,7 +549,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(ord(my_vision_manager.current_servo_object), [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-8.0]])
+                    my_main_protocol.send_path(ord(my_vision_manager.current_servo_object), [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-12.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -583,7 +583,7 @@ def collaborative_task_machine():
                         my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体，控制主车提前停止
-            my_plan.navigate([[my_car.x_current+my_plan.error_x, -20.0]])
+            my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 my_plan.finish_navigate = False
@@ -716,7 +716,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(ord(my_vision_manager.current_servo_object), [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+8.0]])
+                    my_main_protocol.send_path(ord(my_vision_manager.current_servo_object), [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+12.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -750,7 +750,7 @@ def collaborative_task_machine():
                         my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体，控制主车提前停止
-            my_plan.navigate([[my_car.x_current-my_plan.error_x, 260.0]])
+            my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 my_plan.finish_navigate = False
@@ -843,7 +843,7 @@ def collaborative_task_machine():
     elif my_state.state_work == RETURN_WORK:
         if my_state.state == my_state.RETURN:
             # 最终返回主车的起点（避免回程途中与从车碰撞）
-            my_plan.navigate([[25.0, -40.0]])
+            my_plan.navigate([[10.0, -40.0]])
             if my_plan.finish_navigate == True:
                 my_plan.finish_navigate = False
                 my_state.state = my_state.STOP

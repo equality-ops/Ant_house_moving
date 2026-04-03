@@ -632,7 +632,7 @@ def collaborative_task_machine():
             if my_vision_manager.current_servo_object == ord('W') or my_vision_manager.current_servo_object == ord('B'):
                 my_plan.navigate([[my_car.x_current+my_plan.error_x, -35.0]])
             else:
-                my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
+                my_plan.navigate([[my_car.x_current+my_plan.error_x, -30.0]])
             if my_plan.finish_navigate == True:
                 order = my_slave_protocol.get_main_signal()
                 my_vision_manager.car_position = DOWN_RIGHT
@@ -777,7 +777,7 @@ def collaborative_task_machine():
             if my_vision_manager.current_servo_object == ord('W') or my_vision_manager.current_servo_object == ord('B'):
                 my_plan.navigate([[my_car.x_current-my_plan.error_x, 275.0]])
             else:
-                my_plan.navigate([[my_car.x_current-my_plan.error_x, 265.0]])
+                my_plan.navigate([[my_car.x_current-my_plan.error_x, 270.0]])
             if my_plan.finish_navigate == True:
                 order = my_slave_protocol.get_main_signal()
                 my_vision_manager.car_position = UP_LEFT
