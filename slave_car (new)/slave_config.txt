@@ -81,9 +81,9 @@ boost_time_threshold = 60
 ###################【路径规划】####################
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 0
-error_x_T = -1.0
-error_x_S = -2.0
-error_x_B = -2.0
+error_x_T = -2.0
+error_x_S = -3.0
+error_x_B = -4.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 200
