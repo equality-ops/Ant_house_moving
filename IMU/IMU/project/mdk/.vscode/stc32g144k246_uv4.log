@@ -1,0 +1,9 @@
+Build target 'stc32g144k246'
+compiling main.c...
+compiling quaternion.c...
+..\user\quaternion.c(1): error C11: internal error: (asmgen - triple=t061)
+..\user\quaternion.c(1): error C11: internal error: (asmgen - triple=t0AB)
+..\user\quaternion.c(57): error C11: internal error: (asmgen - triple=t061)
+..\user\quaternion.c(66): error C11: internal error: (asmgen - triple=t0AB)
+Target not created.
+Build Time Elapsed:  00:00:00
