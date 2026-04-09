@@ -140,44 +140,122 @@ class PoseData:
         self.encoder_data_ul = 0    # type: int
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
-        # 测试
-        # self.encoder_data_ul_2 = 0    # type: int
-        # self.encoder_data_ur_2 = 0    # type: int
-        # self.encoder_data_md_2 = 0    # type: int
-        self.gyro_z_bias = 0.0          # type: float
+        # 陀螺仪补偿系数
         self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
-        self.gyro_z = 0.0               # type: float
-        """暂时不需要这些数据
-        self.acc_x = 0              # type: int
-        self.acc_y = 0              # type: int
-        self.acc_z = 0              # type: int
-        self.gyro_x = 0             # type: int
-        self.gyro_y = 0             # type: int
+        # 加速度
+        self.acc_x = 0              # type: float
+        self.acc_y = 0              # type: float
+        self.acc_z = 0              # type: float
+        # 角速度
+        self.gyro_x = 0             # type: float
+        self.gyro_y = 0             # type: float
         self.gyro_z = 0             # type: float
-        self.acc_x_bias = 0.0        # type: float
-        self.acc_y_bias = 0.0        # type: float
-        self.acc_z_bias = 0.0        # type: float
+        # 角速度零漂误差
         self.gyro_x_bias = 0.0       # type: float
         self.gyro_y_bias = 0.0       # type: float
-        """
+        self.gyro_z_bias = 0.0        # type: float
 
-    # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
+        # 四元数初始化
+        self.q = [1.0, 0.0, 0.0, 0.0]
+        # 误差积分项
+        self.e_int = [0.0, 0.0, 0.0]
+        
+        # 算法参数 (根据你的 2ms 采样周期设置)
+        self.dt = 0.002 
+        self.kp = 10.0  # 加速度计权重
+        self.ki = 0.001 # 零偏补偿权重
+
+        # 最终角度输出
+        self.now_pitch = 0.0  # 俯仰角
+        self.now_roll = 0.0   # 横滚角
+        self.now_yaw = 0.0    # 偏航角
+
+    def ahrs_update(self, ax, ay, az, gx, gy, gz):
+        """
+        核心四元数更新算法
+        输入单位：ax-az (g), gx-gz (rad/s)
+        """
+        q0, q1, q2, q3 = self.q
+        
+        # 1. 归一化加速度计数据
+        norm = math.sqrt(ax*ax + ay*ay + az*az)
+        if norm == 0: return # 防止除以0
+        ax /= norm; ay /= norm; az /= norm
+        
+        # 2. 提取四元数矩阵中的理论重力方向 (机体坐标系下)
+        vx = 2 * (q1*q3 - q0*q2)
+        vy = 2 * (q0*q1 + q2*q3)
+        vz = q0*q0 - q1*q1 - q2*q2 + q3*q3
+        
+        # 3. 叉乘计算误差 (测量值与理论值的偏差)
+        ex = (ay*vz - az*vy)
+        ey = (az*vx - ax*vz)
+        ez = (ax*vy - ay*vx)
+        
+        # --- 改进1：增加积分限幅 (Anti-Windup) ---
+        I_LIMIT = 0.2  # 限制积分项最大影响
+        self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
+        self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
+        self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正
+
+        # --- 改进2：补偿角速度 ---
+        gx += self.kp * ex + self.e_int[0]
+        gy += self.kp * ey + self.e_int[1]
+        gz += self.kp * 0  + self.e_int[2] # Yaw只信任陀螺仪
+        
+        # 6. 一阶龙格库塔法更新四元数
+        half_dt = 0.5 * self.dt
+        q0 += (-q1*gx - q2*gy - q3*gz) * half_dt
+        q1 += (q0*gx + q2*gz - q3*gy) * half_dt
+        q2 += (q0*gy - q1*gz + q3*gx) * half_dt
+        q3 += (q0*gz + q1*gy - q2*gx) * half_dt
+        
+        # 7. 再次归一化四元数
+        norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
+        self.q = [q0/norm, q1/norm, q2/norm, q3/norm]
+
+    def update_euler_angles(self):
+        """将四元数转换为欧拉角（度）"""
+        q0, q1, q2, q3 = self.q
+        
+        # 1. 俯仰角 Pitch (绕 Y 轴旋转)
+        # 数学逻辑：asin(-2*(q1*q3 - q0*q2))
+        val = -2.0 * (q1 * q3 - q0 * q2)
+        # 边界处理，防止 asin 超域报错
+        val = max(-1.0, min(1.0, val))
+        self.now_pitch = math.asin(val) * (180.0 / math.pi)
+        
+        # 2. 横滚角 Roll (绕 X 轴旋转)
+        # 数学逻辑：atan2(2*(q2*q3 + q0*q1), q0**2 - q1**2 - q2**2 + q3**2)
+        self.now_roll = math.atan2(2.0 * (q2 * q3 + q0 * q1), 
+                                   q0*q0 - q1*q1 - q2*q2 + q3*q3) * (180.0 / math.pi)
+        
+        # 3. 偏航角 Yaw (绕 Z 轴旋转)
+        self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
+                                  q0*q0 + q1*q1 - q2*q2 - q3*q3) * (180.0 / math.pi)
+
+    # 初始零偏计算函数，总计需延时4s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
         """暂时不需要这些数据
         acc_x_sum = 0
         acc_y_sum = 0
         acc_z_sum = 0
+        """
         gyro_x_sum = 0
         gyro_y_sum = 0
-        """
         gyro_z_sum = 0
         sample_count = 1000
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
             self.imu_data = self.imu.read()
+            gyro_x_sum += self.imu_data[3]
+            gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
             time.sleep_ms(4)
+
+        self.gyro_x_bias = gyro_x_sum / sample_count    
+        self.gyro_y_bias = gyro_y_sum / sample_count
         self.gyro_z_bias = gyro_z_sum / sample_count
 
     # 传感器数据更新函数
@@ -185,16 +263,21 @@ class PoseData:
         self.encoder_data_ul = self.encoder_ul.get() * 4
         self.encoder_data_ur = self.encoder_ur.get() * 4
         self.encoder_data_md = self.encoder_md.get() * 4
-        # 此处由于逐飞编码器精度高取消滤波，但需根据实际情况调整
-        # self.encoder_data_ul = int(self.encoder_ul_fil.update(self.encoder_data_ul))
-        # self.encoder_data_ur = int(self.encoder_ur_fil.update(self.encoder_data_ur))
-        # self.encoder_data_md = int(self.encoder_md_fil.update(self.encoder_data_md))
+        
+        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (math.pi / 180.0)
+        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (math.pi / 180.0)
+        # self.gyro用于角速度环控制
+        self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        # gyro_z用于四元数解算
+        gyro_z = -self.gyro_z * (math.pi / 180.0)
 
-        self.gyro_z = self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
-        # 测试
-        # self.encoder_data_ul_2 = int(self.encoder_ul_fil.update(self.encoder_data_ul))
-        # self.encoder_data_ur_2 = int(self.encoder_ur_fil.update(self.encoder_data_ur))
-        # elf.encoder_data_md_2 = int(self.encoder_md_fil.update(self.encoder_data_md))
+        # 3. 运行 AHRS 算法（gyro_z顺时针为正，四元数解算需要逆时针为正）
+        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], self.gyro_x, self.gyro_y, gyro_z)
+        
+        # 4. 更新欧拉角输出
+        self.update_euler_angles()
+
+        # self.gyro_z = self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
@@ -469,33 +552,20 @@ class CarPose:
         # car_speed_x, car_speed_y 单位：厘米每5ms
         self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
-
         # car_speed_w单位：度每秒
         self.car_speed_w = self.pose_data.gyro_z
-        # 计算小车在世界坐标系下的偏航角
-        # now_yaw单位：弧度
-        # 1. 立即获取时间戳（放在函数最开头，减少函数调用的延迟）
-        now = time.ticks_us()
-        # 2. 计算真实 dt
-        dt = time.ticks_diff(now, self.last_time) * 0.000001 # 乘法通常比除法稍微快那么一点点
-        self.last_time = now
-        # 3. 梯形积分：(当前角速度 + 上次角速度) * dt / 2
-        # 假设你已经做了去零偏和滤波处理
-        current_gyro_z = self.pose_data.gyro_z
-        # 只有 dt 在合理范围内（比如 1ms 到 20ms 之间）才积分，防止复位瞬间的大跳变
-        if 0.001 < dt < 0.02:
-            self.now_yaw += (current_gyro_z + self.last_gyro_z) * 0.5 * dt * self.MATH.PI / 180        
-        self.last_gyro_z = current_gyro_z
 
-        # 限定now_yaw在-180到180度之间
+        # 计算小车在世界坐标系下的偏航角
+        self.now_yaw = -self.pose_data.now_yaw * self.MATH.PI / 180.0
+        # 限定now_yaw在-2pi到2pi之间
         if self.now_yaw > self.MATH.PI:  self.now_yaw -= 2 * self.MATH.PI
         elif self.now_yaw < -self.MATH.PI:  self.now_yaw += 2 * self.MATH.PI
+
         # 转换到世界坐标系下的速度
         self.real_speed_x = self.car_speed_x * math.cos(self.now_yaw) + self.car_speed_y * math.sin(self.now_yaw)
         self.real_speed_y = -self.car_speed_x * math.sin(self.now_yaw) + self.car_speed_y * math.cos(self.now_yaw)
         self.real_speed_w = self.car_speed_w
     
-        
         ###################【位置计算】###################
         # 依据当前航向角调整位置修正系数（解决小车在不同方向上的编码器积分结果不一致问题）
 

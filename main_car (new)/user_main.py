@@ -235,7 +235,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -824,19 +824,19 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
+    
     if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[35.0, -15.0]], 180.0)
+        my_plan.navigate([[160.0, 0.0], [0.0, 0.0]], 0.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+    
     # 测试搬运的里程计系数
     """
     if my_state.state == my_state.NAVIGATE:
@@ -910,8 +910,11 @@ def time_pit2_handler(time):
     # 速度规划
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
 
+    # 检测四元数解算结果是否准确
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
+
     # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
