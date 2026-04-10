@@ -1,12 +1,13 @@
-C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  22:36:04  PAGE 1   
+C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  23:37:15  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE zf_common_debug
 OBJECT MODULE PLACED IN .\out_file\zf_common_debug.obj
-COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\..\libraries\zf_common\zf_common_debug.c LARGE FLOAT64 ROM(HUGE) WA
-                    -RNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_
-                    -device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_compone
-                    -nts\seekfree_assistant) DEBUG PRINT(.\out_file\zf_common_debug.lst) TABS(2) OBJECT(.\out_file\zf_common_debug.obj) 
+COMPILER INVOKED BY: D:\ruanjian\keil\C251\BIN\C251.EXE ..\..\libraries\zf_common\zf_common_debug.c LARGE FLOAT64 ROM(HU
+                    -GE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\librari
+                    -es\zf_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_c
+                    -omponents\seekfree_assistant) DEBUG PRINT(.\out_file\zf_common_debug.lst) TABS(2) OBJECT(.\out_file\zf_common_debug.obj)
+                    - 
 
 stmt  level    source
 
@@ -65,9 +66,9 @@ stmt  level    source
    51          #if DEBUG_UART_USE_INTERRUPT                                                    // Èç¹ûÆôÓÃ debug uart ½Ó
              -ÊÕÖÐ¶Ï
    52              uint8                       debug_uart_buffer[DEBUG_RING_BUFFER_LEN];           // Êý¾Ý´æ·ÅÊý×é
-   53          #endif
-C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  22:36:04  PAGE 2   
+C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  23:37:15  PAGE 2   
 
+   53          #endif
    54          
    55          fifo_struct                 debug_uart_fifo;
    56          
@@ -133,9 +134,9 @@ stmt  level    source
   112          //-------------------------------------------------------------------------------------------------------
              -------------
   113          // º¯Êý¼ò½é     debug ´®¿ÚÖÐ¶Ï´¦Àíº¯Êý isr.c ÖÐ¶ÔÓ¦´®¿ÚÖÐ¶Ï·þÎñº¯Êýµ÷ÓÃ
-  114          // ²ÎÊýËµÃ÷     void
-C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  22:36:04  PAGE 3   
+C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  23:37:15  PAGE 3   
 
+  114          // ²ÎÊýËµÃ÷     void
   115          // ·µ»Ø²ÎÊý     void
   116          // Ê¹ÓÃÊ¾Àý     debug_interrupr_handler();
   117          // ±¸×¢ÐÅÏ¢     ±¾º¯ÊýÐèÒª¿ªÆô DEBUG_UART_USE_INTERRUPT ºê¶¨Òå²Å¿ÉÊ¹ÓÃ
@@ -201,9 +202,9 @@ stmt  level    source
   172   1              #else
                            uart_write_byte(DEBUG_UART_INDEX, c);//°Ñ×Ô¼ºÊµÏÖµÄ´®¿Ú´òÓ¡Ò»×Ö½ÚÊý¾ÝµÄº¯ÊýÌæ»»µ½ÕâÀï
                            return c;
-                       #endif
-C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  22:36:04  PAGE 4   
+C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  23:37:15  PAGE 4   
 
+                       #endif
   176   1      
   177   1          }
   178          #endif
@@ -269,9 +270,9 @@ stmt  level    source
   232   1              usb_cdc_rx_interrupt(debug_interrupr_handler);
   233   1          #endif
   234   1      #else
-                   uint8 uartx = DEBUG_UART_INDEX;
-C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  22:36:04  PAGE 5   
+C251 COMPILER V5.60.0,  zf_common_debug                                                    09/04/26  23:37:15  PAGE 5   
 
+                   uint8 uartx = DEBUG_UART_INDEX;
                    
                    uart_init(
                        DEBUG_UART_INDEX,                                                       // ÔÚ zf_common_debug.h Ö

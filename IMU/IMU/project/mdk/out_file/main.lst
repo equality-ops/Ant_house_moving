@@ -1,104 +1,113 @@
-C251 COMPILER V5.60.0,  main                                                               09/04/26  22:51:37  PAGE 1   
+C251 COMPILER V5.60.0,  main                                                               09/04/26  23:46:45  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE main
 OBJECT MODULE PLACED IN .\out_file\main.obj
-COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\user\main.c LARGE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE
-                    -) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\zf_dri
-                    -ver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant) DEBUG
-                    - PRINT(.\out_file\main.lst) TABS(2) OBJECT(.\out_file\main.obj) 
+COMPILER INVOKED BY: D:\ruanjian\keil\C251\BIN\C251.EXE ..\user\main.c LARGE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(
+                    -0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\
+                    -zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant)
+                    - DEBUG PRINT(.\out_file\main.lst) TABS(2) OBJECT(.\out_file\main.obj) 
 
 stmt  level    source
 
     1          #include "zf_common_headfile.h"
     2          #include "quaternion.h"
-    3          #define LED1                        (IO_P52)
-    4          #define PIT                         (TIM0_PIT)
-    5          #define GYRO_LSB_PER_DPS   (32768.0f / 2000.0f)
-    6          #define RAD_PER_DEG        (3.14159f / 180.0f)
-    7          #define DT                 0.01f
-    8          static Quat q;
-    9          static Vec3 forward_body;
-   10          static int tick_count = 0;
-   11          static float roll_angle = 0.0f;
-   12          static float pitch_angle = 0.0f;
-   13          static float yaw_angle = 0.0f;
-   14          static float yaw_offset = 0.0f;
-   15          float gyro_bias_x = 0.0f, gyro_bias_y = 0.0f, gyro_bias_z = 0.0f;
-   16          void init_attitude(void) {
-   17   1          q.w = 1.0f; q.x = 0.0f; q.y = 0.0f; q.z = 0.0f;
-   18   1          forward_body.x = 1.0f; forward_body.y = 0.0f; forward_body.z = 0.0f;
-   19   1      }
-   20          
-   21          void update_attitude(void) {
-   22   1          float gx_raw, gy_raw, gz_raw;
-   23   1          float gx_dps, gy_dps, gz_dps;
-   24   1          float wx, wy, wz;
-   25   1          Quat dq;
-   26   1          Vec3 direction_pure;
-   27   1      
-   28   1          imu660rb_get_gyro();
-   29   1          gx_raw = (float)imu660rb_gyro_x;
-   30   1          gy_raw = (float)imu660rb_gyro_y;
-   31   1          gz_raw = (float)imu660rb_gyro_z;
-   32   1      
-   33   1          gx_dps = (gx_raw - gyro_bias_x) / (-GYRO_LSB_PER_DPS);
-   34   1          gy_dps = (gy_raw - gyro_bias_y) / (-GYRO_LSB_PER_DPS);
-   35   1          gz_dps = (gz_raw - gyro_bias_z) / (-GYRO_LSB_PER_DPS);
+    3          
+    4          #define LED1                        (IO_P52)
+    5          #define PIT                         (TIM0_PIT)
+    6          #define GYRO_LSB_PER_DPS   (32768.0f / 2000.0f)
+    7          #define RAD_PER_DEG        (3.1415f / 180.0f)
+    8          #define DT                 0.01f
+    9          
+   10          static Quat q;
+   11          static Vec3 forward_body;
+   12          static int tick_count = 0;
+   13          static float roll_angle = 0.0f;
+   14          static float pitch_angle = 0.0f;
+   15          static float yaw_angle = 0.0f;
+   16          static float yaw_offset = 0.0f;
+   17          float gyro_bias_x = 0.0f, gyro_bias_y = 0.0f, gyro_bias_z = 0.0f;
+   18          
+   19          void init_attitude(void) {
+   20   1          q.w = 1.0f; q.x = 0.0f; q.y = 0.0f; q.z = 0.0f;
+   21   1          forward_body.x = 1.0f; forward_body.y = 0.0f; forward_body.z = 0.0f;
+   22   1      }
+   23          
+   24          void update_attitude(void) {
+   25   1          float gx_raw, gy_raw, gz_raw;
+   26   1          float gx_dps, gy_dps, gz_dps;
+   27   1          float wx, wy, wz;
+   28   1          Quat dq;
+   29   1          Vec3 direction_pure;
+   30   1          Quat temp_q; // 用于暂存四元数乘法结果，更安全
+   31   1      
+   32   1          imu660rb_get_gyro();
+   33   1          gx_raw = (float)imu660rb_gyro_x;
+   34   1          gy_raw = (float)imu660rb_gyro_y;
+   35   1          gz_raw = (float)imu660rb_gyro_z;
    36   1      
-   37   1          wx = gx_dps * RAD_PER_DEG;
-   38   1          wy = gy_dps * RAD_PER_DEG;
-   39   1          wz = gz_dps * RAD_PER_DEG;
+   37   1          gx_dps = (gx_raw - gyro_bias_x) / (-GYRO_LSB_PER_DPS);
+   38   1          gy_dps = (gy_raw - gyro_bias_y) / (-GYRO_LSB_PER_DPS);
+   39   1          gz_dps = (gz_raw - gyro_bias_z) / (-GYRO_LSB_PER_DPS);
    40   1      
-   41   1          dq = omega_to_dq(wx, wy, wz, DT);
-   42   1          q = quat_mul(q, dq);
-   43   1          q = quat_normalize(q);
+   41   1          wx = gx_dps * RAD_PER_DEG;
+   42   1          wy = gy_dps * RAD_PER_DEG;
+   43   1          wz = gz_dps * RAD_PER_DEG;
    44   1      
-   45   1          direction_pure = rotate_vector_by_quat(q, forward_body);  // 可选用
-   46   1          quat_to_euler(q, &roll_angle, &pitch_angle, &yaw_angle);
-   47   1          yaw_angle += yaw_offset;
-   48   1          tick_count++;
-   49   1      }
-   50          
-   51          void pit_hanlder(void) {
-   52   1          update_attitude();
-   53   1      }
-   54          
-   55          void main(void) {
-   56   1          clock_init(SYSTEM_CLOCK_96M);
-C251 COMPILER V5.60.0,  main                                                               09/04/26  22:51:37  PAGE 2   
+   45   1          // 使用指针传参更新四元数
+   46   1          omega_to_dq(&dq, wx, wy, wz, DT);
+   47   1          
+   48   1          // 计算结果存放到 temp_q，再赋回给 q
+   49   1          quat_mul(&temp_q, &q, &dq);
+   50   1          q = temp_q;
+   51   1          
+   52   1          quat_normalize(&q, &q); // 我们在底层做了保护，这里原地修改是安全的
+   53   1      
+   54   1          rotate_vector_by_quat(&direction_pure, &q, &forward_body);  // 可选用
+   55   1          quat_to_euler(&q, &roll_angle, &pitch_angle, &yaw_angle);
+   56   1          yaw_angle += yaw_offset;
+C251 COMPILER V5.60.0,  main                                                               09/04/26  23:46:45  PAGE 2   
 
-   57   1          debug_init();
-   58   1          gpio_init(LED1, GPO, GPIO_HIGH, GPO_PUSH_PULL);
-   59   1      
-   60   1          while(1) {
-   61   2              if(imu660rb_init())
-   62   2                  printf("\r\nimu660rb init error.");
-   63   2              else
-   64   2                  break;
-   65   2              gpio_toggle_level(LED1);
-   66   2              system_delay_ms(300);
-   67   2          }
+   57   1          tick_count++;
+   58   1      }
+   59          
+   60          void pit_hanlder(void) {
+   61   1          update_attitude();
+   62   1      }
+   63          
+   64          void main(void) {
+   65   1          clock_init(SYSTEM_CLOCK_96M);
+   66   1          debug_init();
+   67   1          gpio_init(LED1, GPO, GPIO_HIGH, GPO_PUSH_PULL);
    68   1      
-   69   1          init_attitude();
-   70   1          pit_ms_init(PIT, 5, pit_hanlder);
-   71   1      
-   72   1          while(1) {
-   73   2              printf("\r\nroll: %6.2f, pitch: %6.2f, yaw: %6.2f", roll_angle, pitch_angle, yaw_angle);
+   69   1          while(1) {
+   70   2              if(imu660rb_init())
+   71   2                  printf("\r\nimu660rb init error.");
+   72   2              else
+   73   2                  break;
    74   2              gpio_toggle_level(LED1);
    75   2              system_delay_ms(300);
    76   2          }
-   77   1      }
+   77   1      
+   78   1          init_attitude();
+   79   1          pit_ms_init(PIT, 10, pit_hanlder);
+   80   1      
+   81   1          while(1) {
+   82   2              printf("\r\nroll: %6.2f, pitch: %6.2f, yaw: %6.2f", roll_angle, pitch_angle, yaw_angle);
+   83   2              gpio_toggle_level(LED1);
+   84   2              system_delay_ms(300);
+   85   2          }
+   86   1      }
 
 
 Module Information          Static   Overlayable
 ------------------------------------------------
   code size            =    ------     ------
-  ecode size           =      1080     ------
+  ecode size           =      1054     ------
   data size            =    ------     ------
   idata size           =    ------     ------
   pdata size           =    ------     ------
-  xdata size           =       122     ------
+  xdata size           =       138     ------
   xdata-const size     =    ------     ------
   edata size           =    ------     ------
   bit size             =    ------     ------

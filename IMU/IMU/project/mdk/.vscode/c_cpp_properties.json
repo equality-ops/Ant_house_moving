@@ -6,15 +6,15 @@
             "cppStandard": "c++17",
             "intelliSenseMode": "${default}",
             "includePath": [
-                "C:/Keil_v5/C251/INC",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_common",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_components",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_device",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_driver",
-                "d:/jueying/省赛/stccode/IMU/project/user",
-                "d:/jueying/省赛/stccode/IMU/project/code",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_components/stc32g_usb_lib",
-                "d:/jueying/省赛/stccode/IMU/libraries/zf_components/seekfree_assistant"
+                "D:/ruanjian/keil/C251/INC",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_common",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_components",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_device",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_driver",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/project/user",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/project/code",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_components/stc32g_usb_lib",
+                "d:/Users/Ant_house_moving/Mine/Ant_house_moving/IMU/IMU/libraries/zf_components/seekfree_assistant"
             ],
             "defines": [
                 "__C251__",

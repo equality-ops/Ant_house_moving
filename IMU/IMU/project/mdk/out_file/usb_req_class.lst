@@ -1,13 +1,13 @@
-C251 COMPILER V5.60.0,  usb_req_class                                                      09/04/26  22:36:07  PAGE 1   
+C251 COMPILER V5.60.0,  usb_req_class                                                      09/04/26  23:37:23  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE usb_req_class
 OBJECT MODULE PLACED IN .\out_file\usb_req_class.obj
-COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\..\libraries\zf_components\stc32g_usb_lib\usb_req_class.c LARGE FLO
-                    -AT64 ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..
-                    -\..\libraries\zf_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\lib
-                    -raries\zf_components\seekfree_assistant) DEBUG PRINT(.\out_file\usb_req_class.lst) TABS(2) OBJECT(.\out_file\usb_req_cla
-                    -ss.obj) 
+COMPILER INVOKED BY: D:\ruanjian\keil\C251\BIN\C251.EXE ..\..\libraries\zf_components\stc32g_usb_lib\usb_req_class.c LAR
+                    -GE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_compone
+                    -nts;..\..\libraries\zf_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\
+                    -..\libraries\zf_components\seekfree_assistant) DEBUG PRINT(.\out_file\usb_req_class.lst) TABS(2) OBJECT(.\out_file\usb_r
+                    -eq_class.obj) 
 
 stmt  level    source
 
@@ -66,7 +66,7 @@ stmt  level    source
    53   1      }
    54          
    55          void usb_get_line_coding()
-C251 COMPILER V5.60.0,  usb_req_class                                                      09/04/26  22:36:07  PAGE 2   
+C251 COMPILER V5.60.0,  usb_req_class                                                      09/04/26  23:37:23  PAGE 2   
 
    56          {
    57   1          if ((DeviceState != DEVSTATE_CONFIGURED) ||

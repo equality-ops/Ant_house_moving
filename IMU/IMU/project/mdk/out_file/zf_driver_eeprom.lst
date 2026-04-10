@@ -1,12 +1,13 @@
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  22:36:04  PAGE 1   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE zf_driver_eeprom
 OBJECT MODULE PLACED IN .\out_file\zf_driver_eeprom.obj
-COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\..\libraries\zf_driver\zf_driver_eeprom.c LARGE FLOAT64 ROM(HUGE) W
-                    -ARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf
-                    -_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_compon
-                    -ents\seekfree_assistant) DEBUG PRINT(.\out_file\zf_driver_eeprom.lst) TABS(2) OBJECT(.\out_file\zf_driver_eeprom.obj) 
+COMPILER INVOKED BY: D:\ruanjian\keil\C251\BIN\C251.EXE ..\..\libraries\zf_driver\zf_driver_eeprom.c LARGE FLOAT64 ROM(H
+                    -UGE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\librar
+                    -ies\zf_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_
+                    -components\seekfree_assistant) DEBUG PRINT(.\out_file\zf_driver_eeprom.lst) TABS(2) OBJECT(.\out_file\zf_driver_eeprom.o
+                    -bj) 
 
 stmt  level    source
 
@@ -65,9 +66,9 @@ stmt  level    source
    49          {
    50   1      
    51   1          IAP_TRIG = 0x5A;
-   52   1          IAP_TRIG = 0xA5;                    //先送5AH，再送A5H到IAP触发寄存器，每次都需要如此
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  22:36:04  PAGE 2   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 2   
 
+   52   1          IAP_TRIG = 0xA5;                    //先送5AH，再送A5H到IAP触发寄存器，每次都需要如此
    53   1          //送完A5H后，IAP命令立即被触发启动
    54   1          //CPU等待IAP完成后，才会继续执行程序。
    55   1          _nop_();   //由于STC32G144K是多级流水线的指令系统，触发命令后建议加4个NOP，保证IAP_DATA的数据完成准备
@@ -133,9 +134,9 @@ stmt  level    source
   107          {
   108   1          uint8 write_time;
   109   1          write_time = (system_clock / 1000000) ;
-  110   1          IAP_TPS = write_time + 1;
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  22:36:04  PAGE 3   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 3   
 
+  110   1          IAP_TPS = write_time + 1;
   111   1      }
   112          
   113          //-------------------------------------------------------------------------------------------------------
@@ -201,9 +202,9 @@ stmt  level    source
   168          // 参数说明     *buf      需要读取的数据地址
   169          // 返回参数     void
   170          // 备注信息
-  171          // 使用示例     iap_read_buff(0x00, buff, 10);  // 向0地址读取一个数组，数组长度为10
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  22:36:04  PAGE 4   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 4   
 
+  171          // 使用示例     iap_read_buff(0x00, buff, 10);  // 向0地址读取一个数组，数组长度为10
   172          //-------------------------------------------------------------------------------------------------------
              -------------
   173          void iap_read_buff(uint32 addr, uint8 *buf, uint16 len)
@@ -269,9 +270,9 @@ stmt  level    source
   228          // 参数说明     len       需要写的数据长度
   229          // 返回参数     void
   230          // 备注信息
-  231          // 使用示例             extern_iap_write_bytes(0x0000,(uint8 *)"0123456789",10);
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  22:36:04  PAGE 5   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 5   
 
+  231          // 使用示例             extern_iap_write_bytes(0x0000,(uint8 *)"0123456789",10);
   232          //                将"0123456789"写入0x00-0x0A地址中;
   233          // 注意事项           不要跨扇区使用。
   234          //                addr地址：0-511为一个扇区,512-1023为一个扇区，1024-1535为一个扇区，依次类推

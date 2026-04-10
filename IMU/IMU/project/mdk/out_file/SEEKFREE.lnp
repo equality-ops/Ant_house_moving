@@ -45,7 +45,8 @@
 ".\out_file\seekfree_assistant.obj",
 ".\out_file\seekfree_assistant_interface.obj",
 ".\out_file\isr.obj",
-".\out_file\main.obj" 
+".\out_file\main.obj",
+".\out_file\quaternion.obj" 
 TO ".\out_file\SEEKFREE" 
 PRINT(".\out_file\SEEKFREE.map") CASE DISABLEWARNING (57,16,7,25) 
 REMOVEUNUSED,NOOVERLAY 

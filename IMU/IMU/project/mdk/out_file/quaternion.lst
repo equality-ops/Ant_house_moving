@@ -1,114 +1,176 @@
-C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  22:51:37  PAGE 1   
+C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE quaternion
 OBJECT MODULE PLACED IN .\out_file\quaternion.obj
-COMPILER INVOKED BY: C:\Keil_v5\C251\BIN\C251.EXE ..\user\quaternion.c LARGE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(
-                    -0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\
-                    -zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant)
-                    - DEBUG PRINT(.\out_file\quaternion.lst) TABS(2) OBJECT(.\out_file\quaternion.obj) 
+COMPILER INVOKED BY: D:\ruanjian\keil\C251\BIN\C251.EXE ..\user\quaternion.c LARGE FLOAT64 ROM(HUGE) WARNINGLEVEL(3) OPT
+                    -IMIZE(0,SIZE) BROWSE INCDIR(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libr
+                    -aries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assi
+                    -stant) DEBUG PRINT(.\out_file\quaternion.lst) TABS(2) OBJECT(.\out_file\quaternion.obj) 
 
 stmt  level    source
 
     1          #include "quaternion.h"
     2          
-    3          Quat quat_mul(Quat q1, Quat q2) {
-    4   1          Quat result;
-    5   1          result.w = q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z;
-    6   1          result.x = q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y;
-    7   1          result.y = q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x;
-    8   1          result.z = q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w;
-    9   1          return result;
-   10   1      }
-   11          
-   12          Quat quat_conj(Quat q) {
-   13   1          Quat result;
-   14   1          result.w = q.w;
-   15   1          result.x = -q.x;
-   16   1          result.y = -q.y;
-   17   1          result.z = -q.z;
-   18   1          return result;
-   19   1      }
-   20          
-   21          float quat_norm(Quat q) {
-   22   1          return sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
-   23   1      }
-   24          
-   25          Quat quat_normalize(Quat q) {
-   26   1          float n;
-   27   1          Quat result;
-   28   1          float inv;
-   29   1          n = quat_norm(q);
-   30   1          if (n == 0.0f) {
-   31   2              result.w = 1.0f;
-   32   2              result.x = 0.0f;
-   33   2              result.y = 0.0f;
-   34   2              result.z = 0.0f;
-   35   2              return result;
-   36   2          }
-   37   1          inv = 1.0f / n;
-   38   1          result.w = q.w * inv;
-   39   1          result.x = q.x * inv;
-   40   1          result.y = q.y * inv;
-   41   1          result.z = q.z * inv;
-   42   1          return result;
-   43   1      }
-   44          
-   45          Quat omega_to_dq(float wx, float wy, float wz, float dt) {
-   46   1          float omega;
-   47   1          Quat result;
-   48   1          float half_dt;
-   49   1          float theta, half, s;
-   50   1          omega = sqrt(wx*wx + wy*wy + wz*wz);
-   51   1          if (omega < 1e-9f) {
-   52   2              half_dt = 0.5f * dt;
-   53   2              result.w = 1.0f;
-   54   2              result.x = wx * half_dt;
-   55   2              result.y = wy * half_dt;
-   56   2              result.z = wz * half_dt;
-C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  22:51:37  PAGE 2   
+    3          void quat_mul(Quat *result, Quat *q1, Quat *q2) {
+    4   1          // 提前读取，防止 q1/q2 和 result 是同一个指针导致的数据覆盖
+    5   1          float w1 = q1->w, x1 = q1->x, y1 = q1->y, z1 = q1->z;
+    6   1          float w2 = q2->w, x2 = q2->x, y2 = q2->y, z2 = q2->z;
+    7   1      
+    8   1          // 拆解乘法，避免单行表达式过长
+    9   1          float t_w = w1*w2 - x1*x2 - y1*y2 - z1*z2;
+   10   1          float t_x = w1*x2 + x1*w2 + y1*z2 - z1*y2;
+   11   1          float t_y = w1*y2 - x1*z2 + y1*w2 + z1*x2;
+   12   1          float t_z = w1*z2 + x1*y2 - y1*x2 + z1*w2;
+   13   1      
+   14   1          result->w = t_w;
+   15   1          result->x = t_x;
+   16   1          result->y = t_y;
+   17   1          result->z = t_z;
+   18   1      }
+   19          
+   20          void quat_conj(Quat *result, Quat *q) {
+   21   1          result->w = q->w;
+   22   1          result->x = -q->x;
+   23   1          result->y = -q->y;
+   24   1          result->z = -q->z;
+   25   1      }
+   26          
+   27          float quat_norm(Quat *q) {
+   28   1          // 拆解平方和计算
+   29   1          float ww = q->w * q->w;
+   30   1          float xx = q->x * q->x;
+   31   1          float yy = q->y * q->y;
+   32   1          float zz = q->z * q->z;
+   33   1          return sqrt(ww + xx + yy + zz);
+   34   1      }
+   35          
+   36          void quat_normalize(Quat *result, Quat *q) {
+   37   1          float n = quat_norm(q);
+   38   1          float inv;
+   39   1          float t_w, t_x, t_y, t_z;
+   40   1      
+   41   1          if (n < 1e-9f) {
+   42   2              result->w = 1.0f;
+   43   2              result->x = 0.0f;
+   44   2              result->y = 0.0f;
+   45   2              result->z = 0.0f;
+   46   2              return;
+   47   2          }
+   48   1          
+   49   1          inv = 1.0f / n;
+   50   1          
+   51   1          // 暂存结果，允许原地修改 (如 quat_normalize(&q, &q))
+   52   1          t_w = q->w * inv;
+   53   1          t_x = q->x * inv;
+   54   1          t_y = q->y * inv;
+   55   1          t_z = q->z * inv;
+   56   1      
+C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 2   
 
-   57   2              return quat_normalize(result);
-   58   2          }
-   59   1          theta = omega * dt;
-   60   1          half = 0.5f * theta;
-   61   1          s = sin(half) / omega;
-   62   1          result.w = cos(half);
-   63   1          result.x = wx * s;
-   64   1          result.y = wy * s;
-   65   1          result.z = wz * s;
-   66   1          return quat_normalize(result);
-   67   1      }
-   68          
-   69          Vec3 rotate_vector_by_quat(Quat q, Vec3 v) {
-   70   1          Quat vq;
-   71   1          Quat rotated;
-   72   1          Vec3 result;
-   73   1          vq.w = 0.0f;
-   74   1          vq.x = v.x;
-   75   1          vq.y = v.y;
-   76   1          vq.z = v.z;
-   77   1          rotated = quat_mul(quat_mul(q, vq), quat_conj(q));
-   78   1          result.x = rotated.x;
-   79   1          result.y = rotated.y;
-   80   1          result.z = rotated.z;
-   81   1          return result;
-   82   1      }
-   83          
-   84          void quat_to_euler(Quat q, float *roll, float *pitch, float *yaw) {
-   85   1          float w, x, y, z;
-   86   1          float roll_rad, pitch_rad, yaw_rad;
-   87   1          w = q.w; x = q.x; y = q.y; z = q.z;
-   88   1          roll_rad = atan2(2.0f*(w*x + y*z), 1.0f - 2.0f*(x*x + y*y));
-   89   1          pitch_rad = asin(2.0f*(w*y - z*x));
-   90   1          yaw_rad = atan2(2.0f*(w*z + x*y), 1.0f - 2.0f*(y*y + z*z));
-   91   1          *roll = roll_rad * 180.0f / 3.14159f;
-   92   1          *pitch = pitch_rad * 180.0f / 3.14159f;
-   93   1          *yaw = yaw_rad * 180.0f / 3.14159f;
-   94   1      }
-*** ERROR C11 IN LINE 1 OF ..\user\quaternion.c: internal error: (asmgen - triple=t061)
-*** ERROR C11 IN LINE 1 OF ..\user\quaternion.c: internal error: (asmgen - triple=t0AB)
-*** ERROR C11 IN LINE 57 OF ..\user\quaternion.c: internal error: (asmgen - triple=t061)
-*** ERROR C11 IN LINE 66 OF ..\user\quaternion.c: internal error: (asmgen - triple=t0AB)
+   57   1          result->w = t_w;
+   58   1          result->x = t_x;
+   59   1          result->y = t_y;
+   60   1          result->z = t_z;
+   61   1      }
+   62          
+   63          void omega_to_dq(Quat *result, float wx, float wy, float wz, float dt) {
+   64   1          float ww = wx*wx;
+   65   1          float yy = wy*wy;
+   66   1          float zz = wz*wz;
+   67   1          float omega = sqrt(ww + yy + zz);
+   68   1          float half_dt, theta, half, s;
+   69   1      
+   70   1          if (omega < 1e-9f) {
+   71   2              half_dt = 0.5f * dt;
+   72   2              result->w = 1.0f;
+   73   2              result->x = wx * half_dt;
+   74   2              result->y = wy * half_dt;
+   75   2              result->z = wz * half_dt;
+   76   2              quat_normalize(result, result);
+   77   2              return;
+   78   2          }
+   79   1          
+   80   1          theta = omega * dt;
+   81   1          half = 0.5f * theta;
+   82   1          s = sin(half) / omega;
+   83   1          
+   84   1          result->w = cos(half);
+   85   1          result->x = wx * s;
+   86   1          result->y = wy * s;
+   87   1          result->z = wz * s;
+   88   1          quat_normalize(result, result);
+   89   1      }
+   90          
+   91          void rotate_vector_by_quat(Vec3 *result, Quat *q, Vec3 *v) {
+   92   1          Quat vq;
+   93   1          Quat q_conj;
+   94   1          Quat temp;
+   95   1          Quat rotated;
+   96   1          
+   97   1          vq.w = 0.0f;
+   98   1          vq.x = v->x;
+   99   1          vq.y = v->y;
+  100   1          vq.z = v->z;
+  101   1          
+  102   1          quat_conj(&q_conj, q);
+  103   1          quat_mul(&temp, q, &vq);
+  104   1          quat_mul(&rotated, &temp, &q_conj);
+  105   1          
+  106   1          result->x = rotated.x;
+  107   1          result->y = rotated.y;
+  108   1          result->z = rotated.z;
+  109   1      }
+  110          
+  111          void quat_to_euler(Quat *q, float *roll, float *pitch, float *yaw) {
+  112   1          float w = q->w, x = q->x, y = q->y, z = q->z;
+  113   1          float roll_rad, pitch_rad, yaw_rad;
+  114   1          float roll_num, roll_den;
+  115   1          float pitch_val;
+  116   1          float yaw_num, yaw_den;
+  117   1      
+  118   1          // 彻底拆解复杂的三角函数和浮点表达式
+  119   1          roll_num = 2.0f * (w*x + y*z);
+  120   1          roll_den = 1.0f - 2.0f * (x*x + y*y);
+  121   1          roll_rad = atan2(roll_num, roll_den);
+  122   1          
+C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 3   
 
-C251 COMPILATION COMPLETE.  0 WARNING(S),  4 ERROR(S)
+  123   1          pitch_val = 2.0f * (w*y - z*x);
+  124   1          // 限幅保护：浮点误差可能导致 pitch_val 略大于 1，引发 asin 崩溃
+  125   1          if (pitch_val > 1.0f) pitch_val = 1.0f;
+  126   1          else if (pitch_val < -1.0f) pitch_val = -1.0f;
+  127   1          pitch_rad = asin(pitch_val);
+  128   1          
+  129   1          yaw_num = 2.0f * (w*z + x*y);
+  130   1          yaw_den = 1.0f - 2.0f * (y*y + z*z);
+  131   1          yaw_rad = atan2(yaw_num, yaw_den);
+  132   1          
+  133   1          *roll = roll_rad * 180.0f / 3.1415f;
+  134   1          *pitch = pitch_rad * 180.0f / 3.1415f;
+  135   1          *yaw = yaw_rad * 180.0f / 3.1415f;
+  136   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =    ------     ------
+  ecode size           =      3867     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =       312     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

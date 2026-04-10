@@ -1,9 +1,8 @@
 Build target 'stc32g144k246'
 compiling main.c...
 compiling quaternion.c...
-..\user\quaternion.c(1): error C11: internal error: (asmgen - triple=t061)
-..\user\quaternion.c(1): error C11: internal error: (asmgen - triple=t0AB)
-..\user\quaternion.c(57): error C11: internal error: (asmgen - triple=t061)
-..\user\quaternion.c(66): error C11: internal error: (asmgen - triple=t0AB)
-Target not created.
-Build Time Elapsed:  00:00:00
+linking...
+Program Size: data=8.6 edata+hdata=8204 xdata=33884 const=13803 code=125955
+creating hex file from ".\out_file\SEEKFREE"...
+".\out_file\SEEKFREE" - 0 Error(s), 0 Warning(s).
+Build Time Elapsed:  00:00:02
