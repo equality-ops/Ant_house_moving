@@ -234,7 +234,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -864,21 +864,20 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 240.0], [70.0, 120.0], [160.0, 20.0], [0.0, 0.0]], 0.0)
+        my_plan.navigate([[15.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
+    
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -950,6 +949,9 @@ def time_pit2_handler(time):
     
     # 观察速度
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
+    
+    # 检测四元数解算结果是否准确
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
     
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")

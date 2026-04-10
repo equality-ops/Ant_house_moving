@@ -268,10 +268,10 @@ class PoseData:
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (math.pi / 180.0)
         # self.gyro用于角速度环控制
         self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
-        # gyro_z用于四元数解算
-        gyro_z = -self.gyro_z * (math.pi / 180.0)
+        # gyro_z用于四元数解算（转化成弧度制）
+        gyro_z = self.gyro_z * (math.pi / 180.0)
 
-        # 3. 运行 AHRS 算法（gyro_z顺时针为正，四元数解算需要逆时针为正）
+        # 3. 运行 AHRS 算法
         self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], self.gyro_x, self.gyro_y, gyro_z)
         
         # 4. 更新欧拉角输出
