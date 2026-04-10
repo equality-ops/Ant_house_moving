@@ -1,4 +1,4 @@
-# 修改时间 4.2	  19:49
+# 修改时间 4.10	  17:26
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -65,7 +65,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.208216
+gyro_y_supply = 1.152369
 # 电机补偿系数
 ul_compensation = 1.0
 ur_compensation = 1.0

@@ -184,7 +184,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -403,7 +403,7 @@ def collaborative_task_machine():
             # my_plan.navigate([plan_data.fixed_point[3]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
+                if target_point and target_point[1] > 30 and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
                     my_vision_manager.current_servo_object = target_point[2]
                     # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
                     sin_servo_fil.buffer_init(my_plan.scan_v_max)
@@ -426,7 +426,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
+                if target_point and target_point[1] > 30:
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -549,7 +549,7 @@ def collaborative_task_machine():
                 my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[4]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
+                    if target_point and target_point[1] > 30 and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
                         my_vision_manager.current_servo_object = target_point[2]
                         # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
                         sin_servo_fil.buffer_init(my_plan.scan_v_max)
@@ -571,7 +571,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current-11.0, my_car.y_current], [my_car.x_current-11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point:
+                if target_point and target_point[1] > 30:
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -877,7 +877,6 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
     # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
-    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw))
     # my_uart3.write(f"{servo_pid.current_x},{servo_pid.current_y}\n")
     # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI},{my_vision_manager.angle_temp}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")

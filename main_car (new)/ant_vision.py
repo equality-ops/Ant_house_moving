@@ -2,11 +2,13 @@ import math
 
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
+    def __init__(self, flash_sys, beep, math, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
         self.MATH = math
+        # 注入传感器数据对象
+        self.pose_data = pose_data
         # 注入角度环pid对象
         self.angle_pid = angle_pid
         # 注入伺服PD控制器对象
@@ -122,7 +124,8 @@ class VisionManager:
         if self.finish_servo == False:
             self.target_point = self.my_art_protocol.coordinate_receive()
             # 检查当前伺服的物体是否与第一帧接收到的物体一致
-            if self.target_point and self.target_point[2] == self.current_servo_object:
+            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= 30:
+                self.my_uart3.write("x: {:<f}, y: {:<f}, object: {:<f}\n".format(self.target_point[0], self.target_point[1], self.target_point[2]))
                 self.servo_lost_count = 0
                 self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
@@ -329,7 +332,7 @@ class VisionManager:
                             self.calibrate_times = 0
                             self.counter = 0
                             # 里程计和姿态角硬复位
-                            self.my_car.now_yaw = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]) * self.MATH.PI / 180.0
+                            self.pose_data.reset_yaw(sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]))
                             self.angle_buffer.clear()
                             if self.car_position == 0:
                                 self.my_car.x_current = 137.0

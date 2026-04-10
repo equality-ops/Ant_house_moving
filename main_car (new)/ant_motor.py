@@ -172,6 +172,7 @@ class PoseData:
         self.now_roll = 0.0   # 横滚角
         self.now_yaw = 0.0    # 偏航角
 
+    # 更新四元数
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -215,7 +216,8 @@ class PoseData:
         # 7. 再次归一化四元数
         norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
         self.q = [q0/norm, q1/norm, q2/norm, q3/norm]
-
+    
+    # 将四元数转化为欧拉角
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
@@ -236,7 +238,48 @@ class PoseData:
         self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
                                   q0*q0 + q1*q1 - q2*q2 - q3*q3) * (180.0 / math.pi)
 
-    
+    # 重置四元数
+    def reset_yaw(self, ref_yaw_deg):
+        """
+        通过外部参考信息强制重置当前的偏航角 (Yaw)。
+        保留当前的横滚角 (Roll) 和俯仰角 (Pitch)，重新合成四元数。
+        
+        :param ref_yaw_deg: 外部传感器获取的绝对偏航角，单位：度 (°)
+        """
+        # 1. 将角度转换为半角弧度
+        half_roll = self.now_roll * 0.5 * (math.pi / 180.0)
+        half_pitch = self.now_pitch * 0.5 * (math.pi / 180.0)
+        half_yaw = -ref_yaw_deg * 0.5 * (math.pi / 180.0)
+
+        # 2. 预计算三角函数以提高运算效率
+        sr = math.sin(half_roll)
+        cr = math.cos(half_roll)
+        sp = math.sin(half_pitch)
+        cp = math.cos(half_pitch)
+        sy = math.sin(half_yaw)
+        cy = math.cos(half_yaw)
+
+        # 3. 欧拉角转四元数 (基于你原始解算的 Z-Y-X 旋转顺序)
+        q0 = cr * cp * cy + sr * sp * sy
+        q1 = sr * cp * cy - cr * sp * sy
+        q2 = cr * sp * cy + sr * cp * sy
+        q3 = cr * cp * sy - sr * sp * cy
+
+        # 为了确保精度，再次对生成的四元数进行归一化
+        norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
+        if norm == 0:
+            return # 防止除零异常
+
+        # 4. 强制覆盖当前四元数状态
+        self.q = [q0/norm, q1/norm, q2/norm, q3/norm]
+
+        # 5. 清空 PI 算法的积分补偿项
+        # 这一步极其重要：如果不清空，历史误差的积分积累会在接下来的几个周期内把姿态又“拉回”一点点，导致修正不干脆
+        self.e_int = [0.0, 0.0, 0.0]
+
+        # 6. 同步更新底层的欧拉角输出，确保下一个控制周期读取的数据是最新值
+        self.update_euler_angles()
+
     # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
         """暂时不需要这些数据
@@ -280,7 +323,6 @@ class PoseData:
         # 4. 更新欧拉角输出
         self.update_euler_angles()
 
-        # self.gyro_z = -self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
