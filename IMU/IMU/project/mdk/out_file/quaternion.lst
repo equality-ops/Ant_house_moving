@@ -1,4 +1,4 @@
-C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 1   
+C251 COMPILER V5.60.0,  quaternion                                                         11/04/26  12:42:09  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE quaternion
@@ -66,7 +66,7 @@ stmt  level    source
    54   1          t_y = q->y * inv;
    55   1          t_z = q->z * inv;
    56   1      
-C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 2   
+C251 COMPILER V5.60.0,  quaternion                                                         11/04/26  12:42:09  PAGE 2   
 
    57   1          result->w = t_w;
    58   1          result->x = t_x;
@@ -134,7 +134,7 @@ stmt  level    source
   120   1          roll_den = 1.0f - 2.0f * (x*x + y*y);
   121   1          roll_rad = atan2(roll_num, roll_den);
   122   1          
-C251 COMPILER V5.60.0,  quaternion                                                         09/04/26  23:46:45  PAGE 3   
+C251 COMPILER V5.60.0,  quaternion                                                         11/04/26  12:42:09  PAGE 3   
 
   123   1          pitch_val = 2.0f * (w*y - z*x);
   124   1          // 限幅保护：浮点误差可能导致 pitch_val 略大于 1，引发 asin 崩溃

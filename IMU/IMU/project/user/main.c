@@ -1,86 +1,146 @@
+/*********************************************************************************************************************
+* STC32G144K Opensourec Library 即（STC32G144K 开源库）是一个基于官方 SDK 接口的第三方开源库
+* Copyright (c) 2025 SEEKFREE 逐飞科技
+*
+* 本文件是STC32G144K开源库的一部分
+*
+* STC32G144K 开源库 是免费软件
+* 您可以根据自由软件基金会发布的 GPL（GNU General Public License，即 GNU通用公共许可证）的条款
+* 即 GPL 的第3版（即 GPL3.0）或（您选择的）任何后来的版本，重新发布和/或修改它
+*
+* 本开源库的发布是希望它能发挥作用，但并未对其作任何的保证
+* 甚至没有隐含的适销性或适合特定用途的保证
+* 更多细节请参见 GPL
+*
+* 您应该在收到本开源库的同时收到一份 GPL 的副本
+* 如果没有，请参阅<https://www.gnu.org/licenses/>
+*
+* 额外注明：
+* 本开源库使用 GPL3.0 开源许可证协议 以上许可申明为译文版本
+* 许可申明英文版在 libraries/doc 文件夹下的 GPL3_permission_statement.txt 文件中
+* 许可证副本在 libraries 文件夹下 即该文件夹下的 LICENSE 文件
+* 欢迎各位使用并传播本程序 但修改内容时必须保留逐飞科技的版权声明（即本声明）
+*
+* 文件名称          
+* 公司名称          成都逐飞科技有限公司
+* 版本信息          查看 libraries/doc 文件夹内 version 文件 版本说明
+* 开发环境          MDK FOR C251
+* 适用平台          STC32G144K
+* 店铺链接          https://seekfree.taobao.com/
+*
+* 修改记录
+* 日期              作者           备注
+* 2025-11-20        大W            first version
+********************************************************************************************************************/
 #include "zf_common_headfile.h"
-#include "quaternion.h"
 
-#define LED1                        (IO_P52)
-#define PIT                         (TIM0_PIT)
-#define GYRO_LSB_PER_DPS   (32768.0f / 2000.0f)
-#define RAD_PER_DEG        (3.1415f / 180.0f)
-#define DT                 0.01f
 
-static Quat q;
-static Vec3 forward_body;
-static int tick_count = 0;
-static float roll_angle = 0.0f;
-static float pitch_angle = 0.0f;
-static float yaw_angle = 0.0f;
-static float yaw_offset = 0.0f;
-float gyro_bias_x = 0.0f, gyro_bias_y = 0.0f, gyro_bias_z = 0.0f;
+// *************************** 例程硬件连接说明 ***************************
+//
+// *************************** 例程硬件连接说明 ***************************
+//
+// 接入2寸IPS模块
+//      模块管脚            单片机管脚
+//      双排排针 并口两寸屏 硬件引脚
+//      RD                  查看 zf_device_ips200_parallel8.h 中 IPS200_RD_PIN 宏定义 默认 B13
+//      WR                  查看 zf_device_ips200_parallel8.h 中 IPS200_WR_PIN 宏定义 默认 B15
+//      RS                  查看 zf_device_ips200_parallel8.h 中 IPS200_RS_PIN 宏定义 默认 B7
+//      RST                 查看 zf_device_ips200_parallel8.h 中 IPS200_RST_PIN宏定义 默认 D7
+//      CS                  查看 zf_device_ips200_parallel8.h 中 IPS200_CS_PIN 宏定义 默认 D4
+//      BL                  查看 zf_device_ips200_parallel8.h 中 IPS200_BL_PIN 宏定义 默认 D0
+//      D0-D7               查看 zf_device_ips200_parallel8.h 中 IPS200_Dx_PIN 宏定义 默认 E0-E7
+//      GND                 核心板电源地 GND
+//      3V3                 核心板 3V3 电源
+//      单排排针 SPI 两寸屏 硬件引脚
+//      SCL                 查看 zf_device_ips200.h 中 IPS200_SCL_PIN_SPI  宏定义 默认 B13
+//      SDA                 查看 zf_device_ips200.h 中 IPS200_SDA_PIN_SPI  宏定义 默认 B15
+//      RST                 查看 zf_device_ips200.h 中 IPS200_RST_PIN_SPI  宏定义 默认 B7
+//      DC                  查看 zf_device_ips200.h 中 IPS200_DC_PIN_SPI   宏定义 默认 D7
+//      CS                  查看 zf_device_ips200.h 中 IPS200_CS_PIN_SPI   宏定义 默认 D4
+//      BL                  查看 zf_device_ips200.h 中 IPS200_BLk_PIN_SPI  宏定义 默认 D0
+//      GND                 核心板电源地 GND                                      
+//      3V3                 核心板 3V3 电源
+//
+//
+// 接入总钻风灰度数字摄像头 对应主板摄像头接口 请注意线序
+//      模块管脚            单片机管脚
+//      TXD                 查看 zf_device_mt9v03x.h 中 MT9V03X_COF_UART_TX 宏定义 默认 D2  摄像头 UART-TX 引脚 要接在单片机 RX 上
+//      RXD                 查看 zf_device_mt9v03x.h 中 MT9V03X_COF_UART_RX 宏定义 默认 C12 摄像头 UART-RX 引脚 要接在单片机 TX 上
+//      D0                  查看 zf_device_mt9v03x.h 中 MT9V03X_D0_PIN      宏定义 默认 A9
+//      D1                  查看 zf_device_mt9v03x.h 中 MT9V03X_D1_PIN      宏定义 默认 A10
+//      D2                  查看 zf_device_mt9v03x.h 中 MT9V03X_D2_PIN      宏定义 默认 C8 
+//      D3                  查看 zf_device_mt9v03x.h 中 MT9V03X_D3_PIN      宏定义 默认 C9 
+//      D4                  查看 zf_device_mt9v03x.h 中 MT9V03X_D4_PIN      宏定义 默认 C11
+//      D5                  查看 zf_device_mt9v03x.h 中 MT9V03X_D5_PIN      宏定义 默认 B6 
+//      D6                  查看 zf_device_mt9v03x.h 中 MT9V03X_D6_PIN      宏定义 默认 B8 
+//      D7                  查看 zf_device_mt9v03x.h 中 MT9V03X_D7_PIN      宏定义 默认 B9 
+//      PCLK                查看 zf_device_mt9v03x.h 中 MT9V03X_PCLK_PIN    宏定义 默认 A6
+//      VSYNC               查看 zf_device_mt9v03x.h 中 MT9V03X_VSY_PIN     宏定义 默认 A5 
+//      HSYNC               查看 zf_device_mt9v03x.h 中 MT9V03X_HERF_PIN    宏定义 默认 A4 
 
-void init_attitude(void) {
-    q.w = 1.0f; q.x = 0.0f; q.y = 0.0f; q.z = 0.0f;
-    forward_body.x = 1.0f; forward_body.y = 0.0f; forward_body.z = 0.0f;
-}
+// *************************** 例程测试说明 ***************************
+// 1.核心板烧录完成本例程 将核心板插在主板上 插到底
+//
+// 2.摄像头接在主板的摄像头接口 注意线序2寸IPS模块插入主板屏幕接口
+//
+// 3.主板上电 或者核心板链接完毕后上电 核心板按下复位按键
+//
+// 4.屏幕会显示初始化信息然后显示摄像头图像
+//
+// 如果发现现象与说明严重不符 请参照本文件最下方 例程常见问题说明 进行排查
 
-void update_attitude(void) {
-    float gx_raw, gy_raw, gz_raw;
-    float gx_dps, gy_dps, gz_dps;
-    float wx, wy, wz;
-    Quat dq;
-    Vec3 direction_pure;
-    Quat temp_q; // 用于暂存四元数乘法结果，更安全
+// **************************** 代码区域 ****************************
+#define LED1                    (IO_P52 )
 
-    imu660rb_get_gyro();
-    gx_raw = (float)imu660rb_gyro_x;
-    gy_raw = (float)imu660rb_gyro_y;
-    gz_raw = (float)imu660rb_gyro_z;
+void main(void)
+{
+    clock_init(SYSTEM_CLOCK_96M); 				// 时钟配置及系统初始化<务必保留>
+    debug_init();                       		// 调试串口信息初始化
+	gpio_init(LED1, GPO, 0, GPO_PUSH_PULL);
 
-    gx_dps = (gx_raw - gyro_bias_x) / (-GYRO_LSB_PER_DPS);
-    gy_dps = (gy_raw - gyro_bias_y) / (-GYRO_LSB_PER_DPS);
-    gz_dps = (gz_raw - gyro_bias_z) / (-GYRO_LSB_PER_DPS);
-
-    wx = gx_dps * RAD_PER_DEG;
-    wy = gy_dps * RAD_PER_DEG;
-    wz = gz_dps * RAD_PER_DEG;
-
-    // 使用指针传参更新四元数
-    omega_to_dq(&dq, wx, wy, wz, DT);
-    
-    // 计算结果存放到 temp_q，再赋回给 q
-    quat_mul(&temp_q, &q, &dq);
-    q = temp_q;
-    
-    quat_normalize(&q, &q); // 我们在底层做了保护，这里原地修改是安全的
-
-    rotate_vector_by_quat(&direction_pure, &q, &forward_body);  // 可选用
-    quat_to_euler(&q, &roll_angle, &pitch_angle, &yaw_angle);
-    yaw_angle += yaw_offset;
-    tick_count++;
-}
-
-void pit_hanlder(void) {
-    update_attitude();
-}
-
-void main(void) {
-    clock_init(SYSTEM_CLOCK_96M);
-    debug_init();
-    gpio_init(LED1, GPO, GPIO_HIGH, GPO_PUSH_PULL);
-
-    while(1) {
-        if(imu660rb_init())
-            printf("\r\nimu660rb init error.");
+    // 此处编写用户代码 例如外设初始化代码等
+    ips200_init();
+    ips200_show_string(0, 0, "mt9v03x init.");
+    while(1)
+    {
+        system_delay_ms(100);   
+        if(mt9v03x_init())
+            ips200_show_string(0, 16, "mt9v03x reinit.");
         else
             break;
-        gpio_toggle_level(LED1);
-        system_delay_ms(300);
+		gpio_toggle_level(LED1);                                 // 短延时快速闪灯表示异常
     }
+    ips200_show_string(0, 16, "init success.");
+    // 此处编写用户代码 例如外设初始化代码等
 
-    init_attitude();
-    pit_ms_init(PIT, 10, pit_hanlder);
-
-    while(1) {
-        printf("\r\nroll: %6.2f, pitch: %6.2f, yaw: %6.2f", roll_angle, pitch_angle, yaw_angle);
-        gpio_toggle_level(LED1);
-        system_delay_ms(300);
+    while(1)
+    {
+        // 此处编写需要循环执行的代码
+        ips200_displayimage03x(mt9v03x_image[0], MT9V03X_W, MT9V03X_H);
+        /*
+        if(mt9v03x_finish_flag)
+        {
+            ips200_displayimage03x(mt9v03x_image[0], MT9V03X_W, MT9V03X_H);
+            mt9v03x_finish_flag = 0;
+        }
+        */
+        // 此处编写需要循环执行的代码
     }
 }
+// **************************** 代码区域 ****************************
+
+// *************************** 例程常见问题说明 ***************************
+// 遇到问题时请按照以下问题检查列表检查
+//
+// 问题1：屏幕不显示
+//      如果使用主板测试，主板必须要用电池供电 检查屏幕供电引脚电压
+//      检查屏幕是不是插错位置了 检查引脚对应关系
+//      如果对应引脚都正确 检查一下是否有引脚波形不对 需要有示波器
+//      无法完成波形测试则复制一个GPIO例程将屏幕所有IO初始化为GPIO翻转电平 看看是否受控
+//
+// 问题2：显示 reinit 字样
+//      检查接线是否正常
+//      主板供电是否使用电量充足的电池供电
+//
+// 问题2：显示图像杂乱 错位
+//      检查摄像头信号线是否有松动

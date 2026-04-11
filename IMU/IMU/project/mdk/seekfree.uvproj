@@ -857,6 +857,11 @@
               <FileType>5</FileType>
               <FilePath>..\user\quaternion.h</FilePath>
             </File>
+            <File>
+              <FileName>camera.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\camera.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

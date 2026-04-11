@@ -1,4 +1,4 @@
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 1   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   11/04/26  12:42:01  PAGE 1   
 
 
 C251 COMPILER V5.60.0, COMPILATION OF MODULE zf_driver_eeprom
@@ -66,7 +66,7 @@ stmt  level    source
    49          {
    50   1      
    51   1          IAP_TRIG = 0x5A;
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 2   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   11/04/26  12:42:01  PAGE 2   
 
    52   1          IAP_TRIG = 0xA5;                    //先送5AH，再送A5H到IAP触发寄存器，每次都需要如此
    53   1          //送完A5H后，IAP命令立即被触发启动
@@ -134,7 +134,7 @@ stmt  level    source
   107          {
   108   1          uint8 write_time;
   109   1          write_time = (system_clock / 1000000) ;
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 3   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   11/04/26  12:42:01  PAGE 3   
 
   110   1          IAP_TPS = write_time + 1;
   111   1      }
@@ -202,7 +202,7 @@ stmt  level    source
   168          // 参数说明     *buf      需要读取的数据地址
   169          // 返回参数     void
   170          // 备注信息
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 4   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   11/04/26  12:42:01  PAGE 4   
 
   171          // 使用示例     iap_read_buff(0x00, buff, 10);  // 向0地址读取一个数组，数组长度为10
   172          //-------------------------------------------------------------------------------------------------------
@@ -270,7 +270,7 @@ stmt  level    source
   228          // 参数说明     len       需要写的数据长度
   229          // 返回参数     void
   230          // 备注信息
-C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   09/04/26  23:37:17  PAGE 5   
+C251 COMPILER V5.60.0,  zf_driver_eeprom                                                   11/04/26  12:42:01  PAGE 5   
 
   231          // 使用示例             extern_iap_write_bytes(0x0000,(uint8 *)"0123456789",10);
   232          //                将"0123456789"写入0x00-0x0A地址中;
