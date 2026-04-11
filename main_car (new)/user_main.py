@@ -160,8 +160,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(4)
+sin_servo_fil = ant_motor.SlipAveragingFilter(1)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(1)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -403,11 +403,8 @@ def collaborative_task_machine():
             # my_plan.navigate([plan_data.fixed_point[3]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > 30 and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
+                if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
                     my_vision_manager.current_servo_object = target_point[2]
-                    # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
-                    sin_servo_fil.buffer_init(my_plan.scan_v_max)
-                    cos_servo_fil.buffer_init(0)
                     ready_servo_and_orbit()
                     reset_navigate_flags()
                     my_state.state = my_state.SERVO
@@ -426,7 +423,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > 30:
+                if target_point and target_point[1] > my_vision_manager.dist_threshold:
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()
@@ -549,11 +546,8 @@ def collaborative_task_machine():
                 my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[4]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point and target_point[1] > 30 and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
+                    if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
                         my_vision_manager.current_servo_object = target_point[2]
-                        # 初始化视觉伺服偏航角缓冲区，使其过渡更平滑
-                        sin_servo_fil.buffer_init(my_plan.scan_v_max)
-                        cos_servo_fil.buffer_init(0)
                         ready_servo_and_orbit()
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
@@ -571,7 +565,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current-11.0, my_car.y_current], [my_car.x_current-11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > 30:
+                if target_point and target_point[1] > my_vision_manager.dist_threshold:
                     my_vision_manager.current_servo_object = target_point[2]
                     ready_servo_and_orbit()
                     reset_navigate_flags()

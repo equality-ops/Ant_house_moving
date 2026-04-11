@@ -55,6 +55,7 @@ class VisionManager:
         self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: int   # 视觉伺服控制最大速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: int   # 视觉伺服控制最小速度 
+        self.dist_threshold = self.flash_sys.find_value("dist_threshold")    # type: float # 物体距离多远认定为合理
         self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
@@ -124,7 +125,7 @@ class VisionManager:
         if self.finish_servo == False:
             self.target_point = self.my_art_protocol.coordinate_receive()
             # 检查当前伺服的物体是否与第一帧接收到的物体一致
-            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= 30:
+            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= self.dist_threshold:
                 self.my_uart3.write("x: {:<f}, y: {:<f}, object: {:<f}\n".format(self.target_point[0], self.target_point[1], self.target_point[2]))
                 self.servo_lost_count = 0
                 self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
