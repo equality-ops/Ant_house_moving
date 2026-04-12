@@ -152,16 +152,17 @@ speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
-# 创建tof测距滤波器对象
-# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
+# 创建目标物体像素点坐标滤波器对象
+kf_target_x_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0) 
+kf_target_y_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(1)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(1)
+sin_servo_fil = ant_motor.SlipAveragingFilter(3)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(3)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -184,7 +185,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, kf_target_x_fil, kf_target_y_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -235,7 +236,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -384,8 +385,9 @@ def collaborative_task_machine():
                 my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
-            # my_plan.navigate([plan_data.fixed_point[1]], 0.0)
-            my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
+            # 单独测试视觉伺服
+            my_plan.navigate([[35.0, -15.0]], 0.0)
+            # my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
             if my_plan.finish_navigate == True:
                 # 重置标志位
                 my_plan.finish_navigate = False
@@ -881,7 +883,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
-    
+
     # 路径规划
     # my_uart3.write(f"{my_plan.current_path}\n")
     
@@ -959,4 +961,5 @@ while True:
         gc.collect()
         break
 
-    gc.collect()	
+    gc.collect()
+    

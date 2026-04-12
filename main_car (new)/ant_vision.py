@@ -2,7 +2,7 @@ import math
 
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
+    def __init__(self, flash_sys, beep, math, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, kf_target_x_fil, kf_target_y_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -61,6 +61,23 @@ class VisionManager:
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
 
+        # ================= 新增：卡尔曼滤波与预测相关变量 =================
+        # 为 X 和 Y 坐标分别建立卡尔曼滤波器
+        # P: 估计误差协方差, Q: 过程噪声(越小越信任预测), R: 测量噪声(越大越信任滤波，抗抖动)
+        self.kf_target_x = kf_target_x_fil 
+        self.kf_target_y = kf_target_y_fil
+        
+        self.last_target_x = 0.0     # 上一周期使用的目标 X 坐标
+        self.last_target_y = 0.0     # 上一周期使用的目标 Y 坐标
+        
+        self.pixel_vel_x = 0.0       # 目标在视野中的 X 轴像素移动速度
+        self.pixel_vel_y = 0.0       # 目标在视野中的 Y 轴像素移动速度
+
+        self.last_vision_x = 0.0
+        self.last_vision_y = 0.0
+        # ==================================================================
+
+
         # 环绕控制相关变量
         self.orbit_radius = 0.0            # type: float   # 环绕半径
         self.orbit_speed = 0               # type: int     # 环绕速度
@@ -112,55 +129,115 @@ class VisionManager:
         elif self.target_rel_yaw < -180.0:
             self.target_rel_yaw += 360.0
     
-    # 视觉伺服控制
     def visual_servo_control(self):
-        # 选择合适的里程计系数
-        self.my_car.alpha_x = 1.0
-        self.my_car.alpha_y = 1.0
-        # 选择正常伺服状态下的pid参数
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-        self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
-        if self.finish_servo == False:
-            self.target_point = self.my_art_protocol.coordinate_receive()
-            # 检查当前伺服的物体是否与第一帧接收到的物体一致
-            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= self.dist_threshold:
-                self.my_uart3.write("x: {:<f}, y: {:<f}, object: {:<f}\n".format(self.target_point[0], self.target_point[1], self.target_point[2]))
-                self.servo_lost_count = 0
-                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
+            # 选择合适的里程计系数
+            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_y = 1.0
+            # 选择正常伺服状态下的pid参数
+            self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
+            self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
+            self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
+            self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+
+            if self.finish_servo == False:
+                # 1. 尝试接收新一帧数据
+                new_target = self.my_art_protocol.coordinate_receive()
+                
+                # 准备本次循环要喂给 PID 的坐标
+                current_x = self.last_target_x
+                current_y = self.last_target_y
+
+                # 2. 判断是否收到有效的新视觉帧
+                if new_target and new_target[2] == self.current_servo_object and new_target[1] >= self.dist_threshold:
+                    raw_x, raw_y = new_target[0], new_target[1]
+                    
+                    # 【观测更新】：经过卡尔曼滤波，平滑 AI 模型的边框跳动
+                    filtered_x = self.kf_target_x.update(raw_x)
+                    filtered_y = self.kf_target_y.update(raw_y)
+
+                    # 测试打印
+                    # self.my_uart3.write(f"{filtered_x},{filtered_y},{raw_x},{raw_y}\n")
+                    
+                    # 【修正核心：计算真实速度】
+                    # loops_elapsed 表示距离上一次有效视觉帧，经过了多少个代码运行周期
+                    loops_elapsed = self.servo_lost_count + 1 
+                    
+                    # 如果不是彻底丢失后刚找回，就计算并平滑速度
+                    if loops_elapsed < 150:
+                        # 真实速度 = (当前真实坐标 - 上次真实坐标) / 间隔的周期数（放大3倍）
+                        instant_vel_x = (filtered_x - self.last_vision_x) / loops_elapsed * 4
+                        instant_vel_y = (filtered_y - self.last_vision_y) / loops_elapsed * 4
+                        
+                        max_v = 5.0 
+                        instant_vel_x = max(-max_v, min(max_v, instant_vel_x))
+                        instant_vel_y = max(-max_v, min(max_v, instant_vel_y))
+
+                        # 低通滤波，防止速度突变
+                        self.pixel_vel_x = instant_vel_x * 0.4 + self.pixel_vel_x * 0.6
+                        self.pixel_vel_y = instant_vel_y * 0.4 + self.pixel_vel_y * 0.6
+                    
+                    # 更新真实视觉坐标记录
+                    self.last_vision_x = filtered_x
+                    self.last_vision_y = filtered_y
+                    
+                    # 更新当前要喂给PID的坐标
+                    current_x = filtered_x
+                    current_y = filtered_y
+                    
+                    # 重置掉帧计数
+                    self.servo_lost_count = 0
+                    # self.my_uart3.write("x: {:<f}, y: {:<f}, object: {:<f}\n".format(current_x, current_y, new_target[2]))
+
+                else:
+                    self.servo_lost_count += 1
+                    
+                    # 【状态预测】：如果没有收到新帧（掉帧），基于像素速度预测目标当前的位置
+                    # 设定一个预测阈值（例如连续丢失 30 帧以内才预测，避免预测飞掉）
+                    if self.servo_lost_count < 30:
+                        current_x = self.last_target_x + self.pixel_vel_x
+                        current_y = self.last_target_y + self.pixel_vel_y
+                        
+                        # 随着掉帧增加，逐渐衰减预测速度（阻尼），防止目标跑出视野边界
+                        self.pixel_vel_x *= 0.7
+                        self.pixel_vel_y *= 0.7
+                    
+                    # 彻底丢失保护
+                    if self.servo_lost_count >= 150:
+                        self.target_rel_speed = 0
+                        self.target_rel_yaw = 0.0
+                        self.if_lost_object = True
+                        self.servo_lost_count = 0
+                        return # 彻底丢失，跳出伺服逻辑
+
+                # 测试打印
+                self.my_uart3.write(f"{current_x},{current_y},{self.pixel_vel_x},{self.pixel_vel_y}\r\n")
+
+                # 3. 保存本次坐标，供下个周期预测使用
+                self.last_target_x = current_x
+                self.last_target_y = current_y
+
+                # ================= 高频控制解耦 =================
+                # 无论这是真实接收到的点，还是我们预测补帧的点，都扔给 PID 算！
+                self.servo_pid.compute_pid(current_x, current_y)
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
                 self.target_rel_speed_y = self.servo_pid.pwm_output_y
 
-                if self.finish_servo == False:
-                    # 判断是否完成视觉伺服控制
-                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-                        self.target_rel_speed = 0
-                        self.target_rel_yaw = 0.0
-                        self.my_order_manager.finish()
-                        # 测试
-                        # self.my_beep.test()
-                        self.finish_servo = True
-                    else:
-                        # 计算综合目标速度和航向角
-                        # 滤波
-                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                        # 固定伺服速度
-                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                        self.compute_target_rel_yaw()
-                        # 当横移角度过大时，速度减小%20
-                        if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.8)
-                        self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
-            else:
-                self.servo_lost_count += 1
-                # 连续丢失150帧物体坐标后（在1.5s内不再收到物体坐标信息），认为物体丢失，停止小车运动
-                if self.servo_lost_count >= 150:
+                # 4. 判断是否完成视觉伺服控制
+                if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
-                    self.servo_lost_count = 0
-                    self.if_lost_object = True
+                    self.my_order_manager.finish()
+                    self.finish_servo = True
+                else:
+                    # 原有的滤波和速度限制逻辑保持不变
+                    self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                    self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                    self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                    self.compute_target_rel_yaw()
+                    
+                    if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                        self.target_rel_speed = int(self.target_rel_speed * 0.8)
+                    self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
