@@ -1,7 +1,8 @@
 #ifndef _QUATERNION_H_
 #define _QUATERNION_H_
 #define LED1                        (IO_P52)
-#define PIT                         (TIM0_PIT)
+#define PIT1                         (TIM0_PIT)
+#define PIT2                         (TIM1_PIT)
 #define GYRO_LSB_PER_DPS   16.384f
 #define RAD_PER_DEG        0.017453f// 3.1415926f/180.0f
 #define DT                 0.01f//IMU中断时间
@@ -17,19 +18,12 @@
 #define SWITCH2_PIN     IO_PB1
 //beep define
 #define BEEP_PIN IO_P65
-//uart define
-#define UART_INDEX              ( UART_5   )                // 默认 UART_5
-#define UART_BAUDRATE           ( 115200 )                  // 默认 115200
-#define UART_TX_PIN             ( UART5_TX_P05 )            // 默认 UART5_TX_P05
-#define UART_RX_PIN             ( UART5_RX_P04 )            // 默认 UART5_RX_P04
-#define MAX_BUF_SIZE 128
 typedef struct {
     float Q;      // 过程噪声协方差
     float R;      // 测量噪声协方差
     float x;      // 状态估计值
     float P;      // 估计误差协方差
 } Kalman1D;
-
 // 初始化卡尔曼滤波器
 void Kalman1D_Init(Kalman1D *k, float Q, float R, float x0, float P0);
 

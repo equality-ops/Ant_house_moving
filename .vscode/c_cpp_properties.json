@@ -7,14 +7,14 @@
             "intelliSenseMode": "${default}",
             "includePath": [
                 "C:/Keil_v5/C251/INC",
-                "libraries/zf_common",
-                "libraries/zf_components",
-                "libraries/zf_device",
-                "libraries/zf_driver",
-                "project/user",
-                "project/code",
-                "libraries/zf_components/stc32g_usb_lib",
-                "libraries/zf_components/seekfree_assistant"
+                "assisting car/libraries/zf_common",
+                "assisting car/libraries/zf_components",
+                "assisting car/libraries/zf_device",
+                "assisting car/libraries/zf_driver",
+                "assisting car/project/user",
+                "assisting car/project/code",
+                "assisting car/libraries/zf_components/stc32g_usb_lib",
+                "assisting car/libraries/zf_components/seekfree_assistant"
             ],
             "defines": [
                 "__C251__",
