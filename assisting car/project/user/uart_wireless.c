@@ -87,7 +87,35 @@ void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_fl
         }
     }
 }
-
+void uart_send(const uint8 *dat,uint8 length){
+    uint8 n_buffer[64];   //用于存储读取到的数据的临时缓冲区
+    memcpy(n_buffer, dat, length);
+    printf("%s\r\n", n_buffer);              
+    uart_write_buffer(UART_INDEX, n_buffer, length); 
+    uart_write_string(UART_INDEX, "\r\n");                 
+}
+void uart_send_int16_to_chr(int16 dat) {
+    char buffer[6];  // int16 范围 -32768 ~ 32767，最多6字符（含负号和结尾\0）
+    int16 num = dat;
+    uint8 idx = 0;
+    
+    if (num < 0) {
+        uart_write_byte(UART_INDEX, '-');
+        num = -num;
+    }
+    
+    // 生成数字字符（反向）
+    do {
+        buffer[idx++] = (num % 10) + '0';
+        num /= 10;
+    } while (num > 0);
+    
+    // 反向发送
+    while (idx > 0) {
+        uart_write_byte(UART_INDEX, buffer[--idx]);
+    }
+    uart_write_string(UART_INDEX, "\r\n");
+}
 //wireless函数
 void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state ) {
     //信号形式为 *A123!

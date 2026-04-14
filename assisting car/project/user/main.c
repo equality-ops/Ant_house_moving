@@ -1,6 +1,8 @@
 #include "zf_common_headfile.h"
 #include "quaternion.h"
 #include "uart_wireless.h"
+#include "else.h"
+#include "motor.h"
 //初始化变量
 uint8 key1_status = 1;//按键状态
 
@@ -12,39 +14,19 @@ static float roll_angle = 0.0;
 static float pitch_angle = 0.0;
 static float yaw_angle = 0.0;
 float gyro_bias_x = 0.0, gyro_bias_y = 0.0, gyro_bias_z = 0.0;
-Kalman1D kf_gx, kf_gy, kf_gz;//陀螺仪卡尔曼滤波器
-
-//uart相关变量
-ring_buffer uart_rx_buffer;//uart接收环形缓冲区
-uint8       uart_get_data[64] = {0};                        // 串口接收数据缓冲区
-uint8       fifo_get_data[64] = {0};                        // fifo 输出读出缓冲区
-uint8       last_rx_data_count = 0;
-uint32      fifo_data_count = 0;                            // fifo 数据个数
-fifo_struct uart_data_fifo = {0};
-uint8 uart_analyze_flag = 0;//uart分析标志
-
-//wireless相关变量
-ring_buffer wireless_rx_buffer;//wireless接收环形缓冲区
-uint8 data_buffer[32];
-uint8 last_length = 0;
-uint8 data_len;
-uint8 count = 0;
-uint8 wireless_analyze_state=0;//
-
 //目标
 int16 camera_erro=0;
 uint8 target_side = 2; // 0:左，1:中，2:右
 uint16 target_x_or_y = 0; // 目标距离
 
-
 //中断处理函数
-
 
 void uart_rx_interrupt_handler (uint8 dat)// UART 接收中断处理函数
 {
     uart_query_byte(UART_INDEX, &dat);                                     // 接收数据 查询式 有数据会返回 TRUE 没有数据会返回 FALSE
     fifo_write_buffer(&uart_data_fifo, &dat, 1);                           // 将数据写入 fifo 中
 }
+
 void uart_handler (void)// UART 定时数据处理函数
 {
     fifo_data_count = fifo_used(&uart_data_fifo);                           // 查看 fifo 是否有数据
@@ -66,7 +48,8 @@ void wireless_handler(void) {// Wireless 定时数据处理函数
         analyze_wireless_data(&wireless_rx_buffer,&target_side,&target_x_or_y,&wireless_analyze_state); // 分析数据
     }
 }
-void update_attitude(void) {
+
+void pit_hanlder(void) {//IMU中断
     float gx_raw, gy_raw, gz_raw;
     float gx_f, gy_f, gz_f;
     float gx_dps, gy_dps, gz_dps;
@@ -106,31 +89,7 @@ void update_attitude(void) {
     rotate_vector_by_quat(&q,&forward_body, &direction_pure);
     tick_count++;
 }
-void pit_hanlder(void) {//IMU中断
-    update_attitude();
-}
-// 电压检测
-void voltage_detect()
-{
-    float voltage;
-    int adc_data= adc_convert(ADC1_CH0_P10);
-    voltage =  (float)11 * 3.3 * adc_data / 4095 ;
-    if (voltage>11.1) {
-        while(1) {
-            gpio_toggle_level(LED1);
-            system_delay_ms(3000);
-            printf("Battery voltage is normal: %.2f\r\n", voltage);
-        }
-    }
-    else
-    {
-        while(1) {
-            gpio_toggle_level(LED1);
-            system_delay_ms(3000);
-            printf("Battery voltage is too low: %.2f\r\n", voltage);
-        }
-    }
-}
+
 
 void calibrate_gyro(void) {
     const int num_samples = 100;
@@ -149,43 +108,7 @@ void calibrate_gyro(void) {
     gyro_bias_z = sum_z / num_samples;
 }
 
-void beep_once(void) {
-    gpio_set_level(BEEP_PIN, 0);
-    system_delay_ms(50);
-    gpio_set_level(BEEP_PIN, 1);
-    system_delay_ms(50);
-    gpio_set_level(BEEP_PIN, 0);
-}
 
-void uart_send(const uint8 *dat,uint8 length){
-    uint8 n_buffer[64];   //用于存储读取到的数据的临时缓冲区
-    memcpy(n_buffer, dat, length);
-    printf("%s\r\n", n_buffer);              
-    uart_write_buffer(UART_INDEX, n_buffer, length); 
-    uart_write_string(UART_INDEX, "\r\n");                 
-}
-void uart_send_int16_to_chr(int16 dat) {
-    char buffer[6];  // int16 范围 -32768 ~ 32767，最多6字符（含负号和结尾\0）
-    int16 num = dat;
-    uint8 idx = 0;
-    
-    if (num < 0) {
-        uart_write_byte(UART_INDEX, '-');
-        num = -num;
-    }
-    
-    // 生成数字字符（反向）
-    do {
-        buffer[idx++] = (num % 10) + '0';
-        num /= 10;
-    } while (num > 0);
-    
-    // 反向发送
-    while (idx > 0) {
-        uart_write_byte(UART_INDEX, buffer[--idx]);
-    }
-    uart_write_string(UART_INDEX, "\r\n");
-}
 void all_init(void) {//初始化
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
@@ -226,8 +149,13 @@ void all_init(void) {//初始化
     wireless_uart_send_byte('\n');
     wireless_uart_send_string("wireless ready\r\n");    // 初始化正常 输出测试信息
     rb_init(&wireless_rx_buffer, 64);
-    //rb_init(&wireless_rx_buffer); // 初始化无线接收环形缓冲区
+    // PID 初始化
+    motor_PID_Init(&pid1, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
+    motor_PID_Init(&pid2, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
+    motor_PID_Init(&pid3, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
+    motor_PID_Init(&pid4, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
 }
+
 void main(void) {
     all_init();
     beep_once();
@@ -273,9 +201,7 @@ void main(void) {
     init_attitude();
     calibrate_gyro();
     printf("\r\ngyro bias: x=%.2f, y=%.2f, z=%.2f", gyro_bias_x, gyro_bias_y, gyro_bias_z);
-    
     pit_ms_init(PIT, 10, pit_hanlder);
-
     while(1) {
         printf("\r\nroll: %6.2f, pitch: %6.2f, yaw: %6.2f", roll_angle, pitch_angle, yaw_angle);
         gpio_toggle_level(LED1);
