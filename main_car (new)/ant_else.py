@@ -55,9 +55,9 @@ class order_manager:
         # 注入串口对象
         self.my_uart = uart
     
-    # 切换到目标识别模式
+    # 切换到目标识别模式（模型）
     def mode_target(self):
-        self.my_uart.write("T")
+        self.my_uart.write("M")
 
     # 切换到上下边界识别模式
     def mode_boundary_ud(self):

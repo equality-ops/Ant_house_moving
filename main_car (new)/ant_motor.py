@@ -465,7 +465,7 @@ class ServoPID(ControlPID):
         self.servo_kd_x = 0.0
         self.servo_kp_y = 0.0
         self.servo_kd_y = 0.0
-        self.target_x = self.flash_sys.find_value("servo_target_x")      # type: int
+        self.target_x = 0.0
         self.actual_x = 0     # type: float
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
@@ -484,9 +484,32 @@ class ServoPID(ControlPID):
         self.current_x = 0  # type: float
         self.current_y = 0  # type: float
         self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
-        
+    
+    # 模型下的pid计算
+    def model_compute_pid(self, actual_x: float, actual_y: float):
+        # 模型下x和y的目标值都为0
+        self.target_x, self.target_y = 0.0, 0.0
+        self.actual_x = actual_x
+        self.actual_y = actual_y    
+        self.preError_x = self.nowError_x
+        self.preError_y = self.nowError_y
+        self.nowError_x = self.actual_x - self.target_x 
+        self.nowError_y = self.actual_y - self.target_y
+        # 计算微分项
+        self.derivative_x = self.nowError_x - self.preError_x
+        self.derivative_y = self.nowError_y - self.preError_y
+        # 计算pwm_output
+        self.pwm_output_x = int(self.servo_kp_x * self.nowError_x + self.servo_kd_x * self.derivative_x)
+        self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
 
-    def compute_pid(self, actual_x: int, actual_y: int):
+        # pwm_output限幅
+        self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
+        self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
+
+    # 色块下的pid计算
+    def color_compute_pid(self, actual_x: int, actual_y: int):
+        # 色块模式下x的目标值为80
+        self.target_x = 80
         self.actual_x = actual_x
         self.actual_y = actual_y    
         # 根据拟合公式计算出当前物体中心所在图片宽度与高度的实际距离(cm)
@@ -508,7 +531,6 @@ class ServoPID(ControlPID):
         # pwm_output限幅
         self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
         self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
-
 
 
 # 小车姿态控制
