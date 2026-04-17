@@ -161,8 +161,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
 cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(3)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(3)
+sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
@@ -390,8 +390,8 @@ def collaborative_task_machine():
                 my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
-            # my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
-            my_plan.navigate([[35.0, -15.0]], 180.0)
+            my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
+            # my_plan.navigate([[35.0, -15.0]], 180.0)
             if my_plan.finish_navigate == True:
                 # 重置标志位
                 my_plan.finish_navigate = False
@@ -405,7 +405,7 @@ def collaborative_task_machine():
                     my_order_manager.mode_target()
                     my_art_protocol.send_object_kind('C')
         elif my_state.state == my_state.SCAN:
-            # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3]], 0.0)
+            my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3]], 0.0)
             # my_plan.navigate([plan_data.fixed_point[3]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
@@ -556,6 +556,8 @@ def collaborative_task_machine():
                         ready_servo_and_orbit(target_point)
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
+                        # 测试
+                        my_beep.test()
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
                     my_plan.finish_navigate = False
@@ -876,11 +878,12 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x}\n")
     # my_uart3.write(f"{servo_pid.current_x},{servo_pid.current_y}\n")
     # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI},{my_vision_manager.angle_temp}\n")
-    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
+    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
+    # my_uart3.write(f"{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x},{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x}\r\n")
     # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
-    my_uart3.write(f"{my_vision_manager.absolute_actual_x},{my_vision_manager.absolute_actual_y}\n")
+    # my_uart3.write(f"{my_vision_manager.absolute_actual_x},{my_vision_manager.absolute_actual_y}\n")
     # my_uart3.write(f"{my_vision_manager.real_servo_point}\n")
-    # my_uart3.write(f"{my_vision_manager.last_car_x},{my_vision_manager.last_car_y}\n")
+
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
@@ -888,7 +891,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_mdPid.actual))
 
     # 路径规划
-    # my_uart3.write(f"{my_plan.current_path}\n")
+    # my_uart3.write(f"{my_plan.current_path}\n")	
     
     # 航向角输出
     # my_uart3.write(f"{my_plan.target_yaw}\n")
@@ -950,7 +953,7 @@ def pit3_start():
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
-voltage_detect(11.4)
+voltage_detect(11.2)
 
 # 打开定时器
 pit2_start()
