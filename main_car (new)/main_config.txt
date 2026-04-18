@@ -1,4 +1,4 @@
-# 修改时间 4.17	  22:36
+# 修改时间 4.18	  18:50
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -88,7 +88,7 @@ error_x_S = 2.0
 error_x_B = 2.0
 ###################【速度规划】####################
 min_start_v = 20
-long_v_max = 200
+long_v_max = 190
 short_v_max = 120
 dead_zone_v = 40
 transit_v = 100
@@ -129,8 +129,8 @@ servo_target_y_T = 4.0
 servo_target_y_S = 7.0
 servo_target_y_B = 15.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 1.0
-finish_threshold_y = 1.0
+finish_threshold_x = 0.6
+finish_threshold_y = 0.6
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0

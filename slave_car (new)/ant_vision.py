@@ -46,6 +46,8 @@ class VisionManager:
         self.servo_lost_count = 0
         # 视觉伺服失败的次数
         self.failed_servo_count = 0 
+        # 最终小车停在物体前的距离（随着物体种类改变）
+        self.final_dist = 0.0
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
@@ -59,6 +61,27 @@ class VisionManager:
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
+
+        # ================= 矫正相关变量 =================
+        # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
+        self.H_matrix = [[ 2.61609705e+00, -1.15116164e-02, -2.13108305e+02],
+                        [-5.33295482e-17, -2.08848955e+00,  2.66746843e+02],
+                        [-6.04421566e-19,  8.56749504e-02,  1.00000000e+00]]
+        # 解算后的物体与小车的相对位置偏差
+        self.relative_raw_x = 0.0
+        self.relative_raw_y = 0.0
+        self.relative_actual_x = 0.0
+        self.relative_actual_y = 0.0
+        self.actual_dist = 0.0
+        # 解算后的物体与小车的绝对位置偏差（相对于世界坐标系下）
+        self.absolute_actual_x = 0.0
+        self.absolute_actual_y = 0.0
+        # 视觉伺服完成的预测点位
+        self.real_servo_point = [0, 0]
+        # 小车上一帧记录的坐标
+        self.last_car_x = 0.0
+        self.last_car_y = 0.0
+        # ==================================================================
 
         # 环绕控制相关变量
         self.orbit_radius = 0.0            # type: float   # 环绕半径
@@ -102,16 +125,55 @@ class VisionManager:
         self.if_gain_calibrate_angle = False   # type: bool  # 判断是否获取校准角度标志位
         self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
 
-    # 计算目标航向角
-    def compute_target_rel_yaw(self):
-        # 计算目标角度，单位：度（注意避免除以0）
-        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI + self.target_rel_turn_angle
-        if self.target_rel_yaw > 180.0:
-            self.target_rel_yaw -= 360.0
-        elif self.target_rel_yaw < -180.0:
-            self.target_rel_yaw += 360.0
-    
-    # 视觉伺服控制
+    # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
+    def pixel_to_real_world(self, u, v):
+        """
+        将像素坐标转换为实际物理坐标
+        :param u: 像素点的 x 坐标 (列)
+        :param v: 像素点的 y 坐标 (行)
+        :return: 真实的物理坐标 (X_w, Y_w)
+        """
+        # 计算缩放因子
+        w_prime = self.H_matrix[2][0] * u + self.H_matrix[2][1] * v + self.H_matrix[2][2]
+        # 计算真实的物理坐标
+        X_w = (self.H_matrix[0][0] * u + self.H_matrix[0][1] * v + self.H_matrix[0][2]) / w_prime
+        Y_w = (self.H_matrix[1][0] * u + self.H_matrix[1][1] * v + self.H_matrix[1][2]) / w_prime
+
+        return X_w, Y_w
+
+
+    # 物体像素点坐标解算函数
+    def calculate_dist(self, x: int, y: int):
+        # correct_dist为经验修正值，考虑了车体直径和推杆长度
+        correct_dist = 3.23
+        # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
+        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
+        self.relative_raw_y = self.relative_raw_y - correct_dist - self.final_dist
+        # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
+        car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
+        car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / self.MATH.PI
+        relative_yaw = car_yaw * self.MATH.PI / 180.0 - self.my_car.now_yaw
+        # 限幅
+        if relative_yaw > self.MATH.PI:
+            relative_yaw -= 2 * self.MATH.PI
+        elif relative_yaw < -self.MATH.PI:
+            relative_yaw += 2 * self.MATH.PI
+        self.relative_actual_x = self.relative_raw_x - (car_dist * math.sin(relative_yaw))
+        self.relative_actual_y = self.relative_raw_y - (car_dist * math.cos(relative_yaw))
+        self.actual_dist = math.sqrt(self.relative_actual_x ** 2 + self.relative_actual_y ** 2)
+        # 计算物体相对于小车的绝对偏差
+        now_yaw = self.my_car.now_yaw * 180 / self.MATH.PI
+        rel_yaw = -math.atan2(-self.relative_actual_x, self.relative_actual_y) * 180.0 / self.MATH.PI
+        actual_yaw = now_yaw + rel_yaw
+        if actual_yaw > 180.0:
+            actual_yaw -= 360.0
+        elif actual_yaw < -180.0:
+            actual_yaw += 360.0
+        self.absolute_actual_x = self.actual_dist * math.sin(actual_yaw * self.MATH.PI / 180.0)
+        self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * self.MATH.PI / 180.0)
+        self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
+
+    # 升级版伺服控制函数（适用于低帧数模型）
     def visual_servo_control(self):
         # 选择合适的里程计系数
         self.my_car.alpha_x = 1.0
@@ -122,64 +184,66 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         if self.finish_servo == False:
+            # 1. 尝试接收新一帧数据
             self.target_point = self.my_art_protocol.coordinate_receive()
-            # 检查当前伺服的物体是否与第一帧接收到的物体一致
+            
+            # 2. 判断是否收到有效的新视觉帧
             if self.target_point and self.target_point[2] == self.current_servo_object:
-                self.servo_lost_count = 0
-                self.servo_pid.compute_pid(self.target_point[0], self.target_point[1])
-                self.target_rel_speed_x = self.servo_pid.pwm_output_x
-                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+                self.calculate_dist(self.target_point[0], self.target_point[1])
 
-                if self.finish_servo == False:
-                    # 判断是否完成视觉伺服控制
-                    if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-                        self.target_rel_speed = 0
-                        self.target_rel_yaw = 0.0
-                        self.my_order_manager.finish()
-                        # 测试
-                        # self.my_beep.test()
-                        self.finish_servo = True
-                    else:
-                        # 计算综合目标速度和航向角
-                        # 滤波
-                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                        # 固定伺服速度
-                        self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                        self.compute_target_rel_yaw()
-                        # 当横移角度过大时，速度减小%20
-                        if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
-                            self.target_rel_speed = int(self.target_rel_speed * 0.8)
-                        self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+                # 记录下小车当前的坐标点
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
+
+                # 重置掉帧计数
+                self.servo_lost_count = 0
             else:
                 self.servo_lost_count += 1
-                # 连续丢失150帧物体坐标后（在1.5s内不再收到物体坐标信息），认为物体丢失，停止小车运动
+                # 彻底丢失保护
                 if self.servo_lost_count >= 150:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
-                    self.servo_lost_count = 0
                     self.if_lost_object = True
+                    self.servo_lost_count = 0
+                    return # 彻底丢失，跳出伺服逻辑
+                
+            # 用预测的点位，依赖惯导，进行pid控制
+            now_error_x = self.real_servo_point[0] - self.my_car.x_current
+            now_error_y = self.real_servo_point[1] - self.my_car.y_current
+            # ================= 高频控制解耦 =================
+            if self.servo_lost_count <= 80:
+                self.servo_pid.model_compute_pid(now_error_x, now_error_y)
+                self.target_rel_speed_x = self.servo_pid.pwm_output_x
+                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+            else:
+                # 连续丢失超过一定帧数后，降低小车速度
+                self.target_rel_speed = 50
+                return 
 
+            # 4. 判断是否完成视觉伺服控制
+            if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
+                self.target_rel_speed = 0
+                self.target_rel_yaw = 0.0
+                self.my_order_manager.finish()
+                self.finish_servo = True
+            else:
+                # 原有的滤波和速度限制逻辑保持不变
+                self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                # 计算目标角度，单位：度（注意避免除以0）
+                self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
+                if self.target_rel_yaw > 180.0:
+                    self.target_rel_yaw -= 360.0
+                elif self.target_rel_yaw < -180.0:
+                    self.target_rel_yaw += 360.0  
+                if self.target_rel_yaw > 40.0 or self.target_rel_yaw < -40.0:
+                    self.target_rel_speed = int(self.target_rel_speed * 0.8)
+                self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
     # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
     def orbit_control(self, target_angle: float):
         if self.if_gain_dis == False:
-            """
-            # 当时视觉伺服对象不是bear则打开tof
-            if len(self.tof_buffer) <= 35:          
-                # 获取TOF测距值，并添加到缓冲区
-                self.tof_buffer.append(self.tof_distance_fil.update(self.my_tof.get()))
-                # 测试
-                # self.my_uart3.write("tof_distance: {:<f}\n".format(self.tof_buffer[-1]))
-            else:
-            
-            # 计算最终的TOF测距值（去除前5个的平均值）
-            self.tof_distance = sum(self.tof_buffer[5:]) / len(self.tof_buffer[5:])
-            if self.current_servo_object != ord('B'):
-                # 10.5为tof传感器到车身中心的距离，可以根据物体种类选择合适的旋转半径（object_radius）
-                self.orbit_radius = ((self.tof_distance - 36.0) / 10 + 10.5 + self.object_radius) / 5
-            else:
-            """
             self.my_car.alpha_x = 1.0
             self.my_car.alpha_y = 1.0
             # 保持静止采集tof数据
@@ -313,7 +377,7 @@ class VisionManager:
                             self.target_rel_turn_angle = now_yaw + target_point[2]
                         self.if_gain_calibrate_angle = True
 
-                self.servo_pid.compute_pid(target_point[0], target_point[1])
+                self.servo_pid.color_compute_pid(target_point[0], target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
                 self.target_rel_speed_y = self.servo_pid.pwm_output_y
                 
@@ -354,7 +418,12 @@ class VisionManager:
                         # 滤波
                         self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
                         self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                        self.compute_target_rel_yaw()
+                        # 计算目标角度，单位：度（注意避免除以0）
+                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI + self.target_rel_turn_angle
+                        if self.target_rel_yaw > 180.0:
+                            self.target_rel_yaw -= 360.0
+                        elif self.target_rel_yaw < -180.0:
+                            self.target_rel_yaw += 360.0  
 
                         if self.calibrate_times == 1:
                             self.target_rel_speed = 0

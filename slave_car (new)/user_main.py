@@ -59,7 +59,7 @@ beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
-my_uart6.init(460800)
+my_uart6.init(115200)
 
 """无线串口通信初始化"""
 my_uart3 = UART(2)
@@ -207,14 +207,6 @@ def voltage_detect(limit_min: float) -> None:
         print(f"The power supply voltage: {power_voltage} is too low!")
         my_beep.beep_warn()
 
-# tof传感器预热初始化函数
-"""
-def tof_init():
-    for i in range(0, 30):
-        tof.get()
-        time.sleep_ms(5)
-"""
-
 # 角度环计算函数
 def angle_pid_compute():
     filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
@@ -234,7 +226,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -253,28 +245,34 @@ def slave_start():
                 detect_if_normal()
 
 # 用于准备视觉伺服和环绕
-def ready_servo_and_orbit():
+def ready_servo_and_orbit(target_point):
     # 控制小车面向物体进行视觉伺服控制
     my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
+    my_vision_manager.current_servo_object = target_point[2]
     # 根据物品种类选择伺服距离、环绕半径和搬运速度
     if my_vision_manager.current_servo_object == ord('T'):
         my_plan.error_x = my_plan.error_x_T
-        servo_pid.target_y = servo_pid.target_y_T
+        my_vision_manager.final_dist = servo_pid.target_y_T
         my_vision_manager.object_radius = my_vision_manager.radius_T
         my_vision_manager.orbit_angle = my_vision_manager.angle_T
         my_plan.move_v_max = my_plan.move_v_max_T
     elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
         my_plan.error_x = my_plan.error_x_S
-        servo_pid.target_y = servo_pid.target_y_S
+        my_vision_manager.final_dist = servo_pid.target_y_S
         my_vision_manager.object_radius = my_vision_manager.radius_S
         my_vision_manager.orbit_angle = my_vision_manager.angle_S
         my_plan.move_v_max = my_plan.move_v_max_S
     elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
         my_plan.error_x = my_plan.error_x_B
-        servo_pid.target_y = servo_pid.target_y_B
+        my_vision_manager.final_dist = servo_pid.target_y_B
         my_vision_manager.object_radius = my_vision_manager.radius_B
         my_vision_manager.orbit_angle = my_vision_manager.angle_B
         my_plan.move_v_max = my_plan.move_v_max_B
+
+    # 第一帧图像预测伺服点位
+    my_vision_manager.last_car_x = my_car.x_current
+    my_vision_manager.last_car_y = my_car.y_current
+    my_vision_manager.calculate_dist(target_point[0], target_point[1])
 
 # 重置导航及速度规划相关标志位
 def reset_navigate_flags():
@@ -402,23 +400,21 @@ def master_control():
 def test_vision_servo():
     global counter
     if my_state.state == my_state.READY_NAVIGATE:
-        # 直接测试环绕模式
-        my_state.state = my_state.ORBIT
-        my_vision_manager.object_radius = 2.9
-
-        my_order_manager.mode_target()
+        if my_vision_manager.if_send_servo_command == False:
+            my_vision_manager.if_send_servo_command = True
+            my_vision_manager.my_order_manager.mode_target()
         # my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
             my_vision_manager.current_servo_object = target_point[2]
-            ready_servo_and_orbit()
+            ready_servo_and_orbit(target_point)
             my_state.state = my_state.SERVO
             # 测试
             my_beep.test()
     elif my_state.state == my_state.SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.finish_servo == True:
-            my_state.state = my_state.ORBIT
+            my_state.state = my_state.STOP
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
             # 重置标志位
             my_vision_manager.if_send_servo_command = False
@@ -509,7 +505,7 @@ def collaborative_task_machine():
                     if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         counter = 0
                         my_vision_manager.current_servo_object = target_point[2]
-                        ready_servo_and_orbit()
+                        ready_servo_and_orbit(target_point)
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
                     else:
@@ -530,7 +526,7 @@ def collaborative_task_machine():
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     my_vision_manager.current_servo_object = target_point[2]
-                    ready_servo_and_orbit()
+                    ready_servo_and_orbit(target_point)
                     reset_navigate_flags()
                     my_vision_manager.if_lost_object = False
 
@@ -654,7 +650,7 @@ def collaborative_task_machine():
                     if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                         counter = 0
                         my_vision_manager.current_servo_object = target_point[2]
-                        ready_servo_and_orbit()
+                        ready_servo_and_orbit(target_point)
                         reset_navigate_flags()
                         my_state.state = my_state.SERVO
                     else:
@@ -674,7 +670,7 @@ def collaborative_task_machine():
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord(my_slave_protocol.aimed_object)):
                     my_vision_manager.current_servo_object = target_point[2]
-                    ready_servo_and_orbit()
+                    ready_servo_and_orbit(target_point)
                     reset_navigate_flags()
                     my_vision_manager.if_lost_object = False
 
@@ -911,7 +907,9 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
     # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
     # my_uart3.write(f"{my_vision_manager.angle_buffer},{my_vision_manager.calibrate_times}\n")
-    
+    # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
+    # my_uart3.write(f"{my_vision_manager.relative_raw_x},{my_vision_manager.relative_raw_y}\n")
+    # my_uart3.write(f"{my_vision_manager.real_servo_point}\n")
     # 速度环输出波形图调参
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
@@ -952,7 +950,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
     
     # 检测四元数解算结果是否准确
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
     # my_uart3.write(f"{pose_data.q[0]},{pose_data.q[1]},{pose_data.q[2]},{pose_data.q[3]}\n")
 
     # 检测gkd项数量级
@@ -999,7 +997,7 @@ def pit3_start():
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
-voltage_detect(11.4)
+voltage_detect(11.2)
 
 # 打开定时器
 pit2_start()

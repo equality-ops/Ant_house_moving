@@ -236,7 +236,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -531,7 +531,7 @@ def collaborative_task_machine():
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
                 # 操控从车从矩形区域左边沿行驶
-                my_main_protocol.send_path(ord('P'), [[120.0, 220.0], [plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
+                my_main_protocol.send_path(ord('P'), [[125.0, 220.0], [plan_data.fixed_point[6][0], plan_data.fixed_point[6][1]]])
                 # 之后不用再重置该标志位
                 if_send_preparing_path = True
                 
