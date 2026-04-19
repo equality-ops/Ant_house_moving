@@ -12,8 +12,8 @@ import ustruct
 
 # ======================== 常量定义 ========================
 # 串口配置
-UART_PORT = 2
-UART_BAUDRATE = 460800
+UART_PORT = 12
+UART_BAUDRATE = 115200
 
 # 摄像头配置
 CAMERA_PIXFORMAT = sensor.RGB565
@@ -26,6 +26,14 @@ SCREEN_WIDTH = 160
 SCREEN_HEIGHT = 120
 SCREEN_CENTER_X = SCREEN_WIDTH // 2  # 80
 SCREEN_CENTER_Y = SCREEN_HEIGHT // 2  # 60
+
+# 卡尔曼滤波配置
+KALMAN_MAX_LOST_FRAMES = 3
+MAX_SPEED = 80
+
+# 锁定逻辑配置
+LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为干扰
+LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
 
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
@@ -134,6 +142,311 @@ class Communicator:
         )
         self.uart.write(data)
 
+# ======================== 卡尔曼跟踪模块 ========================
+class KalmanTracker:
+    MAX_LOST_FRAMES = KALMAN_MAX_LOST_FRAMES
+
+    def __init__(self):
+        # 观测矩阵C
+        self.C = np.array([
+            [1,0,0,0,0,0],
+            [0,1,0,0,0,0],
+            [0,0,1,0,0,0],
+            [0,0,0,1,0,0],
+            [0,0,0,0,1,0],
+            [0,0,0,0,0,1]
+        ], dtype=np.float)
+
+        # 测量噪声R
+        self.R = np.diag([0.5, 0.5, 1.5, 1.5, 2, 2])
+
+        # 初始化状态
+        self.reset()
+
+    def reset(self):
+        """重置跟踪器状态"""
+        self.first_detected = False
+        self.lost_count = 0
+        self.last_cx, self.last_cy = SCREEN_CENTER_X, SCREEN_CENTER_Y  # 初始中心坐标
+        # 初始状态x_hat：[x, y, w, h, vx, vy]
+        self.x_hat = np.array([SCREEN_CENTER_X, SCREEN_CENTER_Y, 30, 30, 2, 2], dtype=np.float)
+        # 初始协方差矩阵p
+        self.p = np.diag([100.0, 100.0, 50.0, 50.0, 300.0, 300.0])
+
+    def kalman_filter(self, Z, Ts, is_detected):
+        """
+        卡尔曼滤波核心逻辑
+        Z: 观测值数组 [cx, cy, w, h, dx, dy]（None表示丢失）
+        Ts: 时间步长（秒）
+        is_detected: 是否检测到目标
+        return: 更新后的状态 [x, y, w, h, vx, vy]
+        """
+        # 动态设置Q值和阻尼系数
+        if is_detected:
+            Q_value = [0.02, 0.02, 0.02, 0.02, 0.2, 0.2]
+            damping = 0.98
+            self.lost_count = 0
+        else:
+            Q_value = [1.0, 1.0, 0.5, 0.5, 2.0, 2.0]
+            damping = 0.9
+            self.lost_count += 1
+        Q = np.diag(Q_value)
+
+        # 状态转移矩阵A
+        A = np.array([
+            [1, 0, 0, 0, Ts, 0],
+            [0, 1, 0, 0, 0, Ts],
+            [0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, damping, 0],
+            [0, 0, 0, 0, 0, damping]
+        ], dtype=np.float)
+
+        # 预测阶段
+        x_hat_minus = np.dot(A, self.x_hat)
+        p_minus = np.dot(A, np.dot(self.p, A.T)) + Q
+
+        # 更新阶段（仅检测到目标时）
+        if is_detected:
+            S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
+            S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
+            try:
+                S_inv = np.linalg.inv(S_reg)
+            except np.linalg.LinAlgError:
+                # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
+                diag_vals = []
+                for i in range(S_reg.shape[0]):
+                    val = S_reg[i,i]
+                    # 若对角线元素为0/极小值，用1e-6替代，避免除0报错
+                    diag_vals.append(1.0 / val if abs(val) > 1e-6 else 1e6)
+                S_inv = np.diag(diag_vals)
+            K = np.dot(np.dot(p_minus, self.C.T), S_inv)
+            self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
+            self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
+        else:
+            self.x_hat = x_hat_minus
+            self.p = p_minus
+
+        return self.x_hat
+    
+# ======================== 模型检测模块  ========================
+class ModelDetector:
+    def __init__(self, net):
+        self.net = net
+
+    def detect(self, img):
+        """模型检测，返回检测结果列表"""
+        img1 = img.copy(0.75, 1)
+        return tf.detect(self.net, img1)
+    
+    # def detect_and_draw(self, img, center):    
+    #     img1 = img.copy(0.75, 1)
+    #     for obj in tf.detect(self.net, img1):
+    #             x1,y1,x2,y2,label,scores = obj
+    #             if(scores>0.60):
+    #                 x1 = int(x1 * img.width())
+    #                 y1 = int(y1 * img.height())
+    #                 x2 = int(x2 * img.width())
+    #                 y2 = int(y2 * img.height())
+
+    #                 w = x2 - x1
+    #                 h = y2 - y1
+    #                 cx = (x1 + x2) // 2
+    #                 cy = (y1 + y2) // 2
+    #                 color = LABEL_TO_COLOR[label]
+    #                 center.append((cx, cy, color))
+    #                 img.draw_rectangle((x1,y1,w,h), color=DRAW_COLORS[color])
+    #                 img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+    #     return center
+    
+    def process_kalman_color(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
+        """封装卡尔曼处理单颜色逻辑（棕/白/蓝通用）"""
+        detected = False
+        target_object = None
+        
+        if objects:
+            target_object = max(objects, key=lambda obj: obj[5])  # 选择置信度最高的目标
+            x1,y1,x2,y2,label,scores = target_object
+            x1 = int(x1 * img.width())
+            y1 = int(y1 * img.height())
+            x2 = int(x2 * img.width())
+            y2 = int(y2 * img.height())
+            w = x2 - x1
+            h = y2 - y1
+            cx = (x1 + x2) // 2
+            cy = (y1 + y2) // 2
+            
+            # 计算速度
+            dx_raw = (cx - tracker.last_cx) / Ts
+            dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
+            dy_raw = (cy - tracker.last_cy) / Ts
+            dy = max(-MAX_SPEED, min(MAX_SPEED, dy_raw))
+
+            # 构建6维新观测值Z
+            Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
+
+            # 第一次检测到目标时初始化卡尔曼
+            if not tracker.first_detected:
+                tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
+                tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+                tracker.first_detected = True
+
+            # 卡尔曼滤波更新
+            tracker.kalman_filter(Z, Ts, True)
+            tracker.last_cx = cx
+            tracker.last_cy = cy
+            detected = True
+
+            # 绘制原始检测框
+            img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color])
+            img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+
+        # 无检测时卡尔曼预测
+        if not detected and tracker.first_detected:
+            if tracker.lost_count < tracker.MAX_LOST_FRAMES:
+                tracker.kalman_filter(None, Ts, is_detected=False)
+            else:
+                tracker.reset()
+
+        # 绘制卡尔曼预测框并更新坐标
+        if tracker.first_detected:
+            kcx, kcy = int(tracker.x_hat[0]), int(tracker.x_hat[1])
+            kw, kh = max(1, int(tracker.x_hat[2])), max(1, int(tracker.x_hat[3]))
+            img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=DRAW_COLORS['grey'])
+            img.draw_cross(kcx, kcy, color=DRAW_COLORS['grey'])
+            center_list.append((kcx, kcy, color))
+            kalman_coords_dict[color] = (kcx, kcy)
+        else:
+            kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
+        
+        return target_object
+
+    def draw_other_objects(self, img, objects, center_list):
+        """封装绘制其他颜色色块逻辑"""
+        for item in objects:
+            obj, color_name = item
+            x1,y1,x2,y2,label,scores = obj
+            x1 = int(x1 * img.width())
+            y1 = int(y1 * img.height())
+            x2 = int(x2 * img.width())
+            y2 = int(y2 * img.height())
+            w = x2 - x1
+            h = y2 - y1
+            cx = (x1 + x2) // 2
+            cy = (y1 + y2) // 2
+
+            # 绘制
+            img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color_name])
+            img.draw_cross(cx, cy, color=DRAW_COLORS[color_name])
+            center_list.append((cx, cy, color_name))
+    
+# ======================== 锁定逻辑模块 ========================
+class TargetLocker:
+    def __init__(self, jump_threshold, max_lost_frames):
+        self.is_locked = False        # 是否锁定目标
+        self.last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
+        self.last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
+        self.lost_count = 0           # 锁定目标丢失帧数
+        self.JUMP_THRESHOLD = jump_threshold
+        self.MAX_LOST_FRAMES = max_lost_frames
+        self.locked_kind = ""
+        self.locked_cx = SCREEN_CENTER_X
+        self.locked_cy = SCREEN_CENTER_Y
+
+    def reset(self):
+        """重置锁定状态，所有变量彻底清零"""
+        self.is_locked = False
+        self.last_cx = SCREEN_CENTER_X
+        self.last_cy = SCREEN_CENTER_Y
+        self.lost_count = 0
+        self.locked_kind = ""
+        self.locked_cx = SCREEN_CENTER_X
+        self.locked_cy = SCREEN_CENTER_X
+
+    def is_jump_too_large(self, cx, cy):
+        """判断坐标跳变是否过大（同种类干扰）"""
+        squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
+        return squared_distance > (self.JUMP_THRESHOLD**2)
+
+    def process_lock(self, objects, kalman_coords):
+        target_pos = None
+        locked_object = None
+        target_kind = ""
+
+        if self.is_locked:
+            if self.locked_kind in kalman_coords:
+                target_pos = kalman_coords[self.locked_kind]
+
+        if objects:
+            if not self.is_locked:
+                # 未锁定 → 选择最下方目标
+                max_y_obj = max(objects, key=lambda item: (item[1] + item[3]) // 2)
+                self.locked_kind = LABEL_TO_COLOR[max_y_obj[4]]
+                if self.locked_kind in kalman_coords:
+                    self.locked_cx, self.locked_cy = kalman_coords[self.locked_kind]
+                else:
+                    self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
+                self.last_cx, self.last_cy = self.locked_cx, self.locked_cy
+                self.is_locked = True
+                self.lost_count = 0
+
+                target_pos = (self.locked_cx, self.locked_cy)
+                target_kind = self.locked_kind
+                locked_object = max_y_obj
+            else:
+                # 已锁定 → 筛选同色且不跳变的目标
+                same_color = [o for o in objects if LABEL_TO_COLOR[o[4]] == self.locked_kind]
+                valid_blobs = []
+                for obj in same_color:
+                    cx = (obj[0] + obj[2]) // 2
+                    cy = (obj[1] + obj[3]) // 2
+                    if not self.is_jump_too_large(cx, cy):
+                        valid_blobs.append((obj, cx, cy))
+
+                if valid_blobs:
+                    best_obj, best_cx, best_cy = min(valid_blobs,
+                        key=lambda item: (item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2)
+                    target_pos = kalman_coords.get(self.locked_kind, (best_cx, best_cy))
+                    self.last_cx, self.last_cy = best_cx, best_cy
+                    self.lost_count = 0
+                    locked_object = best_obj
+                else:
+                    self.lost_count += 1
+
+        # 无任何目标 → 仅计数
+        else:
+            if self.is_locked:
+                self.lost_count += 1
+
+        # 锁定丢失逻辑
+        if self.is_locked:
+            has_valid = any(LABEL_TO_COLOR[obj[4]] == self.locked_kind for obj in objects) if objects else False
+            self.lost_count = 0 if has_valid else self.lost_count + 1
+            
+            if self.lost_count >= self.MAX_LOST_FRAMES:
+                self.reset()
+
+        target_kind = self.locked_kind if self.is_locked else ""
+        return target_pos, target_kind, locked_object
+
+    def draw_lock_mark(self, img, locked_object, kalman_coords):
+        """绘制锁定标识"""
+        if not self.is_locked:
+            return
+        # 优先卡尔曼，没有就用 locked_object 真实坐标
+        if self.locked_kind in kalman_coords:
+            lock_cx, lock_cy = kalman_coords[self.locked_kind]
+        elif locked_object is not None:
+            x1, y1, x2, y2, _, _ = locked_object
+            lock_cx = (x1 + x2) // 2
+            lock_cy = (y1 + y2) // 2
+        else:
+            return
+
+        if (lock_cx, lock_cy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
+            img.draw_circle(int(lock_cx), int(lock_cy), 5, color=DRAW_COLORS['black'], thickness=2)
+
+
 # ======================== 坐标矫正模块 ========================
 class CoordinateCorrection:
     def __init__(self):
@@ -162,6 +475,13 @@ MODE_MODEL = 1           # 模型模式
 MODE_WAITING = 2         # 等待模式
 current_mode = MODE_WAITING
 
+# 存储各颜色卡尔曼坐标的字典
+kalman_coords = {
+    'brown': (SCREEN_CENTER_X, SCREEN_CENTER_Y),
+    'white': (SCREEN_CENTER_X, SCREEN_CENTER_Y),
+    'blue': (SCREEN_CENTER_X, SCREEN_CENTER_Y)
+}
+
 # 时间戳
 last_time = time.ticks_ms()
 
@@ -171,12 +491,21 @@ def handle_uart_commands(uart):
     global current_mode
     if uart.any():
         cmd = uart.read(1)
+
+        def reset_all():
+            brown_tracker.reset()
+            white_tracker.reset()
+            target_locker.reset()
+
         if cmd == b'C':
             current_mode = MODE_CORRECTION
+            reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
+            reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            reset_all()
 
 # ======================== 初始化 ========================
 # 串口初始化
@@ -204,6 +533,10 @@ lcd.full()
 # 创建模块实例
 tag_corrector = CoordinateCorrection()
 communicator = Communicator(uart)
+brown_tracker = KalmanTracker()
+white_tracker = KalmanTracker()
+model_detector = ModelDetector(net)
+target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
 # ======================== 主循环 ========================
 while True:
@@ -233,31 +566,34 @@ while True:
     # 模型模式
     elif current_mode == MODE_MODEL:
         is_sent = False # 是否发送了坐标
-        center = []
-        img1 = img.copy(0.75, 1)
-        for obj in tf.detect(net,img1):
-            x1,y1,x2,y2,label,scores = obj
-            if(scores>0.60):
-                x1 = int(x1 * img.width())
-                y1 = int(y1 * img.height())
-                x2 = int(x2 * img.width())
-                y2 = int(y2 * img.height())
+        center = [] # 本帧检测到的目标中心列表
 
-                w = x2 - x1
-                h = y2 - y1
-                cx = (x1 + x2) // 2
-                cy = (y1 + y2) // 2
-                color = LABEL_TO_COLOR[label]
-                center.append((cx, cy, color))
-                img.draw_rectangle((x1,y1,w,h), color=DRAW_COLORS[color])
-                img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+        objects = model_detector.detect(img)
+        brown_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'brown' and obj[5] > 0.3]
+        white_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'white' and obj[5] > 0.3]
+        other_objects = [(obj, LABEL_TO_COLOR[obj[4]]) for obj in objects if LABEL_TO_COLOR[obj[4]] in ['red','blue','green'] and obj[5] > 0.6]
+
+        model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+        model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+        model_detector.draw_other_objects(img, other_objects, center)
+
+        target_pos, target_color, locked_blob = target_locker.process_lock(objects, kalman_coords)
+        target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
         
-        if center:
+        # 发送目标坐标
+        if target_locker.is_locked and target_pos is not None:
+            # 锁定状态：发送锁定目标坐标
+            tx = int(round(target_pos[0]))
+            ty = int(round(target_pos[1]))
+            communicator.send_coordinate(tx, ty, target_locker.locked_kind)
+            is_sent = True
+        elif not target_locker.is_locked and center:
+            # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]
-            target_color = target[2]
-            communicator.send_coordinate(target_x, target_y, target_color)
+            target_kind = target[2]
+            communicator.send_coordinate(target_x, target_y, target_kind)
             is_sent = True
 
         displayed_text = 'YES' if is_sent else 'NO'

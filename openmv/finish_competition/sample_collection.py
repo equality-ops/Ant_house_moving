@@ -25,7 +25,7 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 
 
-save_img_num = 2130
+save_img_num = 3485
 count = -100
 
 while(True):
