@@ -1,13 +1,13 @@
-#ifndef UART_WIRELESS_H
+ï»¿#ifndef UART_WIRELESS_H
 #define UART_WIRELESS_H
 #include "zf_common_headfile.h"
-// UART ºÍ Wireless Ïà¹Øº¯ÊıÉùÃ÷
+// UART å’Œ Wireless ç›¸å…³å‡½æ•°å£°æ˜
 
 //uart define
-#define UART_INDEX              ( UART_5   )                // Ä¬ÈÏ UART_5
-#define UART_BAUDRATE           ( 115200 )                  // Ä¬ÈÏ 115200
-#define UART_TX_PIN             ( UART5_TX_P05 )            // Ä¬ÈÏ UART5_TX_P05
-#define UART_RX_PIN             ( UART5_RX_P04 )            // Ä¬ÈÏ UART5_RX_P04
+#define UART_INDEX              ( UART_5   )                // é»˜è®¤ UART_5
+#define UART_BAUDRATE           ( 115200 )                  // é»˜è®¤ 115200
+#define UART_TX_PIN             ( UART5_TX_P05 )            // é»˜è®¤ UART5_TX_P05
+#define UART_RX_PIN             ( UART5_RX_P04 )            // é»˜è®¤ UART5_RX_P04
 #define MAX_BUF_SIZE 128
 typedef struct {
     uint8 buffer[MAX_BUF_SIZE];
@@ -16,37 +16,37 @@ typedef struct {
     uint8 length;
 } ring_buffer;
 
-//uartÏà¹Ø±äÁ¿
-ring_buffer uart_rx_buffer;//uart½ÓÊÕ»·ĞÎ»º³åÇø
-uint8       uart_get_data[64] = {0};                        // ´®¿Ú½ÓÊÕÊı¾İ»º³åÇø
-uint8       fifo_get_data[64] = {0};                        // fifo Êä³ö¶Á³ö»º³åÇø
-uint8       last_rx_data_count = 0;
-uint32      fifo_data_count = 0;                            // fifo Êı¾İ¸öÊı
-fifo_struct uart_data_fifo = {0};
-uint8 uart_analyze_flag = 0;//uart·ÖÎö±êÖ¾
+//uartç›¸å…³å˜é‡
+extern ring_buffer uart_rx_buffer;//uartæ¥æ”¶ç¯å½¢ç¼“å†²åŒº
+extern uint8       uart_get_data[64];                        // ä¸²å£æ¥æ”¶æ•°æ®ç¼“å†²åŒº
+extern uint8       fifo_get_data[64];                        // fifo è¾“å‡ºè¯»å‡ºç¼“å†²åŒº
+extern uint8       last_rx_data_count;
+extern uint32      fifo_data_count;                            // fifo æ•°æ®ä¸ªæ•°
+extern fifo_struct uart_data_fifo;
+extern uint8 uart_analyze_flag;//uartåˆ†ææ ‡å¿—
 
-//wirelessÏà¹Ø±äÁ¿
-ring_buffer wireless_rx_buffer;//wireless½ÓÊÕ»·ĞÎ»º³åÇø
-uint8 data_buffer[32];
-uint8 last_length = 0;
-uint8 data_len;
-uint8 count = 0;
-uint8 wireless_analyze_state=0;
+//wirelessç›¸å…³å˜é‡
+extern ring_buffer wireless_rx_buffer;//wirelessæ¥æ”¶ç¯å½¢ç¼“å†²åŒº
+extern uint8 data_buffer[32];
+extern uint8 last_length;
+extern uint8 data_len;
+extern uint8 count;
+extern uint8 wireless_analyze_state;
 
-//»·ĞÎ»º³åÇøº¯Êı
-void rb_init(ring_buffer *rb,uint8 length);
-void rb_write_one(ring_buffer *rb, int8 dat);
-uint8 rb_read_one(ring_buffer *rb, uint8 *dat);
-uint8 rb_idx_to_head_length(const ring_buffer *rb,uint8 idx);
-uint8 rb_move(const ring_buffer *rb, uint8 idx,uint8 l);
-void rb_write(ring_buffer *rb, uint8 *dat, uint8 length);
-void rb_write_q(ring_buffer *rb, uint8 *dat, uint8 length);
+//ç¯å½¢ç¼“å†²åŒºå‡½æ•°
+extern void rb_init(ring_buffer *rb,uint8 length);
+extern void rb_write_one(ring_buffer *rb, int8 dat);
+extern uint8 rb_read_one(ring_buffer *rb, uint8 *dat);
+extern uint8 rb_idx_to_head_length(const ring_buffer *rb,uint8 idx);
+extern uint8 rb_move(const ring_buffer *rb, uint8 idx,uint8 l);
+extern void rb_write(ring_buffer *rb, uint8 *dat, uint8 length);
+extern void rb_write_q(ring_buffer *rb, uint8 *dat, uint8 length);
 //uart define
-void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_flag);
-void uart_send(const uint8 *dat,uint8 length);
-void uart_send_int16_to_chr(int16 dat);
+extern void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_flag);
+extern void uart_send(const uint8 *dat,uint8 length);
+extern void uart_send_int16_to_chr(int16 dat);
 //wireless define
-void wireless_send_uint16_to_chr(uint16 dat, uint8 length);
-void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state );
+extern void wireless_send_uint16_to_chr(uint16 dat, uint8 length);
+extern void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state );
 
 #endif

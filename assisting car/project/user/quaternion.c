@@ -1,6 +1,7 @@
 #include "quaternion.h"
 #include <math.h>
 #define M_PI 3.1415926f
+Kalman1D kf_gx, kf_gy, kf_gz;
 void Kalman1D_Init(Kalman1D *k, float Q, float R, float x0, float P0) {
     k->Q = Q;
     k->R = R;
@@ -10,18 +11,22 @@ void Kalman1D_Init(Kalman1D *k, float Q, float R, float x0, float P0) {
 
 float Kalman1D_Update(Kalman1D *k, float z) {
     float K;
-    // Ô¤²â
+    // é¢„æµ‹
     k->P = k->P + k->Q;
-    // ¼ÆËã¿¨¶ûÂüÔöÒæ
+    // è®¡ç®—å¡å°”æ›¼å¢žç›Š
     K = k->P / (k->P + k->R);
-    // ¸üÐÂ¹À¼ÆÖµ
+    // æ›´æ–°ä¼°è®¡å€¼
     k->x = k->x + K * (z - k->x);
-    // ¸üÐÂÐ­·½²î
+    // æ›´æ–°åæ–¹å·®
     k->P = (1.0f - K) * k->P;
     return k->x;
 }
 
-// µ¥Î»ËÄÔªÊý
+void init_attitude(void) {
+    Quat q;
+    quat_identity(&q);
+}
+// å•ä½å››å…ƒæ•°
 void quat_identity(Quat *q)
 {
     q->w = 1.0f;
@@ -29,7 +34,7 @@ void quat_identity(Quat *q)
     q->y = 0.0f;
     q->z = 0.0f;
 }
-// ½ÇËÙ¶È ¡ú dq
+// è§’é€Ÿåº¦ â†’ dq
 void omega_to_dq(float wx, float wy, float wz, float dt, Quat *dq)
 {
     float half_dt;
@@ -42,7 +47,7 @@ void omega_to_dq(float wx, float wy, float wz, float dt, Quat *dq)
     dq->z = wz * half_dt;
 }
 
-// ËÄÔªÊý³Ë·¨
+// å››å…ƒæ•°ä¹˜æ³•
 void quat_mul(const Quat *q1, const Quat *q2, Quat *out)
 {
     float w, x, y, z;
@@ -56,7 +61,7 @@ void quat_mul(const Quat *q1, const Quat *q2, Quat *out)
     out->z = z;
 }
 
-// ¹éÒ»»¯
+// å½’ä¸€åŒ–
 void quat_normalize(Quat *q)
 {
     float norm;
@@ -81,9 +86,9 @@ float my_atan2(float y, float x) {
     } 
     else if (x < 0) {
         if (y >= 0)
-            return atan(y / x) + M_PI;   // µÚ¶þÏóÏÞ
+            return atan(y / x) + M_PI;   // ç¬¬äºŒè±¡é™
         else
-            return atan(y / x) - M_PI;   // µÚÈýÏóÏÞ
+            return atan(y / x) - M_PI;   // ç¬¬ä¸‰è±¡é™
     } 
     else { // x == 0
         if (y > 0)
@@ -91,10 +96,10 @@ float my_atan2(float y, float x) {
         else if (y < 0)
             return -M_PI / 2;
         else
-            return 0;  // Î´¶¨Òå£¬°´Ðè·µ»Ø 0
+            return 0;  // æœªå®šä¹‰ï¼ŒæŒ‰éœ€è¿”å›ž 0
     }
 }
-// ×ªÅ·À­½Ç£¨ÒÑ¼ò»¯£©
+// è½¬æ¬§æ‹‰è§’ï¼ˆå·²ç®€åŒ–ï¼‰
 void quat_to_euler(const Quat *q, float *roll, float *pitch, float *yaw)
 {
     float sinr, cosr;
@@ -125,7 +130,7 @@ void quat_to_euler(const Quat *q, float *roll, float *pitch, float *yaw)
     *yaw = my_atan2(siny, cosy);
 }
 
-// ÏòÁ¿Ðý×ª£¨¿ÉÑ¡£©
+// å‘é‡æ—‹è½¬ï¼ˆå¯é€‰ï¼‰
 void rotate_vector_by_quat(const Quat *q, const Vec3 *v, Vec3 *out)
 {
     float tx, ty, tz;

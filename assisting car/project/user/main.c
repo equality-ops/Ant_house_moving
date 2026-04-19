@@ -49,9 +49,8 @@ void wireless_handler(void) {// Wireless 定时数据处理函数
     }
 }
 
-void pit_hanlder(void) {//IMU中断
+void imu_handler(void) {//IMU中断
     float gx_raw, gy_raw, gz_raw;
-    float gx_f, gy_f, gz_f;
     float gx_dps, gy_dps, gz_dps;
     float wx, wy, wz;
     Quat dq;
@@ -67,11 +66,12 @@ void pit_hanlder(void) {//IMU中断
     gx_dps = (gx_raw - gyro_bias_x) / (-GYRO_LSB_PER_DPS);
     gy_dps = (gy_raw - gyro_bias_y) / (-GYRO_LSB_PER_DPS);
     gz_dps = (gz_raw - gyro_bias_z) / (-GYRO_LSB_PER_DPS);
-
+    /*
     // 卡尔曼滤波
     gx_f = Kalman1D_Update(&kf_gx, gx_raw);
     gy_f = Kalman1D_Update(&kf_gy, gy_raw);
     gz_f = Kalman1D_Update(&kf_gz, gz_raw);
+    */
     wx = gx_dps * RAD_PER_DEG;
     wy = gy_dps * RAD_PER_DEG;
     wz = gz_dps * RAD_PER_DEG;
@@ -89,8 +89,25 @@ void pit_hanlder(void) {//IMU中断
     rotate_vector_by_quat(&q,&forward_body, &direction_pure);
     tick_count++;
 }
-
-
+void motor_handler(void) {//电机控制定时器中断
+    int pid1_result, pid2_result,pid3_result, pid4_result;
+    encoder_data_dir_1 = encoder_get_count(ENCODER_QUAD_1);                  // 获取编码器计数
+    encoder_data_dir_2 = encoder_get_count(ENCODER_QUAD_2);                  // 获取编码器计数
+    //encoder_data_dir_3 = encoder_get_count(ENCODER_QUAD_3);                  // 获取编码器计数
+    //encoder_data_dir_4 = encoder_get_count(ENCODER_QUAD_4);                  // 获取编码器计数
+    encoder_clear_count(ENCODER_QUAD_1);                                		// 清空编码器计数
+    encoder_clear_count(ENCODER_QUAD_2);                                		// 清空编码器计数
+    //encoder_clear_count(ENCODER_QUAD_3);                                		// 清空编码器计数
+    //encoder_clear_count(ENCODER_QUAD_4);                                		// 清空编码器计数
+    pid1_result = motor_PID_Update(&pid1, 0);
+    pid2_result = motor_PID_Update(&pid2, 0);
+    pid3_result = motor_PID_Update(&pid3, 0);
+    pid4_result = motor_PID_Update(&pid4, 0);
+    set_motor_pwm(PWM_A_1, PWM_A_2, pid1_result);
+    set_motor_pwm(PWM_B_1, PWM_B_2, pid2_result);
+    //set_motor_pwm(PWM_C_1, PWM_C_2, pid3_result);
+    //set_motor_pwm(PWM_D_1, PWM_D_2, pid4_result);
+}
 void calibrate_gyro(void) {
     const int num_samples = 100;
     float sum_x = 0.0, sum_y = 0.0, sum_z = 0.0;
@@ -124,7 +141,7 @@ void all_init(void) {//初始化
     gpio_init(LED1, GPO, GPIO_HIGH, GPO_PUSH_PULL);
 
     //蜂鸣器初始化
-    gpio_init(BEEP_PIN, GPO, 1, GPO_PUSH_PULL);
+    gpio_init(BEEP_PIN, GPO, 0, GPO_PUSH_PULL);
     //kalman滤波器初始化
     Kalman1D_Init(&kf_gx, 0.01, 0.1, 0.0, 1.0);
     Kalman1D_Init(&kf_gy, 0.01, 0.1, 0.0, 1.0);
@@ -141,25 +158,77 @@ void all_init(void) {//初始化
     {
         while(1)                                                      // 初始化失败就在这进入死循环
         {
-            beep_once();                                                // 发出提示音
-            system_delay_ms(1000);                                     
+            beep_once(50);                                                // 发出提示音
+            system_delay_ms(500);                                     
         }
     }
     wireless_uart_send_byte('\r');
     wireless_uart_send_byte('\n');
     wireless_uart_send_string("wireless ready\r\n");    // 初始化正常 输出测试信息
     rb_init(&wireless_rx_buffer, 64);
+    //PWM 初始化
+    pwm_init(PWM_A_1, 17000, 0);               	// PWM 通道 L1 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_A_2, 17000, 0);               	// PWM 通道 L2 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_B_1, 17000, 0);               	// PWM 通道 L1 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_B_2, 17000, 0);               	// PWM 通道 L2 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_C_1, 17000, 0);               	// PWM 通道 L1 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_C_2, 17000, 0);               	// PWM 通道 L2 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_D_1, 17000, 0);               	// PWM 通道 L1 初始化频率 17KHz 占空比初始为 0
+    pwm_init(PWM_D_2, 17000, 0);               	// PWM 通道 L2 初始化频率 17KHz 占空比初始为 0
+    //编码器初始化
+    encoder_quad_init(ENCODER_QUAD_1, ENCODER_QUAD_1_CHA, ENCODER_QUAD_1_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
+    encoder_quad_init(ENCODER_QUAD_2, ENCODER_QUAD_2_CHA, ENCODER_QUAD_2_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
+    //encoder_quad_init(ENCODER_QUAD_3, ENCODER_QUAD_3_CHA, ENCODER_QUAD_3_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
+    //encoder_quad_init(ENCODER_QUAD_4, ENCODER_QUAD_4_CHA, ENCODER_QUAD_4_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
     // PID 初始化
     motor_PID_Init(&pid1, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
     motor_PID_Init(&pid2, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
     motor_PID_Init(&pid3, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
     motor_PID_Init(&pid4, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
+    //ips200 初始化
+    ips200_set_dir(IPS200_PORTAIT);
+    ips200_init();
+    ips200_clear(RGB565_WHITE);
+    // IMU 初始化
+    while(1) {
+        if(imu660rb_init())
+            printf("\r\nimu660rb init error.");
+        else
+            gpio_set_level(BEEP_PIN, 0);
+            break;
+        gpio_toggle_level(LED1);
+        system_delay_ms(300);
+    }
+    init_attitude();
+    calibrate_gyro();
+    // EEPROM 初始化
+    eeprom_init();
 }
 
 void main(void) {
     all_init();
-    beep_once();
+    system_delay_ms(500);
+    beep_once(100);
+    // 菜单操作
+    while (1) { 
+        Keystroke_Menu();
+        if (menu_over_flag == 1) { // 菜单操作完成
+            break; // 退出菜单循环
+        }
+    }
+    //等待按下发车建
+    key1_status = gpio_get_level(KEY1_PIN);
+    while (key1_status == 1) {
+        key1_status = gpio_get_level(KEY1_PIN);
+        system_delay_ms(50);
+    }
+    beep_once(100);
+    while (1) {
+        system_delay_ms(100);
+        printf("%f,%f,%f,%f,%f\r\n", pid1.Kp, pid1.Ki, pid1.Kd, pid1.output_max, pid1.integral_max);
+    }
     //读取按钮1状态，进行电压检测
+    /*
     key1_status = gpio_get_level(KEY1_PIN);
     if (key1_status ==0) {
         adc_init(ADC1_CH0_P10, ADC_12BIT);
@@ -170,15 +239,19 @@ void main(void) {
         key1_status = 1;
         voltage_detect();
     }
+    */
     pit_ms_init(PIT1, 100, wireless_handler);//wireless中断
     pit_ms_init(PIT2, 50, uart_handler);//uart中断
+    pit_ms_init(PIT3, 5, imu_handler);//IMU中断
+    pit_ms_init(PIT4, 5, motor_handler);//motor中断
     while (1) {
         system_delay_ms(100);
+        printf("%d,%d,%d,%d\r\n", encoder_data_dir_1,encoder_data_dir_2, encoder_data_dir_3, encoder_data_dir_4);
         if (uart_analyze_flag==1){
             uart_analyze_flag=0;
             printf("C_err: %d\r\n", camera_erro);
             uart_send_int16_to_chr(camera_erro);
-            beep_once();
+            beep_once(50);
         }
         if (wireless_analyze_state==1) {
             wireless_analyze_state=0;
@@ -186,7 +259,7 @@ void main(void) {
             wireless_uart_send_buffer((uint8 *)&target_side, 1);
             wireless_send_uint16_to_chr(target_x_or_y, 3);
             wireless_uart_send_string("\r\n");
-            beep_once();
+            beep_once(50);
         }
     }
     /*
