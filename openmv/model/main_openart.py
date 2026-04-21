@@ -623,7 +623,6 @@ while True:
         #     is_sent = True
         # elif not target_locker.is_locked and center:
         if center:
-            # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]

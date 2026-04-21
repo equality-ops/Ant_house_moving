@@ -12,8 +12,8 @@ import ustruct
 
 # ======================== 常量定义 ========================
 # 串口配置
-UART_PORT = 2
-UART_BAUDRATE = 460800
+UART_PORT = 12
+UART_BAUDRATE = 115200
 
 # 摄像头配置
 CAMERA_PIXFORMAT = sensor.RGB565
@@ -659,6 +659,7 @@ def init_threshold():
 # ======================== 初始化 ========================
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
+time.sleep_ms(100)  # 等待串口稳定
 
 # 摄像头初始化
 sensor.reset()
