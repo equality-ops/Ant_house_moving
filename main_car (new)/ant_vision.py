@@ -230,8 +230,8 @@ class VisionManager:
                 return 
 
             # 4. 判断是否完成视觉伺服控制
-            # if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
-            if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
+            if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
+            # if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
                 self.target_rel_speed = 0
                 self.target_rel_yaw = 0.0
                 self.my_order_manager.finish()
@@ -496,12 +496,13 @@ class VisionManager:
                     self.my_plan.finish_navigate = False
                     self.target_rel_turn_angle = self.my_plan.turn_angle_target
                     self.my_order_manager.mode_apriltag()
+                    
         else:
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
                 self.servo_lost_count = 0
+                self.angle_temp = target_point[2]
                 if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
-                    self.angle_temp = target_point[2]
                     if self.calibrate_times == 1:
                         # 计算目标转角(多次测量取平均值)
                         if self.car_position == 0 or self.car_position == 2:

@@ -920,6 +920,9 @@ def time_pit2_handler(time):
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
     
+    # apriltag校准测试
+    # my_uart3.write(f"{my_vision_manager.angle_temp}\n")
+     
     # 环绕测试
     # my_uart3.write(f"{my_vision_manager.orbit_turn_angle}\n")
     

@@ -129,8 +129,8 @@ servo_target_y_T = 4.0
 servo_target_y_S = 7.0
 servo_target_y_B = 15.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 0.6
-finish_threshold_y = 0.6
+finish_threshold_x = 1.0
+finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0

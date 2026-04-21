@@ -124,12 +124,12 @@ servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
 servo_target_y_A = 11.0
-servo_target_y_T = 4.0
+servo_target_y_T = 5.0
 servo_target_y_S = 8.0
 servo_target_y_B = 15.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 0.8
-finish_threshold_y = 0.8
+finish_threshold_x = 1.0
+finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
