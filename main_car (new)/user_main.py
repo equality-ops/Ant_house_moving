@@ -61,7 +61,7 @@ beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
-my_uart6.init(460800)
+my_uart6.init(115200)
 
 """无线串口通信初始化"""
 my_uart3 = UART(2)
@@ -391,7 +391,7 @@ def collaborative_task_machine():
                 if_send_preparing_path = True
 
             my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
-            # my_plan.navigate([[35.0, -15.0]], 180.0)
+            # my_plan.navigate([[35.0, -15.0]], 0.0)
             if my_plan.finish_navigate == True:
                 # 重置标志位
                 my_plan.finish_navigate = False
@@ -881,7 +881,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
     # my_uart3.write(f"{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x},{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x}\r\n")
     # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
-    # my_uart3.write(f"{my_vision_manager.absolute_actual_x},{my_vision_manager.absolute_actual_y}\n")
+    # my_uart3.write(f"{my_vision_manager.relative_raw_x},{my_vision_manager.relative_raw_y}\n")
     # my_uart3.write(f"{my_vision_manager.real_servo_point}\n")
 
     # 速度环输出波形图调参
