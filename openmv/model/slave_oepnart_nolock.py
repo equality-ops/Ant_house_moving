@@ -30,6 +30,7 @@ SCREEN_CENTER_Y = SCREEN_HEIGHT // 2  # 60
 # 卡尔曼滤波配置
 KALMAN_MAX_LOST_FRAMES = 3
 MAX_SPEED = 80
+JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
@@ -260,7 +261,7 @@ class ModelDetector:
         target_object = None
         
         if objects:
-            target_object = max(objects, key=lambda obj: obj[5])  # 选择置信度最高的目标
+            target_object = max(objects, key=lambda obj: (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height())  # 选择置信度最高的目标
             x1,y1,x2,y2,label,scores = target_object
             x1 = int(x1 * img.width())
             y1 = int(y1 * img.height())
@@ -270,31 +271,39 @@ class ModelDetector:
             h = y2 - y1
             cx = (x1 + x2) // 2
             cy = (y1 + y2) // 2
-            
-            # 计算速度
-            dx_raw = (cx - tracker.last_cx) / Ts
-            dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
-            dy_raw = (cy - tracker.last_cy) / Ts
-            dy = max(-MAX_SPEED, min(MAX_SPEED, dy_raw))
 
-            # 构建6维新观测值Z
-            Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
+            jump_too_large  = False
+            if tracker.first_detected:
+                distance_squared = (cx - tracker.last_cx)**2 + (cy - tracker.last_cy)**2
+                if distance_squared > (JUMP_KALMAN_THRESHOLD**2):
+                    jump_too_large = True
+            if not jump_too_large:
+                # 计算速度
+                dx_raw = (cx - tracker.last_cx) / Ts
+                dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
+                dy_raw = (cy - tracker.last_cy) / Ts
+                dy = max(-MAX_SPEED, min(MAX_SPEED, dy_raw))
 
-            # 第一次检测到目标时初始化卡尔曼
-            if not tracker.first_detected:
-                tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
-                tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
-                tracker.first_detected = True
+                # 构建6维新观测值Z
+                Z = np.array([cx, cy, w, h, dx, dy], dtype = np.float)
 
-            # 卡尔曼滤波更新
-            tracker.kalman_filter(Z, Ts, True)
-            tracker.last_cx = cx
-            tracker.last_cy = cy
-            detected = True
+                # 第一次检测到目标时初始化卡尔曼
+                if not tracker.first_detected:
+                    tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
+                    tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+                    tracker.first_detected = True
 
-            # 绘制原始检测框
-            img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color])
-            img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+                # 卡尔曼滤波更新
+                tracker.kalman_filter(Z, Ts, True)
+                tracker.last_cx = cx
+                tracker.last_cy = cy
+                detected = True
+
+                # 绘制原始检测框
+                img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color])
+                img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+            else:
+                detected = False  # 跳变过大视为无检测，进入预测阶段
 
         # 无检测时卡尔曼预测
         if not detected and tracker.first_detected:
@@ -400,6 +409,7 @@ def handle_uart_commands(uart):
 # ======================== 初始化 ========================
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
+time.sleep_ms(100)  # 等待串口稳定
 
 # 摄像头初始化
 sensor.reset()

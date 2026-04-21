@@ -30,11 +30,11 @@ SCREEN_CENTER_Y = SCREEN_HEIGHT // 2  # 60
 # 卡尔曼滤波配置
 KALMAN_MAX_LOST_FRAMES = 3
 MAX_SPEED = 80
-JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过50像素视为异常
+JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 
-# 锁定逻辑配置
-LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为干扰
-LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
+# # 锁定逻辑配置
+# LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为干扰
+# LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
 
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
@@ -266,7 +266,7 @@ class ModelDetector:
         target_object = None
         
         if objects:
-            target_object = max(objects, key=lambda obj: (obj[3] - obj[1]) * (obj[4] - obj[2]))  # 选择面积最大的目标
+            target_object = max(objects, key=lambda obj: (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height())  # 选择面积最大的目标
             x1,y1,x2,y2,label,scores = target_object
             x1 = int(x1 * img.width())
             y1 = int(y1 * img.height())
@@ -348,138 +348,137 @@ class ModelDetector:
             img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color_name])
             img.draw_cross(cx, cy, color=DRAW_COLORS[color_name])
             center_list.append((cx, cy, color_name))
-    
-# ======================== 锁定逻辑模块 ========================
-class TargetLocker:
-    def __init__(self, jump_threshold, max_lost_frames):
-        self.is_locked = False        # 是否锁定目标
-        self.last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
-        self.last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
-        self.lost_count = 0           # 锁定目标丢失帧数
-        self.JUMP_THRESHOLD = jump_threshold
-        self.MAX_LOST_FRAMES = max_lost_frames
-        self.locked_kind = ""
-        self.locked_cx = SCREEN_CENTER_X
-        self.locked_cy = SCREEN_CENTER_Y
 
-    def reset(self):
-        """重置锁定状态，所有变量彻底清零"""
-        self.is_locked = False
-        self.last_cx = SCREEN_CENTER_X
-        self.last_cy = SCREEN_CENTER_Y
-        self.lost_count = 0
-        self.locked_kind = ""
-        self.locked_cx = SCREEN_CENTER_X
-        self.locked_cy = SCREEN_CENTER_X
+# # ======================== 锁定逻辑模块 ========================
+# class TargetLocker:
+#     def __init__(self, jump_threshold, max_lost_frames):
+#         self.is_locked = False        # 是否锁定目标
+#         self.last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
+#         self.last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
+#         self.lost_count = 0           # 锁定目标丢失帧数
+#         self.JUMP_THRESHOLD = jump_threshold
+#         self.MAX_LOST_FRAMES = max_lost_frames
+#         self.locked_kind = ""
+#         self.locked_cx = SCREEN_CENTER_X
+#         self.locked_cy = SCREEN_CENTER_Y
 
-    def is_jump_too_large(self, cx, cy):
-        """判断坐标跳变是否过大（同种类干扰）"""
-        squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
-        return squared_distance > (self.JUMP_THRESHOLD**2)
+#     def reset(self):
+#         """重置锁定状态，所有变量彻底清零"""
+#         self.is_locked = False
+#         self.last_cx = SCREEN_CENTER_X
+#         self.last_cy = SCREEN_CENTER_Y
+#         self.lost_count = 0
+#         self.locked_kind = ""
+#         self.locked_cx = SCREEN_CENTER_X
+#         self.locked_cy = SCREEN_CENTER_Y
 
-    def process_lock(self, objects, kalman_coords):
-        target_pos = None
-        locked_object = None
-        target_kind = ""
+#     def is_jump_too_large(self, cx, cy):
+#         """判断坐标跳变是否过大（同种类干扰）"""
+#         squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
+#         return squared_distance > (self.JUMP_THRESHOLD**2)
 
-        if objects:
-            if not self.is_locked:
-                # 未锁定 → 选择最下方目标
-                max_y_obj = max(objects, key=lambda item: (item[1] + item[3]) // 2)
-                self.locked_kind = LABEL_TO_COLOR[max_y_obj[4]]
+#     def process_lock(self, objects, kalman_coords):
+#         target_pos = None
+#         locked_object = None
+#         target_kind = ""
+
+#         if objects:
+#             if not self.is_locked:
+#                 # 未锁定 → 选择最下方目标
+#                 max_y_obj = max(objects, key=lambda item: (item[1] + item[3]) // 2)
+#                 self.locked_kind = LABEL_TO_COLOR[max_y_obj[4]]
                 
-                # 优先使用卡尔曼坐标（如果可用且合理）
-                if self.locked_kind in ['brown', 'white', 'blue'] and self.locked_kind in kalman_coords:
-                    kcx, kcy = kalman_coords[self.locked_kind]
-                    # 检查卡尔曼坐标是否合理（不是默认中心值）
-                    if (kcx, kcy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
-                        self.locked_cx, self.locked_cy = kcx, kcy
-                    else:
-                        # 卡尔曼坐标不可用，使用原始坐标
-                        self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
-                else:
-                    # 非卡尔曼滤波物体直接使用原始坐标
-                    self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
+#                 # 优先使用卡尔曼坐标（如果可用且合理）
+#                 if self.locked_kind in ['brown', 'white'] and self.locked_kind in kalman_coords:
+#                     kcx, kcy = kalman_coords[self.locked_kind]
+#                     # 检查卡尔曼坐标是否合理（不是默认中心值）
+#                     if (kcx, kcy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
+#                         self.locked_cx, self.locked_cy = kcx, kcy
+#                     else:
+#                         # 卡尔曼坐标不可用，使用原始坐标
+#                         self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
+#                 else:
+#                     # 非卡尔曼滤波物体直接使用原始坐标
+#                     self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
                 
-                self.last_cx, self.last_cy = self.locked_cx, self.locked_cy
-                self.is_locked = True
-                self.lost_count = 0
+#                 self.last_cx, self.last_cy = self.locked_cx, self.locked_cy
+#                 self.is_locked = True
+#                 self.lost_count = 0
 
-                target_pos = (self.locked_cx, self.locked_cy)
-                target_kind = self.locked_kind
-                locked_object = max_y_obj
-            else:
-                # 已锁定 → 筛选同色且不跳变的目标
-                same_color = [o for o in objects if LABEL_TO_COLOR[o[4]] == self.locked_kind]
-                valid_blobs = []
-                for obj in same_color:
-                    cx = (obj[0] + obj[2]) // 2
-                    cy = (obj[1] + obj[3]) // 2
+#                 target_pos = (self.locked_cx, self.locked_cy)
+#                 target_kind = self.locked_kind
+#                 locked_object = max_y_obj
+#             else:
+#                 # 已锁定 → 筛选同色且不跳变的目标
+#                 same_color = [o for o in objects if LABEL_TO_COLOR[o[4]] == self.locked_kind]
+#                 valid_blobs = []
+#                 for obj in same_color:
+#                     cx = (obj[0] + obj[2]) // 2
+#                     cy = (obj[1] + obj[3]) // 2
                     
-                    # 对于卡尔曼滤波物体，使用卡尔曼坐标判断跳变
-                    if self.locked_kind in ['brown', 'white', 'blue']:
-                        if self.locked_kind in kalman_coords:
-                            kcx, kcy = kalman_coords[self.locked_kind]
-                            if not self.is_jump_too_large(kcx, kcy):
-                                valid_blobs.append((obj, cx, cy))
-                    else:
-                        # 非卡尔曼滤波物体使用原始坐标
-                        if not self.is_jump_too_large(cx, cy):
-                            valid_blobs.append((obj, cx, cy))
+#                     # 对于卡尔曼滤波物体，使用卡尔曼坐标判断跳变
+#                     if self.locked_kind in ['brown', 'white']:
+#                         if self.locked_kind in kalman_coords:
+#                             kcx, kcy = kalman_coords[self.locked_kind]
+#                             if not self.is_jump_too_large(kcx, kcy):
+#                                 valid_blobs.append((obj, cx, cy))
+#                     else:
+#                         # 非卡尔曼滤波物体使用原始坐标
+#                         if not self.is_jump_too_large(cx, cy):
+#                             valid_blobs.append((obj, cx, cy))
 
-                if valid_blobs:
-                    best_obj, best_cx, best_cy = min(valid_blobs,
-                        key=lambda item: (item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2)
+#                 if valid_blobs:
+#                     best_obj, best_cx, best_cy = min(valid_blobs,
+#                         key=lambda item: (item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2)
                     
-                    # 区分卡尔曼滤波和非卡尔曼滤波物体
-                    if self.locked_kind in ['brown', 'white', 'blue'] and self.locked_kind in kalman_coords:
-                        target_pos = kalman_coords[self.locked_kind]
-                        # 使用卡尔曼坐标更新last_cx, last_cy
-                        self.last_cx, self.last_cy = target_pos
-                    else:
-                        target_pos = (best_cx, best_cy)
-                        # 使用原始坐标更新last_cx, last_cy
-                        self.last_cx, self.last_cy = best_cx, best_cy
+#                     # 区分卡尔曼滤波和非卡尔曼滤波物体
+#                     if self.locked_kind in ['brown', 'white', 'blue'] and self.locked_kind in kalman_coords:
+#                         target_pos = kalman_coords[self.locked_kind]
+#                         # 使用卡尔曼坐标更新last_cx, last_cy
+#                         self.last_cx, self.last_cy = target_pos
+#                     else:
+#                         target_pos = (best_cx, best_cy)
+#                         # 使用原始坐标更新last_cx, last_cy
+#                         self.last_cx, self.last_cy = best_cx, best_cy
                     
-                    self.lost_count = 0
-                    locked_object = best_obj
-                else:
-                    self.lost_count += 1
-        else:
-            if self.is_locked:
-                self.lost_count += 1
+#                     self.lost_count = 0
+#                     locked_object = best_obj
+#                 else:
+#                     self.lost_count += 1
+#         else:
+#             if self.is_locked:
+#                 self.lost_count += 1
 
-        # 锁定丢失逻辑
-        if self.is_locked and self.lost_count >= self.MAX_LOST_FRAMES:
-            self.reset()
+#         # 锁定丢失逻辑
+#         if self.is_locked and self.lost_count >= self.MAX_LOST_FRAMES:
+#             self.reset()
 
-        target_kind = self.locked_kind if self.is_locked else ""
-        return target_pos, target_kind, locked_object
+#         target_kind = self.locked_kind if self.is_locked else ""
+#         return target_pos, target_kind, locked_object
 
-    def draw_lock_mark(self, img, locked_object, kalman_coords):
-        """绘制锁定标识"""
-        if not self.is_locked:
-            return
+#     def draw_lock_mark(self, img, locked_object, kalman_coords):
+#         """绘制锁定标识"""
+#         if not self.is_locked:
+#             return
         
-        lock_cx, lock_cy = None, None
+#         lock_cx, lock_cy = None, None
         
-        # 对于卡尔曼滤波物体，优先使用卡尔曼坐标
-        if self.locked_kind in ['brown', 'white', 'blue']:
-            if self.locked_kind in kalman_coords:
-                kcx, kcy = kalman_coords[self.locked_kind]
-                # 检查卡尔曼坐标是否有效
-                if (kcx, kcy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
-                    lock_cx, lock_cy = kcx, kcy
+#         # 对于卡尔曼滤波物体，优先使用卡尔曼坐标
+#         if self.locked_kind in ['brown', 'white']:
+#             if self.locked_kind in kalman_coords:
+#                 kcx, kcy = kalman_coords[self.locked_kind]
+#                 # 检查卡尔曼坐标是否有效
+#                 if (kcx, kcy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
+#                     lock_cx, lock_cy = kcx, kcy
         
-        # 如果卡尔曼坐标不可用或非卡尔曼滤波物体，使用原始坐标
-        if lock_cx is None and locked_object is not None:
-            x1, y1, x2, y2, _, _ = locked_object
-            lock_cx = (x1 + x2) // 2
-            lock_cy = (y1 + y2) // 2
+#         # 如果卡尔曼坐标不可用或非卡尔曼滤波物体，使用原始坐标
+#         if lock_cx is None and locked_object is not None:
+#             x1, y1, x2, y2, _, _ = locked_object
+#             lock_cx = (x1 + x2) // 2
+#             lock_cy = (y1 + y2) // 2
         
-        if lock_cx is not None and lock_cy is not None:
-            img.draw_circle(int(lock_cx), int(lock_cy), 5, color=DRAW_COLORS['black'], thickness=2)
-
+#         if lock_cx is not None and lock_cy is not None:
+#             img.draw_circle(int(lock_cx), int(lock_cy), 5, color=DRAW_COLORS['black'], thickness=2)
 
 # ======================== 坐标矫正模块 ========================
 class CoordinateCorrection:
@@ -529,7 +528,7 @@ def handle_uart_commands(uart):
         def reset_all():
             brown_tracker.reset()
             white_tracker.reset()
-            target_locker.reset()
+            # target_locker.reset()
 
         if cmd == b'C':
             current_mode = MODE_CORRECTION
@@ -544,6 +543,7 @@ def handle_uart_commands(uart):
 # ======================== 初始化 ========================
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
+time.sleep_ms(100)  # 等待串口稳定
 
 # 摄像头初始化
 sensor.reset()
@@ -570,7 +570,7 @@ communicator = Communicator(uart)
 brown_tracker = KalmanTracker()
 white_tracker = KalmanTracker()
 model_detector = ModelDetector(net)
-target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
+# target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
 # ======================== 主循环 ========================
 while True:
@@ -611,17 +611,18 @@ while True:
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
         model_detector.draw_other_objects(img, other_objects, center)
 
-        target_pos, target_color, locked_blob = target_locker.process_lock(objects, kalman_coords)
-        target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
+        # target_pos, target_color, locked_blob = target_locker.process_lock(objects, kalman_coords)
+        # target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
         
-        # 发送目标坐标
-        if target_locker.is_locked and target_pos is not None:
-            # 锁定状态：发送锁定目标坐标
-            tx = int(round(target_pos[0]))
-            ty = int(round(target_pos[1]))
-            communicator.send_coordinate(tx, ty, target_locker.locked_kind)
-            is_sent = True
-        elif not target_locker.is_locked and center:
+        # # 发送目标坐标
+        # if target_locker.is_locked and target_pos is not None:
+        #     # 锁定状态：发送锁定目标坐标
+        #     tx = int(round(target_pos[0]))
+        #     ty = int(round(target_pos[1]))
+        #     communicator.send_coordinate(tx, ty, target_locker.locked_kind)
+        #     is_sent = True
+        # elif not target_locker.is_locked and center:
+        if center:
             # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
