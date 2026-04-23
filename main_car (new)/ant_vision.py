@@ -65,9 +65,9 @@ class VisionManager:
 
         # ================= 卡尔曼滤波与矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.H_matrix = [[ 2.27144182e+00, -1.15368332e-01, -1.81253872e+02],
-                        [-9.62991353e-16, -1.86242170e+00,  2.40298734e+02],
-                        [-1.06056315e-17,  7.92548688e-02,  1.00000000e+00]]
+        self.H_matrix = [[ 1.73277793e+00, -4.03832162e-02, -1.43148863e+02],
+                        [-2.48551759e-02, -1.47533261e+00,  1.77324371e+02],
+                        [-1.12359403e-03,  5.60745066e-02,  1.00000000e+00]]
         # 为 X 和 Y 坐标分别建立卡尔曼滤波器
         # P: 估计误差协方差, Q: 过程噪声(越小越信任预测), R: 测量噪声(越大越信任滤波，抗抖动)
         self.kf_target_x = kf_target_x_fil 
@@ -153,7 +153,7 @@ class VisionManager:
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int):
         # correct_dist为经验修正值，考虑了车体直径和推杆长度
-        correct_dist = 5.64
+        correct_dist = 2.40
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
         self.relative_raw_y = self.relative_raw_y - correct_dist - self.final_dist

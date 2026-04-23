@@ -430,7 +430,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > my_vision_manager.dist_threshold:
+                if target_point and target_point[2] == my_vision_manager.current_servo_object and target_point[1] > my_vision_manager.dist_threshold:
                     ready_servo_and_orbit(target_point)
                     reset_navigate_flags()
                     my_vision_manager.if_lost_object = False
@@ -572,7 +572,7 @@ def collaborative_task_machine():
                 # 若丢失物体则按矩形轨迹行驶寻找物体
                 my_plan.navigate([[my_car.x_current-11.0, my_car.y_current], [my_car.x_current-11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > my_vision_manager.dist_threshold:
+                if target_point and target_point[2] == my_vision_manager.current_servo_object and target_point[1] > my_vision_manager.dist_threshold:
                     ready_servo_and_orbit(target_point)
                     reset_navigate_flags()
                     my_vision_manager.if_lost_object = False

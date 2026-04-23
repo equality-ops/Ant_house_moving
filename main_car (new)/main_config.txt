@@ -1,4 +1,4 @@
-# 修改时间 4.18	  18:50
+# 修改时间 4.23	  23:23
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -113,7 +113,7 @@ servo_kp_y = 3.5
 servo_kd_y = 5.0
 
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.0
+servo_normal_kp_x = 8.5
 servo_normal_kd_x = 15.0
 servo_normal_kp_y = 8.0
 servo_normal_kd_y = 15.0
@@ -127,7 +127,7 @@ servo_target_x = 80
 servo_target_y_A = 11.0
 servo_target_y_T = 4.0
 servo_target_y_S = 7.0
-servo_target_y_B = 15.0
+servo_target_y_B = 2.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
