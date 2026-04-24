@@ -14,11 +14,16 @@ static float roll_angle = 0.0;
 static float pitch_angle = 0.0;
 static float yaw_angle = 0.0;
 float gyro_bias_x = 0.0, gyro_bias_y = 0.0, gyro_bias_z = 0.0;
+float gx_f, gy_f, gz_f;//滤波后的陀螺仪数据
 //目标
 int16 camera_erro=0;
 uint8 target_side = 2; // 0:左，1:中，2:右
 uint16 target_x_or_y = 0; // 目标距离
 
+//目标速度
+volatile float target_speed_x = 0.0f;
+volatile float target_speed_y = 0.0f;
+volatile float target_speed_w = 0.0f;
 //中断处理函数
 
 void uart_rx_interrupt_handler (uint8 dat)// UART 接收中断处理函数
@@ -66,12 +71,12 @@ void imu_handler(void) {//IMU中断
     gx_dps = (gx_raw - gyro_bias_x) / (-GYRO_LSB_PER_DPS);
     gy_dps = (gy_raw - gyro_bias_y) / (-GYRO_LSB_PER_DPS);
     gz_dps = (gz_raw - gyro_bias_z) / (-GYRO_LSB_PER_DPS);
-    /*
+  
     // 卡尔曼滤波
     gx_f = Kalman1D_Update(&kf_gx, gx_raw);
     gy_f = Kalman1D_Update(&kf_gy, gy_raw);
     gz_f = Kalman1D_Update(&kf_gz, gz_raw);
-    */
+
     wx = gx_dps * RAD_PER_DEG;
     wy = gy_dps * RAD_PER_DEG;
     wz = gz_dps * RAD_PER_DEG;
@@ -88,25 +93,45 @@ void imu_handler(void) {//IMU中断
     quat_to_euler(&q,&roll_angle, &pitch_angle, &yaw_angle);
     rotate_vector_by_quat(&q,&forward_body, &direction_pure);
     tick_count++;
+    float compute_w;
+    pid_w.target=angle_PID_Update(&pid_angle,yaw_angle);//角度环，输出目标角速度
+    target_speed_w=pid_w_Update(&pid_w,gz_f*200.0f);//角速度环，输出目标角速度
 }
 void motor_handler(void) {//电机控制定时器中断
-    int pid1_result, pid2_result,pid3_result, pid4_result;
+    int pid1_result, pid2_result, pid3_result, pid4_result;
+    int encoder_delta_1, encoder_delta_2, encoder_delta_3, encoder_delta_4;
+    float xy_target1, xy_target2, xy_target3, xy_target4;
+    float target1, target2, target3, target4;
+    // 获取编码器数据
     encoder_data_dir_1 = encoder_get_count(ENCODER_QUAD_1);                  // 获取编码器计数
     encoder_data_dir_2 = encoder_get_count(ENCODER_QUAD_2);                  // 获取编码器计数
-    //encoder_data_dir_3 = encoder_get_count(ENCODER_QUAD_3);                  // 获取编码器计数
-    //encoder_data_dir_4 = encoder_get_count(ENCODER_QUAD_4);                  // 获取编码器计数
-    encoder_clear_count(ENCODER_QUAD_1);                                		// 清空编码器计数
-    encoder_clear_count(ENCODER_QUAD_2);                                		// 清空编码器计数
-    //encoder_clear_count(ENCODER_QUAD_3);                                		// 清空编码器计数
-    //encoder_clear_count(ENCODER_QUAD_4);                                		// 清空编码器计数
-    pid1_result = motor_PID_Update(&pid1, 0);
-    pid2_result = motor_PID_Update(&pid2, 0);
-    pid3_result = motor_PID_Update(&pid3, 0);
-    pid4_result = motor_PID_Update(&pid4, 0);
+    encoder_data_dir_3 = encoder_get_count(ENCODER_QUAD_3);                  // 获取编码器计数
+    encoder_data_dir_4 = encoder_get_count(ENCODER_QUAD_4);                  // 获取编码器计数
+    // 计算编码器增量
+    encoder_delta_1 = encoder_data_dir_1 - encoder_data_dir_1_prev;
+    encoder_delta_2 = encoder_data_dir_2 - encoder_data_dir_2_prev;
+    encoder_delta_3 = encoder_data_dir_3 - encoder_data_dir_3_prev;
+    encoder_delta_4 = encoder_data_dir_4 - encoder_data_dir_4_prev;
+    // 更新上次编码器数据
+    encoder_data_dir_1_prev = encoder_data_dir_1;
+    encoder_data_dir_2_prev = encoder_data_dir_2;
+    encoder_data_dir_3_prev = encoder_data_dir_3;
+    encoder_data_dir_4_prev = encoder_data_dir_4;
+    // 计算目标速度
+    caculate_motor_target_xy(target_speed_x, target_speed_y, target_speed_w, &xy_target1, &xy_target2, &xy_target3, &xy_target4);
+    //pid电机控制
+    pid1.target= xy_target1;
+    pid2.target= xy_target2;
+    pid3.target= xy_target3;
+    pid4.target= xy_target4;
+    pid1_result = (int)motor_PID_Update(&pid1, encoder_data_dir_1);
+    pid2_result = (int)motor_PID_Update(&pid2, encoder_data_dir_2);
+    pid3_result = (int)motor_PID_Update(&pid3, encoder_data_dir_3);
+    pid4_result = (int)motor_PID_Update(&pid4, encoder_data_dir_4);
     set_motor_pwm(PWM_A_1, PWM_A_2, pid1_result);
     set_motor_pwm(PWM_B_1, PWM_B_2, pid2_result);
-    //set_motor_pwm(PWM_C_1, PWM_C_2, pid3_result);
-    //set_motor_pwm(PWM_D_1, PWM_D_2, pid4_result);
+    set_motor_pwm(PWM_C_1, PWM_C_2, pid3_result);
+    set_motor_pwm(PWM_D_1, PWM_D_2, pid4_result);
 }
 void calibrate_gyro(void) {
     const int num_samples = 100;
@@ -181,10 +206,10 @@ void all_init(void) {//初始化
     //encoder_quad_init(ENCODER_QUAD_3, ENCODER_QUAD_3_CHA, ENCODER_QUAD_3_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
     //encoder_quad_init(ENCODER_QUAD_4, ENCODER_QUAD_4_CHA, ENCODER_QUAD_4_CHB);   // 初始化编码器模块与引脚 正交解码编码器模式
     // PID 初始化
-    motor_PID_Init(&pid1, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
-    motor_PID_Init(&pid2, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
-    motor_PID_Init(&pid3, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
-    motor_PID_Init(&pid4, 1.0f, 0.5f, 0.1f, 100.0f, 255.0f);
+    motor_PID_Init(&pid1, 1.0f, 0.5f, 0.1f, 2000, 5000);
+    motor_PID_Init(&pid2, 1.0f, 0.5f, 0.1f, 2000, 5000);
+    motor_PID_Init(&pid3, 1.0f, 0.5f, 0.1f, 2000, 5000);
+    motor_PID_Init(&pid4, 1.0f, 0.5f, 0.1f, 2000, 5000);
     //ips200 初始化
     ips200_set_dir(IPS200_PORTAIT);
     ips200_init();

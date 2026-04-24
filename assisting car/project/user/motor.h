@@ -29,10 +29,18 @@
 #define ENCODER_QUAD_4_CHA   		    (PWMC_ENCODER_CH1P_P40)     // PULSE 对应的引脚
 #define ENCODER_QUAD_4_CHB       	    (PWMC_ENCODER_CH2P_P42)     // DIR 对应的引脚
 
+#define carbody_h 100.0f//前后麦轮的距离
+#define carbody_w 50.0f//左右麦轮的距离
+
 extern int16 encoder_data_dir_1;
 extern int16 encoder_data_dir_2;
 extern int16 encoder_data_dir_3;
 extern int16 encoder_data_dir_4;
+extern int16 encoder_data_dir_1_prev;
+extern int16 encoder_data_dir_2_prev;
+extern int16 encoder_data_dir_3_prev;
+extern int16 encoder_data_dir_4_prev;
+
 // PID 结构体定义
 typedef struct {
     float Kp;          // 比例系数
@@ -40,12 +48,45 @@ typedef struct {
     float Kd;          // 微分系数
     float integral;    // 积分累积
     float prev_error;  // 上次误差（用于微分）
-    float integral_max; // 积分限幅
-    float output_max;  // 输出限幅
+    int integral_max; // 积分限幅
+    int output_max;  // 输出限幅
     float target;     // 目标值
-} PID_motor;
+} PID_motor;//电机pid速度环
+typedef struct {
+    float Kp;          // 比例系数
+    float Ki;          // 积分系数
+    float Kd;          // 微分系数
+    float integral;    // 积分累积
+    float prev_error;  // 上次误差（用于微分）
+    int integral_max; // 积分限幅
+    int output_max;  // 输出限幅
+    float target;     // 目标值   
+} PID_angle;//角度pid角度环
+typedef struct {
+    float Kp;          // 比例系数
+    float Ki;          // 积分系数
+    float Kd;          // 微分系数
+    float integral;    // 积分累积
+    float prev_error;  // 上次误差（用于微分）
+    int integral_max; // 积分限幅
+    int output_max;  // 输出限幅
+    float target;     // 目标值   
+} PID_w;//角度pid角度环
 extern void set_motor_pwm(pwm_channel_enum channel1,pwm_channel_enum channel2, int duty);
 extern PID_motor pid1,pid2,pid3,pid4;
-extern void motor_PID_Init(PID_motor *p, float Kp, float Ki, float Kd,float integral_max, float output_max);
+extern PID_angle pid_angle;
+extern PID_w pid_w;
+
+
+extern void motor_PID_Init(PID_motor *p, float Kp, float Ki, float Kd,int integral_max,int output_max);
 extern float motor_PID_Update(PID_motor *p, float measure);
+
+extern void angle_PID_Init(PID_angle *p, float Kp, float Ki, float Kd,int integral_max,int output_max);
+extern float angle_PID_Update(PID_angle *p, float measure);
+
+extern void w_PID_Init(PID_w *p, float Kp, float Ki, float Kd,int integral_max,int output_max);
+extern float w_PID_Update(PID_w *p, float measure);
+
+
+extern void calculate_motor_target_xy(float target_x, float target_y,float *out1,float *out2,float *out3,float *out4);
 #endif

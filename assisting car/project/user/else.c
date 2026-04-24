@@ -49,7 +49,7 @@ uint32 *menu_object_addr[] = {// 记录菜单项的对象地址，0表示无参数
     0, (uint32 *)&pid1.Kp, (uint32 *)&pid1.Ki, (uint32 *)&pid1.Kd,   (uint32 *)&pid2.Kp, (uint32 *)&pid2.Ki, (uint32 *)&pid2.Kd};
 uint8 menu_object_type[] = {//record菜单项的对象类型，0表示无参数，1表示int32参数，2表示float参数,3表示特殊
     0,
-    0, 2,2, 2,2,
+    0, 1,1, 1,1,
     0, 2,2,2, 2,2,2}; // 0表示无参数，1表示int32参数，2表示float参数,3表示特殊
 
 //蜂鸣器
