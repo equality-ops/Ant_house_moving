@@ -4,14 +4,15 @@ import math
 class StateMachine:
     def __init__(self):
         # state 模式：
-        self.NAVIGATE = 0       # 导航状态
-        self.SCAN = 1           # 扫描状态
-        self.SERVO = 2          # 视觉伺服状态
-        self.ORBIT = 3          # 环绕状态
-        self.MOVE = 4           # 搬运状态
-        self.CALIBRATE = 5      # 校准状态
-        self.RETURN = 6		    # 返回状态
-        self.STOP = 7           # 停止状态
+        self.READT_NAVIGATE = 0   # 准备导航状态
+        self.NAVIGATE = 1       # 导航状态
+        self.SCAN = 2           # 扫描状态
+        self.SERVO = 3          # 视觉伺服状态
+        self.ORBIT = 4          # 环绕状态
+        self.MOVE = 5           # 搬运状态
+        self.CALIBRATE = 6      # 校准状态
+        self.RETURN = 7		    # 返回状态
+        self.STOP = 8           # 停止状态
         
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
@@ -23,8 +24,8 @@ class Plan_data:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1][2]分别为矩形区域下、上扫描起始点，[3][4]分别为矩形区域下、上扫描结束点，[5]为从车在下边沿的待命区，[6]为从车在上边沿的待命区
-        self.fixed_point = [[35.0, -15.0], [120.0, 50.0], [200.0, 190.0], [200.0, 50.0], [120.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
+        self.fixed_point = [[35.0, -15.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 为测试里程计方便
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
@@ -36,10 +37,11 @@ class Plan_data:
         # y坐标靠近下边沿:70，中等:85，靠近中心:100    
         # 靠近上边沿:170，中等:155，靠近中心:140 
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-        # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
+        # LU代表物体在矩形框左上侧，C代表物体在矩形框正中，RD代表物体在矩形框右下侧（相对于矩形框中心点的位置关系）
 
-        # 示例：[(160.0, 85.0), 'E']
-        self.rogue_planning = self.flash_sys.gain_rogue_planning()  # type: list              
+        # 示例：[(160.0, 85.0), 'E', 'LU']
+        self.rogue_planning = self.flash_sys.gain_rogue_planning()  # type: list     
+        self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning)   # 需要搬运的物体总数
 

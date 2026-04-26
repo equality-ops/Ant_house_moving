@@ -24,9 +24,6 @@ import time
 ###################################【变量定义及初始化】###################################
 # 多路复用时间计数器
 counter = 0      # type: int
-# 按键消抖相关变量
-current_time = 0
-last_left_time = 0
 # 是否按下启动按键标志位
 if_press_start_key = False
 # 是否成功启动标志位

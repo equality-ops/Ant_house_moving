@@ -471,25 +471,25 @@ class VisionManager:
         self.current_servo_object = target_point[2]
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == ord('T'):
-            self.error_x = self.error_x_T
-            my_vision_manager.final_dist = servo_pid.target_y_T
-            my_vision_manager.object_radius = my_vision_manager.radius_T
-            my_vision_manager.orbit_angle = my_vision_manager.angle_T
-            my_plan.move_v_max = my_plan.move_v_max_T
-        elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
-            my_plan.error_x = my_plan.error_x_S
-            my_vision_manager.final_dist = servo_pid.target_y_S
-            my_vision_manager.object_radius = my_vision_manager.radius_S
-            my_vision_manager.orbit_angle = my_vision_manager.angle_S
-            my_plan.move_v_max = my_plan.move_v_max_S
-        elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
-            my_plan.error_x = my_plan.error_x_B
-            my_vision_manager.final_dist = servo_pid.target_y_B
-            my_vision_manager.object_radius = my_vision_manager.radius_B
-            my_vision_manager.orbit_angle = my_vision_manager.angle_B
-            my_plan.move_v_max = my_plan.move_v_max_B
+            self.my_plan.error_x = self.my_plan.error_x_T
+            self.final_dist = self.servo_pid.target_y_T
+            self.object_radius = self.radius_T
+            self.orbit_angle = self.angle_T
+            self.my_plan.move_v_max = self.my_plan.move_v_max_T
+        elif self.current_servo_object == ord('S') or self.current_servo_object == ord('E'):
+            self.error_x = self.my_plan.error_x_S
+            self.final_dist = self.servo_pid.target_y_S
+            self.object_radius = self.radius_S
+            self.orbit_angle = self.angle_S
+            self.my_plan.move_v_max = self.my_plan.move_v_max_S
+        elif self.current_servo_object == ord('B') or self.current_servo_object == ord('W'):
+            self.my_plan.error_x = self.my_plan.error_x_B
+            self.final_dist = self.servo_pid.target_y_B
+            self.object_radius = self.radius_B
+            self.orbit_angle = self.angle_B
+            self.my_plan.move_v_max = self.my_plan.move_v_max_B
 
         # 第一帧图像预测伺服点位
-        my_vision_manager.last_car_x = my_car.x_current
-        my_vision_manager.last_car_y = my_car.y_current
-        my_vision_manager.calculate_dist(target_point[0], target_point[1])
+        self.last_car_x = self.my_car.x_current
+        self.last_car_y = self.my_car.y_current
+        self.calculate_dist(target_point[0], target_point[1])
