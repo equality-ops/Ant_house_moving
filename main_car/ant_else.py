@@ -295,7 +295,14 @@ class flash_system:
             var_name = line[0].strip()
             var_value = line[1].strip()
             # 解析变量值
-            self.config[var_name] = self.phase_num_string(var_value)
+            if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
+                lst = list(var_value)
+                lst[0] = '['
+                lst[-1] = ']'
+                var_value = ''.join(lst)
+                self.config[var_name] = var_value
+            else:
+                self.config[var_name] = self.phase_num_string(var_value)
         f.close()
 
 
@@ -305,5 +312,14 @@ class flash_system:
             return var_value
         except KeyError as e:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
+            self.beep.beep_warn()
+            return 0
+    
+    def gain_rogue_planning(self):
+        try:
+            self.config['rogue_planning'] = eval(self.config['rogue_planning'])
+            return self.config['rogue_planning']
+        except Exception as e:
+            print(f"Failure to find rogue_planning in {self.file_path}!")
             self.beep.beep_warn()
             return 0

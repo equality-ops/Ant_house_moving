@@ -4,16 +4,14 @@ import math
 class StateMachine:
     def __init__(self):
         # state 模式：
-        self.READY_NAVIGATE = 0  # 准备导航状态（主车等待从车准备好）
-        self.NAVIGATE = 1       # 导航状态
-        self.SCAN = 2           # 扫描状态
-        self.SERVO = 3          # 视觉伺服状态
-        self.ORBIT = 4          # 环绕状态
-        self.MOVE = 5           # 搬运状态
-        self.CALIBRATE = 6      # 校准状态
-        self.RETURN = 7		    # 返回状态
-        self.STOP = 8           # 停止状态
-        self.REVERSE_ORBIT  = 9 # 反向环绕状态
+        self.NAVIGATE = 0       # 导航状态
+        self.SCAN = 1           # 扫描状态
+        self.SERVO = 2          # 视觉伺服状态
+        self.ORBIT = 3          # 环绕状态
+        self.MOVE = 4           # 搬运状态
+        self.CALIBRATE = 5      # 校准状态
+        self.RETURN = 6		    # 返回状态
+        self.STOP = 7           # 停止状态
         
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
@@ -31,6 +29,20 @@ class Plan_data:
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
         self.rectangle_corners = [[95.0, 55.0], [95.0, 185.0], [225.0, 185.0], [225.0, 55.0]] 
+
+        # 硬写物品路径规划（每次发车前进行硬写路径规划）
+        # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
+
+        # y坐标靠近下边沿:70，中等:85，靠近中心:100    
+        # 靠近上边沿:170，中等:155，靠近中心:140 
+        # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
+        # 用'Y'or'N'代表搬运完后是否需要进行apriltag矫正
+
+        # 示例：[(160.0, 85.0), 'E']
+        self.rogue_planning = self.flash_sys.gain_rogue_planning()  # type: list              
+        self.moved_objects_num = 0      # 已搬运物体数量
+        self.total_objects_num = len(self.rogue_planning)   # 需要搬运的物体总数
+
         # 已到达的目标点索引
         self.aimed_point_index = 0    # type: int
         # 当前避障路径中的目标点索引
@@ -546,4 +558,20 @@ class Plan:
                 self.transition_flag = False
                 self.finish_navigate = True
                 self.stage = self.STOP
-                self.finish_building = False    
+                self.finish_building = False
+
+    # 重置导航及速度规划相关标志位
+    def reset_navigate(self):
+        # 导航
+        self.finish_navigate = False
+        self.arrive_flag = False
+        self.dec_speed_index = 0
+        self.aimed_point_index = 0
+        self.path_points.clear()
+        self.if_set_path = False
+        self.if_finish_turn = False
+        self.transition_flag = False
+        # 速度规划
+        self.elapsed_time = 0
+        self.stage = self.STOP
+        self.finish_building = False    

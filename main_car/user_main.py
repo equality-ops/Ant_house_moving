@@ -243,51 +243,6 @@ def main_start():
                 # 检测是否正常初始化所有
                 detect_if_normal()
 
-# 用于准备视觉伺服和环绕
-def ready_servo_and_orbit(target_point):
-    # 控制小车面向物体进行视觉伺服控制
-    my_vision_manager.target_rel_turn_angle = my_plan.turn_angle_target
-    my_vision_manager.current_servo_object = target_point[2]
-    # 根据物品种类选择伺服距离、环绕半径和搬运速度
-    if my_vision_manager.current_servo_object == ord('T'):
-        my_plan.error_x = my_plan.error_x_T
-        my_vision_manager.final_dist = servo_pid.target_y_T
-        my_vision_manager.object_radius = my_vision_manager.radius_T
-        my_vision_manager.orbit_angle = my_vision_manager.angle_T
-        my_plan.move_v_max = my_plan.move_v_max_T
-    elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
-        my_plan.error_x = my_plan.error_x_S
-        my_vision_manager.final_dist = servo_pid.target_y_S
-        my_vision_manager.object_radius = my_vision_manager.radius_S
-        my_vision_manager.orbit_angle = my_vision_manager.angle_S
-        my_plan.move_v_max = my_plan.move_v_max_S
-    elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
-        my_plan.error_x = my_plan.error_x_B
-        my_vision_manager.final_dist = servo_pid.target_y_B
-        my_vision_manager.object_radius = my_vision_manager.radius_B
-        my_vision_manager.orbit_angle = my_vision_manager.angle_B
-        my_plan.move_v_max = my_plan.move_v_max_B
-
-    # 第一帧图像预测伺服点位
-    my_vision_manager.last_car_x = my_car.x_current
-    my_vision_manager.last_car_y = my_car.y_current
-    my_vision_manager.calculate_dist(target_point[0], target_point[1])
-
-# 重置导航及速度规划相关标志位
-def reset_navigate_flags():
-    # 导航
-    my_plan.finish_navigate = False
-    my_plan.arrive_flag = False
-    my_plan.dec_speed_index = 0
-    plan_data.aimed_point_index = 0
-    my_plan.path_points.clear()
-    my_plan.if_set_path = False
-    my_plan.if_finish_turn = False
-    my_plan.transition_flag = False
-    # 速度规划
-    my_plan.elapsed_time = 0
-    my_plan.stage = my_plan.STOP
-    my_plan.finish_building = False
 
 # 小车姿态总控制函数
 def master_control():
@@ -308,10 +263,8 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
+    elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-    elif my_state.state == my_state.READY_NAVIGATE:
-        my_car.move_ctrl(0, 0.0, my_car.now_yaw * 180.0 / MATH.PI)
 
 # 视觉伺服测试函数
 def test_vision_servo():

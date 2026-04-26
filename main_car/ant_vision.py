@@ -463,3 +463,33 @@ class VisionManager:
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
                     self.if_lost_object = True
+
+    # 用于准备视觉伺服和环绕
+    def ready_servo_and_orbit(self, target_point):
+        # 控制小车面向物体进行视觉伺服控制
+        self.target_rel_turn_angle = self.my_plan.turn_angle_target
+        self.current_servo_object = target_point[2]
+        # 根据物品种类选择伺服距离、环绕半径和搬运速度
+        if self.current_servo_object == ord('T'):
+            self.error_x = self.error_x_T
+            my_vision_manager.final_dist = servo_pid.target_y_T
+            my_vision_manager.object_radius = my_vision_manager.radius_T
+            my_vision_manager.orbit_angle = my_vision_manager.angle_T
+            my_plan.move_v_max = my_plan.move_v_max_T
+        elif my_vision_manager.current_servo_object == ord('S') or my_vision_manager.current_servo_object == ord('E'):
+            my_plan.error_x = my_plan.error_x_S
+            my_vision_manager.final_dist = servo_pid.target_y_S
+            my_vision_manager.object_radius = my_vision_manager.radius_S
+            my_vision_manager.orbit_angle = my_vision_manager.angle_S
+            my_plan.move_v_max = my_plan.move_v_max_S
+        elif my_vision_manager.current_servo_object == ord('B') or my_vision_manager.current_servo_object == ord('W'):
+            my_plan.error_x = my_plan.error_x_B
+            my_vision_manager.final_dist = servo_pid.target_y_B
+            my_vision_manager.object_radius = my_vision_manager.radius_B
+            my_vision_manager.orbit_angle = my_vision_manager.angle_B
+            my_plan.move_v_max = my_plan.move_v_max_B
+
+        # 第一帧图像预测伺服点位
+        my_vision_manager.last_car_x = my_car.x_current
+        my_vision_manager.last_car_y = my_car.y_current
+        my_vision_manager.calculate_dist(target_point[0], target_point[1])
