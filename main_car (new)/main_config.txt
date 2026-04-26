@@ -134,6 +134,7 @@ finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
+
 # 物体距离多远认定为合理
 dist_threshold = 15.0
 
