@@ -1,4 +1,4 @@
-# 修改时间 4.23	  23:23
+# 修改时间 4.26	  16:37
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -89,7 +89,7 @@ error_x_B = 2.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 190
-short_v_max = 120
+short_v_max = 110
 dead_zone_v = 40
 transit_v = 100
 # 已弃用
@@ -113,9 +113,9 @@ servo_kp_y = 3.5
 servo_kd_y = 5.0
 
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.5
+servo_normal_kp_x = 7.0
 servo_normal_kd_x = 15.0
-servo_normal_kp_y = 8.0
+servo_normal_kp_y = 7.0
 servo_normal_kd_y = 15.0
 # apriltag矫正的视觉伺服pid参数
 servo_calibrate_kp_x = 7.0
@@ -125,9 +125,9 @@ servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
 servo_target_y_A = 11.0
-servo_target_y_T = 4.0
-servo_target_y_S = 7.0
-servo_target_y_B = 2.0
+servo_target_y_T = 2.0
+servo_target_y_S = 4.0
+servo_target_y_B = 12.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -136,11 +136,11 @@ apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
 # 物体距离多远认定为合理
-dist_threshold = 15.0
+dist_threshold = 25.0
 
-min_rel_speed = 25
-max_rel_speed = 120
-servo_pwmout_limitmax = 120
+min_rel_speed = 20
+max_rel_speed = 100
+servo_pwmout_limitmax = 100
 
 ###################【环绕控制】####################
 radius_T = 3.2

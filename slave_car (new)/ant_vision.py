@@ -22,12 +22,6 @@ class VisionManager:
         # 注入无线串口对象，用于调试
         self.my_uart3 = my_uart3
         # 注入TOF测距对象，用于测距
-        """
-        self.my_tof = tof
-        self.tof_distance = 0       # type: float # TOF测距值
-        self.tof_buffer = []        # type: list  # TOF测距缓存列表
-        self.tof_distance_fil = tof_distance_fil     # TOF测距滤波器对象
-        """
         # 注入小车姿态控制对象
         self.my_car = car
         # 注入通信协议对象
@@ -57,7 +51,6 @@ class VisionManager:
         self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: int   # 视觉伺服控制最大速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: int   # 视觉伺服控制最小速度 
-        self.dist_threshold = self.flash_sys.find_value("dist_threshold")    # type: float # 物体距离多远认定为合理
         self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0                   # type: int     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
@@ -145,6 +138,12 @@ class VisionManager:
 
         return X_w, Y_w
 
+    # 动态调整视觉伺服pid参数
+    def adjust_pid_by_dist(self, dist):
+        # 距离越近，Kp 越小，防止超调；
+        scale = max(0.45, min(1.0, dist / 15.0)) # 15cm外全速，近处最少降至45%
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
 
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int):
@@ -194,7 +193,7 @@ class VisionManager:
             self.target_point = self.my_art_protocol.coordinate_receive()
             
             # 2. 判断是否收到有效的新视觉帧
-            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= self.dist_threshold:
+            if self.target_point and self.target_point[2] == self.current_servo_object:
                 self.calculate_dist(self.target_point[0], self.target_point[1])
 
                 # 记录下小车当前的坐标点
@@ -213,11 +212,12 @@ class VisionManager:
                     self.servo_lost_count = 0
                     return # 彻底丢失，跳出伺服逻辑
             
-            self.my_uart3.write(f"{self.absolute_actual_x},{self.absolute_actual_y}\r\n")
-
             # 用预测的点位，依赖惯导，进行pid控制
             now_error_x = self.real_servo_point[0] - self.my_car.x_current
             now_error_y = self.real_servo_point[1] - self.my_car.y_current
+            dist = math.sqrt(now_error_x ** 2 + now_error_y ** 2)
+            # 根据剩余距离动态调整pid参数
+            self.adjust_pid_by_dist(dist)
             # ================= 高频控制解耦 =================
             if self.servo_lost_count <= 80:
                 self.servo_pid.model_compute_pid(now_error_x, now_error_y)
@@ -227,11 +227,20 @@ class VisionManager:
                 # 连续丢失超过一定帧数后，降低小车速度
                 self.target_rel_speed = 50
                 return 
+            
+            # 测试打印
+            # self.my_uart3.write(f"{now_error_x},{now_error_y}\r\n")
 
+            # 调节停止阈值缩放系数
+            if self.current_servo_object == 'W' or self.current_servo_object == 'B':
+                threshold_scale = 2
+            else:
+                threshold_scale = 1.0
+            finish_threshold_x = self.finish_threshold_x * threshold_scale
+            finish_threshold_y = self.finish_threshold_y * threshold_scale
+            
             # 4. 判断是否完成视觉伺服控制
-            if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
-            # if abs(self.servo_pid.nowError_x) <= self.finish_threshold_x and abs(self.servo_pid.nowError_y) <= self.finish_threshold_y:
-                self.target_rel_speed = 0
+            if abs(self.absolute_actual_x) <= finish_threshold_x and abs(self.absolute_actual_y) <= finish_threshold_y:
                 self.target_rel_yaw = 0.0
                 self.my_order_manager.finish()
                 self.finish_servo = True

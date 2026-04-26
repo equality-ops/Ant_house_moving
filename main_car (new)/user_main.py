@@ -145,17 +145,17 @@ diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
-# 创建小车x和y方向上的速度的卡尔曼滤波器
+# 创建小车x和y方向上的速度的卡尔曼滤波器（已弃用）
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 创建编码器卡尔曼滤波器对象
+# 创建编码器卡尔曼滤波器对象（已弃用）
 encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
 encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
-# 创建目标物体像素点坐标滤波器对象
+# 创建目标物体像素点坐标滤波器对象（已弃用）
 kf_target_x_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0) 
 kf_target_y_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0)
-# 创建小车自转角滤波器对象
+# 创建小车自转角滤波器对象（已弃用）
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建主车正余弦滑动平均滤波器对象
 sin_diff_fil = ant_motor.SlipAveragingFilter(50)
@@ -207,14 +207,6 @@ def voltage_detect(limit_min: float) -> None:
     if power_voltage <= limit_min:
         print(f"The power supply voltage: {power_voltage} is too low!")
         my_beep.beep_warn()
-
-# tof传感器预热初始化函数
-"""
-def tof_init():
-    for i in range(0, 30):
-        tof.get()
-        time.sleep_ms(5)
-"""
 
 # 角度环计算函数
 def angle_pid_compute():
