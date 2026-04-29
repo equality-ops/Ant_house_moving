@@ -187,7 +187,7 @@ class VisionManager:
         self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * self.MATH.PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
-        # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
+        self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     def visual_servo_control(self):
         # 选择合适的里程计系数
@@ -198,7 +198,7 @@ class VisionManager:
             self.target_point = self.my_art_protocol.coordinate_receive()
             
             # 2. 判断是否收到有效的新视觉帧
-            if self.target_point and self.target_point[2] == self.current_servo_object and self.target_point[1] >= self.dist_threshold:
+            if self.target_point and self.target_point[2] == self.current_servo_object:
                 self.calculate_dist(self.target_point[0], self.target_point[1])
 
                 # 记录下小车当前的坐标点

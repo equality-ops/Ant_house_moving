@@ -1,4 +1,4 @@
-# 修改时间 4.26	  15:18
+# 修改时间 4.29	  23:15
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -83,8 +83,8 @@ boost_time_threshold = 60
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 5
 error_x_T = -1.0
-error_x_S = -3.0
-error_x_B = -3.0
+error_x_S = -2.0
+error_x_B = -1.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 190
@@ -141,9 +141,9 @@ servo_pwmout_limitmax = 100
 ###################【环绕控制】####################
 radius_T = 3.15
 radius_S = 3.55
-radius_B = 4.9
+radius_B = 5.1
 angle_T = 137.0
 angle_S = 142.0
-angle_B = 145.0
+angle_B = 143.0
 
 # 小车最高速度为290

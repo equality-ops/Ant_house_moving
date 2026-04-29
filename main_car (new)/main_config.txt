@@ -1,4 +1,4 @@
-# 修改时间 4.26	  16:37
+# 修改时间 4.29	  23:16
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -84,8 +84,8 @@ plan_arrive_threshold = 1.5
 plan_point_transition_T = 5
 
 error_x_T = 0.0
-error_x_S = 2.0
-error_x_B = 2.0
+error_x_S = 1.0
+error_x_B = 0.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 190
@@ -136,7 +136,7 @@ apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
 # 物体距离多远认定为合理
-dist_threshold = 25.0
+dist_threshold = 80.0
 
 min_rel_speed = 20
 max_rel_speed = 100
@@ -145,9 +145,9 @@ servo_pwmout_limitmax = 100
 ###################【环绕控制】####################
 radius_T = 3.2
 radius_S = 3.6
-radius_B = 5.0
+radius_B = 5.2
 angle_T = 137.0
 angle_S = 141.0
-angle_B = 145.0
+angle_B = 143.0
 
 # 小车最高速度为290

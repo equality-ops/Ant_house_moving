@@ -401,12 +401,14 @@ def collaborative_task_machine():
             # my_plan.navigate([plan_data.fixed_point[3]], 0.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
-                    my_state.state = my_state.SERVO
-                    # 测试
-                    my_beep.test()
+                if target_point:
+                    dist_x, dist_y = my_vision_manager.pixel_to_real_world(target_point[0], target_point[1])
+                    if dist_y < my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
+                        ready_servo_and_orbit(target_point)
+                        reset_navigate_flags()
+                        my_state.state = my_state.SERVO
+                        # 测试
+                        my_beep.test()
             else:
                 my_plan.finish_navigate = False
                 if_send_preparing_path = False
@@ -439,7 +441,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-8.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[1][1]-10.0], [my_car.x_current, my_car.y_current-15.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -544,12 +546,14 @@ def collaborative_task_machine():
                 my_plan.navigate([plan_data.fixed_point[2], plan_data.fixed_point[4]], 180.0)
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
-                    if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
-                        ready_servo_and_orbit(target_point)
-                        reset_navigate_flags()
-                        my_state.state = my_state.SERVO
-                        # 测试
-                        my_beep.test()
+                    if target_point:
+                        dist_x, dist_y = my_vision_manager.pixel_to_real_world(target_point[0], target_point[1])
+                        if dist_y < my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
+                            ready_servo_and_orbit(target_point)
+                            reset_navigate_flags()
+                            my_state.state = my_state.SERVO
+                            # 测试
+                            my_beep.test()
                 else:
                     # 此时矩形上区域已没有物体，控制小车检查区域内是否还有物体遗漏
                     my_plan.finish_navigate = False
@@ -581,7 +585,7 @@ def collaborative_task_machine():
 
             if my_vision_manager.finish_servo == True:
                 if my_plan.if_send_path == False:
-                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+8.0]])
+                    my_main_protocol.send_path(my_vision_manager.current_servo_object, [[my_car.x_current, plan_data.fixed_point[2][1]+10.0], [my_car.x_current, my_car.y_current+15.0]])
                     my_plan.if_send_path = True
 
                 if my_main_protocol.get_slave_state() == "get":
@@ -679,11 +683,15 @@ def collaborative_task_machine():
             my_plan.navigate([[110.0, 140.0], [210.0, 140.0]], 180.0)
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
-                if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
-                    my_state.state_work = UP
-                    my_state.state = my_state.SERVO
+                if target_point:
+                    dist_x, dist_y = my_vision_manager.pixel_to_real_world(target_point[0], target_point[1])
+                    if dist_y < my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
+                        ready_servo_and_orbit(target_point)
+                        reset_navigate_flags()
+                        my_state.state = my_state.SERVO
+                        my_state.state_work = UP
+                        # 测试
+                        my_beep.test()
             else:
                 if my_plan.if_send_path == False:
                     my_main_protocol.send_path(ord('P'), [[15.0, -15.0]])
