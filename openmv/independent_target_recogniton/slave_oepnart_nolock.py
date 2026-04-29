@@ -12,8 +12,8 @@ import ustruct
 
 # ======================== 常量定义 ========================
 # 串口配置
-UART_PORT = 2
-UART_BAUDRATE = 460800
+UART_PORT = 12
+UART_BAUDRATE = 115200
 
 # 摄像头配置
 CAMERA_PIXFORMAT = sensor.RGB565
@@ -506,12 +506,15 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 sensor.set_hmirror(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
+LED(4).on()
+time.sleep_ms(1000)
+LED(4).off()
 
 init_threshold()
 
-# # LCD初始化
-# lcd = seekfree.IPS200(3)
-# lcd.full()
+# LCD初始化
+lcd = seekfree.IPS200(1)
+lcd.full()
 
 # 创建模块实例
 color_detector = ColorDetector()
@@ -599,5 +602,5 @@ while True:
             communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
 
     # 显示图像到LCD
-    # lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
+    lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
     # (clock.fps())
