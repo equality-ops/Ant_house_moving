@@ -61,7 +61,7 @@ beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
-my_uart6.init(460800)
+my_uart6.init(115200)
 
 """无线串口通信初始化"""
 my_uart3 = UART(2)
