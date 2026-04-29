@@ -84,8 +84,8 @@ net = tf.load(face_detect)
 class Communicator:
     def __init__(self, uart):
         self.uart = uart
-        self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
-        self.last_sent_y = SCREEN_CENTER_Y
+        # self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
+        # self.last_sent_y = SCREEN_CENTER_Y
 
     def send_coordinate(self, x, y, obj_type = ''):
         """发送目标坐标（带防抖和范围限制）"""
@@ -99,19 +99,19 @@ class Communicator:
         # if not is_first_send and abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             # return
 
-        # 限制单次坐标变化幅度（最大±30）
-        dx_coord = min(30, max(-30, x - self.last_sent_x))
-        dy_coord = min(30, max(-30, y - self.last_sent_y))
-        x_limited = self.last_sent_x + dx_coord
-        y_limited = self.last_sent_y + dy_coord
+        # # 限制单次坐标变化幅度（最大±30）
+        # dx_coord = min(30, max(-30, x - self.last_sent_x))
+        # dy_coord = min(30, max(-30, y - self.last_sent_y))
+        # x_limited = self.last_sent_x + dx_coord
+        # y_limited = self.last_sent_y + dy_coord
 
-        # 坐标范围限制（0~160, 0~120）
-        x_limited = max(0, min(SCREEN_WIDTH, x_limited))
-        y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
+        # # 坐标范围限制（0~160, 0~120）
+        # x_limited = max(0, min(SCREEN_WIDTH, x_limited))
+        # y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
 
-        # 更新上次发送的坐标
-        self.last_sent_x = x_limited
-        self.last_sent_y = y_limited
+        # # 更新上次发送的坐标
+        # self.last_sent_x = x_limited
+        # self.last_sent_y = y_limited
 
         # 获取颜色类型对应的ASCII码
         type_char = COLOR_TYPE_MAP.get(obj_type, 0x00)
@@ -121,8 +121,8 @@ class Communicator:
             "<BBBBBB",
             PROTOCOL_HEADER1,
             PROTOCOL_HEADER2_COORD,
-            x_limited,
-            y_limited,
+            x,
+            y,
             type_char,
             PROTOCOL_FOOTER
         )
@@ -559,9 +559,12 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 sensor.set_hmirror(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
+LED(4).on()
+time.sleep_ms(1000)
+LED(4).off()
 
 # LCD初始化
-lcd = seekfree.IPS200(3)
+lcd = seekfree.IPS200(1)
 lcd.full()
 
 # 创建模块实例

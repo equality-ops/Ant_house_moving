@@ -425,9 +425,12 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 sensor.set_hmirror(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
+LED(4).on()
+time.sleep_ms(1000)
+LED(4).off()
 
 # LCD初始化
-lcd = seekfree.IPS200(3)
+lcd = seekfree.IPS200(1)
 lcd.full()
 
 # 创建模块实例
