@@ -149,7 +149,7 @@ class Plan:
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_set_path = False            # type: bool  # 判断是否设置路径标志位
         self.finish_navigate = False        # type: bool  # 判断是否完成导航标志位
-        self.return_to_scan_point = False   # type: bool  # 判断是否返回扫描点标志位
+        self.if_elude = False               # type: bool  # 判断是否避障标志位
     
     # 构建减速速度表
     def build_dec_speed_list(self, i):
@@ -284,14 +284,12 @@ class Plan:
         # 重置当前路径和相关索引
         self.plan_data.current_aimed_point_index = 0
         
-        # 搬运，扫描，视觉伺服，apriltag矫正，环绕，或返回模式下不需要避开矩形区域行驶
-        # "3"为检查模式，此时也不进行避障处理
-        if self.my_state.state == self.my_state.NAVIGATE and self.return_to_scan_point == False and self.my_state.state_work != 3:
+        # 当if_elude标志位为True时才进行避障
+        if self.if_elude:
             # 进行避障路径规划
             self.current_path = self.path_planning(x, y)
         else:   
             self.current_path = []
-            self.return_to_scan_point = False
 
         # 理想条件下的目标坐标
         self.ideal_target_x = x
@@ -342,17 +340,7 @@ class Plan:
 
         # 将终点加入避障路径
         self.current_path.append((self.real_target_x, self.real_target_y))
-        """
-        # 搬运模式下如果已经在搬运过程中途，则在当前路径前加入过渡点以保证小车平稳过渡到搬运模式的目标点，否则直接将目标点加入当前路径
-        if self.my_state.state == self.my_state.MOVE:
-            temp_list = []
-            diff_x = self.real_target_x - self.my_car.x_current
-            diff_y = self.real_target_y - self.my_car.y_current
-            # 将路径分成15小段
-            for i in range(1, 15):
-                temp_list.append((self.my_car.x_current + diff_x / 15 * i, self.my_car.y_current + diff_y / 15 * i))
-            self.current_path = temp_list + self.current_path
-        """
+
         # 实际距离坐标点的直线距离
         total_distance = math.sqrt((self.real_target_x - self.my_car.x_current) ** 2 + (self.real_target_y - self.my_car.y_current) ** 2)
 
@@ -409,7 +397,7 @@ class Plan:
         elif total_distance >= 10.0 and total_distance < 50.0:
             # 设置减速距离和加速时间阈值
             self.dec_distance = 9.0
-            self.boost_time_threshold = 30
+            self.boost_time_threshold = 20
             self.v_max = self.short_v_max
             # 创建s型曲线减速速度表
             self.build_dec_speed_list(0)
@@ -493,7 +481,7 @@ class Plan:
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
-    def navigate(self, path: list, target_turn_angle = None):
+    def navigate(self, path: list, target_turn_angle = None, if_elude = None):
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_turn == False and self.finish_navigate == False:
             if target_turn_angle is not None:
@@ -519,6 +507,10 @@ class Plan:
             # 路径初始化
             self.path_points = path
             self.if_set_path = True
+            if if_elude == 'Y':
+                self.if_elude = True
+            else:
+                self.if_elude = False
             # 设置第一个目标点
             self.set_target_point(self.path_points[0][0], self.path_points[0][1])
             self.compute_target_yaw(self.current_path[self.plan_data.current_aimed_point_index][0], self.current_path[self.plan_data.current_aimed_point_index][1])  

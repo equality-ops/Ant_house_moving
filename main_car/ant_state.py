@@ -126,6 +126,32 @@ class TaskController:
                 'turn_u': {'LD', 'D'}, 
             }
         }
+        ELUDE_MAP = {
+            'L':{
+                'U':'RU',
+                'C':'R',
+                'D':'RD',
+                'LU':{'U','RU'},
+                'L':{'C','R'},
+                'LD':{'D','RD'},
+            },
+            'R':{
+                'U':'LU',
+                'C':'L',
+                'D':'LD',
+                'RU':{'U','LU'},
+                'R':{'C','L'},
+                'RD':{'D','LD'},
+            },
+            'D':{
+                'L':'LU',
+                'C':'U',
+                'R':'RU',
+                'LD':{'LU','L'},
+                'L':{'C','R'},
+                'LD':{'D','RD'},
+            }
+        }
         # 执行查表逻辑
         if car_turn in STRATEGY_MAP:
             strategy = STRATEGY_MAP[car_turn]
@@ -165,11 +191,11 @@ class TaskController:
 
     def handle_navigate(self):
         # if state == NAVIGATE
-        self.my_plan.navigate([self.navigate_message[0]], self.navigate_message[1])
+        self.my_plan.navigate([self.navigate_message[0]], self.navigate_message[1], "Y")
 
     def handle_scan(self):
         # if state == SCAN
-        self.my_plan.navigate([self.navigate_message[0], [self.my_car.x_current, self.my_car.y_current]])
+        self.my_plan.navigate([self.navigate_message[0], [self.my_car.x_current, self.my_car.y_current]], if_elude = "N")
 
     def handle_servo(self):
         # if state == SERVO
