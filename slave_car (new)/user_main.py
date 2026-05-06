@@ -578,9 +578,9 @@ def collaborative_task_machine():
         elif my_state.state == my_state.MOVE:
             # 搬运小熊时搬远一些防止与主车或者物体卡住
             if my_vision_manager.current_servo_object == ord('W') or my_vision_manager.current_servo_object == ord('B'):
-                my_plan.navigate([[my_car.x_current+my_plan.error_x, -35.0]])
+                my_plan.navigate([[my_car.x_current+my_plan.error_x, -30.0]])
             else:
-                my_plan.navigate([[my_car.x_current+my_plan.error_x, -25.0]])
+                my_plan.navigate([[my_car.x_current+my_plan.error_x, -20.0]])
             if my_plan.finish_navigate == True:
                 counter = 0
                 if my_slave_protocol.get_start_signal():

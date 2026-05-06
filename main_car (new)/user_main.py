@@ -228,7 +228,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -373,13 +373,19 @@ def test_apriltag_calibrate():
     elif my_state.state == my_state.STOP:
         my_plan.stop()
 
+# 测试MCU与openart plus的通信
+def test_plus_uart():
+    target = my_art_protocol.coordinate_receive()
+    if target:
+        my_uart3.write(f"current_time: {target[0]}, current_num: {target[1]}\r\n")
+
 # 双车版的任务执行机
 def collaborative_task_machine():
     global counter, if_send_preparing_path
     if my_state.state_work == DOWN:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
-                my_main_protocol.send_path(ord('P'), [[15.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
+                my_main_protocol.send_path(ord('P'), [[30.0, 0.0], [plan_data.fixed_point[5][0], plan_data.fixed_point[5][1]]])
                 if_send_preparing_path = True
 
             my_plan.navigate([[160.0, plan_data.fixed_point[1][1]]], 0.0)
@@ -823,7 +829,10 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
+
+    # 测试openart plus的通信
+    test_plus_uart()
 
     # 全向定位测试程序
     """
