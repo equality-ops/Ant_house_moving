@@ -28,7 +28,7 @@ class beep:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON
             self.beep.high()
-            time.sleep_ms(100)
+            time.sleep_ms(20)
             self.beep.low()
             self.beep_state = self.BEEP_OFF
             return
@@ -295,12 +295,13 @@ class flash_system:
             var_name = line[0].strip()
             var_value = line[1].strip()
             # 解析变量值
+            # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
                 lst = list(var_value)
                 lst[0] = '['
                 lst[-1] = ']'
                 var_value = ''.join(lst)
-                self.config[var_name] = var_value
+                self.config[var_name] = eval(var_value)
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
         f.close()
@@ -312,14 +313,5 @@ class flash_system:
             return var_value
         except KeyError as e:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
-            self.beep.beep_warn()
-            return 0
-    
-    def gain_rogue_planning(self):
-        try:
-            self.config['rogue_planning'] = eval(self.config['rogue_planning'])
-            return self.config['rogue_planning']
-        except Exception as e:
-            print(f"Failure to find rogue_planning in {self.file_path}!")
             self.beep.beep_warn()
             return 0

@@ -40,7 +40,7 @@ class Plan_data:
         # LU代表物体在矩形框左上侧，C代表物体在矩形框正中，RD代表物体在矩形框右下侧（相对于矩形框中心点的位置关系）
 
         # 示例：[(160.0, 85.0), 'E', 'LU']
-        self.rogue_planning = self.flash_sys.gain_rogue_planning()  # type: list     
+        self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list     
         self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning)   # 需要搬运的物体总数
