@@ -18,6 +18,25 @@ class StateMachine:
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
         self.state_work = -1 # 阶段变量
 
+# 小车位置循环链表
+class CarPosition:
+    def __init__(self):
+        self.car_pos_list = ['D', 'R', 'U', 'L']  # 小车位置循环链表，顺时针记录小车在四条边的位置关系
+        self.current_idx = 0  # 当前索引，初始时小车在下边沿（'D'）
+        self.L = len(self.car_pos_list) # 链表长度
+
+    # 向前或向后移动链表索引
+    def move(self, step):
+        return (self.current_idx + step) % self.L
+    
+    # 根据小车位置更新当前小车位置索引
+    def update_idx(self, car_pos):
+        self.current_idx = self.car_pos_list.index(car_pos)
+
+    # 返回小车当前位置
+    def get_position(self):
+        return self.car_pos_list[self.current_idx]
+
 # 路径和速度规划相关常量
 class Plan_data:
     def __init__(self, flash_sys):
@@ -37,10 +56,10 @@ class Plan_data:
         # y坐标靠近下边沿:70，中等:85，靠近中心:100    
         # 靠近上边沿:170，中等:155，靠近中心:140 
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-        # LU代表物体在矩形框左上侧，C代表物体在矩形框正中，RD代表物体在矩形框右下侧（相对于矩形框中心点的位置关系）
 
-        # 示例：[(160.0, 85.0), 'E', 'LU']
-        self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list     
+        # 示例：[(160.0, 85.0), 'E', [x, x]]
+        self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
+        self.obstacles = [item[0] for item in self.rogue_planning]  # type: list  # 障碍物坐标列表
         self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning)   # 需要搬运的物体总数
@@ -577,4 +596,54 @@ class Plan:
         # 速度规划
         self.elapsed_time = 0
         self.stage = self.STOP
-        self.finish_building = False    
+        self.finish_building = False
+
+    # 几何避障算法
+    def is_path_blocked(self, car_pos, target_pos, safety_margin=3.0):
+        """
+        判断从 car_pos 到 target_pos 的路径是否被 obstacles 遮挡
+        car_pos: (x, y)
+        target_pos: (x, y)
+        obstacles: [(x, y, r), ...] 障碍物坐标和半径
+        """
+        # 小车半径和障碍物半径
+        car_radius = 4.0 # type: float
+        obstacle_radius = 3.0 # type: float
+
+        x1, y1 = car_pos
+        x2, y2 = target_pos
+        
+        # 线段向量
+        dx = x2 - x1
+        dy = y2 - y1
+        line_len_sq = dx*dx + dy*dy
+        
+        if line_len_sq == 0: return False # 起点终点重合
+
+        for ox, oy in self.plan_data.obstacles:
+            # 1. 计算障碍物到线段的投影比例 t
+            # 公式：t = [(O-A) · (B-A)] / |B-A|^2
+            t = ((ox - x1) * dx + (oy - y1) * dy) / line_len_sq
+            
+            # 2. 限制 t 在 [0, 1] 范围内，确保距离是在“线段”上
+            if t < 0 or t > 1:
+                continue
+            
+            # 3. 找到线段上距离障碍物最近的点坐标
+            nearest_x = x1 + t * dx
+            nearest_y = y1 + t * dy
+            
+            # 4. 计算欧几里得距离
+            dist = math.sqrt((ox - nearest_x)**2 + (oy - nearest_y)**2)
+            
+            # 5. 碰撞判定：距离小于 障碍半径 + 车体半径 + 额外安全系数
+            if dist < (car_radius + obstacle_radius + safety_margin):
+                # 排除目标物体本身（防止把自己当成障碍）
+                if math.sqrt((ox - x2)**2 + (oy - y2)**2) < 1: 
+                    continue
+                return True # 路径被挡
+            
+        return False # 路径畅通     
+    
+    # 根据当前小车位置寻找最优路径
+    def judge_if_block(self):

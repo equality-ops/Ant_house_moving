@@ -187,7 +187,6 @@ class VisionManager:
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
-
     def visual_servo_control(self):
         # 选择合适的里程计系数
         self.my_car.alpha_x = 1.0
@@ -331,7 +330,7 @@ class VisionManager:
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.finish_orbit = True
 
-    # apriltag辅助校准校准控制函数
+    # apriltag辅助校准惯导控制函数
     def apriltag_calibrate_control(self):
         """0代表下边线左侧,1代表下边线右侧, 2代表上边线左侧, 3代表上边线右侧"""
         if self.if_ready_calibrate == False:
@@ -467,7 +466,7 @@ class VisionManager:
                     self.servo_lost_count = 0
                     self.if_lost_object = True
 
-    # apriltag辅助校准惯导控制函数
+    # 改善版本的apriltag辅助校准惯导控制函数
     def improved_aptiltag_calibrate(self):
         target_point = self.my_art_protocol.apriltag_receive()
         K = (23.0 - 10.6) / 23.0
@@ -476,3 +475,33 @@ class VisionManager:
             real_x, real_y = x * K, y * K
             angle = target_point[2]
             self.my_uart3.write(f"x:{real_x},y:{real_y}, angle:{angle}\r\n")
+
+    # 用于准备视觉伺服和环绕
+    def ready_servo_and_orbit(self, target_point):
+        # 控制小车面向物体进行视觉伺服控制
+        self.target_rel_turn_angle = self.my_plan.turn_angle_target
+        self.current_servo_object = target_point[2]
+        # 根据物品种类选择伺服距离、环绕半径和搬运速度
+        if self.current_servo_object == ord('T'):
+            self.my_plan.error_x = self.my_plan.error_x_T
+            self.final_dist = self.servo_pid.target_y_T
+            self.object_radius = self.radius_T
+            self.orbit_angle = self.angle_T
+            self.my_plan.move_v_max = self.my_plan.move_v_max_T
+        elif self.current_servo_object == ord('S') or self.current_servo_object == ord('E'):
+            self.error_x = self.my_plan.error_x_S
+            self.final_dist = self.servo_pid.target_y_S
+            self.object_radius = self.radius_S
+            self.orbit_angle = self.angle_S
+            self.my_plan.move_v_max = self.my_plan.move_v_max_S
+        elif self.current_servo_object == ord('B') or self.current_servo_object == ord('W'):
+            self.my_plan.error_x = self.my_plan.error_x_B
+            self.final_dist = self.servo_pid.target_y_B
+            self.object_radius = self.radius_B
+            self.orbit_angle = self.angle_B
+            self.my_plan.move_v_max = self.my_plan.move_v_max_B
+
+        # 第一帧图像预测伺服点位
+        self.last_car_x = self.my_car.x_current
+        self.last_car_y = self.my_car.y_current
+        self.calculate_dist(target_point[0], target_point[1])

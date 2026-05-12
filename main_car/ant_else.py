@@ -297,11 +297,8 @@ class flash_system:
             # 解析变量值
             # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
-                lst = list(var_value)
-                lst[0] = '['
-                lst[-1] = ']'
-                var_value = ''.join(lst)
-                self.config[var_name] = eval(var_value)
+                var_value = "[" + var_value[1:-1] + "]"
+                self.config[var_name] = eval(var_value) 
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
         f.close()

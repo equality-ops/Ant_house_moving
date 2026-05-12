@@ -2,7 +2,7 @@ import math
 
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, math, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, kf_target_x_fil, kf_target_y_fil, my_uart3, car, protocol, order_manager, plan, state):
+    def __init__(self, flash_sys, beep, math, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入数学常量对象
@@ -68,10 +68,6 @@ class VisionManager:
         self.H_matrix = [[ 1.73277793e+00, -4.03832162e-02, -1.43148863e+02],
                         [-2.48551759e-02, -1.47533261e+00,  1.77324371e+02],
                         [-1.12359403e-03,  5.60745066e-02,  1.00000000e+00]]
-        # 为 X 和 Y 坐标分别建立卡尔曼滤波器
-        # P: 估计误差协方差, Q: 过程噪声(越小越信任预测), R: 测量噪声(越大越信任滤波，抗抖动)
-        self.kf_target_x = kf_target_x_fil 
-        self.kf_target_y = kf_target_y_fil
         
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0

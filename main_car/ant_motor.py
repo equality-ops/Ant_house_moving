@@ -120,7 +120,7 @@ class ToFFilter:
     
     
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil):
+    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器对象
@@ -130,10 +130,6 @@ class PoseData:
         self.encoder_md = encoder_md
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
-        # 注入编码器卡尔曼滤波器对象
-        self.encoder_ul_fil = encoder_ul_fil
-        self.encoder_ur_fil = encoder_ur_fil
-        self.encoder_md_fil = encoder_md_fil
         # IMU数据列表
         self.imu_data = []   # type: list
 
@@ -587,10 +583,6 @@ class CarPose:
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
-        # 电机补偿系数
-        self.ul_compensation = self.flash_sys.find_value("ul_compensation")  # type: float
-        self.ur_compensation = self.flash_sys.find_value("ur_compensation")  # type: float
-        self.md_compensation = self.flash_sys.find_value("md_compensation")  # type: float
         # 位置
         self.x_current = 0.0   # type: float
         self.y_current = 0.0   # type: float
@@ -673,9 +665,9 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = self.ul_compensation * (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
-        motor_ur_speed_target = self.ur_compensation * (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
-        motor_md_speed_target = self.md_compensation * (self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd)
+        motor_ul_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
+        motor_ur_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
+        motor_md_speed_target = (self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd)
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)

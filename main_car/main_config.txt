@@ -66,7 +66,7 @@ speed_conversion_gamma = 1.0
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.148692
-# 电机补偿系数
+# 电机补偿系数（已弃用）
 ul_compensation = 1.0
 ur_compensation = 1.0
 md_compensation = 1.0

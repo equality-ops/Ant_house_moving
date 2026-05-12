@@ -1,6 +1,8 @@
+import math
+
 # 状态机类
 class TaskController:
-    def __init__(self, beep, math, state, plan, vision, car, plan_data, order_manager, art_protocal, main_protocol):
+    def __init__(self, beep, math, state, plan, vision, car, car_position, plan_data, order_manager, art_protocal, main_protocol):
         # 注入对象
         self.my_beep = beep
         self.my_math = math
@@ -12,6 +14,7 @@ class TaskController:
         self.my_order_manager = order_manager
         self.my_art_protocol = art_protocal
         self.my_main_protocol = main_protocol
+        self.my_car_position = car_position
 
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
@@ -27,7 +30,6 @@ class TaskController:
         }
 
         self.navigate_message = [[0.0, 0.0], 0.0]  # 导航信息：目标点坐标和朝向
-        self.car_turn = 'U'  # 小车当前朝向，初始值为 'U'（假设初始朝向向上）
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
 
@@ -86,18 +88,11 @@ class TaskController:
                 self.my_plan.current_index += 1  # 更新当前搬运物体索引
                 # 将openart置为等待模式
                 self.my_order_manager.finish()
-
-    # 每个状态对应的处理函数
+    
     def handle_ready_navigate(self):
-        # if state == READY_NAVIGATE
-        # 进入准备导航状态，进行相关初始化
-        # 先对下一导航阶段的小车姿态角进行优化
-        now_yaw = self.my_car.now_yaw * 180 / self.my_math.PI
-        dirs = ['U', 'R', 'D', 'L']
-        # 将 -180~180 映射到 0~3 索引
-        idx = int((now_yaw + 45) // 90) % 4
-        car_turn = dirs[idx] if now_yaw >= -135 else 'D' # 边界微调
-
+        # 进入准备导航状态，做好路径规划准备和导航信息准备
+        car_pos = self.my_car_position.get_position()  # 获取当前车位信息
+        if car_pos == 'D':
         # 获取目标方位字符串
         target_dir = self.my_plan_data.rogue_planning[self.my_plan.current_index][2]
         STRATEGY_MAP = {

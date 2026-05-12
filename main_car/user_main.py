@@ -142,16 +142,6 @@ diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
-# 创建小车x和y方向上的速度的卡尔曼滤波器（已弃用）
-speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 创建编码器卡尔曼滤波器对象（已弃用）
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 0.1)
-# 创建目标物体像素点坐标滤波器对象（已弃用）
-kf_target_x_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0) 
-kf_target_y_fil = ant_motor.KalmanFilter(P=1.0, Q=0.2, R=1.0)
 # 创建小车自转角滤波器对象（已弃用）
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建主车正余弦滑动平均滤波器对象
@@ -162,7 +152,7 @@ sin_servo_fil = ant_motor.SlipAveragingFilter(4)
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -182,7 +172,7 @@ plan_data = ant_plan.Plan_data(my_flash_sys)
 my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, kf_target_x_fil, kf_target_y_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -207,9 +197,8 @@ def voltage_detect(limit_min: float) -> None:
 
 # 角度环计算函数
 def angle_pid_compute():
-    filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
     # 计算z轴的目标速度
-    angle_pid.compute_pid(my_car.turn_angle_target, filter_yaw)
+    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / MATH.PI)
 
 # 用于主车启动的函数
 def main_start():
