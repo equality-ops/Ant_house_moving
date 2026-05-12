@@ -275,7 +275,7 @@ def test_vision_servo():
         # my_plan.finish_navigate = False
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
-            ready_servo_and_orbit(target_point)
+            my_vision_manager.ready_servo_and_orbit(target_point)
             my_state.state = my_state.SERVO
             # 测试
             my_beep.test()
@@ -352,8 +352,8 @@ def collaborative_task_machine():
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):  
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
+                    my_vision_manager.ready_servo_and_orbit(target_point)
+                    my_plan.reset_navigate()
                     my_state.state = my_state.SERVO
                     # 测试
                     my_beep.test()
@@ -373,8 +373,8 @@ def collaborative_task_machine():
                 my_plan.navigate([[my_car.x_current+11.0, my_car.y_current], [my_car.x_current+11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current-11.0], [my_car.x_current-11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and target_point[2] == my_vision_manager.current_servo_object and target_point[1] > my_vision_manager.dist_threshold:
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
+                    my_vision_manager.ready_servo_and_orbit(target_point)
+                    my_plan.reset_navigate()
                     my_vision_manager.if_lost_object = False
 
                 # 如果小车在寻找物体过程中完成了一个矩形轨迹但仍未找到物体，则认为该边的区域内没有物体，控制小车再次进行扫描
@@ -384,7 +384,7 @@ def collaborative_task_machine():
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     # 重回扫描点继续寻找物体
-                    my_plan.return_to_scan_point = True
+                    # my_plan.return_to_scan_point = True
                     my_state.state = my_state.NAVIGATE
 
             if my_vision_manager.finish_servo == True:
@@ -422,7 +422,7 @@ def collaborative_task_machine():
                         counter = 0
                         my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                         my_vision_manager.failed_servo_count += 1
-                        my_state.state = my_state.REVERSE_ORBIT
+                        # my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体，控制主车提前停止
             my_plan.navigate([[my_car.x_current+my_plan.error_x, -20.0]])
@@ -440,7 +440,7 @@ def collaborative_task_machine():
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
-                    reset_navigate_flags()
+                    my_plan.reset_navigate()
                     my_vision_manager.counter = 0
                     my_vision_manager.calibrate_times = 0
                     my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
@@ -462,6 +462,7 @@ def collaborative_task_machine():
                 # 主车给从车发消息让从车完成矫正
                 my_main_protocol.send_start()
         # 让小车通过反向环绕恢复原位
+        """
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
@@ -469,6 +470,7 @@ def collaborative_task_machine():
                 # 重回扫描点继续寻找物体
                 my_plan.return_to_scan_point = True
                 my_state.state = my_state.NAVIGATE
+        """
     elif my_state.state_work == UP:
         if my_state.state == my_state.NAVIGATE:
             if if_send_preparing_path == False:
@@ -495,8 +497,8 @@ def collaborative_task_machine():
                 if my_plan.finish_navigate == False:
                     target_point = my_art_protocol.coordinate_receive()
                     if target_point and target_point[1] > my_vision_manager.dist_threshold and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
-                        ready_servo_and_orbit(target_point)
-                        reset_navigate_flags()
+                        my_vision_manager.ready_servo_and_orbit(target_point)
+                        my_plan.reset_navigate()
                         my_state.state = my_state.SERVO
                         # 测试
                         my_beep.test()
@@ -515,8 +517,8 @@ def collaborative_task_machine():
                 my_plan.navigate([[my_car.x_current-11.0, my_car.y_current], [my_car.x_current-11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current+11.0], [my_car.x_current+11.0, my_car.y_current], [my_car.x_current, my_car.y_current]], my_vision_manager.target_rel_turn_angle)
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and target_point[2] == my_vision_manager.current_servo_object and target_point[1] > my_vision_manager.dist_threshold:
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
+                    my_vision_manager.ready_servo_and_orbit(target_point)
+                    my_plan.reset_navigate()
                     my_vision_manager.if_lost_object = False
 
                 # 如果小车在寻找物体过程中完成了一个矩形轨迹但仍未找到物体，则认为该边的区域内没有物体，控制小车再次进行扫描
@@ -526,7 +528,7 @@ def collaborative_task_machine():
                     # 将openart置为等待模式
                     my_order_manager.finish()
                     # 重回扫描点继续寻找物体
-                    my_plan.return_to_scan_point = True
+                    # my_plan.return_to_scan_point = True
                     my_state.state = my_state.NAVIGATE
 
             if my_vision_manager.finish_servo == True:
@@ -564,7 +566,7 @@ def collaborative_task_machine():
                         counter = 0
                         my_vision_manager.finish_orbit, my_vision_manager.if_gain_dis = False, False
                         my_vision_manager.failed_servo_count += 1
-                        my_state.state = my_state.REVERSE_ORBIT
+                        # my_state.state = my_state.REVERSE_ORBIT
         elif my_state.state == my_state.MOVE:
             # 控制小车夹紧物体，控制主车提前停止
             my_plan.navigate([[my_car.x_current-my_plan.error_x, 260.0]])
@@ -582,7 +584,7 @@ def collaborative_task_machine():
 
                 target_point = my_art_protocol.apriltag_receive()
                 if target_point:
-                    reset_navigate_flags()
+                    my_plan.reset_navigate()
                     my_vision_manager.counter = 0
                     my_vision_manager.calibrate_times = 0
                     my_vision_manager.if_lost_object, my_vision_manager.if_gain_calibrate_angle = False, False
@@ -608,6 +610,7 @@ def collaborative_task_machine():
                     my_state.state_work = CHECK
                     my_state.state = my_state.NAVIGATE
         # 让小车通过反向环绕恢复原位
+        """
         elif my_state.state == my_state.REVERSE_ORBIT:
             my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
             if my_vision_manager.finish_orbit == True:
@@ -615,6 +618,7 @@ def collaborative_task_machine():
                 # 重回扫描点继续寻找物体
                 my_plan.return_to_scan_point = True
                 my_state.state = my_state.NAVIGATE
+        """    
     elif my_state.state_work == CHECK:
         if my_state.state == my_state.NAVIGATE:
             my_plan.navigate([plan_data.fixed_point[4]], 180.0)
@@ -630,8 +634,8 @@ def collaborative_task_machine():
             if my_plan.finish_navigate == False:
                 target_point = my_art_protocol.coordinate_receive()
                 if target_point and (target_point[2] == ord('S') or target_point[2] == ord('T') or target_point[2] == ord('B') or target_point[2] == ord('E') or target_point[2] == ord('W')):
-                    ready_servo_and_orbit(target_point)
-                    reset_navigate_flags()
+                    my_vision_manager.ready_servo_and_orbit(target_point)
+                    my_plan.reset_navigate()
                     my_state.state_work = UP
                     my_state.state = my_state.SERVO
             else:
@@ -689,7 +693,7 @@ def time_pit1_handler(time):
     pose_data.update_data()
 
     # if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT:
-    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.REVERSE_ORBIT or my_state.state == my_state.CALIBRATE:
+    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.CALIBRATE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)

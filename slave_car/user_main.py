@@ -226,7 +226,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -460,9 +460,11 @@ def test_orbit_control():
 # 视觉伺服辅助apriltag码矫正
 def test_apriltag_calibrate():
     if my_state.state == my_state.READY_NAVIGATE:
+        my_order_manager.mode_apriltag()
         my_state.state = my_state.CALIBRATE
     elif my_state.state == my_state.CALIBRATE:
-        my_vision_manager.apriltag_calibrate_control()
+        # my_vision_manager.apriltag_calibrate_control()
+        my_vision_manager.improved_aptiltag_calibrate()
         if my_vision_manager.if_finish_calibrate == True:
             my_vision_manager.if_finish_calibrate, my_vision_manager.if_gain_calibrate_angle, my_vision_manager.if_ready_calibrate = False, False, False
             my_state.state = my_state.STOP
@@ -860,7 +862,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
     """
@@ -881,7 +883,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    # test_apriltag_calibrate()
+    test_apriltag_calibrate()
 
     # 环绕物体测试程序
     # test_orbit_control()

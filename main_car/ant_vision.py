@@ -464,6 +464,15 @@ class VisionManager:
                     self.servo_lost_count = 0
                     self.if_lost_object = True
 
+    # apriltag辅助校准惯导控制函数
+    def improved_aptiltag_calibrate(self):
+        target_point = self.my_art_protocol.apriltag_receive()
+        K = (10.0 - 5.0) / 10.0 
+        if target_point:
+            x, y = self.pixel_to_real_world(target_point[0], target_point[1])
+            real_x, real_y = x * K, y * K
+            self.my_uart3.write(f"x:{real_x},y:{real_y}\r\n")
+
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point):
         # 控制小车面向物体进行视觉伺服控制

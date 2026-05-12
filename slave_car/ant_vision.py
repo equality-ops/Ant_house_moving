@@ -61,7 +61,9 @@ class VisionManager:
         self.H_matrix = [[ 2.27144182e+00, -1.15368332e-01, -1.81253872e+02],
                         [-9.62991353e-16, -1.86242170e+00,  2.40298734e+02],
                         [-1.06056315e-17,  7.92548688e-02,  1.00000000e+00]]
-        
+        self.correct_matrix = [[ 2.53412974e+00, -6.38412017e-02, -1.99675761e+02],
+                            [-3.71806303e-16, -2.58229617e+00,  2.68558802e+02],
+                            [-1.26680170e-17,  8.36909871e-02,  1.00000000e+00]]
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -136,6 +138,13 @@ class VisionManager:
         X_w = (self.H_matrix[0][0] * u + self.H_matrix[0][1] * v + self.H_matrix[0][2]) / w_prime
         Y_w = (self.H_matrix[1][0] * u + self.H_matrix[1][1] * v + self.H_matrix[1][2]) / w_prime
 
+        return X_w, Y_w
+    
+    # apriltag辅助校准时使用的像素坐标转换为实际物理坐标的函数，使用了经验修正矩阵
+    def correct_pixel_to_real_world(self, u, v):
+        w_prime = self.correct_matrix[2][0] * u + self.correct_matrix[2][1] * v + self.correct_matrix[2][2]
+        X_w = (self.correct_matrix[0][0] * u + self.correct_matrix[0][1] * v + self.correct_matrix[0][2]) / w_prime
+        Y_w = (self.correct_matrix[1][0] * u + self.correct_matrix[1][1] * v + self.correct_matrix[1][2]) / w_prime
         return X_w, Y_w
 
     # 动态调整视觉伺服pid参数
@@ -457,3 +466,13 @@ class VisionManager:
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
                     self.if_lost_object = True
+
+    # apriltag辅助校准惯导控制函数
+    def improved_aptiltag_calibrate(self):
+        target_point = self.my_art_protocol.apriltag_receive()
+        K = (23.0 - 10.6) / 23.0
+        if target_point:
+            x, y = self.correct_pixel_to_real_world(target_point[0], target_point[1])
+            real_x, real_y = x * K, y * K
+            angle = target_point[2]
+            self.my_uart3.write(f"x:{real_x},y:{real_y}, angle:{angle}\r\n")
