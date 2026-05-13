@@ -48,7 +48,7 @@ class Plan_data:
         # 为测试里程计方便
         # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         # 矩形区域四角点坐标
-        self.rectangle_corners = [[95.0, 55.0], [95.0, 185.0], [225.0, 185.0], [225.0, 55.0]] 
+        self.rectangle_corners = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
 
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
@@ -170,6 +170,30 @@ class Plan:
         self.finish_navigate = False        # type: bool  # 判断是否完成导航标志位
         self.if_elude = False               # type: bool  # 判断是否避障标志位
     
+    def _is_line_clear(self, x1, y1, x2, y2, rl, rt, rr, rb):
+        """判断线段 (x1,y1)-(x2,y2) 是否不穿过矩形 (rl, rb, rr, rt)"""
+        # 1. 如果起点或终点在矩形内，判定为不安全
+        if rl < x1 < rr and rb < y1 < rt: return False
+        if rl < x2 < rr and rb < y2 < rt: return False
+        
+        # 2. 判断线段是否与矩形的四条边相交
+        # 这里为了极致性能，可以使用简化版的线段相交判定
+        # 如果线段的包围盒完全在矩形某一边，则一定不相交
+        lines = [((rl, rb), (rl, rt)), ((rl, rt), (rr, rt)), 
+                ((rr, rt), (rr, rb)), ((rr, rb), (rl, rb))]
+        
+        for p3, p4 in lines:
+            if self._intersect(x1, y1, x2, y2, p3[0], p3[1], p4[0], p4[1]):
+                return False
+        return True
+
+    def _intersect(self, x1, y1, x2, y2, x3, y3, x4, y4):
+        """利用叉乘判断两条线段是否相交"""
+        def ccw(ax, ay, bx, by, cx, cy):
+            return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax)
+        return ccw(x1, y1, x3, y3, x4, y4) != ccw(x2, y2, x3, y3, x4, y4) and \
+            ccw(x1, y1, x2, y2, x3, y3) != ccw(x1, y1, x2, y2, x4, y4)
+    
     # 构建减速速度表
     def build_dec_speed_list(self, i):
         if self.finish_building == False:
@@ -239,64 +263,78 @@ class Plan:
             self.stage = self.STOP
             self.finish_building = False
 
-    # 路径规划函数，用于避开中心矩形区域
+    # 矩形区域避障函数
     def path_planning(self, target_x: float, target_y: float):
-        # 避免除0错误
-        if target_x - self.my_car.x_current == 0:
-            k = float('inf')  # 处理垂直线的情况，斜率趋近于无穷大
-        else:
-            k = (target_y - self.my_car.y_current) / (target_x - self.my_car.x_current)
-        # 记录在直线上方的矩形角点
-        record_corners = []
-        # 记录角点坐标与直线上坐标的纵坐标的总和
-        sum = 0.0
-        for point in self.plan_data.rectangle_corners:
-            if k == float('inf'):
-                diff = point[0] - self.my_car.x_current
-            else:
-                diff = k * (point[0] - self.my_car.x_current) + self.my_car.y_current - point[1]
-            
-            sum += diff
-            if diff < 0:
-                record_corners.append(point)
+        # 1. 基础坐标
+        x1, y1 = self.my_car.x_current, self.my_car.y_current
+        x2, y2 = target_x, target_y
         
-        final_path = []
-        # 根据record_corners的值来判断目标点相对于矩形的位置关系，从而选择合适的避障路径
-        if len(record_corners) == 0 or len(record_corners) == 4:
-            # 目标点在矩形的同一侧，直接规划为目标点
-            pass
-        elif len(record_corners) == 1:
-            if record_corners[0][0] > max(self.my_car.x_current, target_x) or record_corners[0][0] < min(self.my_car.x_current, target_x):
-                pass
-            else:
-                final_path = record_corners
-        elif len(record_corners) == 3:
-            record_corners = [x for x in self.plan_data.rectangle_corners if x not in record_corners]
-            if record_corners[0][0] > max(self.my_car.x_current, target_x) or record_corners[0][0] < min(self.my_car.x_current, target_x):
-                pass
-            else:
-                final_path = record_corners
-        elif len(record_corners) == 2:
-            if k == float('inf'):
-                if (self.my_car.y_current <= self.plan_data.rectangle_corners[0][1] and target_y <= self.plan_data.rectangle_corners[0][1]) or (self.my_car.y_current >= self.plan_data.rectangle_corners[1][1] and target_y >= self.plan_data.rectangle_corners[1][1]):
-                    pass
-                else:
-                    if sum > 0.0:
-                        final_path =  record_corners
-                    else:
-                        final_path = [x for x in self.plan_data.rectangle_corners if x not in record_corners]
-            else:
-                if max(self.my_car.x_current, target_x) < self.plan_data.rectangle_corners[0][0] or min(self.my_car.x_current, target_x) > self.plan_data.rectangle_corners[2][0] or max(self.my_car.y_current, target_y) < self.plan_data.rectangle_corners[0][1] or min(self.my_car.y_current, target_y) > self.plan_data.rectangle_corners[2][1]:
-                    pass
-                else:
-                    if sum > 0.0:
-                        final_path =  record_corners
-                    else:
-                        final_path = [x for x in self.plan_data.rectangle_corners if x not in record_corners]
+        # 2. 矩形膨胀 (考虑车体半径 R + 安全余量)
+        # 假设 self.plan_data.rectangle_corners 顺序为: [左下, 左上, 右上, 右下]
+        R = self.my_car.car_radius + 5  # 这里的 5 是安全间隙
+        r_left = self.plan_data.rectangle_corners[0][0] - R
+        r_right = self.plan_data.rectangle_corners[2][0] + R
+        r_bottom = self.plan_data.rectangle_corners[0][1] - R
+        r_top = self.plan_data.rectangle_corners[1][1] + R
+        
+        # 3. 快速相交判定 (AABB Check)
+        # 如果路径的包围盒与矩形包围盒不重叠或者起点或终点在矩形框内，直接返回空列表（直接前往目标点）
+        if (max(x1, x2) < r_left or min(x1, x2) > r_right or
+            max(y1, y2) < r_bottom or min(y1, y2) > r_top) or\
+            (r_left < x1 < r_right and r_bottom < y1 < r_top) or (r_left < x2 < r_right and r_bottom < y2 < r_top):
+            return []
 
-        if len(final_path) > 1:
-            final_path.sort(key=lambda p: (p[0] - self.my_car.x_current)**2 + (p[1] - self.my_car.y_current)**2)
-        return final_path
+        # 4. 精确判定：使用叉乘判断线段是否穿过矩形
+        # 如果起点或终点已经在矩形内部，或者线段确实穿过矩形边缘
+        if not self._is_line_clear(x1, y1, x2, y2, r_left, r_top, r_right, r_bottom):
+            
+            # 5. 寻找最优中继点 (膨胀后的四个角点)
+            inflated_corners = [
+                (r_left, r_bottom), (r_left, r_top), 
+                (r_right, r_top), (r_right, r_bottom)
+            ]
+            fit_points_1 = []
+            fit_points_2 = []
+            current_idx = 0
+            best_corner = None
+            min_total_dist = float('inf')   # 无穷大
+            
+            for cx, cy in inflated_corners:
+                if self._is_line_clear(x1, y1, cx, cy, r_left, r_top, r_right, r_bottom):
+                    # 记录与起点连线不与矩形相交的角点
+                    fit_points_1.append((cx, cy))
+
+            for cx, cy in fit_points_1:
+                if self._is_line_clear(cx, cy, x2, y2, r_left, r_top, r_right, r_bottom):
+                    # 若当前角点与终点连线不与矩形相交则取当前角点为中继点
+                    fit_points_2.append((cx, cy))
+                    
+            if len(fit_points_2) > 1:
+                for cx, cy in fit_points_2:
+                    # 计算路程总长: dist(A, Corner) + dist(Corner, B)
+                    d = math.sqrt((cx-x1)**2 + (cy-y1)**2) + math.sqrt((x2-cx)**2 + (y2-cy)**2)
+                    if d < min_total_dist:
+                        min_total_dist = d
+                        best_corner = (cx, cy)
+            elif len(fit_points_2) == 1:
+                best_corner = fit_points_2[0]
+            else:
+                else_points = [pt for pt in inflated_corners if pt not in fit_points_1]
+                # 若fit_point_1中的所有中继点与终点都与矩形相交，再增加一个中继点完成路径规划
+                for cx, cy in fit_points_1:
+                    for ex, ey in else_points:
+                        # 计算路径 (ex,ey)->终点 是否可行
+                        if self._is_line_clear(ex, ey, x2, y2, r_left, r_top, r_right, r_bottom):
+                            # 在else_points中找到一个可行的相邻中继点
+                            if ex - cx <= 1e-6 or ey - cy <= 1e-6:
+                                d = math.sqrt((cx-x1)**2 + (cy-y1)**2) + math.sqrt((ex-cx)**2 + (ey-cy)**2) + math.sqrt((x2-ex)**2 + (y2-ey)**2)
+                                if d < min_total_dist:
+                                    min_total_dist = d
+                                    best_corner = (ex, ey)
+
+            return [best_corner] if best_corner else []
+        
+        return []
 
     # 设置目标点坐标
     def set_target_point(self, x: float, y: float):
@@ -606,8 +644,7 @@ class Plan:
         target_pos: (x, y)
         obstacles: [(x, y, r), ...] 障碍物坐标和半径
         """
-        # 小车半径和障碍物半径
-        car_radius = 4.0 # type: float
+        # 障碍物半径
         obstacle_radius = 3.0 # type: float
 
         x1, y1 = car_pos
@@ -637,7 +674,7 @@ class Plan:
             dist = math.sqrt((ox - nearest_x)**2 + (oy - nearest_y)**2)
             
             # 5. 碰撞判定：距离小于 障碍半径 + 车体半径 + 额外安全系数
-            if dist < (car_radius + obstacle_radius + safety_margin):
+            if dist < (self.my_car.car_radius + obstacle_radius + safety_margin):
                 # 排除目标物体本身（防止把自己当成障碍）
                 if math.sqrt((ox - x2)**2 + (oy - y2)**2) < 1: 
                     continue
@@ -645,5 +682,3 @@ class Plan:
             
         return False # 路径畅通     
     
-    # 根据当前小车位置寻找最优路径
-    def judge_if_block(self):

@@ -580,6 +580,8 @@ class CarPose:
         self.speed_conversion_gamma = self.flash_sys.find_value("speed_conversion_gamma")   # 将速度单位转化为cm每秒
         self.gkd = self.flash_sys.find_value("gkd")  # type: float  # 角速度补偿系数
         self.speed_fuse_ratio = self.flash_sys.find_value("speed_fuse_ratio")  # type: float  # 速度融合系数
+        # 小车半径
+        self.car_radius = 4.0  # type: float
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float
