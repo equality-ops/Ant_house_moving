@@ -9,6 +9,7 @@
 #define PIT2                         (TIM1_PIT)
 #define PIT3                         (TIM2_PIT)
 #define PIT4                         (TIM3_PIT)
+#define PIT5                         (TIM4_PIT)
 //ADC define
 #define ADC_CHANNEL1            ( ADC1_CH0_P10 )
 //button define
@@ -16,6 +17,7 @@
 #define KEY2_PIN        IO_PB3
 #define KEY3_PIN        IO_PB4
 #define KEY4_PIN        IO_P32
+#define KEY_START       IO_P23
 #define SWITCH1_PIN     IO_PB0
 #define SWITCH2_PIN     IO_PB1
 

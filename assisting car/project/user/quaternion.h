@@ -3,7 +3,7 @@
 
 #define GYRO_LSB_PER_DPS   16.384f
 #define RAD_PER_DEG        0.017453f// 3.1415926f/180.0f
-#define DT                 0.01f//IMU中断时间
+#define DT                 0.005f//IMU中断时间
 
 typedef struct {
     float Q;      // 过程噪声协方差
@@ -52,4 +52,5 @@ extern void quat_to_euler(const Quat *q, float *roll, float *pitch, float *yaw);
 // 向量旋转
 extern void rotate_vector_by_quat(const Quat *q, const Vec3 *v, Vec3 *out);
 
+extern float my_atan2(float y, float x);
 #endif
