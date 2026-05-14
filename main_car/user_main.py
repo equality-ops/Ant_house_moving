@@ -166,10 +166,10 @@ my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, car_yaw_fil,
                         motor_ul, motor_ur, motor_md)
 
 # 创建路径规划数据对象
-plan_data = ant_plan.Plan_data(my_flash_sys)
+plan_data = ant_plan.PlanData(my_flash_sys)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
+my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)

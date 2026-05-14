@@ -38,28 +38,40 @@ class CarPosition:
         return self.car_pos_list[self.current_idx]
 
 # 路径和速度规划相关常量
-class Plan_data:
+class PlanData:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
         self.fixed_point = [[35.0, -15.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
-        # 为测试里程计方便
-        # self.fixed_point = [[0.0, -0.0], [110.0, 50.0], [210.0, 190.0], [210.0, 50.0], [110.0, 190.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
-        # 矩形区域四角点坐标
-        self.rectangle_corners = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
+        
+        # 中心物品摆放的矩形区域
+        self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
+
+        # 路径规划相关常量
+        self.FIELD_W = 320.0  # 地图宽度
+        self.FIELD_H = 240.0  # 地图高度
+        self.OBSTACLE_R = 15.0  # 圆形障碍物默认半径 (直径 30cm -> 半径 15cm)
+        self.CUBE_LENTH = 10.0   # 立方体障碍物长度
+        self.CUBE_WIDE = 5.0  # 立方体障碍物宽度
+        self.INF = 1000000000.0  # 无穷大
+        self.SAFE_MARGIN = 15.0  # 小车安全裕量 (质点膨胀半径)
+
+        self.rectangle_obstacles = self.create_expanded_rect(160.0, 120.0, 100.0, 100.0)  # 中心禁区矩形障碍物（已膨胀）
+        self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
+        self.circle = self.flash_sys.find_value("circle")  # 信标障碍物中心坐标列表
+        # 将矩形障碍区进行膨胀（先后顺序不能改变）
+        self.rectangles = [self.create_expanded_rect(x[0], x[1], self.CUBE_LENTH, self.CUBE_WIDE) for x in self.cube]
+        self.rectangles.append(self.rectangle_obstacles)  # 将中心禁区矩形障碍物加入矩形障碍物列表
 
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
         # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
-
         # y坐标靠近下边沿:70，中等:85，靠近中心:100    
         # 靠近上边沿:170，中等:155，靠近中心:140 
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-
         # 示例：[(160.0, 85.0), 'E', [x, x]]
         self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
-        self.obstacles = [item[0] for item in self.rogue_planning]  # type: list  # 障碍物坐标列表
         self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning)   # 需要搬运的物体总数
@@ -77,8 +89,266 @@ class Plan_data:
         self.MID_DISTANCE = 2
         self.SHORT_DISTANCE = 3
 
-class Plan:
-    def __init__(self, flash_sys, plan_data: Plan_data, math, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
+    # 辅助函数：由于原代码矩形检测未膨胀，这里手动对外扩充矩形顶点
+    def create_expanded_rect(self, x_center, y_center, width, height):
+        hw = width / 2.0 + self.SAFE_MARGIN
+        hh = height / 2.0 + self.SAFE_MARGIN
+        return [
+            (x_center - hw, y_center - hh),
+            (x_center + hw, y_center - hh),
+            (x_center + hw, y_center + hh),
+            (x_center - hw, y_center + hh)
+        ]
+
+# 路径规划类
+class PathPlan:
+    def __init__(self, plan_data: PlanData):
+        self.Data = plan_data
+
+    # 路径规划主函数
+    def plan_path(self, circle, retangle, x0, y0, x1, y1):
+        circles = self._normalize_points(circle)
+        rects = self._normalize_rectangles(retangle)
+        start = (float(x0), float(y0))
+        end = (float(x1), float(y1))
+        
+        # 物理障碍物加安全裕量的总膨胀半径
+        block_r = float(self.Data.OBSTACLE_R) + float(self.Data.SAFE_MARGIN)
+
+        # 验证起点和终点
+        if not self._point_valid(start, circles, rects, block_r):
+            return []
+        if not self._point_valid(end, circles, rects, block_r):
+            return []
+        # 检查直连
+        if self._line_valid(start, end, circles, rects, block_r):
+            return [[x0, y0], [x1, y1]]
+
+        # 初始化节点列表
+        nodes = [start, end]
+        # 添加圆形中继点 (核心修改部分)
+        self._add_circle_nodes_fixed(nodes, circles, block_r)
+        # 添加矩形中继点
+        self._add_rectangle_nodes(nodes, rects, self.Data.SAFE_MARGIN)
+        # 剔除无效点和重复点            
+        nodes = self._unique_valid_nodes(nodes, circles, rects, block_r)
+
+        n = len(nodes)
+        dist = [self.Data.INF] * n
+        prev = [-1] * n
+        used = [False] * n
+        dist[0] = 0.0
+
+        # Dijkstra 算法实现
+        for _ in range(n):
+            u = -1
+            best = self.Data.INF
+            for i in range(n):
+                if (not used[i]) and dist[i] < best:
+                    best = dist[i]
+                    u = i
+            if u < 0 or u == 1:
+                break
+            used[u] = True
+
+            for v in range(n):
+                if used[v] or v == u:
+                    continue
+                if self._line_valid(nodes[u], nodes[v], circles, rects, block_r):
+                    w = self._distance(nodes[u], nodes[v])
+                    if dist[u] + w < dist[v]:
+                        dist[v] = dist[u] + w
+                        prev[v] = u
+
+        if prev[1] < 0:
+            return []
+
+        # 重建路径
+        path = []
+        i = 1
+        while i >= 0:
+            path.append(nodes[i])
+            i = prev[i]
+        path.reverse()
+        return self._path_to_list(self._smooth_path(path, circles, rects, block_r))
+
+    # 初始化圆形障碍物列表
+    def _normalize_points(self, points):
+        out = []
+        if not points: return out
+        for p in points:
+            if len(p) >= 2:
+                out.append((float(p[0]), float(p[1])))
+        return out
+
+    # 初始化矩形障碍物列表
+    def _normalize_rectangles(self,rects):
+        if not rects: return []
+        if len(rects) == 4 and len(rects[0]) == 2 and isinstance(rects[0][0], (int, float)):
+            return [self._sort_polygon(self._normalize_points(rects))]
+        out = []
+        for rect in rects:
+            pts = self._normalize_points(rect)
+            if len(pts) >= 4:
+                out.append(self._sort_polygon(pts))
+        return out
+
+    # 对多边形顶点进行排序，确保顺时针或逆时针顺序
+    def _sort_polygon(self, poly):
+        cx, cy = 0.0, 0.0
+        for p in poly: cx += p[0]; cy += p[1]
+        cx /= len(poly); cy /= len(poly)
+        items = []
+        for p in poly: items.append((math.atan2(p[1] - cy, p[0] - cx), p))
+        items.sort()
+        out = []
+        for item in items: out.append(item[1])
+        return out
+
+    # 围绕圆心生成 8 个中继点
+    def _add_circle_nodes_fixed(self, nodes, circles, block_r):
+        num_points = 8
+        angle_step = 2.0 * math.pi / num_points
+        
+        # 距离计算必须使得弦的距离中心距离大于 block_r 才能被视为有效线段
+        # d * cos(angle_step / 2) > block_r  ==>  d = block_r / cos(angle_step / 2) + margin
+        node_radius = block_r / math.cos(angle_step / 2.0) + 1.0
+        
+        for c in circles:
+            for i in range(num_points):
+                angle = i * angle_step
+                # 根据角度计算中继点坐标
+                px = c[0] + math.cos(angle) * node_radius
+                py = c[1] + math.sin(angle) * node_radius
+                nodes.append((px, py))
+
+    # 将矩形的四个角点添加为中继点
+    def _add_rectangle_nodes(self, nodes, rects, margin):
+        """原代码中的矩形节点生成逻辑"""
+        d = float(margin) + 1.0
+        for rect in rects:
+            cx, cy = 0.0, 0.0
+            for p in rect: cx += p[0]; cy += p[1]
+            cx /= len(rect); cy /= len(rect)
+            for p in rect:
+                vx, vy = p[0] - cx, p[1] - cy
+                l = math.sqrt(vx * vx + vy * vy)
+                
+                if l == 0.0: nodes.append(p)
+                else: nodes.append((p[0] + vx / l * d, p[1] + vy / l * d))
+
+    # 对所有生成的候选节点进行过滤和去重
+    def _unique_valid_nodes(self, nodes, circles, rects, block_r):
+        out = []
+        for p in nodes:
+            if not self._inside_field(p): continue
+            if not self._point_valid(p, circles, rects, block_r): continue
+            duplicate = True
+            for q in out:
+                if abs(p[0] - q[0]) < 0.001 and abs(p[1] - q[1]) < 0.001:
+                    duplicate = False; break
+            if duplicate: out.append(p)
+        return out
+
+    # 判断点p是否有效（不在任何障碍物内，并且在场地内）
+    def _point_valid(self, p, circles, rects, block_r):
+        if not self._inside_field(p): return False
+        for c in circles:
+            if self._distance(p, c) <= block_r: return False
+        for rect in rects:
+            if self._point_in_poly(p, rect): return False
+        return True
+
+    # 判断线段ab是否与任何障碍物相交（ab不穿过障碍物）
+    def _line_valid(self, a, b, circles, rects, block_r):
+        for c in circles:
+            if self._dist_point_to_seg(c, a, b) <= block_r: return False
+        for rect in rects:
+            if self._segment_hits_poly(a, b, rect): return False
+        return True
+
+    # 判断点p是否在场地内
+    def _inside_field(self, p):
+        return p[0] >= 0.0 and p[0] <= self.Data.FIELD_W and p[1] >= 0.0 and p[1] <= self.Data.FIELD_H
+
+    # 计算两点间距离
+    def _distance(self, a, b):
+        return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+
+    # 计算点p到线段ab的距离
+    def _dist_point_to_seg(self, p, a, b):
+        ax, ay = a
+        bx, by = b
+        dx, dy = bx - ax, by - ay
+        den = dx * dx + dy * dy
+        if den < 1e-6: return self._distance(p, a)
+        t = ((p[0] - ax) * dx + (p[1] - ay) * dy) / den
+        if t < 0.0: t = 0.0
+        elif t > 1.0: t = 1.0
+        return self._distance(p, (ax + t * dx, ay + t * dy))
+
+    # 向量ab与ac的叉积
+    def _cross(self, a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+    # 判断a, b, p三点是否共线且p在a,b之间
+    def _on_segment(self, a, b, p):
+        return (min(a[0], b[0]) <= p[0] <= max(a[0], b[0]) and
+                min(a[1], b[1]) <= p[1] <= max(a[1], b[1]) and
+                abs(self._cross(a, b, p)) < 0.000001)
+
+    # 判断ab, cd两线段是否相交
+    def _seg_intersect(self, a, b, c, d):
+        c1, c2 = self._cross(a, b, c), self._cross(a, b, d)
+        c3, c4 = self._cross(c, d, a), self._cross(c, d, b)
+        if c1 * c2 < 0.0 and c3 * c4 < 0.0: return True
+        if abs(c1) < 0.000001 and self._on_segment(a, b, c): return True
+        if abs(c2) < 0.000001 and self._on_segment(a, b, d): return True
+        if abs(c3) < 0.000001 and self._on_segment(c, d, a): return True
+        if abs(c4) < 0.000001 and self._on_segment(c, d, b): return True
+        return False
+
+    # 判断点p是否在多边形poly内
+    def _point_in_poly(self, p, poly):
+        inside = False; j = len(poly) - 1
+        for i in range(len(poly)):
+            pi, pj = poly[i], poly[j]
+            if self._on_segment(pi, pj, p): return True
+            if ((pi[1] > p[1]) != (pj[1] > p[1])):
+                x = (pj[0] - pi[0]) * (p[1] - pi[1]) / (pj[1] - pi[1]) + pi[0]
+                if p[0] < x: inside = not inside
+            j = i
+        return inside
+
+    # 判断线段ab是否与多边形poly相交
+    def _segment_hits_poly(self, a, b, poly):
+        if self._point_in_poly(a, poly) or self._point_in_poly(b, poly): return True
+        j = len(poly) - 1
+        for i in range(len(poly)):
+            if self._seg_intersect(a, b, poly[j], poly[i]): return True
+            j = i
+        return False
+
+    # 判断路径是否需要平滑，如果需要则进行平滑处理
+    def _smooth_path(self, path, circles, rects, block_r):
+        if len(path) <= 2: return path
+        out = [path[0]]; i = 0
+        while i < len(path) - 1:
+            j = len(path) - 1
+            while j > i + 1:
+                if self._line_valid(path[i], path[j], circles, rects, block_r): break
+                j -= 1
+            out.append(path[j]); i = j
+        return out
+
+    # 将返回的坐标点转换为列表形式
+    def _path_to_list(self, path):
+        return [[p[0], p[1]] for p in path]
+
+
+
+class NavigationPlan:
+    def __init__(self, flash_sys, plan_data: PlanData, math, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, sin_diff_fil, cos_diff_fil):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -170,30 +440,6 @@ class Plan:
         self.finish_navigate = False        # type: bool  # 判断是否完成导航标志位
         self.if_elude = False               # type: bool  # 判断是否避障标志位
     
-    def _is_line_clear(self, x1, y1, x2, y2, rl, rt, rr, rb):
-        """判断线段 (x1,y1)-(x2,y2) 是否不穿过矩形 (rl, rb, rr, rt)"""
-        # 1. 如果起点或终点在矩形内，判定为不安全
-        if rl < x1 < rr and rb < y1 < rt: return False
-        if rl < x2 < rr and rb < y2 < rt: return False
-        
-        # 2. 判断线段是否与矩形的四条边相交
-        # 这里为了极致性能，可以使用简化版的线段相交判定
-        # 如果线段的包围盒完全在矩形某一边，则一定不相交
-        lines = [((rl, rb), (rl, rt)), ((rl, rt), (rr, rt)), 
-                ((rr, rt), (rr, rb)), ((rr, rb), (rl, rb))]
-        
-        for p3, p4 in lines:
-            if self._intersect(x1, y1, x2, y2, p3[0], p3[1], p4[0], p4[1]):
-                return False
-        return True
-
-    def _intersect(self, x1, y1, x2, y2, x3, y3, x4, y4):
-        """利用叉乘判断两条线段是否相交"""
-        def ccw(ax, ay, bx, by, cx, cy):
-            return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax)
-        return ccw(x1, y1, x3, y3, x4, y4) != ccw(x2, y2, x3, y3, x4, y4) and \
-            ccw(x1, y1, x2, y2, x3, y3) != ccw(x1, y1, x2, y2, x4, y4)
-    
     # 构建减速速度表
     def build_dec_speed_list(self, i):
         if self.finish_building == False:
@@ -262,79 +508,6 @@ class Plan:
             self.elapsed_time = 0
             self.stage = self.STOP
             self.finish_building = False
-
-    # 矩形区域避障函数
-    def path_planning(self, target_x: float, target_y: float):
-        # 1. 基础坐标
-        x1, y1 = self.my_car.x_current, self.my_car.y_current
-        x2, y2 = target_x, target_y
-        
-        # 2. 矩形膨胀 (考虑车体半径 R + 安全余量)
-        # 假设 self.plan_data.rectangle_corners 顺序为: [左下, 左上, 右上, 右下]
-        R = self.my_car.car_radius + 5  # 这里的 5 是安全间隙
-        r_left = self.plan_data.rectangle_corners[0][0] - R
-        r_right = self.plan_data.rectangle_corners[2][0] + R
-        r_bottom = self.plan_data.rectangle_corners[0][1] - R
-        r_top = self.plan_data.rectangle_corners[1][1] + R
-        
-        # 3. 快速相交判定 (AABB Check)
-        # 如果路径的包围盒与矩形包围盒不重叠或者起点或终点在矩形框内，直接返回空列表（直接前往目标点）
-        if (max(x1, x2) < r_left or min(x1, x2) > r_right or
-            max(y1, y2) < r_bottom or min(y1, y2) > r_top) or\
-            (r_left < x1 < r_right and r_bottom < y1 < r_top) or (r_left < x2 < r_right and r_bottom < y2 < r_top):
-            return []
-
-        # 4. 精确判定：使用叉乘判断线段是否穿过矩形
-        # 如果起点或终点已经在矩形内部，或者线段确实穿过矩形边缘
-        if not self._is_line_clear(x1, y1, x2, y2, r_left, r_top, r_right, r_bottom):
-            
-            # 5. 寻找最优中继点 (膨胀后的四个角点)
-            inflated_corners = [
-                (r_left, r_bottom), (r_left, r_top), 
-                (r_right, r_top), (r_right, r_bottom)
-            ]
-            fit_points_1 = []
-            fit_points_2 = []
-            current_idx = 0
-            best_corner = None
-            min_total_dist = float('inf')   # 无穷大
-            
-            for cx, cy in inflated_corners:
-                if self._is_line_clear(x1, y1, cx, cy, r_left, r_top, r_right, r_bottom):
-                    # 记录与起点连线不与矩形相交的角点
-                    fit_points_1.append((cx, cy))
-
-            for cx, cy in fit_points_1:
-                if self._is_line_clear(cx, cy, x2, y2, r_left, r_top, r_right, r_bottom):
-                    # 若当前角点与终点连线不与矩形相交则取当前角点为中继点
-                    fit_points_2.append((cx, cy))
-                    
-            if len(fit_points_2) > 1:
-                for cx, cy in fit_points_2:
-                    # 计算路程总长: dist(A, Corner) + dist(Corner, B)
-                    d = math.sqrt((cx-x1)**2 + (cy-y1)**2) + math.sqrt((x2-cx)**2 + (y2-cy)**2)
-                    if d < min_total_dist:
-                        min_total_dist = d
-                        best_corner = (cx, cy)
-            elif len(fit_points_2) == 1:
-                best_corner = fit_points_2[0]
-            else:
-                else_points = [pt for pt in inflated_corners if pt not in fit_points_1]
-                # 若fit_point_1中的所有中继点与终点都与矩形相交，再增加一个中继点完成路径规划
-                for cx, cy in fit_points_1:
-                    for ex, ey in else_points:
-                        # 计算路径 (ex,ey)->终点 是否可行
-                        if self._is_line_clear(ex, ey, x2, y2, r_left, r_top, r_right, r_bottom):
-                            # 在else_points中找到一个可行的相邻中继点
-                            if ex - cx <= 1e-6 or ey - cy <= 1e-6:
-                                d = math.sqrt((cx-x1)**2 + (cy-y1)**2) + math.sqrt((ex-cx)**2 + (ey-cy)**2) + math.sqrt((x2-ex)**2 + (y2-ey)**2)
-                                if d < min_total_dist:
-                                    min_total_dist = d
-                                    best_corner = (ex, ey)
-
-            return [best_corner] if best_corner else []
-        
-        return []
 
     # 设置目标点坐标
     def set_target_point(self, x: float, y: float):
@@ -635,50 +808,3 @@ class Plan:
         self.elapsed_time = 0
         self.stage = self.STOP
         self.finish_building = False
-
-    # 几何避障算法
-    def is_path_blocked(self, car_pos, target_pos, safety_margin=3.0):
-        """
-        判断从 car_pos 到 target_pos 的路径是否被 obstacles 遮挡
-        car_pos: (x, y)
-        target_pos: (x, y)
-        obstacles: [(x, y, r), ...] 障碍物坐标和半径
-        """
-        # 障碍物半径
-        obstacle_radius = 3.0 # type: float
-
-        x1, y1 = car_pos
-        x2, y2 = target_pos
-        
-        # 线段向量
-        dx = x2 - x1
-        dy = y2 - y1
-        line_len_sq = dx*dx + dy*dy
-        
-        if line_len_sq == 0: return False # 起点终点重合
-
-        for ox, oy in self.plan_data.obstacles:
-            # 1. 计算障碍物到线段的投影比例 t
-            # 公式：t = [(O-A) · (B-A)] / |B-A|^2
-            t = ((ox - x1) * dx + (oy - y1) * dy) / line_len_sq
-            
-            # 2. 限制 t 在 [0, 1] 范围内，确保距离是在“线段”上
-            if t < 0 or t > 1:
-                continue
-            
-            # 3. 找到线段上距离障碍物最近的点坐标
-            nearest_x = x1 + t * dx
-            nearest_y = y1 + t * dy
-            
-            # 4. 计算欧几里得距离
-            dist = math.sqrt((ox - nearest_x)**2 + (oy - nearest_y)**2)
-            
-            # 5. 碰撞判定：距离小于 障碍半径 + 车体半径 + 额外安全系数
-            if dist < (self.my_car.car_radius + obstacle_radius + safety_margin):
-                # 排除目标物体本身（防止把自己当成障碍）
-                if math.sqrt((ox - x2)**2 + (oy - y2)**2) < 1: 
-                    continue
-                return True # 路径被挡
-            
-        return False # 路径畅通     
-    
