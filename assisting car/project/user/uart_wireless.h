@@ -48,5 +48,5 @@ extern void uart_send_int16_to_chr(int16 dat);
 //wireless define
 extern void wireless_send_uint16_to_chr(uint16 dat, uint8 length);
 extern void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state );
-
+extern void vofa_data_analyze(ring_buffer *rb, float *channel1, float *channel2,float *channel3, float *channel4,float *channel5, float *channel6);
 #endif

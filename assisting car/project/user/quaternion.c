@@ -117,13 +117,11 @@ void quat_to_euler(const Quat *q, float *roll, float *pitch, float *yaw)
 
         
     *roll = my_atan2(sinr, cosr);
-
     // pitch
     sinp = 2.0f * (q->w * q->y - q->z * q->x);
     if (sinp > 1.0f) sinp = 1.0f;
     if (sinp < -1.0f) sinp = -1.0f;
     *pitch = asin(sinp);
-
     // yaw
     siny = 2.0f * (q->w * q->z + q->x * q->y);
     cosy = 1.0f - 2.0f * (q->y * q->y + q->z * q->z);

@@ -95,7 +95,7 @@ void w_PID_Init(PID_w *p, float Kp, float Ki, float Kd, int integral_max, int ou
     p->prev_error = 0.0f;
     p->integral_max = integral_max;
     p->output_max = output_max;
-    p->target = 30.0f;
+    p->target = 0.0f;
 }
 
 float w_PID_Update(PID_w *p, float measure) {
@@ -140,7 +140,7 @@ void xy_PID_Update(PID_xy *p, CAR_ATTITUDE *car, CAR_ATTITUDE *target_speed) {
     if (speed < -p->output_max) speed = -p->output_max;
     // 保存误差
     p->prev_error = error;
-    angle_to_target = my_atan2(errorx, errory) + car->yaw;  // 目标方向与小车当前航向的夹角
+    angle_to_target = my_atan2(errory, errorx) + car->yaw;  // 目标方向与小车当前航向的夹角
     target_speed->speed_x = speed * cos(angle_to_target);  // 前后
     target_speed->speed_y = speed * sin(angle_to_target);  // 左右
 }
@@ -213,10 +213,10 @@ void calculate_motortarget_by_vxy(CAR_ATTITUDE *target_speed, float *out) {  // 
 }
 
 void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky) {  // 根据四个轮子的编码器数据计算小车在全球坐标系下的坐标
-    float dx_vehicle = (p->encode1_delta_5ms + p->encode2_delta_5ms + p->encode3_delta_5ms + p->encode4_delta_5ms);
-    float dy_vehicle = (p->encode1_delta_5ms - p->encode2_delta_5ms - p->encode3_delta_5ms + p->encode4_delta_5ms);
-    car->x += (dx_vehicle * cos(car->yaw) - dy_vehicle * sin(car->yaw)) * kx;
-    car->y += (dx_vehicle * sin(car->yaw) + dy_vehicle * cos(car->yaw)) * ky;
+    float dx_vehicle = (p->encode1_delta_5ms + p->encode3_delta_5ms + p->encode2_delta_5ms + p->encode4_delta_5ms);
+    float dy_vehicle = (p->encode1_delta_5ms - p->encode3_delta_5ms - p->encode2_delta_5ms + p->encode4_delta_5ms);
+    car->x += (dx_vehicle * cos(car->yaw) - dy_vehicle * sin(car->yaw)) * 0.001f * kx;
+    car->y += (dx_vehicle * sin(car->yaw) + dy_vehicle * cos(car->yaw)) * 0.001f * ky;
 }
 
 void set_nevigate_target(TARGET_ATTITUDE *target) {  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制

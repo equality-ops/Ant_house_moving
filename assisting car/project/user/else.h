@@ -2,6 +2,7 @@
 #define _ELSE_H_
 //这里放一些其他的函数声明或者宏定义等
 #include "zf_common_headfile.h"
+#include <stddef.h>
 //LED define
 #define LED1                        (IO_P52)
 //PIT define
@@ -61,4 +62,7 @@ void Keystroke_Menu_TWO(void);
 void beep_once(int duration_ms);
 void voltage_detect(void);
 
+float max(float a, float b);
+float min(float a, float b);
+extern char *k251_float_to_str(float value, char *buf, uint8 len, uint8 precision);
 #endif

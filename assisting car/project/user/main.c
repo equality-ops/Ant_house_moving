@@ -3,6 +3,8 @@
 #include "uart_wireless.h"
 #include "else.h"
 #include "motor.h"
+#include "control.h"
+#include "stdio.h"
 //初始化变量
 uint8 key1_status = 1;//按键状态
 uint8 key_start_status = 1; //run按钮状态
@@ -23,6 +25,7 @@ int counter=0;
 CAR_ATTITUDE car;
 CAR_ATTITUDE Target_Speed;
 TARGET_ATTITUDE Nevigate_Target;//导航模式 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制
+float channel1=0, channel2=0, channel3=0, channel4=0,channel5=0,channel6=0;//vofa通道数据
 //中断处理函数
 
 void uart_rx_interrupt_handler (uint8 dat)// UART 接收中断处理函数
@@ -49,7 +52,8 @@ void wireless_handler(void) {// Wireless 定时数据处理函数
     if(data_len != 0)                                                       		// 收到了消息 读取函数会返回实际读取到的数据个数
     {
         rb_write_q(&wireless_rx_buffer, data_buffer, data_len); // 将收到的数据写入环形缓冲区
-        analyze_wireless_data(&wireless_rx_buffer,&target_side,&target_x_or_y,&wireless_analyze_state); // 分析数据
+        //analyze_wireless_data(&wireless_rx_buffer,&target_side,&target_x_or_y,&wireless_analyze_state); // 分析数据
+        vofa_data_analyze(&wireless_rx_buffer, &channel1, &channel2, &channel3, &channel4, &channel5, &channel6); // 分析数据
     }
 }
 
@@ -108,53 +112,50 @@ void imu_handler(void) {//IMU中断
     counter++;
 }
 void xy_angle_handler(void){
-    switch(Nevigate_Target.mode){
-        case 0:
+    switch(Car_Control_State){
+        case CONTORL_NONE:
+            break;
+        case CONTORL_WHEEL:
+            break;
+        case CONTORL_W:
+            //pid_w.target=100;
+            break;
+        case CONTORL_ANGLE:
+            if (Rotate_State==ROTATE_RUNNING){
+                float w_target=angle_PID_Update(&pid_angle,car.yaw*57.32484);
+                if (w_target>0) pid_w.target=max(w_target,ROTATE_w_BOOM);else if(w_target<0) pid_w.target=min(w_target,-ROTATE_w_BOOM);
+            }
+            else
+                pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
+            break;
+        case CONTORL_XY:
             xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
             pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             break;
-        case 1:
-            pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
-            break;
-        case 2:
-            xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
-            pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度      
-            break;
-        case 3://角速度控制
-        case 4://纯速度控制
-        case 5://轮速控制
-        case 6:
-            break;
+        case CONTORL_XY_SPEED://右前方为正
+            Target_Speed.speed_x=0;
+            Target_Speed.speed_y=100;
     }
 }
 void motor_handler(void) {//电机控制定时器中断
     //int pid1_result, pid2_result, pid3_result, pid4_result;
     float xy_target[4];
     Encoder_Update_5ms(&encoder_data);//更新编码器数据
-    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.0f,1.0f);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car
-    if (Nevigate_Target.mode==5){
+    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.308f,1.308f);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car
+    if (Car_Control_State==CONTORL_WHEEL){
         xy_target[0]=Nevigate_Target.v_wheel1;
         xy_target[1]=Nevigate_Target.v_wheel2;
         xy_target[2]=Nevigate_Target.v_wheel3;
         xy_target[3]=Nevigate_Target.v_wheel4;
     }
-    else
+    else if (Car_Control_State!=CONTORL_NONE)
         calculate_motortarget_by_vxy(&Target_Speed,xy_target);//Target_Speed包含目标x,y,w，根据目标x,y,w计算四个轮子的目标速度存入xy_target
     
     //pid电机控制
-    
     pid1.target= xy_target[0];
     pid2.target= xy_target[1];
     pid3.target= xy_target[2];
     pid4.target= xy_target[3];
-
-    /*
-    pid1.target=600;
-    pid2.target=600;
-    pid3.target=600;
-    pid4.target=600;
-    */
-    
     set_motor_pwm(0,(int)motor_PID_Update(&pid1,encoder_data.encode1_delta_5ms));
     set_motor_pwm(1,(int)motor_PID_Update(&pid2,encoder_data.encode2_delta_5ms));
     set_motor_pwm(2,(int)motor_PID_Update(&pid3,encoder_data.encode3_delta_5ms));
@@ -180,6 +181,7 @@ void calibrate_gyro(int num_samples,int dt) {
 
 
 void all_init(void) {//初始化
+    char str[20];
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
     //初始化按钮
@@ -207,6 +209,7 @@ void all_init(void) {//初始化
     uart_write_byte(UART_INDEX, '\r');                                          // 输出回车
     uart_write_byte(UART_INDEX, '\n');                                          // 输出换行
     uart_rx_interrupt(UART_INDEX, ZF_ENABLE, uart_rx_interrupt_handler);        // 开启 UART_INDEX 的接收中断
+    
     rb_init(&uart_rx_buffer, 64); // 初始化 UART 接收环形缓冲区
     if(wireless_uart_init())                                          // 判断是否通过初始化
     {
@@ -219,6 +222,8 @@ void all_init(void) {//初始化
     wireless_uart_send_byte('\r');
     wireless_uart_send_byte('\n');
     wireless_uart_send_string("wireless ready\r\n");    // 初始化正常 输出测试信息
+    func_float_to_str(str,car.yaw,3);
+    wireless_uart_send_string(str);
     rb_init(&wireless_rx_buffer, 64);
     //电机PWM 初始化
     gpio_init(DIR_1, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
@@ -259,6 +264,7 @@ void all_init(void) {//初始化
     Set_CAR_ATTITUDE(&Target_Speed,0.0f, 0.0f, 0.0f,0.0f,0.0f,0.0f);
     w_PID_Init(&pid_w,3,0,1,250,500);
     angle_PID_Init(&pid_angle,8,0.1,5,80,200);
+    xy_PID_Init(&pid_xy,3,0.5,500);
     // EEPROM 初始化
     eeprom_init();
 }
@@ -310,13 +316,75 @@ void main(void) {
     
     pit_ms_init(PIT4, 5, motor_handler);//内环motor中断
     pit_ms_init(PIT5, 10, xy_angle_handler);//外环位置角度中断
-    Set_TARGET_ATTITUDE(&Nevigate_Target,0,0,0,0,0,0,0,0,0,0,1);//targetx,targety,targetyaw,targetspeedx,targetspeedy,v1,v2,v3,v4,mode
+    Set_TARGET_ATTITUDE(&Nevigate_Target,0,0,0,0,0,0,0,0,0,0,2);//targetx,targety,targetyaw,targetspeedx,targetspeedy,v1,v2,v3,v4,mode
     set_nevigate_target(&Nevigate_Target);
+    Car_Control_State=CONTORL_XY;
+    /*
+    Rotate_State=ROTATE_START;
+    while (Rotate_State!=ROTATE_DONE){
+        system_delay_ms(50);
+        rotate_to_yaw(90.0f, &car, Rotate_State);
+
+    }
+    beep_once(100);
+    system_delay_ms(1000);
+
+    Rotate_State=ROTATE_START;
+    while (Rotate_State!=ROTATE_DONE){
+        system_delay_ms(50);
+        rotate_to_yaw(180.0f, &car, Rotate_State);
+    }
+    beep_once(100);
+
+    Rotate_State=ROTATE_START;
+    while (Rotate_State!=ROTATE_DONE){
+        system_delay_ms(50);
+        rotate_to_yaw(0.0f, &car, Rotate_State);
+    }
+    beep_once(100);
+    */
+    Nevigate_State=NEVIGATE_START;
+    while (Nevigate_State!=NEVIGATE_DONE){
+        system_delay_ms(50);
+        navigate_to_xy(2400, 0, &car, Nevigate_State);
+    }
+    beep_once(100);
+    system_delay_ms(500);
+    Nevigate_State=NEVIGATE_START;
+    while (Nevigate_State!=NEVIGATE_DONE){
+        system_delay_ms(50);
+        navigate_to_xy(2400,3200, &car, Nevigate_State);
+    }
+    beep_once(100);
+    system_delay_ms(500);
+    Nevigate_State=NEVIGATE_START;
+    while (Nevigate_State!=NEVIGATE_DONE){
+        system_delay_ms(50);
+        navigate_to_xy(0,0, &car, Nevigate_State);
+    }
+    beep_once(100);
+    channel1=pid_angle.Kp;
+    channel2=pid_angle.Ki;
+    channel3=pid_angle.Kd;
+    channel4=pid_angle.target;
+    channel5=pid_angle.output_max;
     while (1){
+        char str[20];
+        //uint8 test[] = {0x55, 0xAA, 'm', 's', 'g', '\r', '\n'};
+        //uart_write_buffer(UART_6, test, sizeof(test));
+        pid_angle.Kp=channel1;
+        pid_angle.Ki=channel2;
+        pid_angle.Kd=channel3;
+        pid_angle.target=channel4;
+        pid_angle.output_max=(int)channel5;
+        
         system_delay_ms(50);
         //printf("%d,%d,%d,%d\r\n",encoder_data.encode1_delta_5ms,encoder_data.encode2_delta_5ms,encoder_data.encode3_delta_5ms,encoder_data.encode4_delta_5ms);
-        printf("%f,%f,%f\r\n",car.yaw,car.speed_w,pid_w.target);
+        //printf("%f,%f,%f\r\n",car.yaw,car.speed_w,pid_w.target);
+        func_float_to_str(str,car.yaw,2);
+        printf("%f,%f,%f\r\n",car.x,Target_Speed.speed_x,pid_xy.target_x);
     }
+    
     /*
     while (1) {
         system_delay_ms(100);

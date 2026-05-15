@@ -73,7 +73,7 @@ typedef struct {
     float prev_error;  // 上次误差（用于微分）
     int integral_max; // 积分限幅
     int output_max;  // 输出限幅
-    volatile  target;     // 目标值   
+    volatile float target;     // 目标值   
 } PID_w;//角度pid角度环
 // 位置 XY PID 控制参数（微分项为位置误差变化率）
 typedef struct {
@@ -150,6 +150,6 @@ void calculate_motortarget_by_vxy(CAR_ATTITUDE *target_speed, float *out);   // 
 void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky);
 
 // 导航控制（根据模式设置 PID 目标）
-void set_nevigate_target(TARGET_ATTITUDE *target);
+void set_nevigate_target(TARGET_ATTITUDE *target);  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制
 
 #endif
