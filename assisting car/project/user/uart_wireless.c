@@ -13,7 +13,7 @@ uint8 data_buffer[32];
 uint8 last_length = 0;
 uint8 data_len;
 uint8 count = 0;
-uint8 wireless_analyze_state=0;
+BOOL wireless_analyze_state=FALSE;
 //循环队列函数
 void rb_init(ring_buffer *rb,uint8 length)
 {
@@ -132,7 +132,7 @@ void uart_send_int16_to_chr(int16 dat) {
     uart_write_string(UART_INDEX, "\r\n");
 }
 //wireless函数
-void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state ) {
+void analyze_wireless_data(ring_buffer *rb,SIDE_ENUM* target_side,uint16* target_x_or_y,BOOL* wireless_analyze_state ) {
     //信号形式为 *A123!
     while (rb_idx_to_head_length(rb, rb->tail)>5) {// 确保至少有6个字节可读（帧头+字母+数据1+数据2+数据3+帧尾）
         uint8 dat;
@@ -145,7 +145,7 @@ void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_o
             i=rb_move(rb, i, 5); // 移动到帧尾索引
             if (rb->buffer[i] == (uint8)0x21)
             { 
-                uint8 new_side=rb->buffer[rb_move(rb, i, -4)]-0x41; // 读取字母,A对应0左，B对应1前，C对应2右
+                uint8 new_side=(rb->buffer[rb_move(rb, i, -4)]-0x41)*2+2; // 读取字母,A对应0左，B对应1前，C对应2右
                 int16 dat1=0;
                 int16 dat2=0;
                 int16 dat3=0;
@@ -153,14 +153,15 @@ void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_o
                 dat1=rb->buffer[rb_move(rb, i, -1)]-0x30;
                 dat2=rb->buffer[rb_move(rb, i, -2)]-0x30;
                 dat3=rb->buffer[rb_move(rb, i, -3)]-0x30;
-                if (dat1>=0 && dat1<=9 && dat2>=0 && dat2<=9 && dat3>=0 && dat3<=9 && new_side<=2 && new_side>=0) {
+                if (dat1>=0 && dat1<=9 && dat2>=0 && dat2<=9 && dat3>=0 && dat3<=9 && new_side<=9 && new_side>=0) {
                     *target_side = new_side;
                     xy=dat1;
                     xy+=dat2*10;
                     xy+=dat3*100;
+                    xy*=10;
                     *target_x_or_y=xy;
                     rb->tail = rb_move(rb, i, 1); // 更新环形缓冲区的尾部索引，丢弃已处理数据（将tail移动到帧尾后一位）
-                    *wireless_analyze_state=1; // 设置分析完成标志
+                    *wireless_analyze_state=TRUE; // 设置分析完成标志
                 }
             }
         }
@@ -263,4 +264,18 @@ void vofa_data_analyze(ring_buffer *rb, float *channel1, float *channel2,float *
         i        = rb->tail;
         end      = rb->head;
     }
+}
+void wireless_send_int(char *st,int dat){
+    char str[20];
+    wireless_uart_send_string(st);
+    func_int_to_str(str,dat);
+    wireless_uart_send_string(str);
+    wireless_uart_send_string("\r\n");
+}
+void wireless_send_float(char *st,float dat,uint8 point_bit){
+    char str[20];
+    wireless_uart_send_string(st);
+    func_float_to_str(str,dat,point_bit);
+    wireless_uart_send_string(str);
+    wireless_uart_send_string("\r\n");
 }

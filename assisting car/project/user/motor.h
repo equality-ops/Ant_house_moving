@@ -1,4 +1,5 @@
 #ifndef _MOTOR_H_
+
 #define _MOTOR_H_
 #include "zf_common_headfile.h"
 #include "quaternion.h"
@@ -151,5 +152,5 @@ void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, 
 
 // 导航控制（根据模式设置 PID 目标）
 void set_nevigate_target(TARGET_ATTITUDE *target);  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制
-
+void xy_Update_by_target_v(PID_xy *p, CAR_ATTITUDE *car, CAR_ATTITUDE *target_speed,float speed);
 #endif

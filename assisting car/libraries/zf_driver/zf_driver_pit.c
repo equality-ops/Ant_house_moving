@@ -62,7 +62,6 @@ void pit_init(pit_index_enum pit_n, uint32 period, callback_function pit_handler
     // 这里是检查是否有重复使用定时器
 	// TIM2已经给串口用作波特率发生器了。不能再初始化为其他的。
 	zf_assert(timer_funciton_check(pit_n, TIMER_FUNCTION_PIT));
-
     if(period > (255 * 65535))
     {
         // 设置定时器为12T模式防止溢出

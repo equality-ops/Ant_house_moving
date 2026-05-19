@@ -6,8 +6,8 @@
 #include "control.h"
 #include "stdio.h"
 //初始化变量
-uint8 key1_status = 1;//按键状态
-uint8 key_start_status = 1; //run按钮状态
+BOOL key1_status = 1;//按键状态
+BOOL key_start_status = 1; //run按钮状态
 // IMU相关变量
 static Quat q;//全局四元数
 static Vec3 forward_body;
@@ -17,10 +17,11 @@ static float pitch_angle = 0.0;
 float gyro_bias_x = 0.0, gyro_bias_y = 0.0, gyro_bias_z = 0.0;
 //目标
 int16 camera_erro=0;
-uint8 target_side = 2; // 0:左，1:中，2:右
+SIDE_ENUM target_side = SIDE_START; // 0:左，1:中，2:右
+SIDE_ENUM Now_Side=SIDE_START;//当前边
 uint16 target_x_or_y = 0; // 目标距离
 int counter=0;
-
+char str[20];
 //小车姿态(包含坐标航向角，速度)
 CAR_ATTITUDE car;
 CAR_ATTITUDE Target_Speed;
@@ -52,8 +53,8 @@ void wireless_handler(void) {// Wireless 定时数据处理函数
     if(data_len != 0)                                                       		// 收到了消息 读取函数会返回实际读取到的数据个数
     {
         rb_write_q(&wireless_rx_buffer, data_buffer, data_len); // 将收到的数据写入环形缓冲区
-        //analyze_wireless_data(&wireless_rx_buffer,&target_side,&target_x_or_y,&wireless_analyze_state); // 分析数据
-        vofa_data_analyze(&wireless_rx_buffer, &channel1, &channel2, &channel3, &channel4, &channel5, &channel6); // 分析数据
+        analyze_wireless_data(&wireless_rx_buffer,&target_side,&target_x_or_y,&wireless_analyze_state); // 分析数据
+        //vofa_data_analyze(&wireless_rx_buffer, &channel1, &channel2, &channel3, &channel4, &channel5, &channel6); // vofa无线调参时使用
     }
 }
 
@@ -129,19 +130,27 @@ void xy_angle_handler(void){
                 pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             break;
         case CONTORL_XY:
+            pid_xy.output_max=NEVIGATE_V_LIMIT;
             xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
             pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             break;
-        case CONTORL_XY_SPEED://右前方为正
+        case CONTORL_SPEEDX_SPEEDY://右前方为正
             Target_Speed.speed_x=0;
             Target_Speed.speed_y=100;
+        case CONTORL_NEVIGATE_SPEED:
+            Controled_Nevigate_V*=NEVIGATE_BOOM_level;
+            pid_xy.output_max=NEVIGATE_V_LIMIT*(1-Controled_Nevigate_V);
+            xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
+            pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
+            //xy_Update_by_target_v(&pid_xy,&car,&Target_Speed,50);//根据目标点和小车当前坐标计算目标速度赋予Target_Speed
+            break;
     }
 }
 void motor_handler(void) {//电机控制定时器中断
     //int pid1_result, pid2_result, pid3_result, pid4_result;
     float xy_target[4];
     Encoder_Update_5ms(&encoder_data);//更新编码器数据
-    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.308f,1.308f);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car
+    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.481f,1.371f);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car1.4442f,1.371f
     if (Car_Control_State==CONTORL_WHEEL){
         xy_target[0]=Nevigate_Target.v_wheel1;
         xy_target[1]=Nevigate_Target.v_wheel2;
@@ -152,10 +161,12 @@ void motor_handler(void) {//电机控制定时器中断
         calculate_motortarget_by_vxy(&Target_Speed,xy_target);//Target_Speed包含目标x,y,w，根据目标x,y,w计算四个轮子的目标速度存入xy_target
     
     //pid电机控制
-    pid1.target= xy_target[0];
-    pid2.target= xy_target[1];
-    pid3.target= xy_target[2];
-    pid4.target= xy_target[3];
+    if (Car_Control_State!=CONTORL_NONE && Car_Control_State!=CONTORL_WHEEL){
+        pid1.target= xy_target[0];
+        pid2.target= xy_target[1];
+        pid3.target= xy_target[2];
+        pid4.target= xy_target[3];
+    }
     set_motor_pwm(0,(int)motor_PID_Update(&pid1,encoder_data.encode1_delta_5ms));
     set_motor_pwm(1,(int)motor_PID_Update(&pid2,encoder_data.encode2_delta_5ms));
     set_motor_pwm(2,(int)motor_PID_Update(&pid3,encoder_data.encode3_delta_5ms));
@@ -264,7 +275,7 @@ void all_init(void) {//初始化
     Set_CAR_ATTITUDE(&Target_Speed,0.0f, 0.0f, 0.0f,0.0f,0.0f,0.0f);
     w_PID_Init(&pid_w,3,0,1,250,500);
     angle_PID_Init(&pid_angle,8,0.1,5,80,200);
-    xy_PID_Init(&pid_xy,3,0.5,500);
+    xy_PID_Init(&pid_xy,6,0.5,500);
     // EEPROM 初始化
     eeprom_init();
 }
@@ -282,6 +293,7 @@ void main(void) {
         }
     }
     */
+    WHOLE_STATE=INIT_;
     //等待按下发车建
     key_start_status = gpio_get_level(KEY_START);
     while (key_start_status == 1) {
@@ -310,79 +322,135 @@ void main(void) {
         voltage_detect();
     }
     */
+    //wireless_uart_send_string("message\r\n");
     pit_ms_init(PIT3, 5, imu_handler);//内环IMU中断
     pit_ms_init(PIT1, 100, wireless_handler);//wireless中断
     pit_ms_init(PIT2, 50, uart_handler);//uart中断
-    
     pit_ms_init(PIT4, 5, motor_handler);//内环motor中断
     pit_ms_init(PIT5, 10, xy_angle_handler);//外环位置角度中断
+    //wireless_uart_send_string("message\r\n");
     Set_TARGET_ATTITUDE(&Nevigate_Target,0,0,0,0,0,0,0,0,0,0,2);//targetx,targety,targetyaw,targetspeedx,targetspeedy,v1,v2,v3,v4,mode
     set_nevigate_target(&Nevigate_Target);
-    Car_Control_State=CONTORL_XY;
+    WHOLE_STATE=WAITING_;
     /*
-    Rotate_State=ROTATE_START;
-    while (Rotate_State!=ROTATE_DONE){
-        system_delay_ms(50);
-        rotate_to_yaw(90.0f, &car, Rotate_State);
-
-    }
-    beep_once(100);
-    system_delay_ms(1000);
-
-    Rotate_State=ROTATE_START;
-    while (Rotate_State!=ROTATE_DONE){
-        system_delay_ms(50);
-        rotate_to_yaw(180.0f, &car, Rotate_State);
-    }
-    beep_once(100);
-
-    Rotate_State=ROTATE_START;
-    while (Rotate_State!=ROTATE_DONE){
-        system_delay_ms(50);
-        rotate_to_yaw(0.0f, &car, Rotate_State);
-    }
-    beep_once(100);
+    nevigate(0,2400,0,&car);
+    nevigate(-90,2400,3200,&car);
+    nevigate(45,0,3200,&car);
+    nevigate(-45,0,0,&car);
     */
-    Nevigate_State=NEVIGATE_START;
-    while (Nevigate_State!=NEVIGATE_DONE){
-        system_delay_ms(50);
-        navigate_to_xy(2400, 0, &car, Nevigate_State);
-    }
-    beep_once(100);
-    system_delay_ms(500);
-    Nevigate_State=NEVIGATE_START;
-    while (Nevigate_State!=NEVIGATE_DONE){
-        system_delay_ms(50);
-        navigate_to_xy(2400,3200, &car, Nevigate_State);
-    }
-    beep_once(100);
-    system_delay_ms(500);
-    Nevigate_State=NEVIGATE_START;
-    while (Nevigate_State!=NEVIGATE_DONE){
-        system_delay_ms(50);
-        navigate_to_xy(0,0, &car, Nevigate_State);
-    }
-    beep_once(100);
+    /*vofa无线调参
     channel1=pid_angle.Kp;
     channel2=pid_angle.Ki;
     channel3=pid_angle.Kd;
     channel4=pid_angle.target;
-    channel5=pid_angle.output_max;
+    channel5=pid_angle.output_max/10.0f;
+    */
+    /*
+    channel1=pid_xy.Kp;
+    channel2=pid_xy.Kd;
+    channel3=pid_xy.target_x;
+    channel4=pid_xy.target_y;
+    channel5=pid_xy.output_max/10.0f;
+    */
+    channel1=0;
+    //Car_Control_State=CONTORL_WHEEL;
+    wireless_send_float("x:",car.x,1);
+    wireless_send_float("y:",car.y,1);
     while (1){
-        char str[20];
-        //uint8 test[] = {0x55, 0xAA, 'm', 's', 'g', '\r', '\n'};
-        //uart_write_buffer(UART_6, test, sizeof(test));
+        int result = 0;
+        //int i;
+
+        switch (WHOLE_STATE){
+            case WAITING_:
+                if (waiting(&wireless_analyze_state)) {
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                    WHOLE_STATE=PLANNING_;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                break;
+            case PLANNING_:
+                /*
+                func_int_to_str(str,Now_Side);
+                wireless_uart_send_string(str);
+                wireless_uart_send_string("now\r\n");
+                func_int_to_str(str,target_side);
+                wireless_uart_send_string(str);
+                wireless_uart_send_string("target\r\n");
+                */
+                result=planning(target_side,Now_Side,&car,target_x_or_y);
+                if(result==1){
+                    WHOLE_STATE=TRACK_LINE_RUNNING;
+                    Now_Side=target_side;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                else if(result==3){
+                    WHOLE_STATE=OUT_LINE_RUNNING;
+                    Now_Side=target_side;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                break;
+            case TRACK_LINE_RUNNING:
+                if (tracking_line_running(&car)==1) {
+                    WHOLE_STATE=OUT_LINE_RUNNING;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                break;
+            case OUT_LINE_RUNNING:
+                if (out_line_running(&car,&Now_Side,target_side,target_x_or_y)==1) {
+                    WHOLE_STATE=BACK_TO_LINE;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                break;
+            case BACK_TO_LINE:
+                if (back_to_line(&car,target_x_or_y)) {
+                    WHOLE_STATE=WAITING_;
+                    func_int_to_str(str,WHOLE_STATE);
+                    wireless_uart_send_string(str);
+                    wireless_uart_send_string("\r\n");
+                }
+                break;
+            case END_:
+                break;
+            system_delay_ms(50);
+        }
+        //char str[20];
+        //wireless_uart_send_string("message\r\n");
+        /*
+        pid1.target= channel1;
+        pid2.target= channel1;
+        pid3.target= channel1;
+        pid4.target= channel1;
+        */
+        /*
         pid_angle.Kp=channel1;
         pid_angle.Ki=channel2;
         pid_angle.Kd=channel3;
         pid_angle.target=channel4;
-        pid_angle.output_max=(int)channel5;
-        
+        pid_angle.output_max=(int)(channel5*10);
+        */
+        /*
+        pid_xy.Kp=channel1;
+        pid_xy.Kd=channel2;
+        pid_xy.target_x=channel3;
+        pid_xy.target_y=channel4;
+        pid_xy.output_max=(int)(channel5*10);
+        */
         system_delay_ms(50);
         //printf("%d,%d,%d,%d\r\n",encoder_data.encode1_delta_5ms,encoder_data.encode2_delta_5ms,encoder_data.encode3_delta_5ms,encoder_data.encode4_delta_5ms);
         //printf("%f,%f,%f\r\n",car.yaw,car.speed_w,pid_w.target);
-        func_float_to_str(str,car.yaw,2);
-        printf("%f,%f,%f\r\n",car.x,Target_Speed.speed_x,pid_xy.target_x);
+        //func_float_to_str(str,car.yaw,2);
+        //printf("%f,%f,%f\r\n",car.x,Target_Speed.speed_x,pid_xy.target_x);
     }
     
     /*

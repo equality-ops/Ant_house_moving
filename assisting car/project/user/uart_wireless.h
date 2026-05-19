@@ -1,6 +1,7 @@
 ﻿#ifndef UART_WIRELESS_H
 #define UART_WIRELESS_H
 #include "zf_common_headfile.h"
+#include "else.h"
 // UART 和 Wireless 相关函数声明
 
 //uart define
@@ -15,7 +16,20 @@ typedef struct {
     volatile uint8 tail;
     uint8 length;
 } ring_buffer;
+typedef enum {
+    SIDE_START = 0,
 
+    POINT_LEFT_DOWN = 1,
+    SIDE_LEFT = 2,
+    POINT_LEFT_UP = 3,
+    SIDE_UP = 4,
+    POINT_RIGHT_UP = 5,
+    SIDE_RIGHT = 6,
+    POINT_RIGHT_DOWN = 7,
+    SIDE_DOWN = 8,
+
+    SIDE_END = 9
+}SIDE_ENUM;
 //uart相关变量
 extern ring_buffer uart_rx_buffer;//uart接收环形缓冲区
 extern uint8       uart_get_data[64];                        // 串口接收数据缓冲区
@@ -31,7 +45,7 @@ extern uint8 data_buffer[32];
 extern uint8 last_length;
 extern uint8 data_len;
 extern uint8 count;
-extern uint8 wireless_analyze_state;
+extern BOOL wireless_analyze_state;
 
 //环形缓冲区函数
 extern void rb_init(ring_buffer *rb,uint8 length);
@@ -47,6 +61,8 @@ extern void uart_send(const uint8 *dat,uint8 length);
 extern void uart_send_int16_to_chr(int16 dat);
 //wireless define
 extern void wireless_send_uint16_to_chr(uint16 dat, uint8 length);
-extern void analyze_wireless_data(ring_buffer *rb,uint8* target_side,uint16* target_x_or_y,uint8* wireless_analyze_state );
+extern void analyze_wireless_data(ring_buffer *rb,SIDE_ENUM* target_side,uint16* target_x_or_y,BOOL* wireless_analyze_state );
 extern void vofa_data_analyze(ring_buffer *rb, float *channel1, float *channel2,float *channel3, float *channel4,float *channel5, float *channel6);
+extern void wireless_send_int(char *st,int dat);
+extern void wireless_send_float(char *st,float dat,uint8 point_bit);
 #endif

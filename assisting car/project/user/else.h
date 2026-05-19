@@ -8,9 +8,9 @@
 //PIT define
 #define PIT1                         (TIM0_PIT)
 #define PIT2                         (TIM1_PIT)
-#define PIT3                         (TIM2_PIT)
+#define PIT3                         (TIM9_PIT)
 #define PIT4                         (TIM3_PIT)
-#define PIT5                         (TIM4_PIT)
+#define PIT5                         (TIM8_PIT)
 //ADC define
 #define ADC_CHANNEL1            ( ADC1_CH0_P10 )
 //button define
@@ -32,6 +32,13 @@
 #define EEPROM_MODE 1        // eeporm读写开启则为1
 #define line_space 16           // 行间距
 #define character_space 8         // 字符间距
+
+#define area_HEIGHT 2400
+#define area_WIDTH 3200
+typedef enum {
+    FALSE = 0,
+    TRUE = 1
+} BOOL;
 
 extern uint8 date_buff[100]; //eeprom数据数组
 extern uint8 keystroke_label;
@@ -64,5 +71,4 @@ void voltage_detect(void);
 
 float max(float a, float b);
 float min(float a, float b);
-extern char *k251_float_to_str(float value, char *buf, uint8 len, uint8 precision);
 #endif

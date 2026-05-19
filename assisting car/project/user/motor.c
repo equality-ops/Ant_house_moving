@@ -71,6 +71,8 @@ float angle_PID_Update(PID_angle *p, float measure) {
     float error, output;
     // 计算误差
     error = p->target - measure;
+    if (error > 180.0f) error -= 360.0f;  // 误差限制在 -180~180 度范围内
+    if (error < -180.0f) error += 360.0f;
     // 积分累加 + 限幅（防积分饱和）
     p->integral += error;
     if (p->integral > p->integral_max) p->integral = p->integral_max;
@@ -126,7 +128,6 @@ void xy_PID_Init(PID_xy *p, float Kp, float Kd, int output_max) {
     p->target_x = 0.0f;
     p->target_y = 0.0f;
 }
-
 void xy_PID_Update(PID_xy *p, CAR_ATTITUDE *car, CAR_ATTITUDE *target_speed) {
     float errorx, errory, error, speed, angle_to_target;
     // 计算误差
@@ -140,11 +141,20 @@ void xy_PID_Update(PID_xy *p, CAR_ATTITUDE *car, CAR_ATTITUDE *target_speed) {
     if (speed < -p->output_max) speed = -p->output_max;
     // 保存误差
     p->prev_error = error;
-    angle_to_target = my_atan2(errory, errorx) + car->yaw;  // 目标方向与小车当前航向的夹角
+    angle_to_target = my_atan2(errory, errorx) - car->yaw;  // 目标方向与小车当前航向的夹角
     target_speed->speed_x = speed * cos(angle_to_target);  // 前后
     target_speed->speed_y = speed * sin(angle_to_target);  // 左右
 }
-
+void xy_Update_by_target_v(PID_xy *p, CAR_ATTITUDE *car, CAR_ATTITUDE *target_speed,float speed) {
+    float errorx, errory, error,angle_to_target;
+    // 计算误差
+    errorx = p->target_x - car->x;
+    errory = p->target_y - car->y;
+    error = sqrt(errorx * errorx + errory * errory);
+    angle_to_target = my_atan2(errory, errorx) - car->yaw;  // 目标方向与小车当前航向的夹角
+    target_speed->speed_x = speed * cos(angle_to_target);  // 前后
+    target_speed->speed_y = speed * sin(angle_to_target);  // 左右
+}
 // 小车姿态初始化函数
 void Set_CAR_ATTITUDE(CAR_ATTITUDE *car, float x, float y, float yaw, float speed_x, float speed_y, float speed_w) {
     car->x = x;
@@ -213,10 +223,10 @@ void calculate_motortarget_by_vxy(CAR_ATTITUDE *target_speed, float *out) {  // 
 }
 
 void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky) {  // 根据四个轮子的编码器数据计算小车在全球坐标系下的坐标
-    float dx_vehicle = (p->encode1_delta_5ms + p->encode3_delta_5ms + p->encode2_delta_5ms + p->encode4_delta_5ms);
-    float dy_vehicle = (p->encode1_delta_5ms - p->encode3_delta_5ms - p->encode2_delta_5ms + p->encode4_delta_5ms);
-    car->x += (dx_vehicle * cos(car->yaw) - dy_vehicle * sin(car->yaw)) * 0.001f * kx;
-    car->y += (dx_vehicle * sin(car->yaw) + dy_vehicle * cos(car->yaw)) * 0.001f * ky;
+    float dx_vehicle = (p->encode1_delta_5ms + p->encode3_delta_5ms + p->encode2_delta_5ms + p->encode4_delta_5ms)* kx;
+    float dy_vehicle = (p->encode1_delta_5ms - p->encode3_delta_5ms - p->encode2_delta_5ms + p->encode4_delta_5ms)* ky;
+    car->x += (dx_vehicle * cos(car->yaw) - dy_vehicle * sin(car->yaw)) * 0.001f ;
+    car->y += (dx_vehicle * sin(car->yaw) + dy_vehicle * cos(car->yaw)) * 0.001f ;
 }
 
 void set_nevigate_target(TARGET_ATTITUDE *target) {  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制
