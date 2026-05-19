@@ -28,7 +28,7 @@ class beep:
         if self.beep_state == self.BEEP_OFF:
             self.beep_state = self.BEEP_ON
             self.beep.high()
-            time.sleep_ms(20)
+            time.sleep_ms(80)
             self.beep.low()
             self.beep_state = self.BEEP_OFF
             return

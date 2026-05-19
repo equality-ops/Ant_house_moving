@@ -195,12 +195,12 @@ class PoseData:
         I_LIMIT = 0.2  # 限制积分项最大影响
         self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
         self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-        self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正
+        self.e_int[2] = max(-I_LIMIT, min(self.e_int[2] + ez * self.ki, I_LIMIT)) # 6轴系统，不要信任加速度计对 Yaw 的积分修正
 
         # --- 改进2：补偿角速度 ---
         gx += self.kp * ex + self.e_int[0]
         gy += self.kp * ey + self.e_int[1]
-        gz += self.kp * 0  + self.e_int[2] # Yaw只信任陀螺仪
+        gz += self.kp * ez + self.e_int[2]
         
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
@@ -580,6 +580,7 @@ class CarPose:
         self.speed_conversion_gamma = self.flash_sys.find_value("speed_conversion_gamma")   # 将速度单位转化为cm每秒
         self.gkd = self.flash_sys.find_value("gkd")  # type: float  # 角速度补偿系数
         self.speed_fuse_ratio = self.flash_sys.find_value("speed_fuse_ratio")  # type: float  # 速度融合系数
+        self.encoder_to_cm = 0.001
         # 依据角度的位置修正系数（常量）
         self.alpha_x = 1.0  # type: float
         self.alpha_y = 1.0  # type: float

@@ -144,9 +144,6 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
 # 创建小车自转角滤波器对象（已弃用）
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
-# 创建主车正余弦滑动平均滤波器对象
-sin_diff_fil = ant_motor.SlipAveragingFilter(50)
-cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
 sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
@@ -168,8 +165,11 @@ my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, car_yaw_fil,
 # 创建路径规划数据对象
 plan_data = ant_plan.PlanData(my_flash_sys)
 
+# 创建路径规划对象
+my_path = ant_plan.PathPlan(plan_data)
+
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
+my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
@@ -214,12 +214,12 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_state.state_work = DOWN
-                my_state.state = my_state.NAVIGATE
+                my_state.state = my_state.READT_NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -233,25 +233,26 @@ def main_start():
 # 小车姿态总控制函数
 def master_control():
     if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE:
-        my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+        my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
-            my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.CALIBRATE:
         if my_vision_manager.if_ready_calibrate == False:
-            my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         else:
             # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行轨迹的导航控制
             if my_vision_manager.if_lost_object == False:
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
-                my_car.move_ctrl(my_plan.v_target, my_plan.target_yaw, my_plan.turn_angle_target)
+                my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
 
+'''
 # 视觉伺服测试函数
 def test_vision_servo():
     global counter
@@ -650,6 +651,7 @@ def collaborative_task_machine():
                 my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
         elif my_state.state == my_state.STOP:
             my_plan.stop()
+'''
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -661,7 +663,6 @@ def show_speed_PID_test():
     # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
     # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
 
-    
     # 测试不同速度下的pid参数切换情况
     if counter >= 8000:
         counter = 0
@@ -758,33 +759,21 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    collaborative_task_machine()
+    # collaborative_task_machine()
 
     # 全向定位测试程序
-    """
-    if my_state.state == my_state.NAVIGATE:
-        my_plan.navigate([[160.0, 0.0], [0.0, 0.0]], 0.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
+    if my_state.state == my_state.READT_NAVIGATE:
+        # my_path.plan_path(my_car.x_current, my_car.y_current, 160.0, 0.0)
+        my_state.state = my_state.NAVIGATE
+    elif my_state.state == my_state.NAVIGATE:
+        my_plan.navigate(path = [[160.0, 0.0], [0.0, 0.0]])
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()
             my_state.state = my_state.STOP
             my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
-    """
-    # 测试搬运的里程计系数
-    """
-    if my_state.state == my_state.NAVIGATE:
-        my_state.state = my_state.MOVE
-        my_plan.move_v_max = 60
-    elif my_state.state == my_state.MOVE:
-        my_plan.navigate([[my_car.x_current, my_car.y_current-100.0]], 120.0)
-        if my_plan.finish_navigate == True:
-            my_plan.finish_navigate = False
-            my_state.state = my_state.STOP
-            my_beep.test()
-    elif my_state.state == my_state.STOP:
-        my_plan.stop()
-    """
+
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -838,13 +827,13 @@ def time_pit2_handler(time):
                                                                         
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.v_target, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.target_v, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
     
     # 速度规划
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(my_plan.rest_distance, my_plan.v_target, my_plan.v_max, my_state.state))
+    my_uart3.write("{:<f},{:<f}\n".format(my_plan.target_v, my_plan.target_yaw))
 
     # 检测四元数解算结果是否准确
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
@@ -884,7 +873,7 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    # pit3.capture_list(tof)
+    # pit3.cap	ture_list(tof)
     # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))

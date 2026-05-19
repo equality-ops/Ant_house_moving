@@ -375,7 +375,7 @@ class VisionManager:
                     avg_x = sum([p[0] for p in self.point_buffer]) / len(self.point_buffer)
                     avg_y = sum([p[1] for p in self.point_buffer]) / len(self.point_buffer)
                     avg_angle = sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])
-                    relative_angle = math.atan2(-avg_x, avg_y) * 180.0 / self.MATH.PI
+                    relative_angle = -math.atan2(-avg_x, avg_y) * 180.0 / self.MATH.PI
                     # 世界坐标系下的真实角度 = 车体坐标系下的目标角度 + 小车当前的角度
                     real_angle = avg_angle + relative_angle
                     if real_angle > 180.0:
