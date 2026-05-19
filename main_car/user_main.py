@@ -833,6 +833,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
     
     # 速度规划
+    # my_uart3.write(f"{my_plan.waypoint_v}\n")
     my_uart3.write("{:<f},{:<f}\n".format(my_plan.target_v, my_plan.target_yaw))
 
     # 检测四元数解算结果是否准确

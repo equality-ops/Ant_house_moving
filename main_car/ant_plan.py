@@ -381,7 +381,7 @@ class NavigationPlan:
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
         self.target_y = 0.0         # type: float
-        self.target_v = 0               # type: int  # 目标速度
+        self.target_v = 0               # type: float  # 目标速度
         self.target_yaw = 0.0            # type: float
         self.turn_angle_target = 0.0     # type: float
         # 判断小车是否到达目标点的阈值
@@ -432,7 +432,7 @@ class NavigationPlan:
         for i in range(n - 2, 0, -1):
             seg_dist = math.sqrt((path[i+1][0] - path[i][0])**2 + (path[i+1][1] - path[i][1])**2)
             target_v_next = self.waypoint_v[i+1]
-            max_safe_v = math.sqrt(target_v_next**2 + 2 * self.max_dec * seg_dist / self.my_car.encoder_to_cm)
+            max_safe_v = math.sqrt(target_v_next**2 + self.max_dec * (seg_dist + self.plan_arrive_threshold) / self.my_car.encoder_to_cm)
             if self.waypoint_v[i] > max_safe_v:
                 self.waypoint_v[i] = max_safe_v
 
@@ -484,21 +484,22 @@ class NavigationPlan:
         safe_dist = max(0.0, dist_to_next - 2.0) # 扣除 2.0 安全裕量
         
         # 如果距离下一目标点已经非常近，可以直接限制为目标速度
-        if safe_dist <= 0:
+        if safe_dist <= 10.0:
             v_safe = target_v_at_next
         else:
             # 这里的 self.max_dec 在公式中作为加速度 (建议根据实际单位换算)
-            v_safe = math.sqrt(target_v_at_next**2 + 2 * self.max_dec * safe_dist / self.my_car.encoder_to_cm) 
+            # self.max_dec单位为速度增量/10ms，此处不用乘2
+            v_safe = math.sqrt(target_v_at_next**2 + self.max_dec * (safe_dist - 10.0) / self.my_car.encoder_to_cm) 
 
         # 步骤B：融合全局限速，得到最终期望追求的速度
         v_aim = min(self.long_v_max, v_safe)
-        self.my_uart3.write(f"{v_aim}\r\n")
+        # self.my_uart3.write(f"{v_safe}\r\n")
         # max_acc/max_dec 是单步循环的速度增量。
         # 如果你的主循环 dt 很小，建议将 max_acc 设置为 (真实加速度 * dt)
         if self.target_v < v_aim:
-            self.target_v = int(min(self.target_v + self.max_acc, v_aim))
+            self.target_v = (min(self.target_v + self.max_acc, v_aim))
         elif self.target_v > v_aim:
-            self.target_v = int(max(self.target_v - self.max_dec, v_aim))
+            self.target_v = (max(self.target_v - self.max_dec, v_aim))
 
         # 兜底：不能低于下一个waypoint的目标速度
         self.target_v = max(target_v_at_next, self.target_v)
@@ -548,7 +549,7 @@ class NavigationPlan:
         # =======================================================
         # 4. 到达判断
         # =======================================================
-        if (dist_to_next <= 7.0 and self.aimed_point_index < len(self.path) - 1) or \
+        if (dist_to_next <= 3.0 and self.aimed_point_index < len(self.path) - 1) or \
             (dist_to_next <= self.plan_arrive_threshold and self.aimed_point_index >= len(self.path) - 1):
             self.aimed_point_index += 1
             # 依据到过渡点的距离计算里程计系数
