@@ -15,7 +15,7 @@ import ant_motor
 import ant_plan
 import ant_vision
 import ant_menu
-
+import math
 
 # 包含 gc 与 time 类
 import gc
@@ -763,10 +763,11 @@ def time_pit3_handler(time) -> None:
 
     # 全向定位测试程序
     if my_state.state == my_state.READT_NAVIGATE:
-        # my_path.plan_path(my_car.x_current, my_car.y_current, 160.0, 0.0)
+        my_path.plan_path(my_car.x_current, my_car.y_current, 245.0, 56.0)
+        my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = my_state.NAVIGATE
     elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate(path = [[160.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = my_path.ready_path)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_state.state = my_state.STOP
@@ -812,7 +813,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_mdPid.actual))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual, my_plan.target_v))
 
     # 路径规划
     # my_uart3.write(f"{my_plan.current_path}\n")	
@@ -827,14 +828,14 @@ def time_pit2_handler(time):
                                                                         
     # 里程计：
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.target_v, my_car.now_yaw * 180 / MATH.PI, my_plan.v_max))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_dist, my_plan.target_v, my_car.now_yaw * 180 / MATH.PI))
     # my_uart3.write(f"{my_plan.target_yaw}\n")
     # tof传感器测试
     # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
     
     # 速度规划
     # my_uart3.write(f"{my_plan.waypoint_v}\n")
-    my_uart3.write("{:<f},{:<f}\n".format(my_plan.target_v, my_plan.target_yaw))
+    # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.aimed_point_index},{my_plan.rest_dist}\n")
 
     # 检测四元数解算结果是否准确
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")

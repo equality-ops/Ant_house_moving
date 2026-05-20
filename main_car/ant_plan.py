@@ -44,7 +44,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, -0.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[0.0, 240.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -54,15 +54,15 @@ class PlanData:
         self.FIELD_H = 240.0  # 地图高度
         self.OBSTACLE_R = 14.0  # 圆形障碍物默认半径 (直径 30cm -> 半径 15cm)
         self.CUBE_LENTH = 23.8   # 立方体障碍物长度
-        self.CUBE_WIDE = 23.8  # 立方体障碍物宽度
+        self.CUBE_WIDE = 10.6  # 立方体障碍物宽度
         self.INF = 1000000000.0  # 无穷大
-        self.SAFE_MARGIN = 15.0  # 小车安全裕量 (质点膨胀半径)
+        self.SAFE_MARGIN = 13.0  # 小车安全裕量 (质点膨胀半径)
 
         self.rectangle_obstacles = self.create_expanded_rect(160.0, 120.0, 100.0, 100.0)  # 中心禁区矩形障碍物（已膨胀）
         self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
         self.circle = self.flash_sys.find_value("circle")  # 信标障碍物中心坐标列表
         # 将矩形障碍区进行膨胀（先后顺序不能改变）
-        self.rectangles = [self.create_expanded_rect(x[0], x[1], self.CUBE_LENTH, self.CUBE_WIDE) for x in self.cube]
+        self.rectangles = [self.create_expanded_rect(x[0], x[1], x[2], x[3]) for x in self.cube]
         self.rectangles.append(self.rectangle_obstacles)  # 将中心禁区矩形障碍物加入矩形障碍物列表
 
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
@@ -76,10 +76,6 @@ class PlanData:
         self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning) if isinstance(self.rogue_planning, list) else 0
 
-        # 已到达的目标点索引
-        self.aimed_point_index = 0    # type: int
-        # 当前避障路径中的目标点索引
-        self.current_aimed_point_index = 0    # type: int
         # 时间计数器
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
@@ -100,7 +96,7 @@ class PlanData:
 class PathPlan:
     def __init__(self, plan_data: PlanData):
         self.Data = plan_data
-
+        self.ready_path = []    # 规划好的路径
     # 路径规划主函数
     def plan_path(self, x0, y0, x1, y1):
         circles = self.Data.circle
@@ -166,7 +162,7 @@ class PathPlan:
             path.append(nodes[i])
             i = prev[i]
         path.reverse()
-        return self._path_to_list(self._smooth_path(path, circles, rects, block_r))
+        self.ready_path = self._path_to_list(self._smooth_path(path, circles, rects, block_r))
 
     # 初始化圆形障碍物列表
     def _normalize_points(self, points):
@@ -367,8 +363,8 @@ class NavigationPlan:
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int  # 最小制动速度
         self.long_v_max = self.flash_sys.find_value("long_v_max")    # type: int  # 长距离时的最大速度
-        self.max_acc = self.flash_sys.find_value("max_acc")          # 最大加速度
-        self.max_dec = self.flash_sys.find_value("max_dec")          # 最大减速度
+        self.acc_coef = self.flash_sys.find_value("acc_coef")          # 加速距离系数
+        self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
         self.max_yaw_rate = self.flash_sys.find_value("max_yaw_rate")# 最大航向角变化率 (度/tick)
         self.blend_radius = self.flash_sys.find_value("blend_radius")# 拐点融合区半径：进入该范围开始向下一目标切角
         self.move_v_max = self.flash_sys.find_value("move_v_max")    # 根据物体种类选择搬运速度
@@ -381,24 +377,27 @@ class NavigationPlan:
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
         self.target_y = 0.0         # type: float
-        self.target_v = 0               # type: float  # 目标速度
+        self.target_v = 0           # type: float  # 目标速度
+        self.v_peak = 0.0           # type: float  # 当前路径段的理论最高速度
         self.target_yaw = 0.0            # type: float
         self.turn_angle_target = 0.0     # type: float
         # 判断小车是否到达目标点的阈值
-        self.plan_arrive_threshold = self.flash_sys.find_value("plan_arrive_threshold")  # type: float
-        self.total_distance = 0.0       # type: float
-        self.finished_distance = 0.0    # type: float
-        self.rest_distance = 0.0        # type: float
+        self.final_threshold = self.flash_sys.find_value("final_threshold")  # type: float
+        self.branch_threshold = self.flash_sys.find_value("branch_threshold")  # type: float
+        self.finished_dist = 0.0    # type: float
+        self.rest_dist = 0.0        # type: float
+        self.usable_len = 0.0         # type: float  # 当前路径段的可用长度（扣除提前到达阈值后的剩余距离）
+        self.segment_start_dist = 0.0   # 当前路径段的起始点与过渡点之间的距离
+        self.d_acc = 0.0                # 当前路径段的加速距离
+        self.d_dec = 0.0                # 当前路径段的减速距离
         # 用于搬运你物体时矫正里程计的误差
         self.error_x_T = self.flash_sys.find_value("error_x_T")       # type: float
         self.error_x_S = self.flash_sys.find_value("error_x_S")       # type: float
         self.error_x_B = self.flash_sys.find_value("error_x_B")       # type: float
         self.error_x = 0.0
 
-        # 当前与下一避障目标点的距离
-        self.current_rest_dis = 0.0     # type: float
-        # 到过度点的剩余距离
-        self.rest_transition_distance = 0.0       # type: float
+        # 已到达的目标点索引
+        self.aimed_point_index = 0    # type: int
         # 目标路径
         self.path = []      # type: list
         # 标志位
@@ -410,39 +409,60 @@ class NavigationPlan:
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         self.path = path
-        path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
-        if len(path) < 2: return
+        self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
+        if len(self.path) < 2: return
         
-        n = len(path)
+        n = len(self.path)
         self.waypoint_v = [self.min_start_v] * n
-        
-        # 1. 计算每个点的理论转角，用于设定通过速度
-        self.waypoint_v[0] = self.min_start_v
+
         for i in range(1, n - 1):
-            yaw_in = -math.atan2(-(path[i][0] - path[i-1][0]), path[i][1] - path[i-1][1]) * 180.0 / math.pi
-            yaw_out = -math.atan2(-(path[i+1][0] - path[i][0]), path[i+1][1] - path[i][1]) * 180.0 / math.pi
+            yaw_in = -math.atan2(-(self.path[i][0] - self.path[i-1][0]), self.path[i][1] - self.path[i-1][1]) * 180.0 / math.pi
+            yaw_out = -math.atan2(-(self.path[i+1][0] - self.path[i][0]), self.path[i+1][1] - self.path[i][1]) * 180.0 / math.pi
             
             delta_yaw = abs(yaw_out - yaw_in)
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
             
-            speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v)
+            # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
+            if delta_yaw > 90.0:
+                self.waypoint_v[i] = self.min_start_v
+            elif delta_yaw < 10.0:
+                self.waypoint_v[i] = self.long_v_max
+            else:
+                speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
+                # 再缩放0.4系数，让速度更保守一些，增加过弯安全裕量
+                self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.4
 
-        # 2. 反向安全推演 (防止刹不住)
-        for i in range(n - 2, 0, -1):
-            seg_dist = math.sqrt((path[i+1][0] - path[i][0])**2 + (path[i+1][1] - path[i][1])**2)
-            target_v_next = self.waypoint_v[i+1]
-            max_safe_v = math.sqrt(target_v_next**2 + self.max_dec * (seg_dist + self.plan_arrive_threshold) / self.my_car.encoder_to_cm)
+        # 【前向推演：固有加速距离限制】
+        for i in range(0, n - 1):
+            seg_dist = math.sqrt((self.path[i+1][0] - self.path[i][0])**2 + (self.path[i+1][1] - self.path[i][1])**2)
+            # 同样扣除提前到达阈值，这部分距离不能用来加速
+            threshold = self.final_threshold if (i == n - 2) else self.branch_threshold
+            # 3.0为安全裕量
+            usable_dist = max(0.0, seg_dist - threshold - 3.0)
+            max_reachable_v = self.waypoint_v[i] + (usable_dist / self.acc_coef)
+            if self.waypoint_v[i+1] > max_reachable_v:
+                self.waypoint_v[i+1] = max_reachable_v
+
+        # 【反向推演：固有刹车减速距离限制】
+        for i in range(n - 2, -1, -1):
+            seg_dist = math.sqrt((self.path[i+1][0] - self.path[i][0])**2 + (self.path[i+1][1] - self.path[i][1])**2)
+            # 考虑最后一段和中间段不同的“提前到达”阈值作为刹车缓冲区的扣除
+            threshold = self.final_threshold if (i == n - 2) else self.branch_threshold
+            # 3.0为安全裕量
+            safe_dist = max(0.0, seg_dist - threshold - 3.0)
+            max_safe_v = self.waypoint_v[i+1] + (safe_dist / self.dec_coef)
             if self.waypoint_v[i] > max_safe_v:
                 self.waypoint_v[i] = max_safe_v
 
         self.aimed_point_index = 0
         self.if_finish_navigate = False
+        # 计算第一段路径的加减速参数
+        self.plan_acc_dec()
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
-        self.target_yaw = -math.atan2(-(path[1][0] - path[0][0]), path[1][1] - path[0][1]) * 180.0 / math.pi
-        x_transit_dis = abs(self.my_car.x_current - path[0][0])
-        y_transit_dis = abs(self.my_car.y_current - path[0][1])
+        self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / math.pi
+        x_transit_dis = abs(self.my_car.x_current - self.path[1][0])
+        y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
             self.my_car.alpha_x = 0.966702
@@ -458,6 +478,85 @@ class NavigationPlan:
         else:
             self.my_car.alpha_y = 1.0
 
+    # 根据当前过渡距离计算加减速距离
+    def plan_acc_dec(self):
+        # 修正：应该测量到下一个目标点(aimed_point_index + 1)的实物距离作为这段的总长
+        target_pt = self.path[self.aimed_point_index + 1]
+        self.segment_start_dist = math.sqrt((target_pt[0] - self.my_car.x_current)**2 + (target_pt[1] - self.my_car.y_current)**2)
+
+        v_start = self.waypoint_v[self.aimed_point_index]
+        v_end = self.waypoint_v[self.aimed_point_index + 1]
+
+        # 修正：判断当前段的死区阈值，将S型的终点提前，得到真正的加减速“可用空间”
+        is_last_segment = (self.aimed_point_index == len(self.path) - 2)
+        threshold = self.final_threshold if is_last_segment else self.branch_threshold
+        self.usable_len = max(0.01, self.segment_start_dist - threshold - 3.0) # 3.0为安全裕量
+
+        if self.usable_len <= 0.1:
+            self.v_peak = v_end
+            self.d_acc = 0.0
+            self.d_dec = 0.0
+            return
+
+        v_cruise = float(self.long_v_max)
+
+        # 基于绝对速度变化量反算理论需要的加减速物理距离
+        d_acc_req = self.acc_coef * max(0.0, v_cruise - v_start)
+        d_dec_req = self.dec_coef * max(0.0, v_cruise - v_end)
+        
+        # 空间是否充裕判定
+        if d_acc_req + d_dec_req > self.usable_len:
+            # 空间不足，触发削峰逻辑
+            if self.acc_coef + self.dec_coef > 0:
+                self.v_peak = (self.usable_len + self.acc_coef * v_start + self.dec_coef * v_end) / (self.acc_coef + self.dec_coef)
+            else:
+                self.v_peak = v_cruise
+            self.v_peak = max(self.v_peak, max(v_start, v_end))
+        else:
+            # 空间极其充裕，直接锁死在最高速阶段巡航
+            self.v_peak = v_cruise
+
+        # 平滑加减速阶段衔接区域
+        self.d_acc = self.acc_coef * max(0.0, self.v_peak - v_start)
+        self.d_dec = self.dec_coef * max(0.0, self.v_peak - v_end)
+        if self.d_acc + self.d_dec > self.usable_len and (self.d_acc + self.d_dec) > 0:
+            scale = self.usable_len / (self.d_acc + self.d_dec)
+            self.d_acc *= scale
+            self.d_dec *= scale
+
+    def _calculate_position_s_curve(self):
+        # 多项式平滑插值函数 Gentle-Smoothstep
+        def smoothstep(t):
+            t = max(0.0, min(1.0, t))
+            # k 是融合系数，范围 0 到 1
+            # k = 0 就是原来的三次方程 (中间最陡)
+            # k = 1 就是纯匀速直线 (没有加减速过渡)
+            # 推荐使用 0.3 ~ 0.5 之间，这里默认用 0.4
+            k = 0.4
+            cubic = 3 * (t ** 2) - 2 * (t ** 3)
+            return k * t + (1 - k) * cubic
+
+        v_start = self.waypoint_v[self.aimed_point_index]
+        v_end = self.waypoint_v[self.aimed_point_index + 1]
+
+        # s 直接基于我们之前算出的 usable_len 限制
+        s = self.segment_start_dist - self.rest_dist
+        s_usable = max(0.0, min(s, self.usable_len))  # 强制束缚在可用区间内
+
+        if s_usable <= self.d_acc:
+            if self.d_acc <= 1e-3: v_out = self.v_peak
+            else: v_out = v_start + (self.v_peak - v_start) * smoothstep(s_usable / self.d_acc)
+        elif s_usable >= self.usable_len - self.d_dec:
+            if self.d_dec <= 1e-3: v_out = v_end
+            else:
+                s_dec = s_usable - (self.usable_len - self.d_dec)
+                v_out = self.v_peak + (v_end - self.v_peak) * smoothstep(s_dec / self.d_dec)
+        else:
+            v_out = self.v_peak
+            
+        # 这里改为输出 float，有助于你的底层PID或者跟随器能取得更平滑的参考速度
+        return max(float(self.min_start_v), min(float(self.long_v_max), float(v_out)))
+        
     # 实时导航执行函数
     def navigate_step(self):
         """
@@ -471,62 +570,21 @@ class NavigationPlan:
             self.target_v = 0
             return self.target_v, self.target_yaw
 
-        aimed_point_idx = self.path[self.aimed_point_index + 1]
-        dist_to_next = math.sqrt((aimed_point_idx[0] - car_x)**2 + (aimed_point_idx[1] - car_y)**2)
+        target_pt = self.path[self.aimed_point_index + 1]
+        self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
         
         # =======================================================
         # 1. 速度控制模块
         # =======================================================
-        target_v_at_next = self.waypoint_v[self.aimed_point_index + 1]
-        
-        # 根据距离和公式倒推当前允许的最大安全速度
-        # 公式推导自: v_safe^2 - v_next^2 = 2 * a * S
-        safe_dist = max(0.0, dist_to_next - 2.0) # 扣除 2.0 安全裕量
-        
-        # 如果距离下一目标点已经非常近，可以直接限制为目标速度
-        if safe_dist <= 10.0:
-            v_safe = target_v_at_next
-        else:
-            # 这里的 self.max_dec 在公式中作为加速度 (建议根据实际单位换算)
-            # self.max_dec单位为速度增量/10ms，此处不用乘2
-            v_safe = math.sqrt(target_v_at_next**2 + self.max_dec * (safe_dist - 10.0) / self.my_car.encoder_to_cm) 
+        self.target_v = self._calculate_position_s_curve()
 
-        # 步骤B：融合全局限速，得到最终期望追求的速度
-        v_aim = min(self.long_v_max, v_safe)
-        # self.my_uart3.write(f"{v_safe}\r\n")
-        # max_acc/max_dec 是单步循环的速度增量。
-        # 如果你的主循环 dt 很小，建议将 max_acc 设置为 (真实加速度 * dt)
-        if self.target_v < v_aim:
-            self.target_v = (min(self.target_v + self.max_acc, v_aim))
-        elif self.target_v > v_aim:
-            self.target_v = (max(self.target_v - self.max_dec, v_aim))
-
-        # 兜底：不能低于下一个waypoint的目标速度
-        self.target_v = max(target_v_at_next, self.target_v)
         # =======================================================
         # 2. 闭环航向角解算模块
         # =======================================================
-        los_current = -math.atan2(-(aimed_point_idx[0] - car_x), aimed_point_idx[1] - car_y) * 180.0 / math.pi
+        los_current = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / math.pi
         
         # 默认目标角度就是当前视线
-        target_yaw = los_current
-        
-        # 平滑融合逻辑：如果进入了拐点融合区，且存在下一个目标点
-        if dist_to_next < self.blend_radius and self.aimed_point_index < len(self.path) - 2:
-            next_target_pt = self.path[self.aimed_point_index + 2]
-            # 计算从小车当前位置看向*下一个*中继点的视线角
-            los_next = -math.atan2(-(next_target_pt[0] - car_x), next_target_pt[1] - car_y) * 180.0 / math.pi
-            
-            # 计算融合权重：越靠近当前点，下一个点的权重越大 (0.0 -> 1.0)
-            blend_factor = 1.0 - (dist_to_next / self.blend_radius)
-            
-            # 处理跨越 360 度的问题，计算两个视线角的最小偏差
-            diff = los_next - los_current
-            if diff > 180: diff -= 360
-            elif diff < -180: diff += 360   
-            
-            # 将两个视线角平滑插值
-            target_yaw = los_current + diff * blend_factor
+        target_yaw = los_current  
 
         # =======================================================
         # 3. 航向角变化率限制 (防止超调打滑)
@@ -535,26 +593,32 @@ class NavigationPlan:
         if yaw_diff > 180: yaw_diff -= 360
         elif yaw_diff < -180: yaw_diff += 360
         
-        if yaw_diff > self.max_yaw_rate:
-            self.target_yaw += self.max_yaw_rate
-        elif yaw_diff < -self.max_yaw_rate:
-            self.target_yaw -= self.max_yaw_rate
-        else:
+        if yaw_diff > 90.0:
             self.target_yaw = target_yaw
+        else:
+            if yaw_diff > self.max_yaw_rate:
+                self.target_yaw += self.max_yaw_rate
+            elif yaw_diff < -self.max_yaw_rate:
+                self.target_yaw -= self.max_yaw_rate
+            else:
+                self.target_yaw = target_yaw
 
         # 输出限幅在 [-180, 180] 内
         if self.target_yaw > 180: self.target_yaw -= 360
         elif self.target_yaw < -180: self.target_yaw += 360
-
+        
         # =======================================================
         # 4. 到达判断
         # =======================================================
-        if (dist_to_next <= 3.0 and self.aimed_point_index < len(self.path) - 1) or \
-            (dist_to_next <= self.plan_arrive_threshold and self.aimed_point_index >= len(self.path) - 1):
+        is_last_segment = (self.aimed_point_index == len(self.path) - 2)
+
+        if not is_last_segment and self.rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
+            # 计算当前路径的加减速参数
+            self.plan_acc_dec() 
             # 依据到过渡点的距离计算里程计系数
-            x_transit_dis = abs(car_x - self.path[self.aimed_point_index][0])
-            y_transit_dis = abs(car_y - self.path[self.aimed_point_index][1])
+            x_transit_dis = abs(car_x - self.path[self.aimed_point_index + 1][0])
+            y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
             # 依据到过渡点的距离计算里程计系数
             if x_transit_dis >= 50.0:
                 self.my_car.alpha_x = 0.966702
@@ -569,8 +633,9 @@ class NavigationPlan:
                 self.my_car.alpha_y = 0.955172
             else:
                 self.my_car.alpha_y = 1.0
-            if self.aimed_point_index >= len(self.path) - 1:
-                self.if_finish_navigate = True
+        elif is_last_segment and self.rest_dist <= self.final_threshold:
+            self.if_finish_navigate = True
+            self.stop()
 
     # 停止小车运动
     def stop(self):
@@ -621,7 +686,6 @@ class NavigationPlan:
             self.aimed_point_index = 0
             self.path.clear()
                 
-
     # 重置导航及速度规划相关标志位
     def reset_navigate(self):
         self.if_finish_turn = False
