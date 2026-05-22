@@ -26,7 +26,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, 0.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[160.0, 0.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -674,3 +674,7 @@ class NavigationPlan:
         self.if_finish_navigate = False
         self.aimed_point_index = 0
         self.path.clear()
+
+    # 重置小车导航姿态角
+    def reset_navigate_angle(self):
+        self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
