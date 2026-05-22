@@ -359,7 +359,7 @@ class NavigationPlan:
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
         self.target_y = 0.0         # type: float
-        self.target_v = 0           # type: float  # 目标速度
+        self.target_v = 0.0           # type: float  # 目标速度
         self.v_peak = 0.0           # type: float  # 当前路径段的理论最高速度
         self.target_yaw = 0.0            # type: float
         self.turn_angle_target = 0.0     # type: float

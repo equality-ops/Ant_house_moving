@@ -53,13 +53,13 @@ class SlipAveragingFilter:
         self.filter_size = filter_size
         self.index = 0
         self.last_value = 0.0
-        self.buffer = [0] * filter_size
+        self.buffer = [0.0] * filter_size
 
     def buffer_init(self, initial_value):
         self.buffer = [initial_value] * self.filter_size
 
     # 滤波时传入一个新的数据，返回滤波后的结果(float)
-    def filtering(self, data: int) -> float:
+    def filtering(self, data: float) -> float:
         self.buffer[self.index] = data
         self.index = (self.index + 1) % self.filter_size
         return sum(self.buffer) / self.filter_size
@@ -336,10 +336,10 @@ class SpeedPositionPID(ControlPID):
         self.kd = 0.0       # type: float
         # 速度前馈系数
         self.kv = self.flash_sys.find_value("kv")  # type: float
-        self.target = 0     # type: int
+        self.target = 0     # type: float
         self.actual = 0     # type: int
-        self.nowError = 0   # type: int
-        self.preError = 0   # type: int
+        self.nowError = 0   # type: float
+        self.preError = 0   # type: float
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
@@ -355,9 +355,9 @@ class SpeedPositionPID(ControlPID):
         self.ki = ki
         self.kd = kd
 
-    def compute_pid(self, target: int, actual: int):
+    def compute_pid(self, target: float, actual: int):
         # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
-        if target == 0 and self.target != 0:
+        if abs(target) <= 1e-6 and abs(self.target) >= 1e-6:
             self.integral = 0
 
         self.target = target

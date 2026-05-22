@@ -307,8 +307,6 @@ def test_vision_servo():
         if my_vision_manager.if_finish_servo == True:
             my_state.state = my_state.STOP
             my_plan.turn_angle_target = my_car.now_yaw * 180 / MATH.PI
-            # 测试
-            my_beep.test()
     elif my_state.state == my_state.STOP:
         my_plan.stop()
         

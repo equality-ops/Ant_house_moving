@@ -47,13 +47,13 @@ class VisionManager:
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
         self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")  # type: float  # 视觉伺服控制距离阈值
-        self.target_rel_speed_x = 0          # type: int   # 伺服控制目标x速度
-        self.target_rel_speed_y = 0          # type: int   # 伺服控制目标y速度
-        self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: int   # 视觉伺服控制最大速度
-        self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: int   # 视觉伺服控制最小速度 
+        self.target_rel_speed_x = 0.0          # type: float   # 伺服控制目标x速度
+        self.target_rel_speed_y = 0.0          # type: float   # 伺服控制目标y速度
+        self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: float   # 视觉伺服控制最大速度
+        self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: float   # 视觉伺服控制最小速度 
         self.dist_threshold = self.flash_sys.find_value("dist_threshold")    # type: float # 物体距离多远认定为合理
         self.target_point = []                      # type: list   # 目标点像素坐标
-        self.target_rel_speed = 0                   # type: int     # 目标速度
+        self.target_rel_speed = 0.0                 # type: float     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
 
@@ -85,7 +85,7 @@ class VisionManager:
 
         # 环绕控制相关变量
         self.orbit_radius = 0.0            # type: float   # 环绕半径
-        self.orbit_speed = 0               # type: int     # 环绕速度
+        self.orbit_speed = 0.0             # type: float     # 环绕速度
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
@@ -194,66 +194,62 @@ class VisionManager:
 
     def visual_servo_control(self):
         if self.if_finish_servo == True:
-            return 
-        if self.servo_stage == 2:
-            self.target_point = self.my_art_protocol.coordinate_receive()
-            if self.target_point and self.target_point[2] == self.current_servo_object and \
-                abs(self.target_point[0] - 80) < 40 and (self.target_point[1]) > 40:
-                self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
+            return # 已经完成视觉伺服控制，直接返回
+        # 1. 尝试接收新一帧数据
+        self.target_point = self.my_art_protocol.coordinate_receive()
+        
+        # 2. 判断是否收到有效的新视觉帧
+        if self.target_point and self.target_point[2] == self.current_servo_object:
+            self.calculate_dist(self.target_point[0], self.target_point[1], 'far')
 
-                # 记录下小车当前的坐标点
-                self.last_car_x = self.my_car.x_current
-                self.last_car_y = self.my_car.y_current
+            # 记录下小车当前的坐标点
+            self.last_car_x = self.my_car.x_current
+            self.last_car_y = self.my_car.y_current
 
-                # 重置掉帧计数
+            # 重置掉帧计数
+            self.servo_lost_count = 0
+        else:
+            self.servo_lost_count += 1
+            # 彻底丢失保护
+            if self.servo_lost_count >= 150:
+                self.target_rel_speed = 0.0
+                self.target_rel_yaw = 0.0
+                self.if_lost_object = True
                 self.servo_lost_count = 0
-            else:
-                self.servo_lost_count += 1
-                # 彻底丢失保护
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0
-                    self.target_rel_yaw = 0.0
-                    self.if_lost_object = True
-                    self.servo_lost_count = 0
-                    return # 彻底丢失，跳出伺服逻辑
-                
+                return # 彻底丢失，跳出伺服逻辑
+            
+        # 用预测的点位，依赖惯导，进行pid控制
         now_error_x = self.real_servo_point[0] - self.my_car.x_current
         now_error_y = self.real_servo_point[1] - self.my_car.y_current
+        # ================= 高频控制解耦 =================
         if self.servo_lost_count <= 80:
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
         else:
             # 连续丢失超过一定帧数后，降低小车速度
-            self.target_rel_speed = 50
+            self.target_rel_speed = 50.0
             return 
-        
-        # 判断是否完成视觉伺服控制
-        if (abs(now_error_x) <= self.finish_threshold_x and abs(now_error_y) <= self.finish_threshold_y and self.servo_stage == 1) or \
-            (abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y and self.servo_stage == 2):
-            if self.servo_stage == 1:
-                self.my_beep.test()
-                self.servo_stage = 2
-                # 记录下小车当前的坐标点
-                self.last_car_x = self.my_car.x_current
-                self.last_car_y = self.my_car.y_current
-            elif self.servo_stage == 2:
-                self.servo_stage = 1
-                self.target_rel_speed = 0
-                self.target_rel_yaw = 0.0
-                self.my_order_manager.finish()
-                self.if_finish_servo = True
+
+        # 4. 判断是否完成视觉伺服控制
+        if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
+            self.target_rel_speed = 0.0
+            self.target_rel_yaw = 0.0
+            self.my_order_manager.finish()
+            self.if_finish_servo = True
         else:
             # 原有的滤波和速度限制逻辑保持不变
             self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
             self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+            self.target_rel_speed = math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2)
             # 计算目标角度，单位：度（注意避免除以0）
             self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
             if self.target_rel_yaw > 180.0:
                 self.target_rel_yaw -= 360.0
             elif self.target_rel_yaw < -180.0:
                 self.target_rel_yaw += 360.0  
+            if self.target_rel_yaw > 40.0 or self.target_rel_yaw < -40.0:
+                self.target_rel_speed = self.target_rel_speed * 0.6
             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
@@ -262,7 +258,7 @@ class VisionManager:
             self.my_car.alpha_x = 1.0
             self.my_car.alpha_y = 1.0
             # 保持静止
-            self.orbit_speed = 0
+            self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
             self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
             self.target_angle = target_angle
@@ -317,7 +313,7 @@ class VisionManager:
 
                 # 判断是否完成环绕
                 if diff <= 1.0:	
-                    self.orbit_speed = 0
+                    self.orbit_speed = 0.0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
                     self.if_finish_orbit = True
 
@@ -353,7 +349,7 @@ class VisionManager:
                 # 重置阶段标志
                 self.if_ready_calibrate = True
                 # 重置速度和转角
-                self.target_rel_speed = 0
+                self.target_rel_speed = 0.0
                 self.target_rel_yaw = 0.0
                 self.target_rel_turn_angle = self.my_plan.turn_angle_target
                 self.my_order_manager.mode_apriltag()                
@@ -454,11 +450,6 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1], 'far')
-        # 若预测距离过小（采用近距离的单应性矩阵进行解算，否则采用远距离的单应性矩阵进行解算（因为单应性矩阵的解算误差会随着距离增加而增加）
-        if self.actual_dist <= 30.0:
-            self.servo_stage = 2
-        else:
-            self.servo_stage = 1
 
 
 # 搬运控制类
