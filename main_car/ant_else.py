@@ -203,6 +203,16 @@ class LinkProtocol:
         )
         self.my_uart3.write(packet.encode('utf-8'))
         
+    # 用于主车向从车发送环绕角度
+    def send_orbit_angle(self, angle):
+        """
+        发送环绕角度 (非阻塞)
+        格式: #O,45.0!
+        :param angle: 浮点环绕角度
+        """
+        packet = "#O,{:.1f}!".format(angle)
+        self.my_uart3.write(packet.encode('utf-8'))
+
     # 向从车发送开始信息
     def send_start(self):
         self.my_uart3.write('S'.encode('utf-8'))

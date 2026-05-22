@@ -4,38 +4,20 @@ import math
 class StateMachine:
     def __init__(self):
         # state 模式：
-        self.READT_NAVIGATE = 0   # 准备导航状态
+        self.READY_NAVIGATE = 0   # 准备导航状态
         self.NAVIGATE = 1       # 导航状态
         self.SCAN = 2           # 扫描状态
         self.SERVO = 3          # 视觉伺服状态
         self.ORBIT = 4          # 环绕状态
         self.MOVE = 5           # 搬运状态
         self.CALIBRATE = 6      # 校准状态
-        self.RETURN = 7		    # 返回状态
-        self.STOP = 8           # 停止状态
+        self.ADJUST = 7           # 微调状态
+        self.RETURN = 8		    # 返回状态
+        self.STOP = 9           # 停止状态
         
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
         self.state_work = -1 # 阶段变量
-
-# 小车位置循环链表
-class CarPosition:
-    def __init__(self):
-        self.car_pos_list = ['D', 'R', 'U', 'L']  # 小车位置循环链表，顺时针记录小车在四条边的位置关系
-        self.current_idx = 0  # 当前索引，初始时小车在下边沿（'D'）
-        self.L = len(self.car_pos_list) # 链表长度
-
-    # 向前或向后移动链表索引
-    def move(self, step):
-        return (self.current_idx + step) % self.L
-    
-    # 根据小车位置更新当前小车位置索引
-    def update_idx(self, car_pos):
-        self.current_idx = self.car_pos_list.index(car_pos)
-
-    # 返回小车当前位置
-    def get_position(self):
-        return self.car_pos_list[self.current_idx]
 
 # 路径和速度规划相关常量
 class PlanData:
@@ -44,7 +26,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
-        self.fixed_point = [[0.0, 240.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -70,7 +52,7 @@ class PlanData:
         # y坐标靠近下边沿:70，中等:85，靠近中心:100    
         # 靠近上边沿:170，中等:155，靠近中心:140 
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-        # 示例：[(160.0, 85.0), 'E', [x, x]]
+        # 示例：[(160.0, 85.0), 'E', [('x', 160.0)]]
         self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
         self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量

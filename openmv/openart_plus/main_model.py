@@ -4,7 +4,6 @@ import time
 import math
 import tf
 import mjpeg
-from pyb import LED
 from machine import UART
 from ulab import numpy as np
 import seekfree
@@ -564,9 +563,6 @@ sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 sensor.set_hmirror(True)
 sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
-LED(4).on()
-time.sleep_ms(1000)
-LED(4).off()
 
 # LCD初始化
 lcd = seekfree.IPS200(1)
@@ -632,10 +628,10 @@ while True:
         # elif not target_locker.is_locked and center:
         if center:
             target = max(center, key=lambda coordinate: coordinate[1])
-            # target_x = target[0]
-            # target_y = target[1]
+            target_x = target[0]
+            target_y = target[1]
             target_kind = target[2]
-            communicator.send_coordinate(current_time, global_counter, target_kind)
+            communicator.send_coordinate(target_x, target_y, target_kind)
             global_counter += 1
             is_sent = True
 

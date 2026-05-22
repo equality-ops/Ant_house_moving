@@ -59,13 +59,13 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix = [[ 1.73277793e+00, -4.03832162e-02, -1.43148863e+02],
-                        [-2.48551759e-02, -1.47533261e+00,  1.77324371e+02],
-                        [-1.12359403e-03,  5.60745066e-02,  1.00000000e+00]]
+        self.close_H_matrix = [[ 1.95863984e+00, -2.66243965e-04, -1.57568234e+02],
+                            [-1.25874608e-02, -1.56353017e+00,  2.00758078e+02],
+                            [-1.63899223e-04,  6.45908704e-02,  1.00000000e+00]]
         
-        self.far_H_matrix = [[ 1.73277793e+00, -4.03832162e-02, -1.43148863e+02],
-                [-2.48551759e-02, -1.47533261e+00,  1.77324371e+02],
-                [-1.12359403e-03,  5.60745066e-02,  1.00000000e+00]]
+        self.far_H_matrix = [[ 1.95863984e+00, -2.66243965e-04, -1.57568234e+02],
+                            [-1.25874608e-02, -1.56353017e+00,  2.00758078e+02],
+                            [-1.63899223e-04,  6.45908704e-02,  1.00000000e+00]]
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -101,7 +101,7 @@ class VisionManager:
         self.angle_T = self.flash_sys.find_value("angle_T")     # type: float   # 网球环绕角度
         self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
-        self.direct = 0     # 0为顺时针，1为逆时针
+        self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
 
         # apriltag码矫正相关变量
         # 延时计数器
@@ -117,10 +117,11 @@ class VisionManager:
         self.angle_temp = 0.0
 
         # 标志位
+        self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位
         self.if_lost_object = False       # type: bool   # 是否丢失目标物体标志位
         self.if_finish_servo = False      # 是否完成视觉伺服控制标志位
-        self.if_gain_dis = False       # type: bool   # 是否获取目标距离标志位
-        self.finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
+        self.if_orbit_ready = False       # type: bool   # 是否获取目标距离标志位
+        self.if_finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
         self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
         self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
 
@@ -133,23 +134,23 @@ class VisionManager:
         :param sign: 远近标志
         :return: 真实的物理坐标 (X_w, Y_w)
         """
-        if self.my_state.state == self.my_state.SCAN or self.my_state.state == self.my_state.SERVO:
-            if self.current_servo_object == 'T':
-                object_h = 2.5
-            elif self.current_servo_object in ['S', 'E']:
-                object_h = 3.0
-            elif self.current_servo_object in ['B', 'W']:
-                object_h = 2.0
+        if self.my_state == self.my_state.CALIBRATE:
+            object_H = 0.0
         else:
-            # apriltag校准时忽略其高度
-            object_h = 0.0
-        # K为高度缩放系数，23.0为摄像头高度 
-        K = (23.0 - object_h) / 23.0
+            if self.current_servo_object in [ord('T')]:
+                object_H = 2.5
+            elif self.current_servo_object in [ord('S'), ord('E')]:
+                object_H = 7.0
+            elif self.current_servo_object in [ord('W'), ord('B')]:
+                object_H = 2.0
+
+        # 根据物体远近选择单应性矩阵H
         if sign == 'close':
             H_matrix = self.close_H_matrix
-        else:
+        elif sign == 'far':
             H_matrix = self.far_H_matrix
 
+        K = (23.6 - object_H) / 23.6
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -161,7 +162,7 @@ class VisionManager:
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # correct_dist为经验修正值，考虑了车体直径和推杆长度
-        correct_dist = 4.24
+        correct_dist = 6.5
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
         self.relative_raw_y = self.relative_raw_y - correct_dist - self.final_dist
@@ -192,110 +193,115 @@ class VisionManager:
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     def visual_servo_control(self):
-        if self.if_finish_servo == False:
-            if self.servo_stage == 2:
-                self.target_point = self.my_art_protocol.coordinate_receive()
-                if self.target_point and self.target_point[2] == self.current_servo_object and \
-                    abs(self.target_point[0] - 80) < 40 and (self.target_point[1]) > 40:
-                    self.calculate_dist(self.target_point[0], self.target_point[1], 'near')
+        if self.if_finish_servo == True:
+            return 
+        if self.servo_stage == 2:
+            self.target_point = self.my_art_protocol.coordinate_receive()
+            if self.target_point and self.target_point[2] == self.current_servo_object and \
+                abs(self.target_point[0] - 80) < 40 and (self.target_point[1]) > 40:
+                self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
 
-                    # 记录下小车当前的坐标点
-                    self.last_car_x = self.my_car.x_current
-                    self.last_car_y = self.my_car.y_current
+                # 记录下小车当前的坐标点
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
 
-                    # 重置掉帧计数
-                    self.servo_lost_count = 0
-                else:
-                    self.servo_lost_count += 1
-                    # 彻底丢失保护
-                    if self.servo_lost_count >= 150:
-                        self.target_rel_speed = 0
-                        self.target_rel_yaw = 0.0
-                        self.if_lost_object = True
-                        self.servo_lost_count = 0
-                        return # 彻底丢失，跳出伺服逻辑
-                    
-            now_error_x = self.real_servo_point[0] - self.my_car.x_current
-            now_error_y = self.real_servo_point[1] - self.my_car.y_current
-            if self.servo_lost_count <= 80:
-                self.servo_pid.model_compute_pid(now_error_x, now_error_y)
-                self.target_rel_speed_x = self.servo_pid.pwm_output_x
-                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+                # 重置掉帧计数
+                self.servo_lost_count = 0
             else:
-                # 连续丢失超过一定帧数后，降低小车速度
-                self.target_rel_speed = 50
-                return 
-            
-            # 判断是否完成视觉伺服控制
-            if (abs(now_error_x) <= self.finish_threshold_x and abs(now_error_y) <= self.finish_threshold_y and self.servo_stage == 1) or \
-                (abs(self.absolute_actual_x) <= self.apriltag_threshold_x and abs(self.absolute_actual_y) <= self.apriltag_threshold_y and self.servo_stage == 2):
-                if self.servo_stage == 1:
-                    self.servo_stage = 2
-                    # 记录下小车当前的坐标点
-                    self.last_car_x = self.my_car.x_current
-                    self.last_car_y = self.my_car.y_current
-                elif self.servo_stage == 2:
+                self.servo_lost_count += 1
+                # 彻底丢失保护
+                if self.servo_lost_count >= 150:
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
-                    self.my_order_manager.finish()
-                    self.if_finish_servo = True
-            else:
-                # 原有的滤波和速度限制逻辑保持不变
-                self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
-                self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
-                self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
-                # 计算目标角度，单位：度（注意避免除以0）
-                self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
-                if self.target_rel_yaw > 180.0:
-                    self.target_rel_yaw -= 360.0
-                elif self.target_rel_yaw < -180.0:
-                    self.target_rel_yaw += 360.0  
-                self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+                    self.if_lost_object = True
+                    self.servo_lost_count = 0
+                    return # 彻底丢失，跳出伺服逻辑
+                
+        now_error_x = self.real_servo_point[0] - self.my_car.x_current
+        now_error_y = self.real_servo_point[1] - self.my_car.y_current
+        if self.servo_lost_count <= 80:
+            self.servo_pid.model_compute_pid(now_error_x, now_error_y)
+            self.target_rel_speed_x = self.servo_pid.pwm_output_x
+            self.target_rel_speed_y = self.servo_pid.pwm_output_y
+        else:
+            # 连续丢失超过一定帧数后，降低小车速度
+            self.target_rel_speed = 50
+            return 
+        
+        # 判断是否完成视觉伺服控制
+        if (abs(now_error_x) <= self.finish_threshold_x and abs(now_error_y) <= self.finish_threshold_y and self.servo_stage == 1) or \
+            (abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y and self.servo_stage == 2):
+            if self.servo_stage == 1:
+                self.my_beep.test()
+                self.servo_stage = 2
+                # 记录下小车当前的坐标点
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
+            elif self.servo_stage == 2:
+                self.servo_stage = 1
+                self.target_rel_speed = 0
+                self.target_rel_yaw = 0.0
+                self.my_order_manager.finish()
+                self.if_finish_servo = True
+        else:
+            # 原有的滤波和速度限制逻辑保持不变
+            self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+            self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+            # 计算目标角度，单位：度（注意避免除以0）
+            self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / self.MATH.PI
+            if self.target_rel_yaw > 180.0:
+                self.target_rel_yaw -= 360.0
+            elif self.target_rel_yaw < -180.0:
+                self.target_rel_yaw += 360.0  
+            self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
-    # 环绕控制函数，传入环绕物体旋转的目标角度（单位：度），顺时针为正，逆时针为负
-    def orbit_control(self, target_angle: float):
-        if self.if_gain_dis == False:
+    # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
+    def orbit_control(self, target_angle: float, direct = None):
+        if self.if_orbit_ready == False:
             self.my_car.alpha_x = 1.0
             self.my_car.alpha_y = 1.0
-            # 保持静止采集tof数据
+            # 保持静止
             self.orbit_speed = 0
-            # 如果当前状态为环绕模式则根据物体半径设置环绕半径，如果在反环绕模式下则设置成上一次的值
-            if self.my_state.state == self.my_state.ORBIT:
-                self.orbit_radius = self.object_radius
+            self.orbit_radius = self.object_radius
             self.record_angle = self.my_car.now_yaw * 180 / self.MATH.PI
-            self.target_angle = self.record_angle + target_angle
+            self.target_angle = target_angle
             # 限制目标角度在-180到180度之间
             if self.target_angle > 180.0:
                 self.target_angle -= 360.0
             elif self.target_angle < -180.0:
                 self.target_angle += 360.0
+                
+            # 计算需要旋转的相对角度来确定方向
+            diff_angle = self.target_angle - self.record_angle
+            if diff_angle > 180.0:
+                diff_angle -= 360.0
+            elif diff_angle < -180.0:
+                diff_angle += 360.0
+                
             # 确定旋转方向（顺时针还是逆时针）
-            if target_angle >= 0.0:
-                self.direct = 0
+            if direct is not None:
+                self.direct = direct
+            elif diff_angle >= 0.0:
+                self.direct = 'CW'
             else:
-                self.direct = 1 
+                self.direct = 'CCW'
             self.current_dis = 0.0
-            self.if_gain_dis = True
+            self.if_orbit_ready = True
         else:
-            if self.finish_orbit == False:
+            if self.if_finish_orbit == False:
                 # 更新当前小车的行驶距离
                 self.current_dis += self.my_car.car_speed_x
                 # 更新当前小车的目标转角及目标航向角
                 self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI + self.record_angle
-                if self.orbit_turn_angle >= 180.0:
-                    self.orbit_turn_angle -= 360.0
-                elif self.orbit_turn_angle <= -180.0:
-                    self.orbit_turn_angle += 360.0
+                self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
                     
-                if self.direct == 0:
+                if self.direct == 'CW':
                     self.orbit_yaw = -90.0 + self.orbit_turn_angle
-                elif self.direct == 1:
+                elif self.direct == 'CCW':
                     self.orbit_yaw = 90.0 + self.orbit_turn_angle
                     
-                if self.orbit_yaw >= 180.0:
-                    self.orbit_yaw -= 360.0
-                elif self.orbit_yaw <= -180.0:
-                    self.orbit_yaw += 360.0
+                self.orbit_yaw = (self.orbit_yaw + 180.0) % 360.0 - 180.0
                 # 更新当前小车的速度
                 diff = abs(self.target_angle - self.my_car.now_yaw * 180 / self.MATH.PI)
                 if diff > 180.0:
@@ -313,7 +319,7 @@ class VisionManager:
                 if diff <= 1.0:	
                     self.orbit_speed = 0
                     self.orbit_turn_angle = self.my_car.now_yaw * 180 / self.MATH.PI
-                    self.finish_orbit = True
+                    self.if_finish_orbit = True
 
     # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
@@ -416,6 +422,11 @@ class VisionManager:
         # 选择合适的里程计系数
         self.my_car.alpha_x = 1.0
         self.my_car.alpha_y = 1.0
+        # 选择正常伺服状态下的pid参数
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
+        self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         # 控制小车面向物体进行视觉伺服控制
         self.target_rel_turn_angle = self.my_plan.turn_angle_target
         self.current_servo_object = target_point[2]
@@ -442,9 +453,254 @@ class VisionManager:
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
-        self.calculate_dist(target_point[0], target_point[1])
+        self.calculate_dist(target_point[0], target_point[1], 'far')
         # 若预测距离过小（采用近距离的单应性矩阵进行解算，否则采用远距离的单应性矩阵进行解算（因为单应性矩阵的解算误差会随着距离增加而增加）
-        if self.actual_dist <= 20.0:
+        if self.actual_dist <= 30.0:
             self.servo_stage = 2
         else:
             self.servo_stage = 1
+
+
+# 搬运控制类
+class MoveControl:
+    def __init__(self, car, plan, plan_data, vision_manager: VisionManager, state, main_protocol, art_protocol, order_manager):
+        self.vision_manager = vision_manager
+        self.my_plan = plan
+        self.plan_data = plan_data
+        self.my_car = car
+        self.my_state = state
+        self.my_main_protocol = main_protocol
+        self.my_art_protocol = art_protocol
+        self.my_order_manager = order_manager
+
+        self.now_object_pt = [0.0, 0.0]
+        self.car_radius = 11.0   # 小车推杆到中心的距离
+        self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
+        self.moving_point = []   # 搬运途径点
+        self.angle_buffer = []   # 角度缓冲区
+        self.next_point = []     # 下一目标点
+        self.adjust_point = []   # 微调目标点
+        self.moving_idx = 0      # 搬运途径点索引
+
+        self.current_state = self.my_state.ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
+        self.if_send_orbit_command = False  # 是否发送过环绕控制指令
+        self.if_main_car_adjust = False  # 主车是否进行微调防止阻挡从车视野
+        self.if_start_orbit = False  # 是否开始环绕
+        self.if_finish_adjust = False  # 是否完成微调
+        self.if_finish_move = False  # 是否完成搬运
+
+    # 构建搬运途径点列表
+    def build_moving_point(self):
+        current_index = self.plan_data.current_index
+        current_object = self.vision_manager.current_servo_object
+        object_message = self.plan_data.rogue_planning[current_index]
+
+        self.moving_point.clear()
+        self.moving_point.append(self.now_object_pt[:])  # 物体位置（使用切片拷贝，避免引用污染）
+        for item in object_message[2]: # 搬运途径点
+            if item[0] == 'x':
+                self.moving_point.append([item[1], self.moving_point[-1][1]])
+            elif item[0] == 'y':
+                self.moving_point.append([self.moving_point[-1][0], item[1]])
+        
+        if current_object == ord('T'):
+            self.moving_point.append([self.moving_point[-1][0], 240.0])
+        elif current_object in [ord('S'), ord('E')]:
+            self.moving_point.append([320.0, self.moving_point[-1][1]])
+        elif current_object in [ord('B'), ord('W')]:
+            self.moving_point.append([0.0, self.moving_point[-1][1]])
+
+    # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
+    def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
+        if ref_yaw is None:
+            ref_yaw = self.record_angle
+        else:
+            ref_yaw = ref_yaw * math.pi / 180.0
+            
+        dx = next_pt[0] - current_pt[0]
+        dy = next_pt[1] - current_pt[1]
+        
+        # 将世界坐标系下的差值投影到小车坐标系 (按 Y轴为车头前方，X轴为车身右侧 进行转换)
+        # 根据世界坐标向北为0度，向东为90度的定义推导的旋转变换
+        cy = dx * math.sin(ref_yaw) + dy * math.cos(ref_yaw)
+        cx = dx * math.cos(ref_yaw) - dy * math.sin(ref_yaw)
+        
+        if abs(cx) > abs(cy):
+            if cx > 0:
+                return 90.0  # 车身右侧
+            else:
+                return -90.0  # 车身左侧
+        else:
+            if cy > 0:
+                return 0.0  # 车头前方
+            else:
+                return 180.0  # 车尾后方
+
+    # 搬运前的准备
+    def ready_move(self):
+        # 重置搬运点索引
+        self.moving_idx = 0
+        # 构建搬运途径点列表
+        self.build_moving_point()
+        # 记录小车当前角度
+        self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
+        current_yaw_deg = self.record_angle * 180.0 / math.pi
+        
+        if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
+            current_turn_deg = 0.0
+        elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:
+            current_turn_deg = 90.0
+        elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:
+            current_turn_deg = 180.0
+        elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
+            current_turn_deg = -90.0
+            
+        self.angle_buffer.clear()
+        
+        # 初始参考偏航角就是当前小车所在方向（度数）
+        current_ref_yaw_deg = current_turn_deg
+        
+        for i in range(len(self.moving_point) - 1):
+            # 获取基于 current_ref_yaw_deg 作为参照方向时的相对转向角度
+            # turn_angle 可能是返回 0.0 (前方), 90.0 (右), -90.0 (左), 180.0 (后)
+            turn_angle = self.judge_next_turn(self.moving_point[i], self.moving_point[i + 1], ref_yaw=current_ref_yaw_deg)
+            
+            # 世界坐标系下小车在下一步运动期望到达的实际偏航角
+            target_turn = current_ref_yaw_deg + turn_angle
+            
+            # 角度限幅到 [-180, 180)
+            target_turn = (target_turn + 180.0) % 360.0 - 180.0
+
+            # 更新下一次迭代的参考偏航角
+            current_ref_yaw_deg = target_turn 
+
+            # 主车最终的转向
+            main_angle = (target_turn - self.vision_manager.orbit_angle + 180.0) % 360.0 - 180.0
+            # 从车最终的转向
+            slave_angle = (target_turn + self.vision_manager.orbit_angle + 180.0) % 360.0 - 180.0
+            
+            # 若是第一次环绕，主车优先；之后根据角度来判断主从车环绕优先级
+            if i == 0:
+                # 第一次环绕时，若小车需向前方搬运，主车需要转一个较大的角度避障
+                if target_turn == 0.0:
+                    self.angle_buffer.append([main_angle, slave_angle, 'M_OUT'])
+                else:
+                    self.angle_buffer.append([main_angle, slave_angle, 'M'])
+            else:
+                diff = (abs(main_angle - self.angle_buffer[i-1][0]) + 180.0) % 360.0 - 180.0
+                if diff >= 0.0:
+                    self.angle_buffer.append([main_angle, slave_angle, 'M'])
+                else:
+                    self.angle_buffer.append([main_angle, slave_angle, 'S'])
+
+        self.moving_point.pop(0)  # 移除起点
+
+    # 重置环绕控制标志位
+    def reset_orbit(self):
+        self.if_send_orbit_command = False
+        self.if_start_orbit = False
+        self.vision_manager.if_orbit_ready = False
+        self.vision_manager.if_finish_orbit = False
+
+    # 计算微调的目标点
+    def calculate_adjustment_point(self, fixed_dist = 5.0):
+        # 当前车头朝向 (弧度)
+        now_yaw = self.my_car.now_yaw
+        
+        # 已知世界坐标系下向北(+Y)为0度，向东(+X)为90度
+        # 车头指向的正方向向量为 (sin(now_yaw), cos(now_yaw))
+        # 逆着车头方向，就是向车身正后方偏移 fixed_dist 的距离
+        target_x = self.my_car.x_current - fixed_dist * math.sin(now_yaw)
+        target_y = self.my_car.y_current - fixed_dist * math.cos(now_yaw)
+        
+        self.adjust_point = [target_x, target_y]
+
+    # 计算并发送下一搬运途径点
+    def handle_next_point(self):
+        object_message = self.plan_data.rogue_planning[self.plan_data.current_index]
+        
+        # 判断当前点是否为最后额外增加的终点指令
+        if self.moving_idx < len(object_message[2]):
+            step_axis = object_message[2][self.moving_idx][0]
+        else:
+            # 根据物品种类判断额外增加的归位终点方向
+            current_object = self.vision_manager.current_servo_object
+            if current_object == ord('T'):
+                step_axis = 'y'
+            elif current_object in [ord('S'), ord('E'), ord('B'), ord('W')]:
+                step_axis = 'x'
+            else:
+                step_axis = 'y'  # Fallback
+
+        if step_axis == 'x':
+            self.next_point = [self.moving_point[self.moving_idx][0], self.my_car.y_current]
+            self.my_main_protocol.send_path(ord('M'), [['x', self.moving_point[self.moving_idx][0]]])
+        elif step_axis == 'y':
+            self.next_point = [self.my_car.x_current, self.moving_point[self.moving_idx][1]]
+            self.my_main_protocol.send_path(ord('M'), [['y', self.moving_point[self.moving_idx][1]]])
+
+    # 搬运控制函数
+    def moving(self):
+        if self.if_finish_move:
+            return
+
+        if self.current_state == self.my_state.ORBIT:
+            if self.angle_buffer[self.moving_idx][2] == 'M':
+                self.if_start_orbit = True
+            elif self.angle_buffer[self.moving_idx][2] == 'M_OUT':
+                target_angle = (self.angle_buffer[self.moving_idx][0] - 90.0 + 180.0) % 360.0 - 180.0
+                self.vision_manager.orbit_control(target_angle)
+                if self.vision_manager.if_finish_orbit == True:
+                    if self.my_main_protocol.get_slave_state() == "finish":
+                        self.if_start_orbit = True
+                        self.angle_buffer[self.moving_idx][2] = 'S'
+                        self.reset_orbit()
+            elif self.angle_buffer[self.moving_idx][2] == 'S':
+                if self.if_send_orbit_command == False:
+                    self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
+                    self.if_send_orbit_command = True
+                
+                if self.my_main_protocol.get_slave_state() == "finish":
+                    self.if_start_orbit = True
+            if self.if_start_orbit == True:
+                self.vision_manager.orbit_control(self.angle_buffer[self.moving_idx][0])
+                if self.vision_manager.if_finish_orbit == True:
+                    if self.angle_buffer[self.moving_idx][2] == 'M':
+                        if self.if_send_orbit_command == False:
+                            self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
+                            self.if_send_orbit_command = True
+
+                        if self.my_main_protocol.get_slave_state() == "finish":
+                            self.handle_next_point()
+                            self.reset_orbit()
+                            self.current_state = self.my_state.MOVE
+                    elif self.angle_buffer[self.moving_idx][2] == 'S':
+                        self.handle_next_point()
+                        self.reset_orbit()
+                        self.current_state = self.my_state.MOVE
+        elif self.current_state == self.my_state.MOVE:
+            self.my_plan.navigate(path = self.next_point)
+            if self.my_plan.if_finish_navigate == True:
+                self.my_plan.reset_navigate()
+                self.moving_idx += 1
+                if self.moving_idx >= len(self.moving_point):
+                    self.if_finish_move = True
+                    self.current_state = self.my_state.ORBIT
+                else:
+                    self.current_state = self.my_state.ADJUST
+                    self.calculate_adjustment_point()
+        elif self.current_state == self.my_state.ADJUST:
+            self.my_plan.navigate(path = self.adjust_point)
+            if self.my_plan.if_finish_navigate == True:
+                self.my_plan.reset_navigate()
+                self.current_state = self.my_state.SERVO
+                # 重新寻找物体直接进入阶段2
+                self.vision_manager.servo_stage = 2
+                # 打开摄像头
+                self.my_order_manager.mode_target()
+        elif self.current_state == self.my_state.SERVO:
+            self.vision_manager.visual_servo_control()
+            if self.vision_manager.if_finish_servo == True:
+                self.vision_manager.if_finish_servo = False
+                self.current_state = self.my_state.ORBIT
+            
