@@ -353,6 +353,22 @@ def test_orbit():
             orbit_angle += 90.0
             orbit_angle = (orbit_angle + 180) % 360 - 180
 
+# 测试自转
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == my_state.READY_NAVIGATE:
+        my_state.state = my_state.NAVIGATE
+    elif my_state.state == my_state.NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180
+
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -464,7 +480,10 @@ def time_pit3_handler(time) -> None:
     # test_apriltag_calibrate()
 
     # 环绕物体测试程序
-    test_orbit()
+    # test_orbit()
+
+    # 自转测试程序
+    test_spin()
     pass
 
 
@@ -509,19 +528,17 @@ def time_pit2_handler(time):
     # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_dist, my_plan.target_v, my_car.now_yaw * 180 / MATH.PI))
     # my_uart3.write(f"{my_plan.target_yaw}\n")
-    # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
     
     # 速度规划
     # my_uart3.write(f"{my_plan.waypoint_v}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.aimed_point_index},{my_plan.rest_dist}\n")
 
     # 检测四元数解算结果是否准确
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
 
     # 检测自转角是否准确
-    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
-    
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
+    # my_uart3.write(f"{pose_data.gyro_x},{pose_data.gyro_x_bias},{pose_data.gyro_y},{pose_data.gyro_y_bias},{pose_data.gyro_z},{pose_data.gyro_z_bias}\n")
     # 检测gkd项数量级
     # my_uart3.write(f"{pose_data.gyro_z},{pose_data.gyro_z_bias},{pose_data.gyro_z * my_car.gkd}\n")
     

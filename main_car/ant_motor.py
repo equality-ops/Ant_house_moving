@@ -160,7 +160,7 @@ class PoseData:
         
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
-        self.kp = 10.0  # 加速度计权重
+        self.kp = 100.0  # 加速度计权重
         self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
@@ -195,7 +195,10 @@ class PoseData:
         I_LIMIT = 0.2  # 限制积分项最大影响
         self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
         self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-        self.e_int[2] = max(-I_LIMIT, min(self.e_int[2] + ez * self.ki, I_LIMIT)) # 6轴系统，不要信任加速度计对 Yaw 的积分修正
+        self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正，强制清零
+        
+        # 强制将 ez 置为 0，防止加速度计在 Z 轴上的假误差污染陀螺仪的 gz
+        ez = 0.0 
 
         # --- 改进2：补偿角速度 ---
         gx += self.kp * ex + self.e_int[0]
@@ -225,14 +228,19 @@ class PoseData:
         val = max(-1.0, min(1.0, val))
         self.now_pitch = math.asin(val) * (180.0 / math.pi)
         
-        # 2. 横滚角 Roll (绕 X 轴旋转)
-        # 数学逻辑：atan2(2*(q2*q3 + q0*q1), q0**2 - q1**2 - q2**2 + q3**2)
-        self.now_roll = math.atan2(2.0 * (q2 * q3 + q0 * q1), 
-                                   q0*q0 - q1*q1 - q2*q2 + q3*q3) * (180.0 / math.pi)
-        
-        # 3. 偏航角 Yaw (绕 Z 轴旋转)
-        self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
-                                  q0*q0 + q1*q1 - q2*q2 - q3*q3) * (180.0 / math.pi)
+        # 保护万向节锁，当 Pitch 接近 +- 90 度时
+        if abs(val) > 0.999: # 极高仰角时 Roll 和 Yaw 共线
+            self.now_roll = 0.0
+            self.now_yaw = math.atan2(2.0 * (q1 * q2 - q0 * q3), 1.0 - 2.0 * (q1 * q1 + q3 * q3)) * (180.0 / math.pi)
+        else:
+            # 2. 横滚角 Roll (绕 X 轴旋转)
+            # 使用更标准的 1 - 2*X^2 简化运算与误差
+            self.now_roll = math.atan2(2.0 * (q2 * q3 + q0 * q1), 
+                                    1.0 - 2.0 * (q1 * q1 + q2 * q2)) * (180.0 / math.pi)
+            
+            # 3. 偏航角 Yaw (绕 Z 轴旋转)
+            self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
+                                    1.0 - 2.0 * (q2 * q2 + q3 * q3)) * (180.0 / math.pi)
 
     # 重置四元数
     def reset_yaw(self, ref_yaw_deg):
@@ -306,15 +314,26 @@ class PoseData:
         self.encoder_data_ur = self.encoder_ur.get() * 4
         self.encoder_data_md = self.encoder_md.get() * 4
 
-        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (math.pi / 180.0)
-        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (math.pi / 180.0)
-        # self.gyro用于角速度环控制
-        self.gyro_z = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (math.pi / 180.0) * self.gyro_z_supply
+        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (math.pi / 180.0) * self.gyro_z_supply
+        # self.gkd用于角速度环控制
+        self.gyro_z_gkd = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # gyro_z用于四元数解算
-        gyro_z = -self.gyro_z * (math.pi / 180.0)
+        self.gyro_z = -self.gyro_z_gkd * (math.pi / 180.0)
 
+        DEADBAND = 0.004 # 弧度每秒
+        if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
+        if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
+        if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
+
+        # --- 终极死区：如果三轴角速度都极小，认为完全静止，不更新四元数 ---
+        if self.gyro_x == 0.0 and self.gyro_y == 0.0 and self.gyro_z == 0.0:
+            # 更新欧拉角输出
+            self.update_euler_angles()
+            return
+            
         # 3. 运行 AHRS 算法（gyro_z顺时针为正，四元数解算需要逆时针为正）
-        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], self.gyro_x, self.gyro_y, gyro_z)
+        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], self.gyro_x, self.gyro_y, self.gyro_z)
         
         # 4. 更新欧拉角输出
         self.update_euler_angles()
@@ -614,7 +633,7 @@ class CarPose:
         self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (self.MATH.OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * ((self.MATH.OneThird * self.MATH.SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000)
 
-        # car_speed_w单位：度每秒
+        # car_speed_w单位：度每10ms
         self.car_speed_w = self.pose_data.gyro_z
         # 计算小车在世界坐标系下的偏航角
         self.now_yaw = -self.pose_data.now_yaw * self.MATH.PI / 180.0
@@ -666,9 +685,9 @@ class CarPose:
         self.car_speed_w_target = self.real_speed_w_target
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
-        motor_ur_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z * self.gkd)
-        motor_md_speed_target = (self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd)
+        motor_ul_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target + self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
+        motor_ur_speed_target = (self.car_speed_w_target * self.MATH.OneThird + (self.car_speed_x_target - self.car_speed_y_target * self.MATH.SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
+        motor_md_speed_target = (self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
