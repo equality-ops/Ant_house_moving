@@ -120,9 +120,11 @@ class ToFFilter:
     
     
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
+    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
         # 注入flash系统对象
         self.flash_sys = flash_sys
+        # 注入串口对象
+        self.my_uart3 = my_uart3
         # 注入传感器对象
         self.imu = imu
         self.encoder_ul = encoder_ul
@@ -158,10 +160,13 @@ class PoseData:
         # 误差积分项
         self.e_int = [0.0, 0.0, 0.0]
         
+        # 上次更新时间戳
+        self.last_update_time = time.ticks_us()
+
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
-        self.kp = 100.0  # 加速度计权重
-        self.ki = 0.001 # 零偏补偿权重
+        self.kp = 1.0  # 加速度计权重
+        self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -176,9 +181,35 @@ class PoseData:
         """
         q0, q1, q2, q3 = self.q
         
-        # 1. 归一化加速度计数据
+        # 1. 当前加速度计的原始数据模长
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
+
+        G_REFERENCE = 4096.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+        
+        # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
+        acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
+        
+        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.1
+        
+        dynamic_weight = 1.0  # 默认权重为 1
+        
+        if acc_error < LOWER_THRESHOLD:
+            dynamic_weight = 1.0
+        elif acc_error > UPPER_THRESHOLD:
+            dynamic_weight = 0.0
+        else:
+            # 线性插值，平滑过渡 
+            dynamic_weight = 1.0 - ((acc_error - LOWER_THRESHOLD) / (UPPER_THRESHOLD - LOWER_THRESHOLD))
+            
+        # 计算当前周期实际使用的 kp
+        current_kp = self.kp * dynamic_weight
+
+        # self.my_uart3.write(f"{norm},{current_kp}\n")  # 调试用：输出原始加速度模长
+
+        # 继续执行归一化，将向量化为长度为 1 的单位向量给后续解算用
         ax /= norm; ay /= norm; az /= norm
         
         # 2. 提取四元数矩阵中的理论重力方向 (机体坐标系下)
@@ -201,9 +232,9 @@ class PoseData:
         ez = 0.0 
 
         # --- 改进2：补偿角速度 ---
-        gx += self.kp * ex + self.e_int[0]
-        gy += self.kp * ey + self.e_int[1]
-        gz += self.kp * ez + self.e_int[2]
+        gx += current_kp * ex + self.e_int[0]
+        gy += current_kp * ey + self.e_int[1]
+        gz += current_kp * ez + self.e_int[2]
         
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
@@ -310,6 +341,17 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
+        # 1. 计算真实的动态 dt
+        current_time = time.ticks_us()
+        # 计算时间差并转换为秒 (MicroPython 下推荐用 ticks_diff 防溢出)
+        self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
+        self.last_update_time = current_time
+
+        # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
+        # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
+        if self.dt > 0.1: 
+            self.dt = 0.002
+
         self.encoder_data_ul = self.encoder_ul.get() * 4
         self.encoder_data_ur = self.encoder_ur.get() * 4
         self.encoder_data_md = self.encoder_md.get() * 4

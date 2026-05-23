@@ -84,6 +84,8 @@ class VisionManager:
         # ==================================================================
 
         # 环绕控制相关变量
+        self.orbit_center_x = 0.0
+        self.orbit_center_y = 0.0
         self.orbit_radius = 0.0            # type: float   # 环绕半径
         self.orbit_speed = 0.0             # type: float     # 环绕速度
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
@@ -305,22 +307,45 @@ class VisionManager:
             else:
                 self.direct = 'CCW'
             self.current_dis = 0.0
+
+            # ====== 新增：记录下当前的理想旋转圆心坐标 ======
+            # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
+            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * self.MATH.PI / 180.0)
+            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * self.MATH.PI / 180.0)
+
             self.if_orbit_ready = True
         else:
             if self.if_finish_orbit == False:
-                # 更新当前小车的行驶距离
-                self.current_dis += self.my_car.car_speed_x
-                # 更新当前小车的目标转角及目标航向角
-                self.orbit_turn_angle = -self.current_dis / self.orbit_radius * 180.0 / self.MATH.PI + self.record_angle
-                self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
-                    
+                # ====== 修改：基于当前X/Y坐标的闭环位置控制 ======
+                # 计算当前小车与圆心的实际向量
+                dx = self.orbit_center_x - self.my_car.x_current
+                dy = self.orbit_center_y - self.my_car.y_current
+                actual_r = math.sqrt(dx**2 + dy**2)
+                
+                # 计算当前处于圆上的相位角 (从圆心指向小车)
+                theta = -math.atan2(-dx, dy) * 180.0 / self.MATH.PI
+                
+                # 半径误差（大于0代表实际比指定半径近，需要向外扩）
+                err_r = self.orbit_radius - actual_r
+                
+                # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
+                kr = 1.6 
+                
                 if self.direct == 'CW':
-                    self.orbit_yaw = -90.0 + self.orbit_turn_angle
+                    # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
+                    self.orbit_yaw = theta - 90.0 - kr * err_r
                 elif self.direct == 'CCW':
-                    self.orbit_yaw = 90.0 + self.orbit_turn_angle
+                    # 逆时针切线为 theta + 90。若太近(err_r>0)，需向外偏，增加转角
+                    self.orbit_yaw = theta + 90.0 + kr * err_r
                     
                 self.orbit_yaw = (self.orbit_yaw + 180.0) % 360.0 - 180.0
-                # 更新当前小车的速度
+                
+                # ====== 新增：实时闭环车体姿态角 ======
+                # theta 是从圆心指向小车的角度，小车要面向圆心，所以车头朝向应为 theta + 180 度
+                self.orbit_turn_angle = theta
+                self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
+                
+                # 更新当前小车的速度（保留原有逻辑判断）
                 diff = abs(self.target_angle - self.my_car.now_yaw * 180 / self.MATH.PI)
                 if diff > 180.0:
                     diff = 360.0 - diff
@@ -615,7 +640,7 @@ class MoveControl:
                 else:
                     self.angle_buffer.append([main_angle, slave_angle, 'M'])
             else:
-                diff = (abs(main_angle - self.angle_buffer[i-1][0]) + 180.0) % 360.0 - 180.0
+                diff = (main_angle - self.angle_buffer[i-1][0] + 180.0) % 360.0 - 180.0
                 if diff >= 0.0:
                     self.angle_buffer.append([main_angle, slave_angle, 'M'])
                 else:

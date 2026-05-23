@@ -53,7 +53,7 @@ angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
 high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 360
+low_angle_pwmout_limitmax = 450
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -65,7 +65,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.148692
+gyro_y_supply = 1.147976
 # 电机补偿系数（已弃用）
 ul_compensation = 1.0
 ur_compensation = 1.0
