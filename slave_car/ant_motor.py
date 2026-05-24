@@ -638,7 +638,7 @@ class CarPose:
 
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
-    def move_ctrl(self, move_speed_target: int, move_angle_target: float, turn_angle_target: float):
+    def move_ctrl(self, move_speed_target: float, move_angle_target: float, turn_angle_target: float):
        # 将目标转角和目标航向角限定在-180到180度之间
         if turn_angle_target > 180.0:
             turn_angle_target -= 360.0        
@@ -674,9 +674,9 @@ class CarPose:
         motor_md_speed_target = self.md_compensation * (self.car_speed_w_target * self.MATH.OneThird - self.car_speed_x_target + self.pose_data.gyro_z * self.gkd)
 
         # 计算各个电机的pid得到pwm输出
-        self.motor_ul_pid.compute_pid(int(motor_ul_speed_target), self.pose_data.encoder_data_ul)
-        self.motor_ur_pid.compute_pid(int(motor_ur_speed_target), self.pose_data.encoder_data_ur)
-        self.motor_md_pid.compute_pid(int(motor_md_speed_target), self.pose_data.encoder_data_md)
+        self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
+        self.motor_ur_pid.compute_pid(motor_ur_speed_target, self.pose_data.encoder_data_ur)
+        self.motor_md_pid.compute_pid(motor_md_speed_target, self.pose_data.encoder_data_md)
 
     # 设置电机pwm输出函数
     def set_motor_pwm(self):

@@ -52,8 +52,8 @@ angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
-high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 450
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -87,7 +87,7 @@ blend_radius = 20.0
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 5
 
-rogue_planning = "[(160.0, 120.0), 'E', [('y', 190.0)]]"
+rogue_planning = "[(160.0, 120.0), 'E', [('y', 150.0), ('x', 210.0)]]"
 cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0
@@ -95,13 +95,13 @@ error_x_S = 2.0
 error_x_B = 2.0
 ###################【速度规划】####################
 min_start_v = 20
-long_v_max = 180
+long_v_max = 160
 acc_coef = 0.0556
 dec_coef = 0.1875
 max_yaw_rate = 4.0 
 
-orbit_v_max = 100
-orbit_v_min = 20
+orbit_v_max = 80
+orbit_v_min = 0
 
 # 不同物体的搬运速度
 move_v_max_T = 100
@@ -135,9 +135,9 @@ servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
 servo_target_y_A = 11.0
-servo_target_y_T = 2.0
-servo_target_y_S = 2.0
-servo_target_y_B = 2.0
+servo_target_y_T = 18.0
+servo_target_y_S = 17.0
+servo_target_y_B = 20.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -146,16 +146,16 @@ apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
 # 物体距离多远认定为合理
-dist_threshold = 25.0
+dist_threshold = 30
 
 min_rel_speed = 20
 max_rel_speed = 100
 servo_pwmout_limitmax = 100
 
 ###################【环绕控制】####################
-radius_T = 3.0
-radius_S = 3.0
-radius_B = 2.5
+radius_T = 18.0
+radius_S = 17.0
+radius_B = 20.0
 angle_T = 137.0
 angle_S = 140.0
 angle_B = 140.0

@@ -70,23 +70,23 @@ class Plan:
         self.cos_diff_fil = cos_diff_fil
 
         # 速度规划相关常量
-        self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: int  # 最小制动速度
-        self.dead_zone_v = self.flash_sys.find_value("dead_zone_v")           # type: int  # 死区启动速度
-        self.long_v_max = self.flash_sys.find_value("long_v_max")             # type: int  # 长距离时的最大速度
-        self.short_v_max = self.flash_sys.find_value("short_v_max")           # type: int  # 短距离时的最大速度
-        self.transit_v = self.flash_sys.find_value("transit_v")               # type: int  # 过渡阶段速度
-        self.move_v_max = 0   # 根据物体种类选择搬运速度                        # type: int  # 搬运物品时的最大速度
-        self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")         # type: int  # 搬运网球时的最大速度
-        self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")         # type: int  # 搬运沙包时的最大速度
-        self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")         # type: int  # 搬运玩具熊时的最大速度
-        self.scan_v_max = self.flash_sys.find_value("scan_v_max")             # type: int  # 扫描时的最大速度
+        self.min_start_v = self.flash_sys.find_value("min_start_v")           # type: float  # 最小制动速度
+        self.dead_zone_v = self.flash_sys.find_value("dead_zone_v")           # type: float  # 死区启动速度
+        self.long_v_max = self.flash_sys.find_value("long_v_max")             # type: float  # 长距离时的最大速度
+        self.short_v_max = self.flash_sys.find_value("short_v_max")           # type: float  # 短距离时的最大速度
+        self.transit_v = self.flash_sys.find_value("transit_v")               # type: float  # 过渡阶段速度
+        self.move_v_max = 0.0   # 根据物体种类选择搬运速度                        # type: float  # 搬运物品时的最大速度
+        self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")         # type: float  # 搬运网球时的最大速度
+        self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")         # type: float  # 搬运沙包时的最大速度
+        self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")         # type: float  # 搬运玩具熊时的最大速度
+        self.scan_v_max = self.flash_sys.find_value("scan_v_max")             # type: float  # 扫描时的最大速度
         self.BOOST = 1                  # type: int  # 死区启动标志位
         self.TRANSIT = 2                # type: int  # 过渡阶段标志位
         self.DEC = 3                    # type: int  # 减速阶段标志位
         self.STOP = 4                   # type: int  # 停止标志位
-        self.v_target = 0               # type: int  # 目标速度
+        self.target_v = 0.0               # type: float  # 目标速度
         # 速度规划阶段变量
-        self.v_max = 0                  # type: int    # 本次移动规划的最大速度
+        self.v_max = 0.0                # type: float    # 本次移动规划的最大速度
         self.j = 0                      # type: float  # 加加速度    
         self.dec_distance = 0.0         # type: float  # 减速距离
         self.stage = self.STOP          # type: int    # 速度规划阶段标志位
@@ -181,7 +181,7 @@ class Plan:
                 if self.current_rest_dis < 30.0 and self.if_pass_transit_point == False and self.my_state.state != self.my_state.MOVE:
                     self.v_target = int(self.current_rest_dis/ 20.0 * (self.v_max - self.transit_v) + self.transit_v)
                 else:
-                    if self.v_target < self.v_max:
+                    if self.target_v < self.v_max:
                         if self.elapsed_time <= self.elapsed_time:
                         # 缓慢恢复到巡航速度
                             self.v_target = self.transit_v + int(((self.elapsed_time / self.boost_time_threshold) ** 2) * (self.v_max - self.transit_v))
@@ -199,7 +199,7 @@ class Plan:
                     self.dec_speed_index = int((self.rest_distance / self.dec_distance) * self.dec_lenth)
                     self.v_target = self.build_dec_speed_list(self.dec_speed_index)
                     
-                if self.v_target <= self.min_start_v:
+                if self.target_v <= self.min_start_v:
                     self.v_target = self.min_start_v
                     self.dec_speed_index = 0
         else:

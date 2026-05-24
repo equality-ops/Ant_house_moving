@@ -510,7 +510,7 @@ class CoordinateCorrection:
 MODE_CORRECTION = 0      # 坐标校正
 MODE_MODEL = 1           # 模型模式
 MODE_WAITING = 2         # 等待模式
-current_mode = MODE_MODEL
+current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
 kalman_coords = {
@@ -598,7 +598,7 @@ while True:
         tag_center = tag_corrector.coordinate_correction(img)
         if tag_center is not None:
             tag_cx, tag_cy, rotation = tag_center
-            rotation = (180 * rotation) / math.pi + 90
+            rotation = (180 * rotation) / math.pi
             communicator.send_coordinate_with_angle(tag_cx, tag_cy, rotation)
 
     # 模型模式

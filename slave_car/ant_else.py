@@ -206,7 +206,7 @@ class LinkProtocol:
                 pass
         return False
         
-
+    # 解析主车发送的路径信息
     def get_path_list(self):
             """
             解析主车发送的任务路径包
@@ -296,6 +296,57 @@ class LinkProtocol:
             except Exception as e:
                 return None
 
+    # 解析主车发送的当前姿态信息
+    def get_main_pose(self):
+        # 1. 填充缓冲区
+        if self.my_uart3.any():
+            try:
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
+            except:
+                pass
+
+        if not self.raw_buffer:
+            return None
+
+        # 内存保护
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 2. 寻找包头 '#A,' 和包尾 '!'
+        start_idx = self.raw_buffer.find(b'#A,')
+        if start_idx == -1:
+            # 没找到需要的包头，清理掉无关的数据，防止内存越界
+            # 只保留最后的边界，以免刚好读了一半的包头
+            if len(self.raw_buffer) > 3:
+                 self.raw_buffer = self.raw_buffer[-3:]
+            return None
+            
+        end_idx = self.raw_buffer.find(b'!', start_idx)
+        if end_idx == -1:
+            # 包尾还没收到，说明数据还没传完，等下次再解析
+            return None
+
+        # 3. 提取有效数据段并清空已经处理的缓冲
+        payload_bytes = self.raw_buffer[start_idx + 3 : end_idx]
+        self.raw_buffer = self.raw_buffer[end_idx + 1:]
+
+        # 4. 解析数据
+        try:
+            data_str = payload_bytes.decode('utf-8')
+            data_parts = data_str.split(',')
+            if len(data_parts) >= 3:
+                v = float(data_parts[0])
+                yaw = float(data_parts[1])
+                turn_angle = float(data_parts[2])
+                return (v, yaw, turn_angle)
+        except Exception as e:
+            # 解析失败（如数据转换乱码等）
+            pass
+
+        return None
+    
 # 数学常量类
 class Math:
     def __init__(self):

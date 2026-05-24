@@ -1,4 +1,8 @@
+from micropython import const
 import math
+import gc
+
+PI = const(3.1415926)
 
 # 状态机制
 class StateMachine:
@@ -18,6 +22,8 @@ class StateMachine:
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = self.NAVIGATE  # 初始状态为准备导航状态
         self.state_work = -1 # 阶段变量
+
+        gc.collect()
 
 # 路径和速度规划相关常量
 class PlanData:
@@ -62,6 +68,8 @@ class PlanData:
         self.time_counter = 0          # type: int
         # 路径点切换时间阈值（用于过渡）
         self.plan_point_transition_T = self.flash_sys.find_value("plan_point_transition_T")
+        
+        gc.collect()
 
     # 辅助函数：由于原代码矩形检测未膨胀，这里手动对外扩充矩形顶点
     def create_expanded_rect(self, x_center, y_center, width, height):
@@ -80,6 +88,9 @@ class PathPlan:
         self.Data = plan_data
         self.my_car = car
         self.ready_path = []    # 规划好的路径
+
+        gc.collect()
+
     # 路径规划主函数
     def plan_path(self, x1, y1):
         circles = self.Data.circle
@@ -183,7 +194,7 @@ class PathPlan:
     # 围绕圆心生成 8 个中继点
     def _add_circle_nodes_fixed(self, nodes, circles, block_r):
         num_points = 8
-        angle_step = 2.0 * math.pi / num_points
+        angle_step = 2.0 * PI / num_points
         
         # 距离计算必须使得弦的距离中心距离大于 block_r 才能被视为有效线段
         # d * cos(angle_step / 2) > block_r  ==>  d = block_r / cos(angle_step / 2) + margin
@@ -323,13 +334,11 @@ class PathPlan:
 
 # 导航规划类
 class NavigationPlan:
-    def __init__(self, flash_sys, plan_data: PlanData, math, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
         self.plan_data = plan_data
-        # 注入数学常量对象
-        self.MATH = math
         # 注入小车位置对象
         self.my_car = car
         # 注入状态机对象
@@ -399,8 +408,8 @@ class NavigationPlan:
         self.waypoint_v = [self.min_start_v] * n
 
         for i in range(1, n - 1):
-            yaw_in = -math.atan2(-(self.path[i][0] - self.path[i-1][0]), self.path[i][1] - self.path[i-1][1]) * 180.0 / math.pi
-            yaw_out = -math.atan2(-(self.path[i+1][0] - self.path[i][0]), self.path[i+1][1] - self.path[i][1]) * 180.0 / math.pi
+            yaw_in = -math.atan2(-(self.path[i][0] - self.path[i-1][0]), self.path[i][1] - self.path[i-1][1]) * 180.0 / PI
+            yaw_out = -math.atan2(-(self.path[i+1][0] - self.path[i][0]), self.path[i+1][1] - self.path[i][1]) * 180.0 / PI
             
             delta_yaw = abs(yaw_out - yaw_in)
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
@@ -443,7 +452,7 @@ class NavigationPlan:
         self.plan_acc_dec()
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
-        self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / math.pi
+        self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         x_transit_dis = abs(self.my_car.x_current - self.path[1][0])
         y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
@@ -564,14 +573,15 @@ class NavigationPlan:
         # =======================================================
         # 2. 闭环航向角解算模块
         # =======================================================
-        los_current = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / math.pi
+        los_current = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         
-        # 默认目标角度就是当前视线
-        target_yaw = los_current  
+        # 默认目标角度就是当前视线（取消航向角变化限制）
+        self.target_yaw = los_current  
 
         # =======================================================
         # 3. 航向角变化率限制 (防止超调打滑)
         # =======================================================
+        """
         yaw_diff = target_yaw - self.target_yaw
         if yaw_diff > 180: yaw_diff -= 360
         elif yaw_diff < -180: yaw_diff += 360
@@ -585,6 +595,7 @@ class NavigationPlan:
                 self.target_yaw -= self.max_yaw_rate
             else:
                 self.target_yaw = target_yaw
+        """
 
         # 输出限幅在 [-180, 180] 内
         if self.target_yaw > 180: self.target_yaw -= 360
@@ -641,13 +652,13 @@ class NavigationPlan:
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax
                     
                     # 在未完成转角调整时，持续进行转角调整
-                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / self.MATH.PI)
+                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
                     if diff > 180.0:
                         diff = 360.0 - diff
 
                     # 动态角度环 kp 
-                    # 当角度误差小于 30.0 度时，开始线性降低 kp（避免小角度震荡过冲）
-                    diff_threshold = 30.0
+                    # 当角度误差小于 20.0 度时，开始线性降低 kp（避免小角度震荡过冲）
+                    diff_threshold = 20.0
                     if diff < diff_threshold:
                         dynamic_kp = original_kp * (0.4 + 0.6 * (diff / diff_threshold))
                         self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax * 0.4
@@ -667,7 +678,7 @@ class NavigationPlan:
                         self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
                         self.my_car.angle_pid.kp = original_kp
                 else:
-                    self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
+                    self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI
                     if path is None:
                         # 处理传入路径和角度都为空的情况
                         self.if_finish_navigate = True
@@ -699,4 +710,4 @@ class NavigationPlan:
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):
-        self.turn_angle_target = self.my_car.now_yaw * 180.0 / self.MATH.PI
+        self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI

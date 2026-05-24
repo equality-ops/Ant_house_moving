@@ -188,18 +188,16 @@ class LinkProtocol:
         packet = "#" + chr(target_object) + "," + ";".join(point_strs) + "!"
         self.my_uart3.write(packet.encode('utf-8'))
 
-    # 用于主车向从车发送坐标和当前状态数据的接口
-    def send_pose(self, role_prefix, x, y, yaw, turn_angle, state):
+    # 用于主车向从车发送当前姿态
+    def send_pose(self, v, yaw, turn_angle):
         """
         发送数据包 (非阻塞)
-        格式: #M,120.5,80.1,90.5,20.0,1!
-        :param role_prefix: 'M' (主车) 或 'S' (从车)
-        :param x, y, yaw: 浮点坐标
-        :param state: 整数状态
+        格式: #A,120.0,0.0,0.0!
+        :param v, yaw, turn_angle: 浮点数，分别表示当前速度、航向角和姿态角
         """
         # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频率
-        packet = "#{:s},{:.1f},{:.1f},{:.1f},{:.1f},{:d}!".format(
-            role_prefix, x, y, yaw, turn_angle, state
+        packet = "#A,{:.1f},{:.1f},{:.1f}!".format(
+            v, yaw, turn_angle
         )
         self.my_uart3.write(packet.encode('utf-8'))
         
@@ -247,16 +245,7 @@ class LinkProtocol:
             return None
 
 # 数学常量类
-class Math:
-    def __init__(self):
-        self.PI = 3.1415926      # type: float
-        self.SIN30 = 0.5000000   # type: float
-        self.SIN60 = 0.8660254   # type: float
-        self.COS30 = 0.8660254   # type: float
-        self.COS60 = 0.5000000   # type: float
-        self.TwoThirdS = 0.6666667 # type: float
-        self.OneThird = 0.3333333  # type: float
-        self.SQRT3 = 1.7320508   # type: float
+
 
 
 ##############################【flash系统操作】##############################
