@@ -22,7 +22,10 @@ SIDE_ENUM Now_Side=SIDE_START;//当前边
 uint16 target_x_or_y = 0; // 目标距离
 int counter=0;
 char str[20];
+float yaw_offset=0;
 //小车姿态(包含坐标航向角，速度)
+
+
 CAR_ATTITUDE car;
 CAR_ATTITUDE Target_Speed;
 TARGET_ATTITUDE Nevigate_Target;//导航模式 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制
@@ -41,9 +44,26 @@ void uart_handler (void)// UART 定时数据处理函数
     if(fifo_data_count != 0)                                                // 读取到数据了
     {
         // 为了防止在读取FIFO的时候，又写入FIFO，这里关闭总中断。
+        
         interrupt_global_disable();
         fifo_read_buffer(&uart_data_fifo, fifo_get_data, &fifo_data_count, FIFO_READ_AND_CLEAN);    // 将 fifo 中数据读出并清空 fifo 挂载的缓冲
         interrupt_global_enable();
+        //printf("%s\r\n", fifo_get_data);
+        rb_write_q(&uart_rx_buffer, fifo_get_data, fifo_data_count); // 将读出的数据写入环形缓冲区
+        analyze_uart_data(&uart_rx_buffer,&camera_erro,&uart_analyze_flag); // 分析数据
+    }
+}
+void uart_handler (void)// UART 定时数据处理函数
+{
+    fifo_data_count = fifo_used(&uart_data_fifo);                           // 查看 fifo 是否有数据
+    if(fifo_data_count != 0)                                                // 读取到数据了
+    {
+        // 为了防止在读取FIFO的时候，又写入FIFO，这里关闭总中断。
+        
+        interrupt_global_disable();
+        fifo_read_buffer(&uart_data_fifo, fifo_get_data, &fifo_data_count, FIFO_READ_AND_CLEAN);    // 将 fifo 中数据读出并清空 fifo 挂载的缓冲
+        interrupt_global_enable();
+        //printf("%s\r\n", fifo_get_data);
         rb_write_q(&uart_rx_buffer, fifo_get_data, fifo_data_count); // 将读出的数据写入环形缓冲区
         analyze_uart_data(&uart_rx_buffer,&camera_erro,&uart_analyze_flag); // 分析数据
     }
@@ -129,18 +149,41 @@ void xy_angle_handler(void){
             else
                 pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             break;
-        case CONTORL_XY:
-            pid_xy.output_max=NEVIGATE_V_LIMIT;
+        case CONTORL_NEVIGATE_TRACK_LINE:
+            pid_xy.output_max=NEVIGATE_V_LIMIT_HIGH;
             xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
             pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             break;
         case CONTORL_SPEEDX_SPEEDY://右前方为正
             Target_Speed.speed_x=0;
             Target_Speed.speed_y=100;
-        case CONTORL_NEVIGATE_SPEED:
+        case CONTORL_NEVIGATE_SPEED_HIGH:
             Controled_Nevigate_V*=NEVIGATE_BOOM_level;
-            pid_xy.output_max=NEVIGATE_V_LIMIT*(1-Controled_Nevigate_V);
+            pid_xy.output_max=NEVIGATE_V_LIMIT_HIGH*(1-Controled_Nevigate_V);
             xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
+            if (TRACKING_LINE&&uart_analyze_flag)
+                yorx_trackline_UPDATE(car_direction,line_base,&car,camera_erro/40,&Target_Speed);
+            pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
+            //xy_Update_by_target_v(&pid_xy,&car,&Target_Speed,50);//根据目标点和小车当前坐标计算目标速度赋予Target_Speed
+            break;
+        case CONTORL_NEVIGATE_SPEED_MID:
+            Controled_Nevigate_V*=NEVIGATE_BOOM_level;
+            pid_xy.output_max=NEVIGATE_V_LIMIT_MID*(1-Controled_Nevigate_V);
+            xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
+            if (TRACKING_LINE&&uart_analyze_flag){
+                yorx_trackline_UPDATE(car_direction,line_base,&car,camera_erro/40,&Target_Speed);
+                pid_w.target=w_tracking_UPDATE(car_direction,&yaw_offset,camera_erro/40,&car);
+            }
+            else
+                pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484+yaw_offset);//角度环，输出目标角速度
+            //xy_Update_by_target_v(&pid_xy,&car,&Target_Speed,50);//根据目标点和小车当前坐标计算目标速度赋予Target_Speed
+            break;
+        case CONTORL_NEVIGATE_SPEED_LOW:
+            Controled_Nevigate_V*=NEVIGATE_BOOM_level;
+            pid_xy.output_max=NEVIGATE_V_LIMIT_LOW*(1-Controled_Nevigate_V);
+            xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
+            if (TRACKING_LINE&&uart_analyze_flag)
+                yorx_trackline_UPDATE(car_direction,line_base,&car,camera_erro/40,&Target_Speed);
             pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484);//角度环，输出目标角速度
             //xy_Update_by_target_v(&pid_xy,&car,&Target_Speed,50);//根据目标点和小车当前坐标计算目标速度赋予Target_Speed
             break;
@@ -332,11 +375,28 @@ void main(void) {
     Set_TARGET_ATTITUDE(&Nevigate_Target,0,0,0,0,0,0,0,0,0,0,2);//targetx,targety,targetyaw,targetspeedx,targetspeedy,v1,v2,v3,v4,mode
     set_nevigate_target(&Nevigate_Target);
     WHOLE_STATE=WAITING_;
+    TRACKING_LINE=TRUE;
+    car_direction=FACING_UP;
+    line_base=0;
+    Car_Control_State=CONTORL_NEVIGATE_SPEED_MID;
+    /*
+    tracking_and_nevigate(FACING_UP,2400,0,&car);
+    tracking_and_nevigate(FACING_RIGHT,2400,3200,&car);
+    tracking_and_nevigate(FACING_DOWN,1200,3200,&car);
+    //tracking_and_nevigate(FACING_LEFT,0,0,&car);
+    */
+    /*
+    nevigate_and_track(FACING_UP,0,2400,0,&car,&camera_erro);
+    nevigate_and_track(FACING_RIGHT,area_HEIGHT,2400,3200,&car,&camera_erro);
+    nevigate_and_track(FACING_DOWN,area_WIDTH,0,3200,&car,&camera_erro);
+    nevigate_and_track(FACING_LEFT,0,0,0,&car,&camera_erro);
+    */
     /*
     nevigate(0,2400,0,&car);
-    nevigate(-90,2400,3200,&car);
-    nevigate(45,0,3200,&car);
-    nevigate(-45,0,0,&car);
+    nevigate(90,2400,3200,&car);
+    nevigate(180,0,3200,&car);
+    nevigate(-90,0,0,&car);
+    nevigate(0,0,0,&car);
     */
     /*vofa无线调参
     channel1=pid_angle.Kp;
@@ -358,17 +418,15 @@ void main(void) {
     wireless_send_float("y:",car.y,1);
     while (1){
         int result = 0;
+        
         //int i;
-
+        if (uart_analyze_flag==1)
+            printf("%d\n",camera_erro);
+            //track_line(camera_erro/80,FACING_UP,0,&car);
         switch (WHOLE_STATE){
             case WAITING_:
-                if (waiting(&wireless_analyze_state)) {
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
+                if (waiting(&wireless_analyze_state)&&(target_x_or_y==6660||(target_x_or_y>=0)&&(target_x_or_y<=3600))) {
                     WHOLE_STATE=PLANNING_;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
                 }
                 break;
             case PLANNING_:
@@ -384,40 +442,26 @@ void main(void) {
                 if(result==1){
                     WHOLE_STATE=TRACK_LINE_RUNNING;
                     Now_Side=target_side;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
                 }
                 else if(result==3){
                     WHOLE_STATE=OUT_LINE_RUNNING;
                     Now_Side=target_side;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
                 }
                 break;
             case TRACK_LINE_RUNNING:
                 if (tracking_line_running(&car)==1) {
                     WHOLE_STATE=OUT_LINE_RUNNING;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
                 }
                 break;
             case OUT_LINE_RUNNING:
                 if (out_line_running(&car,&Now_Side,target_side,target_x_or_y)==1) {
                     WHOLE_STATE=BACK_TO_LINE;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
                 }
                 break;
             case BACK_TO_LINE:
                 if (back_to_line(&car,target_x_or_y)) {
                     WHOLE_STATE=WAITING_;
-                    func_int_to_str(str,WHOLE_STATE);
-                    wireless_uart_send_string(str);
-                    wireless_uart_send_string("\r\n");
+                    wireless_send_int("side:",Now_Side);
                 }
                 break;
             case END_:

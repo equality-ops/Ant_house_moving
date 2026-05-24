@@ -1,4 +1,5 @@
 #include "control.h"
+//#include "uart_wireless.h"
 car_control_state_enum Car_Control_State=CONTORL_NONE;
 car_rotate_state_enum Rotate_State = ROTATE_START;
 car_nevigate_state_enum Nevigate_State = NEVIGATE_START;
@@ -11,6 +12,9 @@ int planning_outline_points_num=0;
 CAR_ATTITUDE PLANNING_POINTS[5];
 CAR_ATTITUDE PLANNING_OUTLINE_POINTS[4];
 CAR_ATTITUDE PLANNING_BACK_POINT;
+BOOL TRACKING_LINE=FALSE;
+float line_base=0;
+car_facing_direction_enum car_direction=FACING_UP;
 //                           st    ld       l                    lu                  u                          ru                         r                          rd                d             ed
 float TURNING_POINT[10][2]={{0,0},{0,0},{area_HEIGHT/2.0f,0},{area_HEIGHT,0},{area_HEIGHT,area_WIDTH/2.0f},{area_HEIGHT,area_WIDTH},{area_HEIGHT/2.0f,area_WIDTH},{0,area_WIDTH},{0,area_WIDTH/2.0f},{0,0}};
 void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum rotate_state){
@@ -34,17 +38,16 @@ void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum
 void navigate_to_xy(float target_x, float target_y, CAR_ATTITUDE *now_car, car_nevigate_state_enum nevigate_state){
     
     float distance = sqrt((target_x - now_car->x) * (target_x - now_car->x) + (target_y - now_car->y) * (target_y - now_car->y));
+    car_nevigate_state_enum NEVIGATE_STATE_=CONTORL_NEVIGATE_SPEED_LOW;
     if (nevigate_state == NEVIGATE_START) {
         pid_xy.target_x = target_x;
         pid_xy.target_y = target_y;
         Controled_Nevigate_V=1;
-        /*
-        if (distance > 250.0f){
-            Nevigate_State = NEVIGATE_BOOM; // 距离过大先预热启动
-            Controled_Nevigate_V_num=0;
-        }
-        else 
-        */
+        if (distance >= 600.0f)
+            NEVIGATE_STATE_=CONTORL_NEVIGATE_SPEED_HIGH;
+        else if (distance >= 250.0f)
+            NEVIGATE_STATE_=CONTORL_NEVIGATE_SPEED_MID;
+        Car_Control_State=NEVIGATE_STATE_;
         Nevigate_State = NEVIGATE_RUNNING; // 距离小于250认为直接进入运行状态
     }
     /*
@@ -55,15 +58,14 @@ void navigate_to_xy(float target_x, float target_y, CAR_ATTITUDE *now_car, car_n
         }
     }*/
     if (Nevigate_State == NEVIGATE_RUNNING) {
-        Car_Control_State=CONTORL_NEVIGATE_SPEED;
         if (distance < 3.0f && fabs(now_car->speed_x) < 30 && fabs(now_car->speed_y) < 30) { // 距离小于 3 且速度小于 30 认为导航完成
             Nevigate_State = NEVIGATE_DONE;
-            pid_xy.output_max=NEVIGATE_V_LIMIT;//恢复正常速度限制
+            pid_xy.output_max=NEVIGATE_V_LIMIT_HIGH;//恢复正常速度限制
         }
     }
 }
 void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){
-    if (fabs(target_yaw-car->yaw*57.29578f)>2.0f){
+    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
         Rotate_State=ROTATE_START;
         while (Rotate_State!=ROTATE_DONE){
             system_delay_ms(30);
@@ -78,6 +80,88 @@ void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){
     }
     beep_once(100);
     system_delay_ms(100);
+}
+/*
+void nevigate_and_track(car_facing_direction_enum direction,float base,float target_x,float target_y,CAR_ATTITUDE *car,int* camera_erro){
+    float target_yaw=0;
+    int k=0;
+    switch (direction)
+    {
+        case FACING_UP:
+            break;
+        case FACING_DOWN:
+            target_yaw=180;
+            break;
+        case FACING_RIGHT:
+            target_yaw=90;
+            break;
+        case FACING_LEFT:
+            target_yaw=-90;
+            break;
+        default:
+            break;
+    }
+    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
+        Rotate_State=ROTATE_START;
+        while (Rotate_State!=ROTATE_DONE){
+            system_delay_ms(30);
+            rotate_to_yaw(target_yaw,car,Rotate_State);
+        }
+        beep_once(100);
+    }
+    Nevigate_State=NEVIGATE_START;
+    while (Nevigate_State!=NEVIGATE_DONE){
+        navigate_to_xy(target_x, target_y, car,Nevigate_State);
+        if (uart_analyze_flag==1)
+            track_line(*camera_erro/80,direction,base,car);
+        system_delay_ms(30);
+    }
+    beep_once(100);
+    system_delay_ms(100);
+}
+*/
+void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car){
+    float target_yaw=0;
+    int k=0;
+    switch (direction)
+    {
+        case FACING_UP:
+            line_base=target_y;
+            break;
+        case FACING_DOWN:
+            target_yaw=180;
+            line_base=target_y;
+            break;
+        case FACING_RIGHT:
+            target_yaw=90;
+            line_base=target_x;
+            break;
+        case FACING_LEFT:
+            target_yaw=-90;
+            line_base=target_x;
+            break;
+        default:
+            break;
+    }
+    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
+        Rotate_State=ROTATE_START;
+        while (Rotate_State!=ROTATE_DONE){
+            system_delay_ms(30);
+            rotate_to_yaw(target_yaw,car,Rotate_State);
+        }
+        beep_once(100);
+        car_direction=direction;
+    }
+    TRACKING_LINE=TRUE;
+    Nevigate_State=NEVIGATE_START;
+    while (Nevigate_State!=NEVIGATE_DONE){
+        navigate_to_xy(target_x, target_y, car,Nevigate_State);
+        system_delay_ms(30);
+        wireless_send_float('y',car->y,0);
+    }
+    beep_once(100);
+    system_delay_ms(100);
+    TRACKING_LINE=FALSE;
 }
 int waiting(BOOL* wireless_analyze_state){
     planning_points_num=0;
@@ -244,7 +328,6 @@ int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 t
         if (i%2==1){
             PLANNING_POINTS[planning_points_num].x=TURNING_POINT[i][0];
             PLANNING_POINTS[planning_points_num].y=TURNING_POINT[i][1];
-            printf("planning point: %f,%f\r\n",PLANNING_POINTS[planning_points_num].x,PLANNING_POINTS[planning_points_num].y);
             if (RUNNING_IF_CLOCKWISE) {
                 switch (i){
                     case POINT_LEFT_DOWN:
@@ -307,7 +390,9 @@ int planning_outline(SIDE_ENUM target_side,uint16 target_x_or_y){
 int tracking_line_running(CAR_ATTITUDE *car){
     int i;
     for (i = 0; i < planning_points_num; i++) {
-        nevigate(PLANNING_POINTS[i].yaw, PLANNING_POINTS[i].x, PLANNING_POINTS[i].y,car);
+        car_facing_direction_enum direction = ((int)(PLANNING_POINTS[i].yaw+360)/90)%4;
+        tracking_and_nevigate(direction,PLANNING_POINTS[i].x,PLANNING_POINTS[i].y,car);
+        //nevigate(PLANNING_POINTS[i].yaw, PLANNING_POINTS[i].x, PLANNING_POINTS[i].y,car);
         beep_once(100);
     }
     return 1;
@@ -315,7 +400,11 @@ int tracking_line_running(CAR_ATTITUDE *car){
 int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side,uint16 target_x_or_y){
     int i;
     if (!planning_outline(target_side, target_x_or_y)) return 0;//规划轮廓失败不进入
-    for (i = 0; i < planning_outline_points_num; i++) {
+    if (planning_outline_points_num>0){
+        car_facing_direction_enum direction = ((int)(PLANNING_OUTLINE_POINTS[0].yaw+360)/90)%4;
+        tracking_and_nevigate(direction,PLANNING_OUTLINE_POINTS[0].x,PLANNING_OUTLINE_POINTS[0].y,car);
+    }
+    for (i = 1; i < planning_outline_points_num; i++) {
         nevigate(PLANNING_OUTLINE_POINTS[i].yaw, PLANNING_OUTLINE_POINTS[i].x, PLANNING_OUTLINE_POINTS[i].y,car);
         beep_once(100);
     }
@@ -332,4 +421,40 @@ int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y){
     nevigate(PLANNING_BACK_POINT.yaw, PLANNING_BACK_POINT.x, PLANNING_BACK_POINT.y,car);
     beep_once(100);
     return 1;
+}
+void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed){
+    float *x_or_y;
+    int output=0;
+    if(direction==FACING_UP||direction==FACING_DOWN){
+        if(direction==FACING_UP&&car->x>area_HEIGHT-250)
+            return;
+        if(direction==FACING_DOWN&&car->x<250)
+            return;
+        x_or_y=&car->y;
+    }
+    else{
+        if(direction==FACING_RIGHT&&car->y>area_WIDTH-250)
+            return;
+        if(direction==FACING_LEFT&&car->y<250)
+            return;
+        x_or_y=&car->x;
+    }
+    /*
+    if(direction==FACING_UP||direction==FACING_RIGHT)
+        k=1;
+    */
+    output=min(max(-500,erro*1.1),500);
+    if(abs(erro)<15){
+        *x_or_y=base;
+        return;
+    }
+    Target_Speed->speed_y=output;
+}
+float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,CAR_ATTITUDE *car){
+    float base=(direction+1)%4*90-90;
+    if(abs(erro)<15){
+        *offset=base-car->yaw;
+        return 0;
+    }
+    return erro/30;
 }

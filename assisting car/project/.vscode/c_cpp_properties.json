@@ -1,0 +1,48 @@
+{
+    "configurations": [
+        {
+            "name": "stc32g144k246",
+            "cStandard": "c89",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "${default}",
+            "includePath": [
+                "C:/Keil_v5/C251/INC",
+                "c:/Ant_house_moving/assisting car/libraries/zf_common",
+                "c:/Ant_house_moving/assisting car/libraries/zf_components",
+                "c:/Ant_house_moving/assisting car/libraries/zf_device",
+                "c:/Ant_house_moving/assisting car/libraries/zf_driver",
+                "user",
+                "code",
+                "c:/Ant_house_moving/assisting car/libraries/zf_components/stc32g_usb_lib",
+                "c:/Ant_house_moving/assisting car/libraries/zf_components/seekfree_assistant"
+            ],
+            "defines": [
+                "__C251__",
+                "__VSCODE_C251__",
+                "reentrant=",
+                "compact=",
+                "small=",
+                "large=",
+                "data=",
+                "idata=",
+                "pdata=",
+                "bdata=",
+                "edata=",
+                "xdata=",
+                "code=",
+                "bit=char",
+                "sbit=char",
+                "sfr=char",
+                "sfr16=int",
+                "sfr32=int",
+                "interrupt=",
+                "using=",
+                "far=",
+                "_at_=",
+                "_priority_=",
+                "_task_="
+            ]
+        }
+    ],
+    "version": 4
+}
