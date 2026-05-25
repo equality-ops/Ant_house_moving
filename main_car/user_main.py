@@ -319,7 +319,7 @@ def test_moving():
                 my_order_manager.mode_target()
                 my_vision_manager.if_send_order = True 
             target_point = my_art_protocol.coordinate_receive()
-            if target_point and (target_point[2] in [ord('T'), ord('S'), ord('E'), ord('W'), ord('B')]):
+            if target_point and (target_point[2] in ['T', 'S', 'E', 'W', 'B']):
                 my_vision_manager.ready_servo_and_orbit(target_point)
                 my_plan.reset_navigate()  # 重置导航相关变量
                 my_state.state = my_state.SERVO
@@ -357,7 +357,7 @@ def test_orbit():
     if my_state.state == my_state.READY_NAVIGATE:
         my_state.state = my_state.ORBIT
         my_vision_manager.object_radius = 16.0
-        my_vision_manager.current_servo_object = ord('S')
+        my_vision_manager.current_servo_object = 'S'
         my_order_manager.mode_target()
     elif my_state.state == my_state.ORBIT:
         my_vision_manager.orbit_control(orbit_angle)

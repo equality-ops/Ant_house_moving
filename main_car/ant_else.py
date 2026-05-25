@@ -177,15 +177,15 @@ class LinkProtocol:
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
     
     # 用于主车向从车发送目标物体种类及规划好的路径坐标点
-    def send_path(self, target_object, path_points):
+    def send_path(self, target_object, target_turn, target_point):
         """
         发送路径点列表 (非阻塞)
-        格式: #P/S/B/T/E/W,120.5,80.1;130.2,90.3;140.0,100.0!  #P,160.0,50.0!
+        格式: #P/S/B/T/E/W,120.5,80.1!
         :param target_object: 目标物体种类
-        :param path_points: [(x1, y1), (x2, y2), ...]
+        :param target_turn: 目标转向角度
+        :param target_point: (x, y) 目标点坐标
         """
-        point_strs = ["{:.1f},{:.1f}".format(x, y) for x, y in path_points]
-        packet = "#" + chr(target_object) + "," + ";".join(point_strs) + "!"
+        packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
         self.my_uart3.write(packet.encode('utf-8'))
 
     # 用于主车向从车发送当前姿态

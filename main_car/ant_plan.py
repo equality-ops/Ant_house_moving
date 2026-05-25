@@ -31,8 +31,8 @@ class PlanData:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，[1]为从车在下边沿的待命区，[2]为从车在上边沿的待命区
-        self.fixed_point = [[160.0, 0.0], [160.0, 20.0], [160.0, 220.0]]  # type: list
+        # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点
+        self.fixed_point = [[160.0, 0.0], [95.0, 55.0], [225.0, 185.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -54,11 +54,9 @@ class PlanData:
         self.rectangles.append(self.rectangle_obstacles)  # 将中心禁区矩形障碍物加入矩形障碍物列表
 
         # 硬写物品路径规划（每次发车前进行硬写路径规划）
-        # rogue_planning[0]记录下边沿的物体，rogue_planning[1]记录上边沿的物体
-        # y坐标靠近下边沿:70，中等:85，靠近中心:100    
-        # 靠近上边沿:170，中等:155，靠近中心:140 
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
-        # 示例：[(160.0, 85.0), 'E', [('x', 160.0)]]
+        # 物品信息第一个参数为物体坐标，第二个为物体种类，第三个为搬运途径信息，第四个为小车从哪个边界靠近物体
+        # 物品信息示例：[(160.0, 85.0), 'E', [('x', 160.0)], "L"]
         self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
         self.current_index = 0          # 当前搬运物体索引         
         self.moved_objects_num = 0      # 已搬运物体数量
@@ -359,12 +357,14 @@ class NavigationPlan:
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
         self.max_yaw_rate = self.flash_sys.find_value("max_yaw_rate")# 最大航向角变化率 (度/tick)
         self.blend_radius = self.flash_sys.find_value("blend_radius")# 拐点融合区半径：进入该范围开始向下一目标切角
-        self.move_v_max = self.flash_sys.find_value("move_v_max")    # 根据物体种类选择搬运速度
+        self.move_v_max = 0.0     # 根据物体种类选择搬运速度
+        self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
         self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")# type: int  # 搬运沙包时的最大速度
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
 
         self.waypoint_v = []  # type: list  # 目标速度列表
+        self.current_object = ''  # 当前搬运物体类型 (T/S/E/W/B)
 
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
@@ -470,6 +470,10 @@ class NavigationPlan:
         else:
             self.my_car.alpha_y = 1.0
 
+        # 提取当前物体种类信息
+        self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
+        
+
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
         # 修正：应该测量到下一个目标点(aimed_point_index + 1)的实物距离作为这段的总长
@@ -531,6 +535,26 @@ class NavigationPlan:
         v_start = self.waypoint_v[self.aimed_point_index]
         v_end = self.waypoint_v[self.aimed_point_index + 1]
 
+        v_cruise = self.long_v_max
+        # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
+        if self.my_state.state == self.my_state.MOVE:
+            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
+            if_sandbag = (self.current_object in ['S', 'E'] and self.my_car.x_current <= near_line_threshold)
+            if_bear = (self.current_object in ['B', 'W'] and self.my_car.x_current >= 320.0 - near_line_threshold)
+            if_tennis = (self.current_object == 'T' and self.my_car.y_current >= 240.0 - near_line_threshold)
+            if if_sandbag or if_bear or if_tennis:
+                if if_sandbag:
+                    ratio = self.my_car.x_current / near_line_threshold
+                elif if_bear:
+                    ratio = (320.0 - self.my_car.x_current) / near_line_threshold
+                else: # if_tennis
+                    ratio = (240.0 - self.my_car.y_current) / near_line_threshold
+
+                ratio = max(0.0, min(1.0, ratio))
+                v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            else:
+                v_cruise = self.move_v_max
+
         # s 直接基于我们之前算出的 usable_len 限制
         s = self.segment_start_dist - self.rest_dist
         s_usable = max(0.0, min(s, self.usable_len))  # 强制束缚在可用区间内
@@ -547,7 +571,7 @@ class NavigationPlan:
             v_out = self.v_peak
             
         # 这里改为输出 float，有助于你的底层PID或者跟随器能取得更平滑的参考速度
-        return max(float(self.min_start_v), min(float(self.long_v_max), float(v_out)))
+        return max(float(self.min_start_v), min(float(v_cruise), float(v_out)))
         
     # 实时导航执行函数
     def navigate_step(self):
@@ -558,6 +582,9 @@ class NavigationPlan:
         car_x = self.my_car.x_current
         car_y = self.my_car.y_current
 
+        # 更新小车到起点的距离
+        self.finished_dist = math.sqrt((self.path[0][0] - car_x)**2 + (self.path[0][1] - car_y)**2)
+        
         if self.aimed_point_index >= len(self.path) - 1:
             self.target_v = 0
             return self.target_v, self.target_yaw
