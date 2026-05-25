@@ -87,11 +87,11 @@ class TaskController:
 
     def exit(self):
         state = self.my_state.state
-    
+        self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+
         if state == self.my_state.READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
             self.my_state.state = self.my_state.NAVIGATE  # 直接切换到导航状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.NAVIGATE:
             if not self.if_send_path:
                 self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
@@ -100,7 +100,6 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             self.my_state.state = self.my_state.SCAN  # 直接切换到扫描状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.SCAN:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
@@ -228,7 +227,10 @@ class TaskController:
 
     def handle_move(self):
         # if state == MOVE
-        pass
+        self.my_moving.moving()
+
+        if self.my_moving.if_finish_move:
+            self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_calibrate(self):
         # if state == CALIBRATE
