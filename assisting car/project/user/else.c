@@ -464,25 +464,6 @@ void Keystroke_Menu_HOME(void) // 0
     menu_next_flag = 0; // 切换完页面，标志位归0
 }
 
-
-/*///////////////////////////////////////
-   子页面
-*/
-///////////////////////////////////////
-/*
-void Menu_ONE_Display(uint8 control_line) 
-{
-    
-    ips200_show_string(0 * character_space, 0 * line_space, "<<STRAT");
-    ips200_show_string(1 * character_space, 1 * line_space, "STRAT_FLAG");
-    ips200_show_string(1 * character_space, 2 * line_space, "OUT_DIRECTION");
-    ips200_show_int32(14 * character_space, 1 * line_space, start_flag, 3);    // “1” 应该与该函数被调用时control_line参数一致，才能正确显示&表示在调整的变量
-    ips200_show_int32(14 * character_space, 2 * line_space, garage_out_direction, 3);
-    if (control_line != -1)
-        ips200_show_string(0 * character_space, control_line * line_space, "~"); //&标志提示
-}
-*/
-
 void Keystroke_Menu_sub(void)
 {
     if(display_codename%10 == 0) {
@@ -540,73 +521,3 @@ void Menu_Display_sub(uint8 control_line,uint8 menu_id)
     if (control_line != -1)
         ips200_show_string(0 * character_space, control_line * line_space, "~"); //&标志提示
 }
-/*
-void Keystroke_Menu_ONE(void) // 1 11 12
-{
-    switch (display_codename)
-    {
-    case 1:
-        while (menu_next_flag == 0)
-        {
-            Menu_ONE_Display(-1);
-            Keystroke_Scan();
-            Cursor();   
-        }
-        Menu_Next_Back();
-        break;
-    case 11:
-        Menu_ONE_Display(1);
-        Keystroke_Special_Value(&start_flag);
-        break;
-    case 12:
-        Menu_ONE_Display(2);
-        Keystroke_Special_Value(&garage_out_direction);
-        break;
-    }
-
-}
-
-void Menu_TWO_Display(uint8 control_line)
-{
-    ips200_show_string(0 * character_space, 0 * line_space, "<<PID_SPEED");
-
-    ips200_show_string(1 * character_space, 1 * line_space, "P");
-    ips200_show_string(1 * character_space, 2 * line_space, "D");
-    ips200_show_string(1 * character_space, 3 * line_space, "normal_speed");
-
-    ips200_show_float(14 * character_space, 1 * line_space, PID_P, 2, 3);
-    ips200_show_float(14 * character_space, 2 * line_space, PID_D, 2, 3);
-    ips200_show_int32(14 * character_space, 3 * line_space, normal_speed, 3);
-    if (control_line != -1)
-        ips200_show_string(0 * character_space, control_line * line_space, "~"); //&标志提示
-}
-
-void Keystroke_Menu_TWO(void) // 2 21 22 23
-{
-    switch (display_codename)
-    {
-    case 2:
-        while (menu_next_flag == 0)
-        {
-            Menu_TWO_Display(-1);
-            Keystroke_Scan();
-            Cursor();
-        }
-        Menu_Next_Back();
-        break;
-
-    case 21:
-        Menu_TWO_Display(1);
-        Keystroke_float(&PID_P, 0.001);
-        break;
-    case 22:
-        Menu_TWO_Display(2);
-        Keystroke_float(&PID_D, 0.001);
-        break;
-    case 23:
-        Menu_TWO_Display(3);
-        Keystroke_int(&normal_speed, 1);
-        break;
-    }
-}
-*/

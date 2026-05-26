@@ -17,8 +17,11 @@ float line_base=0;
 car_facing_direction_enum car_direction=FACING_UP;
 //                           st    ld       l                    lu                  u                          ru                         r                          rd                d             ed
 float TURNING_POINT[10][2]={{0,0},{0,0},{area_HEIGHT/2.0f,0},{area_HEIGHT,0},{area_HEIGHT,area_WIDTH/2.0f},{area_HEIGHT,area_WIDTH},{area_HEIGHT/2.0f,area_WIDTH},{0,area_WIDTH},{0,area_WIDTH/2.0f},{0,0}};
+
+//-------------------------------------------底层旋转惯导函数--------------------------------------------
+
 void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum rotate_state){
-    float yaw_error = target_yaw - now_car->yaw*57.29578f;// 计算误差
+    float yaw_error = target_yaw - now_car->yaw*57.29578f;
     Car_Control_State=CONTORL_ANGLE;
     if (rotate_state == ROTATE_START) {
         // 设置角度 PID 的目标值为误差
@@ -29,9 +32,9 @@ void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum
     if (yaw_error > 180.0f) yaw_error -= 360.0f;
     if (yaw_error < -180.0f) yaw_error += 360.0f;
     if (Rotate_State == ROTATE_RUNNING) {
-        if (fabs(yaw_error) < 0.8f && now_car->speed_w < 10.0f) { // 误差小于 1 度且速度小于 15 认为旋转完成
+        if (fabs(yaw_error) < 0.8f && now_car->speed_w < 10.0f){
             Rotate_State = ROTATE_DONE;
-            pid_w.target = 0.0f; // 停止旋转
+            pid_w.target = 0.0f;
         }
     }
 }
@@ -48,23 +51,19 @@ void navigate_to_xy(float target_x, float target_y, CAR_ATTITUDE *now_car, car_n
         else if (distance >= 250.0f)
             NEVIGATE_STATE_=CONTORL_NEVIGATE_SPEED_MID;
         Car_Control_State=NEVIGATE_STATE_;
-        Nevigate_State = NEVIGATE_RUNNING; // 距离小于250认为直接进入运行状态
+        Nevigate_State = NEVIGATE_RUNNING;
     }
-    /*
-    if (Nevigate_State == NEVIGATE_BOOM) {
-        Car_Control_State=CONTORL_NEVIGATE_SPEED;
-        if (Controled_Nevigate_V_num > 13 || distance < 250.0f) { // 速度大于 30 认为预热完成
-            Nevigate_State = NEVIGATE_RUNNING;
-        }
-    }*/
     if (Nevigate_State == NEVIGATE_RUNNING) {
-        if (distance < 3.0f && fabs(now_car->speed_x) < 30 && fabs(now_car->speed_y) < 30) { // 距离小于 3 且速度小于 30 认为导航完成
+        if (distance < 3.0f && fabs(now_car->speed_x) < 30 && fabs(now_car->speed_y) < 30) {
             Nevigate_State = NEVIGATE_DONE;
-            pid_xy.output_max=NEVIGATE_V_LIMIT_HIGH;//恢复正常速度限制
+            pid_xy.output_max=NEVIGATE_V_LIMIT_HIGH;
         }
     }
 }
-void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){
+
+//-------------------------------------------惯导函数--------------------------------------------
+
+void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){//惯导
     if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
         Rotate_State=ROTATE_START;
         while (Rotate_State!=ROTATE_DONE){
@@ -81,46 +80,8 @@ void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){
     beep_once(100);
     system_delay_ms(100);
 }
-/*
-void nevigate_and_track(car_facing_direction_enum direction,float base,float target_x,float target_y,CAR_ATTITUDE *car,int* camera_erro){
-    float target_yaw=0;
-    int k=0;
-    switch (direction)
-    {
-        case FACING_UP:
-            break;
-        case FACING_DOWN:
-            target_yaw=180;
-            break;
-        case FACING_RIGHT:
-            target_yaw=90;
-            break;
-        case FACING_LEFT:
-            target_yaw=-90;
-            break;
-        default:
-            break;
-    }
-    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
-        Rotate_State=ROTATE_START;
-        while (Rotate_State!=ROTATE_DONE){
-            system_delay_ms(30);
-            rotate_to_yaw(target_yaw,car,Rotate_State);
-        }
-        beep_once(100);
-    }
-    Nevigate_State=NEVIGATE_START;
-    while (Nevigate_State!=NEVIGATE_DONE){
-        navigate_to_xy(target_x, target_y, car,Nevigate_State);
-        if (uart_analyze_flag==1)
-            track_line(*camera_erro/80,direction,base,car);
-        system_delay_ms(30);
-    }
-    beep_once(100);
-    system_delay_ms(100);
-}
-*/
-void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car){
+
+void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car){//惯导，并在途中巡线用于纠正坐标
     float target_yaw=0;
     int k=0;
     switch (direction)
@@ -163,17 +124,12 @@ void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,fl
     system_delay_ms(100);
     TRACKING_LINE=FALSE;
 }
-int waiting(BOOL* wireless_analyze_state){
-    planning_points_num=0;
-    planning_outline_points_num=0;
-     // 等待无线数据，直到收到数据后返回 1 进入下一状态
-    if (*wireless_analyze_state==TRUE) {
-        *wireless_analyze_state=FALSE;
-        return 1; // 收到无线数据，进入下一状态
-    }
-    return 0; // 继续等待
-}
-float calculate_location(SIDE_ENUM side,int target_x_or_y){
+
+
+//-------------------------------------------路径规划相关函数--------------------------------------------
+
+
+float calculate_location(SIDE_ENUM side,int target_x_or_y){//将二维坐标转化为一维环线上的一点
     if (side==SIDE_START || side==SIDE_END)return 0;
     switch (side){
         case SIDE_LEFT:
@@ -187,7 +143,7 @@ float calculate_location(SIDE_ENUM side,int target_x_or_y){
     }
     return 0;
 }
-void calculate_target_point(float target_x_or_y,SIDE_ENUM side,CAR_ATTITUDE *out0,CAR_ATTITUDE *out1,CAR_ATTITUDE *out2,CAR_ATTITUDE *back){
+void calculate_target_point(float target_x_or_y,SIDE_ENUM side,CAR_ATTITUDE *out0,CAR_ATTITUDE *out1,CAR_ATTITUDE *out2,CAR_ATTITUDE *back){//计算在最终边的目标点位姿
     switch (side){
         case SIDE_LEFT:
             out2->x=target_x_or_y;
@@ -276,7 +232,7 @@ void calculate_target_point(float target_x_or_y,SIDE_ENUM side,CAR_ATTITUDE *out
     }
 
 }
-BOOL planning_direction(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 target_x_or_y){
+BOOL planning_direction(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 target_x_or_y){//输入目标边、位置，现在的边、位置，输出应该顺/逆时针行进
     uint16 now_location,target_location,target_now_x_or_y;
     if (now_side==SIDE_LEFT||now_side==SIDE_RIGHT)
         target_now_x_or_y = (int)car->x;
@@ -299,19 +255,20 @@ BOOL planning_direction(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *c
     }
     return TRUE;//其他情况认为方向错误
 }
-/*
-BOOL if_near_turning_point(SIDE_ENUM target_side,uint16 target_x_or_y){//判断目标点是否在转弯点附近
-    SIDE_ENUM turning_point_index;
-    if (RUNNING_IF_CLOCKWISE) turning_point_index=target_side-1;
-    else turning_point_index=target_side+1;
-    if (target_side==SIDE_LEFT||target_side==SIDE_RIGHT)
-        if (abs(TURNING_POINT[turning_point_index][0]-target_x_or_y)<OUTLINE_WIDTH/2.0f) return TRUE;
-        else return FALSE;
-    else
-        if (abs(TURNING_POINT[turning_point_index][1]-target_x_or_y)<OUTLINE_HIGHT/2.0f) return TRUE;
-        else return FALSE;
+
+//-------------------------------------------状态机相关函数--------------------------------------------
+//WAITING状态机
+int waiting(BOOL* wireless_analyze_state){
+    planning_points_num=0;
+    planning_outline_points_num=0;
+     // 等待无线数据，直到收到数据后返回 1 进入下一状态
+    if (*wireless_analyze_state==TRUE) {
+        *wireless_analyze_state=FALSE;
+        return 1; // 收到无线数据，进入下一状态
+    }
+    return 0; // 继续等待
 }
-*/
+//PLANNING状态机
 int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 target_x_or_y){//planning会规划小车行驶方向(RUNNING_IF_CLOCKWISE顺或逆)和途径点(PLANNING_POINTS和PLANNING_OUTLINE_POINTS)
     SIDE_ENUM i=now_side;
     if (planning_direction(target_side, now_side, car, target_x_or_y)!=RUNNING_IF_CLOCKWISE) {
@@ -365,28 +322,9 @@ int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 t
         if(RUNNING_IF_CLOCKWISE)i=(i+1)%9;
         else i=(i+8)%9;
     }
-    /*
-    calculate_target_point(target_x_or_y, target_side, &PLANNING_OUTLINE_POINTS[0], &PLANNING_OUTLINE_POINTS[1], &PLANNING_OUTLINE_POINTS[2], &PLANNING_BACK_POINT);
-    planning_outline_points_num=3;
-    if (PLANNING_POINTS[planning_points_num-1].x==PLANNING_OUTLINE_POINTS[0].x && PLANNING_POINTS[planning_points_num-1].y==PLANNING_OUTLINE_POINTS[0].y){
-        RUNNING_TOWARD_OUTLINE=TRUE;
-        PLANNING_OUTLINE_POINTS[0].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
-        PLANNING_OUTLINE_POINTS[1].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
-    }
-    */
     return 1;
 }
-int planning_outline(SIDE_ENUM target_side,uint16 target_x_or_y){
-    if (target_x_or_y==6660)return 0;//666代表只规划了边
-    calculate_target_point(target_x_or_y, target_side, &PLANNING_OUTLINE_POINTS[0], &PLANNING_OUTLINE_POINTS[1], &PLANNING_OUTLINE_POINTS[2], &PLANNING_BACK_POINT);
-    planning_outline_points_num=3;
-    if (PLANNING_POINTS[planning_points_num-1].x==PLANNING_OUTLINE_POINTS[0].x && PLANNING_POINTS[planning_points_num-1].y==PLANNING_OUTLINE_POINTS[0].y){
-        RUNNING_TOWARD_OUTLINE=TRUE;
-        PLANNING_OUTLINE_POINTS[0].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
-        PLANNING_OUTLINE_POINTS[1].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
-    }
-    return 1;
-}
+//TRACK_LINE_RUNNING状态机
 int tracking_line_running(CAR_ATTITUDE *car){
     int i;
     for (i = 0; i < planning_points_num; i++) {
@@ -394,6 +332,19 @@ int tracking_line_running(CAR_ATTITUDE *car){
         tracking_and_nevigate(direction,PLANNING_POINTS[i].x,PLANNING_POINTS[i].y,car);
         //nevigate(PLANNING_POINTS[i].yaw, PLANNING_POINTS[i].x, PLANNING_POINTS[i].y,car);
         beep_once(100);
+    }
+    return 1;
+}
+
+//OUT_LINE_RUNNING状态机
+int planning_outline(SIDE_ENUM target_side,uint16 target_x_or_y){//规划线外惯导到达点，当收到666时返回0，持续等待
+    if (target_x_or_y==6660)return 0;//666代表只规划了边
+    calculate_target_point(target_x_or_y, target_side, &PLANNING_OUTLINE_POINTS[0], &PLANNING_OUTLINE_POINTS[1], &PLANNING_OUTLINE_POINTS[2], &PLANNING_BACK_POINT);
+    planning_outline_points_num=3;
+    if (PLANNING_POINTS[planning_points_num-1].x==PLANNING_OUTLINE_POINTS[0].x && PLANNING_POINTS[planning_points_num-1].y==PLANNING_OUTLINE_POINTS[0].y){
+        RUNNING_TOWARD_OUTLINE=TRUE;
+        PLANNING_OUTLINE_POINTS[0].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
+        PLANNING_OUTLINE_POINTS[1].yaw=PLANNING_POINTS[planning_points_num-1].yaw;
     }
     return 1;
 }
@@ -411,6 +362,8 @@ int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side
     *now_side=target_side;
     return 1;
 }
+
+//BACK_TO_LINE状态机
 int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y){
     char str[20];
     if (!wireless_analyze_state) return 0;//未收到信号不返回
@@ -422,7 +375,9 @@ int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y){
     beep_once(100);
     return 1;
 }
-void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed){
+
+//-------------------------------------------巡线视觉纠正相关函数--------------------------------------------
+void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed){//通过控制车体y轴速度来巡线，在视觉误差小时纠正车体坐标
     float *x_or_y;
     int output=0;
     if(direction==FACING_UP||direction==FACING_DOWN){
@@ -450,11 +405,11 @@ void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_AT
     }
     Target_Speed->speed_y=output;
 }
-float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,CAR_ATTITUDE *car){
-    float base=(direction+1)%4*90-90;
-    if(abs(erro)<15){
+float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,int erro2,CAR_ATTITUDE *car){//巡线时当误差小时将角度用offset纠正，误差大时返回目标角速度辅助锁定正确方向
+    float base=(direction+1)%4*90-90;//将目标方向转化为目标角度
+    if(abs(erro)<4&&abs(erro2)<15){
         *offset=base-car->yaw;
         return 0;
     }
-    return erro/30;
+    return erro/2;
 }

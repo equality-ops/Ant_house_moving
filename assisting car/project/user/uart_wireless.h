@@ -9,6 +9,11 @@
 #define UART_BAUDRATE           ( 115200 )                  // 默认 115200
 #define UART_TX_PIN             ( UART5_TX_P05 )            // 默认 UART5_TX_P05
 #define UART_RX_PIN             ( UART5_RX_P04 )            // 默认 UART5_RX_P04
+
+#define UART_INDEX2              ( UART_4   )                // 默认 UART_5
+#define UART_TX_PIN2             ( UART4_TX_PA3 )            // 默认 UART5_TX_P05
+#define UART_RX_PIN2             ( UART4_RX_PA2 )            // 默认 UART5_RX_P04
+
 #define MAX_BUF_SIZE 128
 typedef struct {
     uint8 buffer[MAX_BUF_SIZE];
@@ -39,6 +44,15 @@ extern uint32      fifo_data_count;                            // fifo 数据个
 extern fifo_struct uart_data_fifo;
 extern uint8 uart_analyze_flag;//uart分析标志
 
+//uart2相关变量
+extern ring_buffer uart_rx_buffer2;//uart接收环形缓冲区
+extern uint8       uart_get_data2[64];                        // 串口接收数据缓冲区
+extern uint8       fifo_get_data2[64];                        // fifo 输出读出缓冲区
+extern uint8       last_rx_data_count2;
+extern uint32      fifo_data_count2;                            // fifo 数据个数
+extern fifo_struct uart_data_fifo2;
+extern uint8 uart_analyze_flag2;//uart分析标志
+
 //wireless相关变量
 extern ring_buffer wireless_rx_buffer;//wireless接收环形缓冲区
 extern uint8 data_buffer[32];
@@ -56,7 +70,7 @@ extern uint8 rb_move(const ring_buffer *rb, uint8 idx,uint8 l);
 extern void rb_write(ring_buffer *rb, uint8 *dat, uint8 length);
 extern void rb_write_q(ring_buffer *rb, uint8 *dat, uint8 length);
 //uart define
-extern void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_flag);
+extern void analyze_uart_data(ring_buffer *rb,int16* camera_erro,int16* slope_,uint8* uart_analyze_flag);
 extern void uart_send(const uint8 *dat,uint8 length);
 extern void uart_send_int16_to_chr(int16 dat);
 //wireless define

@@ -72,7 +72,7 @@ int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 t
 int tracking_line_running(CAR_ATTITUDE *car);
 int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side,uint16 target_x_or_y);
 int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y);
-float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,CAR_ATTITUDE *car);
+float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,int erro2,CAR_ATTITUDE *car);
 void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed);
 void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car);
 #endif

@@ -78,6 +78,7 @@ void rb_write_q(ring_buffer *rb, uint8 *dat, uint8 length){
     rb->head = (head + length) & (rb->length - 1);
 }
 //uart函数
+/*
 void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_flag) {
     while (rb_idx_to_head_length(rb, rb->tail)>3) {// 确保至少有4个字节可读（帧头+数据1+数据2+帧尾）
         uint8 dat;
@@ -102,34 +103,42 @@ void analyze_uart_data(ring_buffer *rb,int16* camera_erro,uint8* uart_analyze_fl
         }
     }
 }
+*/
+void analyze_uart_data(ring_buffer *rb,int16* camera_erro,int16* slope_,uint8* uart_analyze_flag) {
+    while (rb_idx_to_head_length(rb, rb->tail)>5) {// 确保至少有4个字节可读（帧头+数据1+数据2+数据3+数据4+帧尾）
+        uint8 dat;
+        uint8 i=rb->tail; 
+        rb_read_one(rb, &dat); // 读取一个字节
+        if (dat != (uint8)0x23) { // 寻找帧头#
+            continue;
+        }
+        else {   // 找到帧头，检查帧尾!
+            i=rb_move(rb, i, 5); // 将移动到帧尾索引
+            if (rb->buffer[i] == (uint8)0x21)
+            { 
+                uint8 new_erro3=rb->buffer[rb_move(rb, i, -2)]; // 读取数据3
+                uint8 new_erro4=rb->buffer[rb_move(rb, i, -1)]; // 读取数据4
+                uint8 new_erro1=rb->buffer[rb_move(rb, i, -4)]; // 读取数据1
+                uint8 new_erro2=rb->buffer[rb_move(rb, i, -3)]; // 读取数据2
+                if ((new_erro1&0x01)==0 && (new_erro2&0x01)==0 && (new_erro3&0x01)==0 && (new_erro4&0x01)==0) {
+                    uint16 abs14 = ((uint16)((new_erro1&0x7F) >> 1) << 7) | (new_erro2 >> 1);
+                    *camera_erro = (new_erro1 & 0x80) ? -(int16)abs14 : (int16)abs14;
+
+                    abs14 = ((uint16)((new_erro3&0x7F) >> 1) << 7) | (new_erro4 >> 1);
+                    *slope_ = (new_erro3 & 0x80) ? -(int16)abs14 : (int16)abs14;   
+                    rb->tail = rb_move(rb, i, 1); // 更新环形缓冲区的尾部索引，丢弃已处理数据（将tail移动到帧尾后一位）
+                    *uart_analyze_flag = 1; // 设置分析完成标志
+                }
+            }
+        }
+    }
+}
 void uart_send(const uint8 *dat,uint8 length){
     uint8 n_buffer[64];   //用于存储读取到的数据的临时缓冲区
     memcpy(n_buffer, dat, length);
     printf("%s\r\n", n_buffer);              
     uart_write_buffer(UART_INDEX, n_buffer, length); 
     uart_write_string(UART_INDEX, "\r\n");                 
-}
-void uart_send_int16_to_chr(int16 dat) {
-    char buffer[6];  // int16 范围 -32768 ~ 32767，最多6字符（含负号和结尾\0）
-    int16 num = dat;
-    uint8 idx = 0;
-    
-    if (num < 0) {
-        uart_write_byte(UART_INDEX, '-');
-        num = -num;
-    }
-    
-    // 生成数字字符（反向）
-    do {
-        buffer[idx++] = (num % 10) + '0';
-        num /= 10;
-    } while (num > 0);
-    
-    // 反向发送
-    while (idx > 0) {
-        uart_write_byte(UART_INDEX, buffer[--idx]);
-    }
-    uart_write_string(UART_INDEX, "\r\n");
 }
 //wireless函数
 void analyze_wireless_data(ring_buffer *rb,SIDE_ENUM* target_side,uint16* target_x_or_y,BOOL* wireless_analyze_state ) {
@@ -166,20 +175,6 @@ void analyze_wireless_data(ring_buffer *rb,SIDE_ENUM* target_side,uint16* target
             }
         }
     }
-}
-void wireless_send_uint16_to_chr(uint16 dat, uint8 length) {
-    char buff[7];
-    uint8 start = 0;
-    uint8 end = length;  // 记录实际占用长度
-    uint8 i;
-    i = end;
-    while (i > start) {
-        i--;
-        buff[i] = (char)(dat % 10 + 0x30);
-        dat /= 10;
-    }
-    wireless_uart_send_buffer(buff, end);
-    wireless_uart_send_string("\r\n");
 }
 void vofa_data_analyze(ring_buffer *rb, float *channel1, float *channel2,float *channel3, float *channel4,float *channel5, float *channel6)
 {
