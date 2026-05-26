@@ -499,4 +499,177 @@ def collaborative_task_machine():
 
     # 任务机
     # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+
+# 视觉伺服测试函数
+def test_vision_servo():
+    if my_state.state == READY_NAVIGATE:
+        if my_vision_manager.if_send_order == False:
+            my_order_manager.mode_target()
+            my_vision_manager.if_send_order = True
+
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.ready_servo_and_orbit(target_point)
+            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
+            my_vision_manager.if_send_order = False
+            my_state.state = SERVO
+    elif my_state.state == SERVO:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
+            my_order_manager.mode_target()
+            my_state.state = ORBIT
+            my_vision_manager.reset_orbit_angle()
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(140.0)
+        if my_vision_manager.if_finish_orbit == True:
+            my_state.state = STOP
+            my_plan.reset_navigate_angle()
+    elif my_state.state == STOP:
+        my_plan.stop()
+
+# 测试小车搬运状态
+def test_moving():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[160.0, 80.0]])
+        if my_plan.if_finish_navigate == True:
+            if my_vision_manager.if_send_order == False:
+                my_order_manager.mode_target()
+                my_vision_manager.if_send_order = True 
+            target_point = my_art_protocol.coordinate_receive()
+            if target_point and (target_point[2] in ['T', 'S', 'E', 'W', 'B']):
+                my_vision_manager.ready_servo_and_orbit(target_point)
+                my_plan.reset_navigate()  # 重置导航相关变量
+                my_state.state = SERVO
+                my_vision_manager.if_send_order = False 
+    elif my_state.state == SERVO:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
+            counter += 1
+            # 延时500ms
+            if counter >= 50:
+                my_vision_manager.if_finish_servo = False
+                my_moving.ready_move()
+                my_uart3.write(f"state: {my_moving.current_state},moving_pt: {my_moving.moving_point},angle_buffer: {my_moving.angle_buffer}\n")
+                my_order_manager.mode_target()
+                my_state.state = MOVE
+                # 测试
+                my_beep.test()
+    elif my_state.state == MOVE:
+        my_moving.moving()
+        if my_moving.if_finish_move == True:
+            my_moving.if_finish_move = False
+            my_path.plan_path(plan_data.fixed_point[0][0], plan_data.fixed_point[0][1])
+            my_state.state = RETURN
+    elif my_state.state == RETURN:
+        my_plan.navigate(path = my_path.ready_path, target_turn_angle = 0.0)
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()  # 重置导航相关变量
+            my_state.state = STOP
+    elif my_state.state == STOP:
+        my_plan.stop()
+
+orbit_angle = 240.0
+def test_orbit():
+    global orbit_angle, counter, direct_flag
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = ORBIT
+        my_vision_manager.object_radius = 16.0
+        my_vision_manager.current_servo_object = 'S'
+        my_order_manager.mode_target()
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(orbit_angle)
+        if my_vision_manager.if_finish_orbit == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_moving.reset_orbit()
+                orbit_angle += 120.0
+                orbit_angle = (orbit_angle + 180) % 360 - 180
+
+# 边线和apriltag码校准测试程序
+def test_apriltag_calibrate():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[160.0, 220.0], [0.0, 120.0], [130.0, -5.0]], target_turn_angle = 40.0)
+        if my_plan.if_finish_navigate == True:  
+            my_plan.reset_navigate()
+            my_state.state = CALIBRATE
+            my_vision_manager.assist_car_pos = [160.0, 0.0]
+            my_vision_manager.car_position = 'R'
+    elif my_state.state == CALIBRATE:
+        my_vision_manager.apriltag_calibrate_control()
+        if my_vision_manager.if_finish_calibrate == True:
+            counter += 1
+            # 延时1s
+            if counter >= 100:
+                counter = 0
+                my_vision_manager.reset_apriltag_calibrate()
+                my_plan.reset_navigate_angle()
+                my_state.state = STOP
+    elif my_state.state == RETURN:
+        my_plan.navigate(path = [[0.0, 0.0]], target_turn_angle = 0.0)
+        if my_plan.if_finish_navigate == True:  
+            my_plan.reset_navigate()
+            my_state.state = STOP
+
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180    
+
+                
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180   
+
+# 调试电机速度环pid函数
+def show_speed_PID_test():
+    global counter
+    counter += 1
+    # 调试搬运模式下的pid参数
+    # my_state.state = MOVE
+    # motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
+    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
+    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
+
+    # 测试不同速度下的pid参数切换情况
+    if counter >= 8000:
+        counter = 0
+    elif counter >= 6000:
+        motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
+    elif counter >= 4000:
+        motor_ul_pid.compute_pid(-20, pose_data.encoder_data_ul)
+    elif counter >= 2000:
+        motor_ul_pid.compute_pid(-120, pose_data.encoder_data_ul)
+    else:
+        motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
+
+
 '''
+

@@ -459,12 +459,14 @@ class Menu:
             return "confirm"
         
         # 读取up/down按键
-        for key_name, idx in self.key_index_map.items():
-            if key_name in ("up", "down") and self.key_data[idx] == 1:
-                self.key_handler.clear(idx + 1)
-                self.beep.key_test()
-                pressed_key = key_name
-                break
+        if self.key_data[1] == 1:
+            self.key_handler.clear(2)
+            self.beep.key_test()
+            pressed_key = "up"
+        elif self.key_data[0] == 1:
+            self.key_handler.clear(1)
+            self.beep.key_test()
+            pressed_key = "down"
 
         if pressed_key is None:
             enc_rot_key = self.read_encoder_rotation()

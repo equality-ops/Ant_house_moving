@@ -205,14 +205,17 @@ class PoseData:
         
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
-        q0 += (-q1*gx - q2*gy - q3*gz) * half_dt
-        q1 += (q0*gx + q2*gz - q3*gy) * half_dt
-        q2 += (q0*gy - q1*gz + q3*gx) * half_dt
-        q3 += (q0*gz + q1*gy - q2*gx) * half_dt
+        q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
+        q1_new = q1 + (q0*gx + q2*gz - q3*gy) * half_dt
+        q2_new = q2 + (q0*gy - q1*gz + q3*gx) * half_dt
+        q3_new = q3 + (q0*gz + q1*gy - q2*gx) * half_dt
         
         # 7. 再次归一化四元数
-        norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
-        self.q = [q0/norm, q1/norm, q2/norm, q3/norm]
+        norm = math.sqrt(q0_new*q0_new + q1_new*q1_new + q2_new*q2_new + q3_new*q3_new)
+        self.q[0] = q0_new/norm
+        self.q[1] = q1_new/norm
+        self.q[2] = q2_new/norm
+        self.q[3] = q3_new/norm
 
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
@@ -267,11 +270,16 @@ class PoseData:
             return # 防止除零异常
 
         # 4. 强制覆盖当前四元数状态
-        self.q = [q0/norm, q1/norm, q2/norm, q3/norm]
+        self.q[0] = q0/norm
+        self.q[1] = q1/norm
+        self.q[2] = q2/norm
+        self.q[3] = q3/norm
 
         # 5. 清空 PI 算法的积分补偿项
         # 这一步极其重要：如果不清空，历史误差的积分积累会在接下来的几个周期内把姿态又“拉回”一点点，导致修正不干脆
-        self.e_int = [0.0, 0.0, 0.0]
+        self.e_int[0] = 0.0
+        self.e_int[1] = 0.0
+        self.e_int[2] = 0.0
 
         # 6. 同步更新底层的欧拉角输出，确保下一个控制周期读取的数据是最新值
         self.update_euler_angles()

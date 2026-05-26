@@ -83,11 +83,12 @@ boost_time_threshold = 60
 final_threshold = 1.5
 branch_threshold = 5.0
 blend_radius = 20.0
+assist_car_to_line = 20.0
 # 已弃用
 plan_arrive_threshold = 1.5
 plan_point_transition_T = 5
 
-rogue_planning = "[(160.0, 120.0), 'E', [('y', 150.0), ('x', 210.0)]]"
+rogue_planning = "[(160.0, 120.0), 'S', 'D', [('y', 150.0)]]"
 cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0

@@ -3,26 +3,22 @@ import math
 import gc
 
 PI = const(3.1415926)
+READY_NAVIGATE = const(0)   # 准备导航状态
+NAVIGATE = const(1)       # 导航状态
+SCAN = const(2)           # 扫描状态
+SERVO = const(3)          # 视觉伺服状态
+ORBIT = const(4)          # 环绕状态
+MOVE = const(5)           # 搬运状态
+CALIBRATE = const(6)      # 校准状态
+ADJUST = const(7)           # 微调状态
+RETURN = const(8)		    # 返回状态
+STOP = const(9)           # 停止状态
 
 # 状态机制
 class StateMachine:
-    def __init__(self):
-        # state 模式：
-        self.READY_NAVIGATE = 0   # 准备导航状态
-        self.NAVIGATE = 1       # 导航状态
-        self.SCAN = 2           # 扫描状态
-        self.SERVO = 3          # 视觉伺服状态
-        self.ORBIT = 4          # 环绕状态
-        self.MOVE = 5           # 搬运状态
-        self.CALIBRATE = 6      # 校准状态
-        self.ADJUST = 7           # 微调状态
-        self.RETURN = 8		    # 返回状态
-        self.STOP = 9           # 停止状态
-        
+    def __init__(self):        
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
-        self.state = self.NAVIGATE  # 初始状态为准备导航状态
-        self.state_work = -1 # 阶段变量
-
+        self.state = READY_NAVIGATE  # 初始状态为准备导航状态
         gc.collect()
 
 # 路径和速度规划相关常量
@@ -32,7 +28,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为主车返回点
-        self.fixed_point = [[160.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -101,12 +97,12 @@ class PathPlan:
 
         # 验证起点和终点
         if not self._point_valid(start, circles, rects, block_r):
-            return []
+            self.ready_path = []
         if not self._point_valid(end, circles, rects, block_r):
-            return []
+            self.ready_path = []
         # 检查直连
         if self._line_valid(start, end, circles, rects, block_r):
-            return [(float(x1), float(y1)), [x1, y1]]
+            self.ready_path = [[float(x1), float(y1)]]
 
         # 初始化节点列表
         nodes = [start, end]
@@ -154,7 +150,10 @@ class PathPlan:
             path.append(nodes[i])
             i = prev[i]
         path.reverse()
+        
         self.ready_path = self._path_to_list(self._smooth_path(path, circles, rects, block_r))
+        # 删除起点
+        self.ready_path.pop(0)
 
     # 初始化圆形障碍物列表
     def _normalize_points(self, points):
@@ -400,7 +399,7 @@ class NavigationPlan:
     
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
-        self.path = path
+        self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
         
@@ -471,7 +470,8 @@ class NavigationPlan:
             self.my_car.alpha_y = 1.0
 
         # 提取当前物体种类信息
-        self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
+        if self.plan_data.current_index < self.plan_data.total_objects_num:
+            self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
         
 
     # 根据当前过渡距离计算加减速距离
@@ -537,7 +537,7 @@ class NavigationPlan:
 
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
-        if self.my_state.state == self.my_state.MOVE:
+        if self.my_state.state == MOVE:
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if_sandbag = (self.current_object in ['S', 'E'] and self.my_car.x_current <= near_line_threshold)
             if_bear = (self.current_object in ['B', 'W'] and self.my_car.x_current >= 320.0 - near_line_threshold)

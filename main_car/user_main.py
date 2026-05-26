@@ -5,25 +5,37 @@
 # 当成功执行 user_main.py 后 C4 LED 会以一秒周期进行闪烁
 # 当 D9 引脚电平出现变化时退出测试程序
 
-# 从 machine 库包含所有内容 
+# 包含 gc 与 time 类
+import gc
+import time
+
 from micropython import const
+
+# 从 machine 库包含所有内容 
 from machine import *
 from display import *
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER
 from smartcar import ticker, encoder
 import ant_vision
 import ant_plan
-import ant_motor
 import ant_else
+gc.collect()
+import ant_motor
 import ant_menu
-import ant_state
 import math
 
-# 包含 gc 与 time 类
-import gc
-import time
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
+READY_NAVIGATE = const(0)   # 准备导航状态
+NAVIGATE = const(1)       # 导航状态
+SCAN = const(2)           # 扫描状态
+SERVO = const(3)          # 视觉伺服状态
+ORBIT = const(4)          # 环绕状态
+MOVE = const(5)           # 搬运状态
+CALIBRATE = const(6)      # 校准状态
+ADJUST = const(7)           # 微调状态
+RETURN = const(8)		    # 返回状态
+STOP = const(9)           # 停止状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -31,19 +43,6 @@ counter = 0      # type: int
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
-# 是否操控从车提前到达目标点就位标志位
-if_send_preparing_path = False
-# 任务阶段变量
-DEPART = 0       # 出发（离开发车区）
-DOWN = 1         # 位于矩形下边沿
-UP = 2           # 位于矩形上边沿
-CHECK = 3        # 检验阶段（检查是否搬运完所有物体）
-RETURN_WORK = 4  # 返回阶段（搬运完所有物体后返回起点）
-# 小车位置（用于apriltag矫正模式）
-DOWN_LEFT = 0
-DOWN_RIGHT = 1
-UP_LEFT = 2
-UP_RIGHT = 3
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -182,10 +181,12 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  
 my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
 
 # 任务及类
-my_task = ant_state.TaskController(my_beep, my_state, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
+
+gc.collect()
 ###################################【函数定义】###################################
 # 电机驱动函数
 def set_motor(motor, duty) -> None:
@@ -228,8 +229,7 @@ def main_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DOWN
-                my_state.state = my_state.READY_NAVIGATE
+                my_state.state = READY_NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -242,185 +242,30 @@ def main_start():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [my_state.NAVIGATE, my_state.READY_NAVIGATE, my_state.RETURN, my_state.STOP, my_state.SCAN]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.MOVE:
-        if my_moving.current_state == my_state.ORBIT:
+    elif my_state.state == MOVE:
+        if my_moving.current_state == ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state == my_state.SERVO:
+        elif my_moving.current_state == SERVO:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state in [my_state.ADJUST, my_state.MOVE]:
+        elif my_moving.current_state in [ADJUST, MOVE]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.SERVO:
+    elif my_state.state == SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.CALIBRATE:
+    elif my_state.state == CALIBRATE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.ORBIT:
+    elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-
-
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    global counter
-    counter += 1
-    # 调试搬运模式下的pid参数
-    # my_state.state = my_state.MOVE
-    # motor_ul_pid.compute_pid(60, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
-
-    # 测试不同速度下的pid参数切换情况
-    if counter >= 8000:
-        counter = 0
-    elif counter >= 6000:
-        motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
-    elif counter >= 4000:
-        motor_ul_pid.compute_pid(-20, pose_data.encoder_data_ul)
-    elif counter >= 2000:
-        motor_ul_pid.compute_pid(-120, pose_data.encoder_data_ul)
-    else:
-        motor_ul_pid.compute_pid(250, pose_data.encoder_data_ul)
     
-# 视觉伺服测试函数
-def test_vision_servo():
-    if my_state.state == my_state.READY_NAVIGATE:
-        if my_vision_manager.if_send_order == False:
-            my_order_manager.mode_target()
-            my_vision_manager.if_send_order = True
-
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point)
-            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
-            my_vision_manager.if_send_order = False
-            my_state.state = my_state.SERVO
-    elif my_state.state == my_state.SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            my_order_manager.mode_target()
-            my_state.state = my_state.ORBIT
-            my_vision_manager.reset_orbit_angle()
-    elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_state.state = my_state.STOP
-            my_plan.reset_navigate_angle()
-    elif my_state.state == my_state.STOP:
-        my_plan.stop()
-
-# 测试小车搬运状态
-def test_moving():
-    global counter
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate(path = [[160.0, 80.0]])
-        if my_plan.if_finish_navigate == True:
-            if my_vision_manager.if_send_order == False:
-                my_order_manager.mode_target()
-                my_vision_manager.if_send_order = True 
-            target_point = my_art_protocol.coordinate_receive()
-            if target_point and (target_point[2] in ['T', 'S', 'E', 'W', 'B']):
-                my_vision_manager.ready_servo_and_orbit(target_point)
-                my_plan.reset_navigate()  # 重置导航相关变量
-                my_state.state = my_state.SERVO
-                my_vision_manager.if_send_order = False 
-    elif my_state.state == my_state.SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            counter += 1
-            # 延时500ms
-            if counter >= 50:
-                my_vision_manager.if_finish_servo = False
-                my_moving.ready_move()
-                my_uart3.write(f"state: {my_moving.current_state},moving_pt: {my_moving.moving_point},angle_buffer: {my_moving.angle_buffer}\n")
-                my_order_manager.mode_target()
-                my_state.state = my_state.MOVE
-                # 测试
-                my_beep.test()
-    elif my_state.state == my_state.MOVE:
-        my_moving.moving()
-        if my_moving.if_finish_move == True:
-            my_moving.if_finish_move = False
-            my_path.plan_path(plan_data.fixed_point[0][0], plan_data.fixed_point[0][1])
-            my_state.state = my_state.RETURN
-    elif my_state.state == my_state.RETURN:
-        my_plan.navigate(path = my_path.ready_path, target_turn_angle = 0.0)
-        if my_plan.if_finish_navigate == True:
-            my_plan.reset_navigate()  # 重置导航相关变量
-            my_state.state = my_state.STOP
-    elif my_state.state == my_state.STOP:
-        my_plan.stop()
-
-orbit_angle = 240.0
-def test_orbit():
-    global orbit_angle, counter, direct_flag
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.ORBIT
-        my_vision_manager.object_radius = 16.0
-        my_vision_manager.current_servo_object = 'S'
-        my_order_manager.mode_target()
-    elif my_state.state == my_state.ORBIT:
-        my_vision_manager.orbit_control(orbit_angle)
-        if my_vision_manager.if_finish_orbit == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_moving.reset_orbit()
-                orbit_angle += 120.0
-                orbit_angle = (orbit_angle + 180) % 360 - 180
-
-# 边线和apriltag码校准测试程序
-def test_apriltag_calibrate():
-    global counter
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate(path = [[160.0, 220.0], [0.0, 120.0], [130.0, -5.0]], target_turn_angle = 40.0)
-        if my_plan.if_finish_navigate == True:  
-            my_plan.reset_navigate()
-            my_state.state = my_state.CALIBRATE
-            my_vision_manager.assist_car_pos = [160.0, 0.0]
-            my_vision_manager.car_position = 'R'
-    elif my_state.state == my_state.CALIBRATE:
-        my_vision_manager.apriltag_calibrate_control()
-        if my_vision_manager.if_finish_calibrate == True:
-            counter += 1
-            # 延时1s
-            if counter >= 100:
-                counter = 0
-                my_vision_manager.reset_apriltag_calibrate()
-                my_plan.reset_navigate_angle()
-                my_state.state = my_state.STOP
-    elif my_state.state == my_state.RETURN:
-        my_plan.navigate(path = [[0.0, 0.0]], target_turn_angle = 0.0)
-        if my_plan.if_finish_navigate == True:  
-            my_plan.reset_navigate()
-            my_state.state = my_state.STOP
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180
-
 # 测试
 # 设置pid参数
 def set_pid_params():
-    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.CALIBRATE:
+    if my_state.state == MOVE or my_state.state == ORBIT or my_state.state == CALIBRATE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
@@ -498,7 +343,7 @@ def time_pit1_handler(time):
     master_control()
 
     # 设置电机pwm输出
-    if_stop_pwm = (my_state.state == my_state.CALIBRATE and my_vision_manager.if_finish_calibrate == False and my_vision_manager.if_ready_calibrate == True)
+    if_stop_pwm = (my_state.state == CALIBRATE and my_vision_manager.if_finish_calibrate == False and my_vision_manager.if_ready_calibrate == True)
     if if_stop_pwm:
         my_car.pwm_stop()
     else:
@@ -512,22 +357,22 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
-    if my_state.state == my_state.READY_NAVIGATE:
+    if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
-        my_plan.navigate(path = [[160.0, 80.0], [240.0, 80.0], [240.0, 0.0], [160.0, 0.0]])
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[0.0, 240.0], [0.0, 0.0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
-            my_state.state = my_state.STOP
+            my_state.state = STOP
             my_beep.test()
-    elif my_state.state == my_state.STOP:
+    elif my_state.state == STOP:
         my_plan.stop()
     """
     # 视觉伺服测试程序
@@ -560,7 +405,8 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
 
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_vision_manager.orbit_speed, motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+    # my_uart3.write(f"state:{my_state.state}, {my_task.scan_message}\r\n")
+    my_uart3.write(f"{my_car.x_current},{my_car.y_current}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
