@@ -1,8 +1,17 @@
 import math
 import gc
+
+object_to_line_dict = {
+    'T': 'U',
+    'S': 'L',
+    'E': 'L',
+    'W': 'R',
+    'B': 'R'
+}
+
 # 状态机类
 class TaskController:
-    def __init__(self, beep, state,  car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol):
+    def __init__(self, beep, state,  car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol, assist_protocol):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -15,6 +24,7 @@ class TaskController:
         self.my_order_manager = order_manager
         self.my_art_protocol = art_protocal
         self.my_main_protocol = main_protocol
+        self.my_assist_protocol = assist_protocol
 
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
@@ -60,10 +70,9 @@ class TaskController:
             self.my_plan.reset_navigate_angle()
         elif state == self.my_state.NAVIGATE:
             # 进入导航状态，开始执行路径跟随
-            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
         elif state == self.my_state.SCAN:
             # 进入扫描状态，开始寻找目标物体
-            self.my_plan.reset_navigate()  # 重置导航标志
             self.my_order_manager.mode_target() # 打开目标识别模式
             self.my_art_protocol.send_object_kind(self.my_plan.current_object)  # 发送目标物体种类信息
         elif state == self.my_state.SERVO:
@@ -71,56 +80,73 @@ class TaskController:
             pass
         elif state == self.my_state.MOVE:
             # 进入搬运状态，开始搬运物体
-            pass
+            self.my_plan.reset_navigate_angle()
+            self.my_moving.ready_move()  # 准备搬运动作
         elif state == self.my_state.CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
-            pass
+            # 记录小车在哪个边线
+            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
         elif state == self.my_state.ADJUST:
             # 进入调整状态，根据需要进行微调
             pass
         elif state == self.my_state.RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            pass
+            self.my_plan.reset_navigate_angle()
         elif state == self.my_state.STOP:
             # 进入停止状态，停止所有动作等待下一指令
-            pass
+            self.my_plan.reset_navigate_angle()
 
     def exit(self):
         state = self.my_state.state
-        self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
 
         if state == self.my_state.READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
             self.my_state.state = self.my_state.NAVIGATE  # 直接切换到导航状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.NAVIGATE:
             if not self.if_send_path:
                 self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
 
+            # 向辅助车发送回线消息
+            self.my_assist_protocol.send_back_message()
             # 退出导航状态，停止路径跟随
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             self.my_state.state = self.my_state.SCAN  # 直接切换到扫描状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.SCAN:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
                 self.my_state.state = self.my_state.SERVO
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
                 # 如果小车并没有找到物体，先跳过当前物体
                 self.my_plan.reset_navigate()
                 self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
                 if self.data.current_index >= self.data.total_objects_num:
                     self.my_state.state = self.my_state.RETURN  # 如果所有物体都处理完了，进入返回状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 else:
                     self.my_state.state = self.my_state.READY_NAVIGATE
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.SERVO:
             # 退出伺服状态，停止精确对准动作
             if self.my_vision.if_finish_servo:
                 # 发送主车信息给从车
-                self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], self.slave_navigate_message[0])  
-                self.my_vision.if_finish_servo = False  # 重置伺服完成标志
-                self.my_moving.ready_move()  # 准备搬运动作
-                self.my_state.state = self.my_state.MOVE  # 直接切换到搬运状态
+                if self.if_send_path == False:
+                    self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], self.slave_navigate_message[0])  
+                    self.if_send_path = True  # 设置标志位，避免重复发送路径信息
+
+                if self.my_main_protocol.get_slave_state() == "get":
+                    # 向辅助车发送预先到达的边界
+                    line = object_to_line_dict.get(self.current_object)
+                    self.my_assist_protocol.send_advanced_line(line)
+
+                    self.if_send_path = False  # 重置路径发送标志位
+                    self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                    self.my_state.state = self.my_state.MOVE  # 直接切换到搬运状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.my_plan.if_finish_navigate:
                 self.my_vision.if_lost_object = False
                 # 将openart置为等待模式
@@ -129,23 +155,31 @@ class TaskController:
                 self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
                 if self.data.current_index >= self.data.total_objects_num:
                     self.my_state.state = self.my_state.RETURN  # 如果所有物体都处理完了，进入返回状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 else:
                     self.my_state.state = self.my_state.READY_NAVIGATE
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.MOVE:
             # 退出搬运状态，停止搬运动作
-            pass
+            self.my_moving.if_finish_move = False  # 重置搬运完成标志
+            self.my_state.state = self.my_state.CALIBRATE  # 直接切换到校准状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
-            pass
+            self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
+            self.my_state.state = self.my_state.READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更新
             pass
         elif state == self.my_state.RETURN:
             # 退出返回状态，完成返回后进行必要的状态更新
-            pass
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_state.state = self.my_state.STOP  # 直接切换到停止状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == self.my_state.STOP:
             # 退出停止状态，准备进入下一任务或待命状态
-            pass
+            self.my_beep.test()  # 任务完成，发出提示音
     
     def handle_ready_navigate(self):
         # 进入准备导航状态，做好路径规划准备和导航信息准备
@@ -234,7 +268,10 @@ class TaskController:
 
     def handle_calibrate(self):
         # if state == CALIBRATE
-        pass
+        self.my_vision.apriltag_calibrate_control()
+
+        if self.my_vision.if_finish_calibrate:
+            self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_adjust(self):
         # if state == ADJUST
@@ -242,8 +279,8 @@ class TaskController:
 
     def handle_return(self):
         # if state == RETURN
-        pass
+        self.my_plan.navigate(path = [self.data.fixed_point[3]])  # 返回起始点
 
     def handle_stop(self):
         # if state == STOP
-        pass
+        self.my_plan.stop()

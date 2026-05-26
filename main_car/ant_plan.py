@@ -31,8 +31,8 @@ class PlanData:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点
-        self.fixed_point = [[160.0, 0.0], [95.0, 55.0], [225.0, 185.0]]  # type: list
+        # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为主车返回点
+        self.fixed_point = [[160.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -600,10 +600,10 @@ class NavigationPlan:
         # =======================================================
         # 2. 闭环航向角解算模块
         # =======================================================
-        los_current = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+        self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         
         # 默认目标角度就是当前视线（取消航向角变化限制）
-        self.target_yaw = los_current  
+        # self.target_yaw = los_current  
 
         # =======================================================
         # 3. 航向角变化率限制 (防止超调打滑)

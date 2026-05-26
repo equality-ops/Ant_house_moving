@@ -1,50 +1,55 @@
+from micropython import const
 import time
+import gc
+
 
 ##############################【蜂鸣器】##############################
+BEEP_OFF = const(0)
+BEEP_ON = const(1)
+
 class beep:
     def __init__(self, beep):
         # 注入蜂鸣器对象
         self.beep = beep
-        self.BEEP_OFF = 0
-        self.BEEP_ON = 1
-        self.beep_state = self.BEEP_OFF
+        self.beep_state = BEEP_OFF
 
     # 蜂鸣器警告函数(响3声，每500ms响一声，每次持续50ms)
     def beep_warn(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             for i in range(3):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
-                time.sleep_ms(400)
-                self.beep_state = self.BEEP_OFF
+                time.sleep_ms(200)
+                self.beep_state = BEEP_OFF
             return 
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return 
         
+    # 按键测试函数(响一声，持续80ms)
     def key_test(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             self.beep.high()
             time.sleep_ms(80)
             self.beep.low()
-            self.beep_state = self.BEEP_OFF
+            self.beep_state = BEEP_OFF
             return
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return
 
     # 蜂鸣器测试函数(响一声，持续50ms)
     def test(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             self.beep.high()
             time.sleep_ms(50)
             self.beep.low()
-            self.beep_state = self.BEEP_OFF
+            self.beep_state = BEEP_OFF
             return
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return
 
 
@@ -86,6 +91,8 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
+
+        gc.collect()
     
     # 发送物体种类
     def send_object_kind(self, object_kind):
@@ -175,12 +182,14 @@ class LinkProtocol:
         self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
         self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
-    
+
+        gc.collect()
+
     # 用于主车向从车发送目标物体种类及规划好的路径坐标点
     def send_path(self, target_object, target_turn, target_point):
         """
         发送路径点列表 (非阻塞)
-        格式: #P/S/B/T/E/W,120.5,80.1!
+        格式: #P/S/B/T/E/W,L,120.5,80.1!
         :param target_object: 目标物体种类
         :param target_turn: 目标转向角度
         :param target_point: (x, y) 目标点坐标
@@ -244,9 +253,50 @@ class LinkProtocol:
         else:
             return None
 
-# 数学常量类
 
+# 主辅助车通信类
+class AssistLinkProtocol:
+    def __init__(self, uart):
+        # 注入串口对象
+        self.my_uart = uart
+        # 创建字节流缓冲区
+        self.raw_buffer = b''           
+        self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
+        self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
+        self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
 
+        gc.collect()
+
+    # 用于主车向辅助车发送即将到达的边界信息
+    def send_advanced_line(self, line: str):
+        """
+        发送状态 (非阻塞)
+        格式: *line666!
+        :param line: 字符串，表示小车即将到达的边界，如'U','D','L','R'等
+        """
+        packet = "*{}666!".format(line)
+        self.my_uart.write(packet.encode('utf-8'))
+
+    # 用于主车向辅助车发送回到线上的消息
+    def send_back_message(self):
+        """
+        发送状态 (非阻塞)
+        格式: *任意字母888!
+        """
+        packet = "*U888!"
+        self.my_uart.write(packet.encode('utf-8'))
+
+    # 用于主车向辅助车发送搬运到的具体位置
+    def send_target_pos(self, line: str, pos: float):
+        """
+        发送目标位置 (非阻塞)
+        格式: *linepos!
+        :param line: 字符串，表示边界，如'U','D','L','R'等
+        :param pos: 整数，表示目标位置x/y坐标
+        """
+        pos_int = int(pos)
+        packet = "*{}{}!".format(line, pos_int)
+        self.my_uart.write(packet.encode('utf-8'))
 
 ##############################【flash系统操作】##############################
 class flash_system:
@@ -257,6 +307,8 @@ class flash_system:
         self.file_path = file_path  # type: str
         # 创建变量字典
         self.config = dict()
+
+        gc.collect()
 
     # 将字符串解析为整数或浮点数，如果无法解析则返回原始字符串
     def phase_num_string(self, s: str):
@@ -311,3 +363,68 @@ class flash_system:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
             self.beep.beep_warn()
             return 0
+            
+    def check_list_format(self) -> None:
+        """检查特定的列表与其内部变量格式是否正确"""
+        error_flag = False
+
+        # 检查 rogue_planning: [[(float, float), str, str, [(str, float), ...]]]
+        if "rogue_planning" in self.config:
+            rp = self.config["rogue_planning"]
+            if type(rp) is not list:
+                print("Error: 'rogue_planning' 必须是列表")
+                error_flag = True
+            else:
+                for plan in rp:
+                    if type(plan) is not list or len(plan) != 4:
+                        print("Error: 'rogue_planning' 中的元素必须是长度为4的列表")
+                        error_flag = True
+                        break
+                    p_coord, p_kind, p_dir, p_cond = plan
+                    if type(p_coord) is not tuple or len(p_coord) != 2 or not all(type(x) in (int, float) for x in p_coord):
+                        print("Error: 'rogue_planning' 的坐标格式错误，应为 (float, float)")
+                        error_flag = True
+                    if type(p_kind) is not str or p_kind not in ('E', 'S', 'B', 'W', 'T'):
+                        print("Error: 'rogue_planning' 的物体种类格式错误，应为字符串 (如 'P', 'E', 'S', 'B', 'W', 'T')")
+                        error_flag = True
+                    if type(p_dir) is not str or p_dir not in ('U', 'D', 'L', 'R'):
+                        print("Error: 'rogue_planning' 的方向格式错误，应为字符串 (如 'U', 'D', 'L', 'R')")
+                        error_flag = True
+                    if type(p_cond) is not list:
+                        print("Error: 'rogue_planning' 的条件格式错误，应为列表")
+                        error_flag = True
+                    else:
+                        for cond in p_cond:
+                            if type(cond) is not tuple or len(cond) != 2 or type(cond[0]) is not str or type(cond[1]) not in (int, float):
+                                print("Error: 'rogue_planning' 中条件元素格式错误，应为 (str, float)")
+                                error_flag = True
+                                break
+
+        # 检查 cube_obstacles: [(float, float, float, float), ...]
+        if "cube_obstacles" in self.config:
+            co = self.config["cube_obstacles"]
+            if type(co) is not list:
+                print("Error: 'cube_obstacles' 必须是列表")
+                error_flag = True
+            else:
+                for obs in co:
+                    if type(obs) is not tuple or len(obs) != 4 or not all(type(x) in (int, float) for x in obs):
+                        print("Error: 'cube_obstacles' 的元素格式错误，应为包干4个数字的元组 (float, float, float, float)")
+                        error_flag = True
+                        break
+
+        # 检查 circle: [(float, float), ...]
+        if "circle" in self.config:
+            cr = self.config["circle"]
+            if type(cr) is not list:
+                print("Error: 'circle' 必须是列表")
+                error_flag = True
+            else:
+                for cir in cr:
+                    if type(cir) is not tuple or len(cir) != 2 or not all(type(x) in (int, float) for x in cir):
+                        print("Error: 'circle' 的元素格式错误，应为包干2个数字的元组 (float, float)")
+                        error_flag = True
+                        break
+
+        if error_flag:
+            self.beep.beep_warn()

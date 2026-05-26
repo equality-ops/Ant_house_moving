@@ -16,6 +16,7 @@ import ant_plan
 import ant_motor
 import ant_else
 import ant_menu
+import ant_state
 import math
 
 # 包含 gc 与 time 类
@@ -122,6 +123,7 @@ my_beep = ant_else.beep(beep)
 # 从main_config.txt中读取保存所有的参数并保存到config字典中
 my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
+my_flash_sys.check_list_format()
 
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_uart6)
@@ -131,6 +133,9 @@ my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
 # 创建主从车无线串口通信对象
 my_main_protocol = ant_else.LinkProtocol(my_uart3)
+
+# 创建主辅车无线串口通信对象
+my_assist_protocol = ant_else.AssistLinkProtocol(my_uart3)
 
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
@@ -174,7 +179,10 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_car, my_state, my_
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager)
+my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+
+# 任务及类
+my_task = ant_state.TaskController(my_beep, my_state, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -250,9 +258,6 @@ def master_control():
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.CALIBRATE:
-        if my_vision_manager.if_ready_calibrate == False:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == my_state.ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
@@ -468,6 +473,10 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
+# 任务机执行函数
+def task_machine():
+    my_task.run()
+
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -504,7 +513,6 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-    # collaborative_task_machine()
 
     # 全向定位测试程序
     """
@@ -529,7 +537,7 @@ def time_pit3_handler(time) -> None:
     # test_moving()
 
     # 边线和apriltag码校准测试程序
-    test_apriltag_calibrate()
+    # test_apriltag_calibrate()
 
     # 环绕物体测试程序
     # test_orbit()

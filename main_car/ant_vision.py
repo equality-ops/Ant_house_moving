@@ -508,7 +508,7 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         # 控制小车面向物体进行视觉伺服控制
-        self.target_rel_turn_angle = self.my_plan.turn_angle_target
+        self.reset_servo_angle()
         self.current_servo_object = chr(target_point[2])
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
@@ -538,7 +538,7 @@ class VisionManager:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, beep, car, plan, plan_data, vision_manager: VisionManager, state, main_protocol, art_protocol, order_manager):
+    def __init__(self, beep, car, plan, plan_data, vision_manager: VisionManager, state, main_protocol, art_protocol, order_manager, assist_protocol):
         self.my_beep = beep
         self.vision_manager = vision_manager
         self.my_plan = plan
@@ -548,7 +548,7 @@ class MoveControl:
         self.my_main_protocol = main_protocol
         self.my_art_protocol = art_protocol
         self.my_order_manager = order_manager
-
+        self.my_assist_protocol = assist_protocol
         self.now_object_pt = [0.0, 0.0]
         
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
@@ -731,12 +731,29 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.moving_point[self.moving_idx][1]]
             self.my_main_protocol.send_path('M', [[ord('y'), self.moving_point[self.moving_idx][1]]])
 
+    # 向辅助车发送本次搬运的终点信息
+    def send_pt_to_assist(self):
+        correct_dist = (self.vision_manager.car_radius + 2.0) / math.sqrt(2)  # 斜向搬运时的距离修正
+        if self.my_plan.current_object == 'T':  
+            final_pos = self.next_point[0] + correct_dist
+            self.my_assist_protocol.send_target_pos('U', final_pos)
+        elif self.my_plan.current_object in ['S', 'E']:
+            final_pos = self.next_point[1] + correct_dist
+            self.my_assist_protocol.send_target_pos('R', final_pos)
+        elif self.my_plan.current_object in ['B', 'W']:
+            final_pos = self.next_point[1] - correct_dist
+            self.my_assist_protocol.send_target_pos('L', final_pos)
+        
+        
     # 状态过渡函数
     def state_transition(self):
         if self.current_state == self.my_state.ORBIT:
             self.handle_next_point()
             self.reset_orbit()
             self.my_plan.reset_navigate_angle()
+            # 在最后一个
+            if self.moving_idx + 1 >= len(self.moving_point):
+                self.send_pt_to_assist()
             self.current_state = self.my_state.MOVE
         elif self.current_state == self.my_state.MOVE:
             self.my_plan.reset_navigate()

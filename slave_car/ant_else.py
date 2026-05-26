@@ -1,50 +1,56 @@
+from micropython import const
 import time
+import gc
 
 ##############################【蜂鸣器】##############################
+BEEP_OFF = const(0)
+BEEP_ON = const(1)
+
 class beep:
     def __init__(self, beep):
         # 注入蜂鸣器对象
         self.beep = beep
-        self.BEEP_OFF = 0
-        self.BEEP_ON = 1
-        self.beep_state = self.BEEP_OFF
+        self.beep_state = BEEP_OFF
+
+        gc.collect()
 
     # 蜂鸣器警告函数(响3声，每500ms响一声，每次持续50ms)
     def beep_warn(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             for i in range(3):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
-                time.sleep_ms(400)
-                self.beep_state = self.BEEP_OFF
+                time.sleep_ms(200)
+                self.beep_state = BEEP_OFF
             return 
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return 
-
+        
+    # 按键测试函数(响一声，持续80ms)
     def key_test(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             self.beep.high()
-            time.sleep_ms(100)
+            time.sleep_ms(80)
             self.beep.low()
-            self.beep_state = self.BEEP_OFF
+            self.beep_state = BEEP_OFF
             return
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return
 
     # 蜂鸣器测试函数(响一声，持续50ms)
     def test(self) -> None:
-        if self.beep_state == self.BEEP_OFF:
-            self.beep_state = self.BEEP_ON
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
             self.beep.high()
             time.sleep_ms(50)
             self.beep.low()
-            self.beep_state = self.BEEP_OFF
+            self.beep_state = BEEP_OFF
             return
-        elif self.beep_state == self.BEEP_ON:
+        elif self.beep_state == BEEP_ON:
             return
 
 
@@ -81,6 +87,8 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
+
+        gc.collect()
 
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
@@ -183,6 +191,8 @@ class LinkProtocol:
         self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
         self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
 
+        gc.collect()
+
     # 用于从车向主车发送当前状态数据的接口
     def send_slave_state(self, state):
         if state == "ready":
@@ -210,8 +220,8 @@ class LinkProtocol:
     def get_path_list(self):
             """
             解析主车发送的任务路径包
-            发送格式: #T,120.5,80.1;130.2,90.3!  (或 #S, #B, #P, #E, #W)
-            :return: 成功返回 (task_type, list_of_points), 如 ('T', [(120.5, 80.1)]); 
+            发送格式: #T,L,120.5,80.1!  (或 #S, #B, #P, #E, #W，中间包含转向角度等)
+            :return: 成功返回 [task_type, target_turn, (x, y)], 如 ['T', 'L', (120.5, 80.1)]
                     失败返回 None
             """
             # 1. 填充缓冲区 (保持原样)
@@ -273,23 +283,16 @@ class LinkProtocol:
             # 7. 纯字符串解析逻辑
             try:
                 payload_str = payload_bytes.decode('utf-8')
-                final_path = []
                 
-                # 按分号切开各个点
-                points_str_list = payload_str.split(';')
-                for p_str in points_str_list:
-                    if not p_str: continue 
+                # 按照逗号分割，应该得到比如 ['L', '120.5', '80.1'] 这样的3个元素
+                parts = payload_str.split(',')
+                if len(parts) == 3:
+                    target_turn = parts[0]
+                    x = float(parts[1])
+                    y = float(parts[2])
                     
-                    # 按逗号切开 x 和 y
-                    coords = p_str.split(',')
-                    if len(coords) == 2:
-                        x = float(coords[0])
-                        y = float(coords[1])
-                        final_path.append((x, y))
-                
-                if len(final_path) > 0:
-                    # 【关键点】返回类型和路径
-                    return [tag_type, final_path]
+                    # 【关键点】返回类型：物体种类，转向，目标坐标
+                    return [tag_type, target_turn, (x, y)]
                 else:
                     return None
                     
@@ -346,19 +349,6 @@ class LinkProtocol:
             pass
 
         return None
-    
-# 数学常量类
-class Math:
-    def __init__(self):
-        self.PI = 3.1415926      # type: float
-        self.SIN30 = 0.5000000   # type: float
-        self.SIN60 = 0.8660254   # type: float
-        self.COS30 = 0.8660254   # type: float
-        self.COS60 = 0.5000000   # type: float
-        self.TwoThirdS = 0.6666667 # type: float
-        self.OneThird = 0.3333333  # type: float
-        self.SQRT3 = 1.7320508   # type: float
-
 
 ##############################【flash系统操作】##############################
 class flash_system:
@@ -369,6 +359,8 @@ class flash_system:
         self.file_path = file_path  # type: str
         # 创建变量字典
         self.config = dict()
+
+        gc.collect()
 
     # 将字符串解析为整数或浮点数，如果无法解析则返回原始字符串
     def phase_num_string(self, s: str):
