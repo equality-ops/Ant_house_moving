@@ -474,11 +474,14 @@ class VisionManager:
                 real_y = real_dist * math.sin(real_angle * PI / 180.0)
 
                 # 里程计和姿态角硬复位  
-                self.pose_data.reset_yaw(avg_angle)
+                # 测试不矫正
+                # self.pose_data.reset_yaw(avg_angle)
                 
                 if self.car_position == 'L':
-                    self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    self.my_car.y_current = self.assist_car_pos[1] - real_y
+                    pass
+                    # 测试不矫正
+                    # self.my_car.x_current = self.assist_car_pos[0] - real_x
+                    # self.my_car.y_current = self.assist_car_pos[1] - real_y
                 elif self.car_position == 'U':
                     self.my_car.x_current = self.assist_car_pos[0] - real_x
                     self.my_car.y_current = self.assist_car_pos[1] - real_y
@@ -520,7 +523,7 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         # 控制小车面向物体进行视觉伺服控制
-        self.reset_servo_angle()
+        self.target_rel_turn_angle = self.my_plan.turn_angle_target
         self.current_servo_object = chr(target_point[2])
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
@@ -686,8 +689,10 @@ class MoveControl:
             # 若是第一次环绕，主车优先；之后根据角度来判断主从车环绕优先级
             if i == 0:
                 # 第一次环绕时，若小车需向前方搬运，主车需要转一个较大的角度避障
-                if turn_angle == 0.0 or turn_angle == -90.0:
-                    self.angle_buffer.append([main_angle, slave_angle, 'M_OUT'])
+                if turn_angle == 0.0:
+                    self.angle_buffer.append([main_angle, slave_angle, 'M_0'])
+                elif turn_angle == -90.0:
+                    self.angle_buffer.append([main_angle, slave_angle, 'M_-90'])
                 else:
                     self.angle_buffer.append([main_angle, slave_angle, 'M'])
             else:
@@ -810,8 +815,11 @@ class MoveControl:
             if self.if_start_orbit == False:
                 if self.angle_buffer[self.moving_idx][2] == 'M':
                     self.if_start_orbit = True
-                elif self.angle_buffer[self.moving_idx][2] == 'M_OUT':
-                    target_angle = (self.angle_buffer[self.moving_idx][0] + 130.0 + 180.0) % 360.0 - 180.0
+                elif self.angle_buffer[self.moving_idx][2] in ['M_0', 'M_-90']:
+                    if self.angle_buffer[self.moving_idx][2] == 'M_0':
+                        target_angle = (self.angle_buffer[self.moving_idx][0] + 50.0 + 180.0) % 360.0 - 180.0
+                    else:
+                        target_angle = (self.angle_buffer[self.moving_idx][0] + 140.0 + 180.0) % 360.0 - 180.0
                     self.vision_manager.orbit_control(target_angle)
                     if self.vision_manager.if_finish_orbit == True:
                         if self.my_main_protocol.get_slave_state() == "finish":

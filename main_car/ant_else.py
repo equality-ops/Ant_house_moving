@@ -322,7 +322,11 @@ class AssistLinkProtocol:
         :param pos: 整数，表示目标位置x/y坐标
         """
         pos_int = int(pos)
-        packet = "*{}{}!".format(line, pos_int)
+        if pos_int > 999 or pos_int < -99:
+            return
+        
+        pos_str = "{:03d}".format(pos_int)
+        packet = "*{}{}!".format(line, pos_str)
         self.my_uart.write(packet.encode('utf-8'))
 
 ##############################【flash系统操作】##############################
@@ -376,7 +380,11 @@ class flash_system:
             # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
                 var_value = "[" + var_value[1:-1] + "]"
-                self.config[var_name] = eval(var_value) 
+                try:
+                    self.config[var_name] = eval(var_value)
+                except Exception as e:
+                    print(f"Error: Failed to evaluate {var_name} = {var_value}")
+                    self.beep.beep_warn()
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
         f.close()
@@ -515,7 +523,7 @@ class TaskController:
 
         if state == READY_NAVIGATE:
             # 进入准备导航状态，做好路径规划准备和导航信息准备
-            self.my_plan.reset_navigate_angle()
+            pass
         elif state == NAVIGATE:
             # 进入导航状态，开始执行路径跟随
             self.my_plan.reset_navigate_angle()
@@ -529,7 +537,6 @@ class TaskController:
             pass
         elif state == MOVE:
             # 进入搬运状态，开始搬运物体
-            self.my_vision.reset_orbit_angle()
             self.my_moving.ready_move()  # 准备搬运动作
             self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
         elif state == CALIBRATE:
@@ -541,7 +548,7 @@ class TaskController:
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            self.my_plan.reset_navigate_angle()
+            pass
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
@@ -567,8 +574,6 @@ class TaskController:
         elif state == SCAN:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
-                # 测试
-                self.my_beep.test() 
                 self.my_plan.reset_navigate()
                 self.my_state.state = SERVO
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
@@ -577,9 +582,11 @@ class TaskController:
                 self.my_plan.reset_navigate()
                 self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
                 if self.data.current_index >= self.data.total_objects_num:
+                    self.my_plan.reset_navigate_angle()
                     self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 else:
+                    self.my_plan.reset_navigate_angle()
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SERVO:
@@ -594,7 +601,8 @@ class TaskController:
                     # 向辅助车发送预先到达的边界
                     line = object_to_line_dict.get(self.current_object)
                     self.my_assist_protocol.send_advanced_line(line)
-
+                    # 重置环绕角度
+                    self.my_vision.reset_orbit_angle()
                     self.if_send_path = False  # 重置路径发送标志位
                     self.my_vision.if_finish_servo = False  # 重置伺服完成标志
                     self.my_state.state = MOVE  # 直接切换到搬运状态
@@ -606,9 +614,11 @@ class TaskController:
                 self.my_plan.reset_navigate()
                 self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
                 if self.data.current_index >= self.data.total_objects_num:
+                    self.my_plan.reset_navigate_angle()
                     self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 else:
+                    self.my_plan.reset_navigate_angle()
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
@@ -621,8 +631,10 @@ class TaskController:
             # 退出校准状态，完成校准后进行必要的状态更新
             self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
             if self.data.current_index >= self.data.total_objects_num:
+                self.my_plan.reset_navigate_angle()
                 self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
             else:
+                self.my_plan.reset_navigate_angle()
                 self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == ADJUST:
@@ -674,6 +686,7 @@ class TaskController:
         self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
 
         self.navigate_message = [self.my_path.ready_path, target_angle]  # 准备导航信息
+        self.my_uart.write(f"main_final_pt: {main_final_pt}, Navigate Message: {self.navigate_message}\r\n")
         self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):

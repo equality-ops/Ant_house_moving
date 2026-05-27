@@ -405,8 +405,10 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
 
-    # my_uart3.write(f"state:{my_state.state}, {my_task.scan_message}\r\n")
-    my_uart3.write(f"{my_car.x_current},{my_car.y_current}\r\n")
+    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / PI))
+    # my_uart3.write(f"state:{my_state.state}, {my_task.navigate_message}\r\n")
+    # my_uart3.write(f"{my_car.x_current},{my_car.y_current}\r\n")
+    # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

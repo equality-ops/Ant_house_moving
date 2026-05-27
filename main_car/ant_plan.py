@@ -95,14 +95,37 @@ class PathPlan:
         # 物理障碍物加安全裕量的总膨胀半径
         block_r = float(self.Data.OBSTACLE_R) + float(self.Data.SAFE_MARGIN)
 
-        # 验证起点和终点
-        if not self._point_valid(start, circles, rects, block_r):
-            self.ready_path = []
-        if not self._point_valid(end, circles, rects, block_r):
-            self.ready_path = []
+        # 寻找距离不合法点最近的合法点逻辑函数
+        def get_nearest_valid(p):
+            # 将点限制在场地内
+            px = max(0.0, min(p[0], float(self.Data.FIELD_W)))
+            py = max(0.0, min(p[1], float(self.Data.FIELD_H)))
+            valid_p = (px, py)
+            
+            if self._point_valid(valid_p, circles, rects, block_r):
+                return valid_p
+                
+            # 若仍不合法（在障碍物内），从该点向外进行圆周辐射搜索
+            search_radius = 2.0
+            max_r = max(self.Data.FIELD_W, self.Data.FIELD_H)
+            while search_radius < max_r:
+                num_points = int(search_radius) + 8
+                angle_step = 2.0 * PI / num_points
+                for i in range(num_points):
+                    angle = i * angle_step
+                    test_p = (px + math.cos(angle) * search_radius, py + math.sin(angle) * search_radius)
+                    if self._point_valid(test_p, circles, rects, block_r):
+                        return test_p
+                search_radius += 2.0
+            return valid_p
+            
+        # 更新起点和终点为合法的最近点
+        start = get_nearest_valid(start)
+        end = get_nearest_valid(end)
+
         # 检查直连
         if self._line_valid(start, end, circles, rects, block_r):
-            self.ready_path = [[float(x1), float(y1)]]
+            self.ready_path = [[float(end[0]), float(end[1])]]
 
         # 初始化节点列表
         nodes = [start, end]
