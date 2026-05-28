@@ -324,9 +324,16 @@ class AssistLinkProtocol:
         :param pos: 整数，表示目标位置x/y坐标
         """
         pos_int = int(pos)
-        if pos_int > 999 or pos_int < -99:
-            return
+        if pos_int < 0:
+            pos_int = 0
         
+        # 对于 B 和 D（如上下边界），限幅到 320
+        if line in ('B', 'D') and pos_int > 320:
+            pos_int = 320
+        # 对于 A 和 C（如左右边界），限幅到 240
+        elif line in ('A', 'C') and pos_int > 240:
+            pos_int = 240
+
         pos_str = "{:03d}".format(pos_int)
         packet = "*{}{}!".format(line, pos_str)
         self.my_uart.write(packet.encode('utf-8'))
