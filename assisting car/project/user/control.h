@@ -64,6 +64,7 @@ extern BOOL RUNNING_IF_CLOCKWISE;
 extern BOOL TRACKING_LINE;
 extern car_facing_direction_enum car_direction;
 extern float line_base;
+extern float yaw_offset;
 void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum rotate_state);
 void navigate_to_xy(float target_x, float target_y, CAR_ATTITUDE *now_car, car_nevigate_state_enum nevigate_state);
 void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car);
@@ -73,6 +74,6 @@ int tracking_line_running(CAR_ATTITUDE *car);
 int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side,uint16 target_x_or_y);
 int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y);
 float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,int erro2,CAR_ATTITUDE *car);
-void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed);
+BOOL yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed);
 void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car);
 #endif

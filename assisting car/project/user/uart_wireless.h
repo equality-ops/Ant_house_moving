@@ -72,9 +72,7 @@ extern void rb_write_q(ring_buffer *rb, uint8 *dat, uint8 length);
 //uart define
 extern void analyze_uart_data(ring_buffer *rb,int16* camera_erro,int16* slope_,uint8* uart_analyze_flag);
 extern void uart_send(const uint8 *dat,uint8 length);
-extern void uart_send_int16_to_chr(int16 dat);
 //wireless define
-extern void wireless_send_uint16_to_chr(uint16 dat, uint8 length);
 extern void analyze_wireless_data(ring_buffer *rb,SIDE_ENUM* target_side,uint16* target_x_or_y,BOOL* wireless_analyze_state );
 extern void vofa_data_analyze(ring_buffer *rb, float *channel1, float *channel2,float *channel3, float *channel4,float *channel5, float *channel6);
 extern void wireless_send_int(char *st,int dat);

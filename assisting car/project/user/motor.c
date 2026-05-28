@@ -222,11 +222,12 @@ void calculate_motortarget_by_vxy(CAR_ATTITUDE *target_speed, float *out) {  // 
     out[3] = target_speed->speed_x + target_speed->speed_y - target_speed->speed_w;
 }
 
-void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky) {  // 根据四个轮子的编码器数据计算小车在全球坐标系下的坐标
+void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky,float yaw_offset) {  // 根据四个轮子的编码器数据计算小车在全球坐标系下的坐标
     float dx_vehicle = (p->encode1_delta_5ms + p->encode3_delta_5ms + p->encode2_delta_5ms + p->encode4_delta_5ms)* kx;
     float dy_vehicle = (p->encode1_delta_5ms - p->encode3_delta_5ms - p->encode2_delta_5ms + p->encode4_delta_5ms)* ky;
-    car->x += (dx_vehicle * cos(car->yaw) - dy_vehicle * sin(car->yaw)) * 0.001f ;
-    car->y += (dx_vehicle * sin(car->yaw) + dy_vehicle * cos(car->yaw)) * 0.001f ;
+
+    car->x += (dx_vehicle * cos(car->yaw+yaw_offset) - dy_vehicle * sin(car->yaw+yaw_offset)) * 0.001f ;
+    car->y += (dx_vehicle * sin(car->yaw+yaw_offset) + dy_vehicle * cos(car->yaw+yaw_offset)) * 0.001f ;
 }
 
 void set_nevigate_target(TARGET_ATTITUDE *target) {  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制

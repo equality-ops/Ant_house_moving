@@ -148,7 +148,7 @@ void Encoder_Update_5ms(ENCODER_DATA *p);
 
 // 运动学变换
 void calculate_motortarget_by_vxy(CAR_ATTITUDE *target_speed, float *out);   // 输出数组长度为4
-void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky);
+void calculate_vehicle_coordinate_by_encode(CAR_ATTITUDE *car, ENCODER_DATA *p, float kx, float ky,float offset);
 
 // 导航控制（根据模式设置 PID 目标）
 void set_nevigate_target(TARGET_ATTITUDE *target);  // 0:位移控制 1:角度控制 2:角度+位移控制 3:角速度控制 4:速度控制 5:控制指定轮 6:无控制

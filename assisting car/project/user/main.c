@@ -13,6 +13,7 @@ static Quat q;//全局四元数
 static Vec3 forward_body;
 static float roll_angle = 0.0;
 static float pitch_angle = 0.0;
+//float gz_raw;
 //static float yaw_angle = 0.0;
 float gyro_bias_x = 0.0, gyro_bias_y = 0.0, gyro_bias_z = 0.0;
 //目标
@@ -23,8 +24,8 @@ SIDE_ENUM Now_Side=SIDE_START;//当前边
 uint16 target_x_or_y = 0; // 目标距离
 int counter=0;
 char str[20];
-float yaw_offset=0;
-BOOL ANGLE_CALIBRATION=TRUE;
+
+BOOL ANGLE_CALIBRATION=FALSE;
 //小车姿态(包含坐标航向角，速度)
 
 
@@ -66,7 +67,7 @@ void wireless_handler(void) {// Wireless 定时数据处理函数
 }
 
 void imu_handler(void) {//IMU中断
-    float gx_raw, gy_raw, gz_raw;
+    static float gx_raw, gy_raw,gz_raw;
     float gx_dps, gy_dps, gz_dps;
     float gx_f, gy_f, gz_f;//滤波后的陀螺仪数据
     float wx, wy, wz;
@@ -78,12 +79,18 @@ void imu_handler(void) {//IMU中断
     gx_raw = (float)imu660rb_gyro_x;
     gy_raw = (float)imu660rb_gyro_y;
     gz_raw = (float)imu660rb_gyro_z;
-
+    /*
+    if (gz_raw<3)
+        gz_raw=0;
+    */
     // 卡尔曼滤波
     gx_f = Kalman1D_Update(&kf_gx, gx_raw);
     gy_f = Kalman1D_Update(&kf_gy, gy_raw);
     gz_f = Kalman1D_Update(&kf_gz, gz_raw);
-
+    /*
+    if (fabs(gz_f-gyro_bias_z)<0)
+        gz_f=gyro_bias_z;
+    */
     // 转换为 dps
     gx_dps = (gx_f - gyro_bias_x) / (-GYRO_LSB_PER_DPS)*1.1457297;
     gy_dps = (gy_f - gyro_bias_y) / (-GYRO_LSB_PER_DPS)*1.1457297;
@@ -123,14 +130,25 @@ void control_nevigate_speed_handler_function(int limit_v){
     Controled_Nevigate_V*=NEVIGATE_BOOM_level;
     pid_xy.output_max=limit_v*(1-Controled_Nevigate_V);
     xy_PID_Update(&pid_xy,&car,&Target_Speed);//pid，将目标速度输出赋予Target_Speed
-    if (TRACKING_LINE&&uart_analyze_flag){
-        yorx_trackline_UPDATE(car_direction,line_base,&car,camera_erro/40,&Target_Speed);
-        if (ANGLE_CALIBRATION){
-            pid_w.target=w_tracking_UPDATE(car_direction,&yaw_offset,slope,camera_erro,&car);
-            return;
+    if (TRACKING_LINE){
+        if (uart_analyze_flag)
+        {
+            BOOL if_shield;
+            if_shield=yorx_trackline_UPDATE(car_direction,line_base,&car,camera_erro/40,&Target_Speed);
+            if (!if_shield){
+                gpio_set_level(LED1,0);
+                if (ANGLE_CALIBRATION){
+                    pid_w.target=w_tracking_UPDATE(car_direction,&yaw_offset,slope,camera_erro,&car);
+                    return;
+                }
+            }
+            else
+                gpio_set_level(LED1,1);
         }
     }
-    pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484+yaw_offset);//角度环，输出目标角速度
+    else
+        gpio_set_level(LED1,1);
+    pid_w.target=angle_PID_Update(&pid_angle,(car.yaw+yaw_offset)*Rad_to_Deg);//角度环，输出目标角速度
 }
 void xy_angle_handler(void){
     switch(Car_Control_State){
@@ -143,11 +161,11 @@ void xy_angle_handler(void){
             break;
         case CONTORL_ANGLE:
             if (Rotate_State==ROTATE_RUNNING){//转向时
-                float w_target=angle_PID_Update(&pid_angle,car.yaw*57.32484+yaw_offset);
+                float w_target=angle_PID_Update(&pid_angle,(car.yaw+yaw_offset)*Rad_to_Deg);
                 if (w_target>0) pid_w.target=max(w_target,ROTATE_w_BOOM);else if(w_target<0) pid_w.target=min(w_target,-ROTATE_w_BOOM);
             }
             else//锁定角度时
-                pid_w.target=angle_PID_Update(&pid_angle,car.yaw*57.32484+yaw_offset);//角度环，输出目标角速度
+                pid_w.target=angle_PID_Update(&pid_angle,(car.yaw+yaw_offset)*Rad_to_Deg);//角度环，输出目标角速度
             break;
         case CONTORL_SPEEDX_SPEEDY://右前方为正
             Target_Speed.speed_x=0;
@@ -167,7 +185,7 @@ void motor_handler(void) {//电机控制定时器中断
     //int pid1_result, pid2_result, pid3_result, pid4_result;
     float xy_target[4];
     Encoder_Update_5ms(&encoder_data);//更新编码器数据
-    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.481f,1.371f);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car1.4442f,1.371f
+    calculate_vehicle_coordinate_by_encode(&car,&encoder_data,1.481f,1.371f,yaw_offset);//根据编码器数据计算小车在全局坐标系下的坐标,改变小车的位姿car1.4442f,1.371f
     if (Car_Control_State==CONTORL_WHEEL){
         xy_target[0]=Nevigate_Target.v_wheel1;
         xy_target[1]=Nevigate_Target.v_wheel2;
@@ -200,6 +218,7 @@ void calibrate_gyro(int num_samples,int dt) {
         sum_y += (float)imu660rb_gyro_y;
         sum_z += (float)imu660rb_gyro_z;
         printf("%d\n\r",imu660rb_gyro_z);
+        gpio_toggle_level(LED1);
         system_delay_ms(dt);
     }
     gyro_bias_x = sum_x / num_samples;
@@ -209,7 +228,6 @@ void calibrate_gyro(int num_samples,int dt) {
 
 
 void all_init(void) {//初始化
-    char str[20];
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
     //初始化按钮
@@ -250,8 +268,6 @@ void all_init(void) {//初始化
     wireless_uart_send_byte('\r');
     wireless_uart_send_byte('\n');
     wireless_uart_send_string("wireless ready\r\n");    // 初始化正常 输出测试信息
-    func_float_to_str(str,car.yaw,3);
-    wireless_uart_send_string(str);
     rb_init(&wireless_rx_buffer, 64);
     //电机PWM 初始化
     gpio_init(DIR_1, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
@@ -299,7 +315,7 @@ void all_init(void) {//初始化
 
 void main(void) {
     all_init();
-    system_delay_ms(500);
+    system_delay_ms(100);
     beep_once(100);
     // 菜单操作
     /*
@@ -317,7 +333,7 @@ void main(void) {
         key_start_status = gpio_get_level(KEY_START);
         system_delay_ms(50);
     }
-    beep_once(100);
+    beep_once(50);
     calibrate_gyro(200,5);
     printf("%f\n",gyro_bias_z);
     beep_once(100);
@@ -327,7 +343,6 @@ void main(void) {
         printf("%f,%f,%f,%f,%f\r\n", pid1.Kp, pid1.Ki, pid1.Kd, pid1.output_max, pid1.integral_max);
     }
     //读取按钮1状态，进行电压检测
-    
     key1_status = gpio_get_level(KEY1_PIN);
     if (key1_status ==0) {
         adc_init(ADC1_CH0_P10, ADC_12BIT);
@@ -351,20 +366,14 @@ void main(void) {
     WHOLE_STATE=WAITING_;
     TRACKING_LINE=TRUE;
     car_direction=FACING_UP;
+    ANGLE_CALIBRATION=TRUE;
     line_base=0;
     Car_Control_State=CONTORL_NEVIGATE_SPEED_MID;
-    /*
-    tracking_and_nevigate(FACING_UP,2400,0,&car);
-    tracking_and_nevigate(FACING_RIGHT,2400,3200,&car);
-    tracking_and_nevigate(FACING_DOWN,1200,3200,&car);
+
+    //tracking_and_nevigate(FACING_UP,2400,0,&car);
+    //tracking_and_nevigate(FACING_RIGHT,2400,3200,&car);
+    //tracking_and_nevigate(FACING_DOWN,1200,3200,&car);
     //tracking_and_nevigate(FACING_LEFT,0,0,&car);
-    */
-    /*
-    nevigate_and_track(FACING_UP,0,2400,0,&car,&camera_erro);
-    nevigate_and_track(FACING_RIGHT,area_HEIGHT,2400,3200,&car,&camera_erro);
-    nevigate_and_track(FACING_DOWN,area_WIDTH,0,3200,&car,&camera_erro);
-    nevigate_and_track(FACING_LEFT,0,0,0,&car,&camera_erro);
-    */
     /*
     nevigate(0,2400,0,&car);
     nevigate(90,2400,3200,&car);
@@ -390,18 +399,34 @@ void main(void) {
     //Car_Control_State=CONTORL_WHEEL;
     wireless_send_float("x:",car.x,1);
     wireless_send_float("y:",car.y,1);
+    /*
+    while(1){
+        static t=0;
+        tracking_and_nevigate(t,0,0,&car);
+        t=(t+1)%4;
+    }
+    */
     while (1){
         int result = 0;
-        
+        //printf("%d",car.yaw,gyro_bias_z);
+        if (uart_analyze_flag)
+            //wireless_send_int("s:",slope);
+            printf("%d,%d\n",slope,camera_erro);
         //int i;
-        if (uart_analyze_flag==1)
-            printf("%d\n",slope);
             //track_line(camera_erro/80,FACING_UP,0,&car);
         switch (WHOLE_STATE){
             case WAITING_:
                 if (waiting(&wireless_analyze_state)&&(target_x_or_y==6660||(target_x_or_y>=0)&&(target_x_or_y<=3600))) {
                     WHOLE_STATE=PLANNING_;
+                    ANGLE_CALIBRATION=FALSE;
+                    TRACKING_LINE=FALSE;
                 }
+                if(abs(slope)>16)
+                    ANGLE_CALIBRATION=TRUE;
+                else if(abs(slope)<5)
+                    ANGLE_CALIBRATION=FALSE;
+                Car_Control_State=CONTORL_NEVIGATE_SPEED_LOW;
+                TRACKING_LINE=TRUE;
                 break;
             case PLANNING_:
                 result=planning(target_side,Now_Side,&car,target_x_or_y);

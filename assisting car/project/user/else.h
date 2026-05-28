@@ -1,10 +1,10 @@
 #ifndef _ELSE_H_
 #define _ELSE_H_
-//ÕâÀï·ÅÒ»Ð©ÆäËûµÄº¯ÊýÉùÃ÷»òÕßºê¶¨ÒåµÈ
+//ï¿½ï¿½ï¿½ï¿½ï¿½Ò»Ð©ï¿½ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßºê¶¨ï¿½ï¿½ï¿½
 #include "zf_common_headfile.h"
 #include <stddef.h>
 //LED define
-#define LED1                        (IO_P52)
+#define LED1                        (IO_P97)
 //PIT define
 #define PIT1                         (TIM0_PIT)
 #define PIT2                         (TIM1_PIT)
@@ -26,25 +26,26 @@
 #define BEEP_PIN (IO_P65)
 
 //menu define
-#define ROWS_MAX 7           // ¹â±êÔÚÆÁÄ»ÉÏ¿ÉÒÆ¶¯ÖÁµÄ×î´óÐÐÊý
-#define ROWS_MIN 1           // ¹â±êÔÚÆÁÄ»ÉÏ¿ÉÒÆ¶¯ÖÁµÄ×îÐ¡ÐÐÊý
-#define CENTER_COLUMN 10 * 8 // ÖÐÑëÁÐ
-#define EEPROM_MODE 1        // eeporm¶ÁÐ´¿ªÆôÔòÎª1
-#define line_space 16           // ÐÐ¼ä¾à
-#define character_space 8         // ×Ö·û¼ä¾à
-
+#define ROWS_MAX 7           // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½Ï¿ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+#define ROWS_MIN 1           // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½Ï¿ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿?
+#define CENTER_COLUMN 10 * 8 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+#define EEPROM_MODE 1        // eepormï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª1
+#define line_space 16           // ï¿½Ð¼ï¿½ï¿?
+#define character_space 8         // ï¿½Ö·ï¿½ï¿½ï¿½ï¿?
+#define Rad_to_Deg 57.2168576f
 #define area_HEIGHT 2400
 #define area_WIDTH 3200
+
 typedef enum {
     FALSE = 0,
     TRUE = 1
 } BOOL;
 
-extern uint8 date_buff[100]; //eepromÊý¾ÝÊý×é
+extern uint8 date_buff[100]; //eepromï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 extern uint8 keystroke_label;
-extern uint8 menu_over_flag; //²Ëµ¥²Ù×÷Íê³É±êÖ¾
+extern uint8 menu_over_flag; //ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É±ï¿½Ö?
 
-//eepomÏà¹Øº¯ÊýÉùÃ÷
+//eepomï¿½ï¿½Øºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
 void eeprom_init();
 void eeprom_flash();
 void save_int(int32 input, uint8 value_bit);

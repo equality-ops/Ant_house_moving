@@ -4,7 +4,7 @@
             "name": "stc32g144k246",
             "cStandard": "c89",
             "cppStandard": "c++17",
-            "intelliSenseMode": "${default}",
+            "intelliSenseMode": "gcc-x86",
             "includePath": [
                 "C:/Keil_v5/C251/INC",
                 "c:/Ant_house_moving/assisting car/libraries/zf_common",

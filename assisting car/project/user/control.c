@@ -14,14 +14,15 @@ CAR_ATTITUDE PLANNING_OUTLINE_POINTS[4];
 CAR_ATTITUDE PLANNING_BACK_POINT;
 BOOL TRACKING_LINE=FALSE;
 float line_base=0;
+int line_angle_count=0;
 car_facing_direction_enum car_direction=FACING_UP;
+float yaw_offset=0;
 //                           st    ld       l                    lu                  u                          ru                         r                          rd                d             ed
 float TURNING_POINT[10][2]={{0,0},{0,0},{area_HEIGHT/2.0f,0},{area_HEIGHT,0},{area_HEIGHT,area_WIDTH/2.0f},{area_HEIGHT,area_WIDTH},{area_HEIGHT/2.0f,area_WIDTH},{0,area_WIDTH},{0,area_WIDTH/2.0f},{0,0}};
-
 //-------------------------------------------底层旋转惯导函数--------------------------------------------
 
 void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum rotate_state){
-    float yaw_error = target_yaw - now_car->yaw*57.29578f;
+    float yaw_error = target_yaw - (now_car->yaw+yaw_offset)*Rad_to_Deg;
     Car_Control_State=CONTORL_ANGLE;
     if (rotate_state == ROTATE_START) {
         // 设置角度 PID 的目标值为误差
@@ -64,24 +65,24 @@ void navigate_to_xy(float target_x, float target_y, CAR_ATTITUDE *now_car, car_n
 //-------------------------------------------惯导函数--------------------------------------------
 
 void nevigate(float target_yaw,float target_x,float target_y,CAR_ATTITUDE *car){//惯导
-    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
+    if(fabs(target_yaw-car->yaw*Rad_to_Deg)>2.0f){
         Rotate_State=ROTATE_START;
         while (Rotate_State!=ROTATE_DONE){
             system_delay_ms(30);
             rotate_to_yaw(target_yaw, car,Rotate_State);
         }
-        beep_once(100);
+        beep_once(50);
     }
     Nevigate_State=NEVIGATE_START;
     while (Nevigate_State!=NEVIGATE_DONE){
         navigate_to_xy(target_x, target_y, car,Nevigate_State);
         system_delay_ms(30);
     }
-    beep_once(100);
+    beep_once(50);
     system_delay_ms(100);
 }
 
-void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car){//惯导，并在途中巡线用于纠正坐标
+void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car){//惯导,会自动改变方向，并在途中巡线用于纠正坐标
     float target_yaw=0;
     int k=0;
     switch (direction)
@@ -104,13 +105,13 @@ void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,fl
         default:
             break;
     }
-    if(fabs(target_yaw-car->yaw*57.29578f)>2.0f){
+    if(fabs(target_yaw-car->yaw*Rad_to_Deg)>2.0f){
         Rotate_State=ROTATE_START;
         while (Rotate_State!=ROTATE_DONE){
             system_delay_ms(30);
             rotate_to_yaw(target_yaw,car,Rotate_State);
         }
-        beep_once(100);
+        beep_once(50);
         car_direction=direction;
     }
     TRACKING_LINE=TRUE;
@@ -118,11 +119,10 @@ void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,fl
     while (Nevigate_State!=NEVIGATE_DONE){
         navigate_to_xy(target_x, target_y, car,Nevigate_State);
         system_delay_ms(30);
-        wireless_send_float('y',car->y,0);
     }
-    beep_once(100);
-    system_delay_ms(100);
     TRACKING_LINE=FALSE;
+    beep_once(50);
+    system_delay_ms(100);
 }
 
 
@@ -331,7 +331,6 @@ int tracking_line_running(CAR_ATTITUDE *car){
         car_facing_direction_enum direction = ((int)(PLANNING_POINTS[i].yaw+360)/90)%4;
         tracking_and_nevigate(direction,PLANNING_POINTS[i].x,PLANNING_POINTS[i].y,car);
         //nevigate(PLANNING_POINTS[i].yaw, PLANNING_POINTS[i].x, PLANNING_POINTS[i].y,car);
-        beep_once(100);
     }
     return 1;
 }
@@ -356,8 +355,26 @@ int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side
         tracking_and_nevigate(direction,PLANNING_OUTLINE_POINTS[0].x,PLANNING_OUTLINE_POINTS[0].y,car);
     }
     for (i = 1; i < planning_outline_points_num; i++) {
+        car_facing_direction_enum direction = ((int)(PLANNING_OUTLINE_POINTS[0].yaw+360)/90)%4;
+        car_direction=direction;
+        switch (direction)
+        {
+            case FACING_UP:
+                line_base=PLANNING_OUTLINE_POINTS[i].y;
+                break;
+            case FACING_DOWN:
+                line_base=PLANNING_OUTLINE_POINTS[i].y;
+                break;
+            case FACING_RIGHT:
+                line_base=PLANNING_OUTLINE_POINTS[i].x;
+                break;
+            case FACING_LEFT:
+                line_base=PLANNING_OUTLINE_POINTS[i].x;
+                break;
+            default:
+                break;
+        }
         nevigate(PLANNING_OUTLINE_POINTS[i].yaw, PLANNING_OUTLINE_POINTS[i].x, PLANNING_OUTLINE_POINTS[i].y,car);
-        beep_once(100);
     }
     *now_side=target_side;
     return 1;
@@ -366,50 +383,75 @@ int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side
 //BACK_TO_LINE状态机
 int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y){
     char str[20];
+    car_facing_direction_enum direction = ((int)(PLANNING_BACK_POINT.yaw+360)/90)%4;
     if (!wireless_analyze_state) return 0;//未收到信号不返回
     func_int_to_str(str,target_x_or_y);
     wireless_uart_send_string(str);
     wireless_analyze_state=FALSE;
     if (target_x_or_y!=8880) return 0;//收到信号但数据错误不返回 
+    car_direction=direction;//纠正车体角度
+    switch (direction)
+    {
+        case FACING_UP:
+            line_base=PLANNING_BACK_POINT.y;
+            break;
+        case FACING_DOWN:
+            line_base=PLANNING_BACK_POINT.y;
+            break;
+        case FACING_RIGHT:
+            line_base=PLANNING_BACK_POINT.x;
+            break;
+        case FACING_LEFT:
+            line_base=PLANNING_BACK_POINT.x;
+            break;
+        default:
+            break;
+    }
     nevigate(PLANNING_BACK_POINT.yaw, PLANNING_BACK_POINT.x, PLANNING_BACK_POINT.y,car);
-    beep_once(100);
     return 1;
 }
 
 //-------------------------------------------巡线视觉纠正相关函数--------------------------------------------
-void yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed){//通过控制车体y轴速度来巡线，在视觉误差小时纠正车体坐标
-    float *x_or_y;
+BOOL yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed){//通过控制车体y轴速度来巡线，在视觉误差小时纠正车体坐标
+    float *x_or_y,error_=erro*0.4736;
     int output=0;
     if(direction==FACING_UP||direction==FACING_DOWN){
-        if(direction==FACING_UP&&car->x>area_HEIGHT-250)
-            return;
+        if(direction==FACING_UP&&car->x>area_HEIGHT-280)
+            return TRUE;
         if(direction==FACING_DOWN&&car->x<250)
-            return;
+            return TRUE;
         x_or_y=&car->y;
     }
     else{
-        if(direction==FACING_RIGHT&&car->y>area_WIDTH-250)
-            return;
-        if(direction==FACING_LEFT&&car->y<250)
-            return;
+        if(direction==FACING_RIGHT&&car->y>area_WIDTH-280)
+            return TRUE;
+        if(direction==FACING_LEFT&&car->y<280)
+            return TRUE;
         x_or_y=&car->x;
     }
-    /*
-    if(direction==FACING_UP||direction==FACING_RIGHT)
-        k=1;
-    */
-    output=min(max(-500,erro*1.1),500);
+    if(direction==FACING_UP||direction==FACING_LEFT)
+        error_=-error_;
+    //printf("%d\n",erro);
+    output=min(max(-550,erro*1.4),550);
     if(abs(erro)<15){
         *x_or_y=base;
-        return;
+        return FALSE;
     }
+    *x_or_y=base+error_;
     Target_Speed->speed_y=output;
+    return FALSE;
 }
 float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,int erro2,CAR_ATTITUDE *car){//巡线时当误差小时将角度用offset纠正，误差大时返回目标角速度辅助锁定正确方向
-    float base=(direction+1)%4*90-90;//将目标方向转化为目标角度
-    if(abs(erro)<4&&abs(erro2)<15){
-        *offset=base-car->yaw;
-        return 0;
+    float base=(direction+1)%4*1.570796-1.570796;//将目标方向转化为目标角度
+    if(abs(erro)<10&&abs(erro2)<700){
+        line_angle_count++;
+        if (line_angle_count>4){
+        beep_once(100);
+        *offset=(base-car->yaw);
+        line_angle_count=0;
+        }
     }
+    else
+        line_angle_count=0;
     return erro/2;
 }

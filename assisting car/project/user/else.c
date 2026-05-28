@@ -60,6 +60,9 @@ void beep_once(int duration_ms) {
     system_delay_ms(duration_ms);
     gpio_set_level(BEEP_PIN, 0);
 }
+void led_on(){
+    gpio_set_level(LED1,1);
+}
 
 // µÁ—πºÏ≤‚
 void voltage_detect()
