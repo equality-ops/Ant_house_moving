@@ -407,6 +407,7 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     """
     # my_uart3.write(f"{angle_pid.target},{angle_pid.actual}\r\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

@@ -131,7 +131,7 @@ class PoseData:
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
         self.kp = 1.0  # 加速度计权重
-        self.ki = 0.001 # 零偏补偿权重
+        self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -252,7 +252,7 @@ class PoseData:
         # 1. 将角度转换为半角弧度
         half_roll = self.now_roll * 0.5 * (math.pi / 180.0)
         half_pitch = self.now_pitch * 0.5 * (math.pi / 180.0)
-        half_yaw = -ref_yaw_deg * 0.5 * (math.pi / 180.0)
+        half_yaw = ref_yaw_deg * 0.5 * (math.pi / 180.0)
 
         # 2. 预计算三角函数以提高运算效率
         sr = math.sin(half_roll)
@@ -318,22 +318,30 @@ class PoseData:
         # self.gyro用于角速度环控制
         self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # gyro_z用于四元数解算（转化成弧度制）
-        self.gyro_z = -self.gyro_z_gkd * (PI / 180.0)
+        self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
+
+        DEADBAND = 0.004 # 弧度每秒
+        if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
+        if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
+        if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
+
+        # --- 终极死区：如果三轴角速度都极小，认为完全静止，不更新四元数 ---
+        if self.gyro_x == 0.0 and self.gyro_y == 0.0 and self.gyro_z == 0.0:
+            # 更新欧拉角输出
+            self.update_euler_angles()
+            return
 
         # 3. 运行 AHRS 算法
         self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], self.gyro_x, self.gyro_y, self.gyro_z)
         
         # 4. 更新欧拉角输出
         self.update_euler_angles()
-
-        # self.gyro_z = self.diff_filter_gyroz.filtering(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
 class ControlPID:
     def compute_pid(self, target: int, actual: int) -> None:
         pass
-
 
 # 速度环位置式PID
 class SpeedPositionPID(ControlPID):
@@ -401,6 +409,17 @@ class SpeedPositionPID(ControlPID):
 
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
+        
+        
+        # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
+        if self.target == 0:
+            if self.nowError < 5 and self.nowError > 0:
+                self.pwm_output += self.pwm_output + 500
+            elif self.nowError > -5 and self.nowError < 0:
+                self.pwm_output += self.pwm_output - 500
+    
+        # pwm_output限幅
+        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
 
 # 角度环PID
@@ -563,7 +582,7 @@ class CarPose:
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (OneThird * SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
 
         # 计算小车在世界坐标系下的偏航角
-        self.now_yaw = -self.pose_data.now_yaw * PI / 180.0
+        self.now_yaw = self.pose_data.now_yaw * PI / 180.0
         # 限定now_yaw在-2pi到2pi之间
         if self.now_yaw > PI:  self.now_yaw -= 2 * PI
         elif self.now_yaw < -PI:  self.now_yaw += 2 * PI
