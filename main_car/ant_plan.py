@@ -14,7 +14,7 @@ ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 
-# 状态机制
+# 状态机
 class StateMachine:
     def __init__(self):        
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
@@ -27,8 +27,9 @@ class PlanData:
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 地图固定点坐标
-        # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为主车返回点
-        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0]]  # type: list
+        # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
+        # fixed_point[3]为主车返回点, [4]为从车返回点
+        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -55,14 +56,8 @@ class PlanData:
         # 物品信息示例：[(160.0, 85.0), 'E', [('x', 160.0)], "L"]
         self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
         self.current_index = 0          # 当前搬运物体索引         
-        self.moved_objects_num = 0      # 已搬运物体数量
         self.total_objects_num = len(self.rogue_planning) if isinstance(self.rogue_planning, list) else 0
 
-        # 时间计数器
-        self.time_counter = 0          # type: int
-        # 路径点切换时间阈值（用于过渡）
-        self.plan_point_transition_T = self.flash_sys.find_value("plan_point_transition_T")
-        
         gc.collect()
 
     # 辅助函数：由于原代码矩形检测未膨胀，这里手动对外扩充矩形顶点

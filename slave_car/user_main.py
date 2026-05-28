@@ -5,43 +5,48 @@
 # 当成功执行 user_main.py 后 C4 LED 会以一秒周期进行闪烁
 # 当 D9 引脚电平出现变化时退出测试程序
 
-# 从 machine 库包含所有内容 
-from machine import *
-from display import *
-from seekfree import MOTOR_CONTROLLER, IMU660RX, DL1X, KEY_HANDLER
-from smartcar import ticker, encoder
-import ant_else
-import ant_motor
-import ant_plan
-import ant_vision
-import ant_menu
-
-
 # 包含 gc 与 time 类
 import gc
 import time
 
+from micropython import const
+
+# 从 machine 库包含所有内容 
+from machine import *
+from display import *
+from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER
+from smartcar import ticker, encoder
+import ant_vision
+gc.collect()
+import ant_plan
+gc.collect()
+import ant_else
+gc.collect()
+import ant_motor
+gc.collect()
+import ant_menu
+gc.collect()
+import math
+
 ###################################【变量定义及初始化】###################################
+PI = const(3.1415926)
+READY_NAVIGATE = const(0)   # 准备导航状态
+NAVIGATE = const(1)       # 导航状态
+SCAN = const(2)           # 扫描状态
+SERVO = const(3)          # 视觉伺服状态
+ORBIT = const(4)          # 环绕状态
+MOVE = const(5)           # 搬运状态
+CALIBRATE = const(6)      # 校准状态
+ADJUST = const(7)           # 微调状态
+RETURN = const(8)		    # 返回状态
+STOP = const(9)           # 停止状态
+
 # 多路复用时间计数器
 counter = 0      # type: int
-# 按键消抖相关变量
-current_time = 0
-last_left_time = 0
 # 是否按下启动按键标志位
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
-# 任务阶段变量
-DEPART = 0       # 出发（离开发车区）
-DOWN = 1         # 位于矩形下边沿
-UP = 2           # 位于矩形上边沿
-CHECK = 3        # 检验阶段（检查是否搬运完所有物体）
-RETURN_WORK = 4  # 返回阶段（搬运完所有物体后返回起点）
-# 小车位置（用于apriltag矫正模式）
-DOWN_LEFT = 0
-DOWN_RIGHT = 1
-UP_LEFT = 2
-UP_RIGHT = 3
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -79,9 +84,6 @@ encoder_md = encoder("C2" , "C3" ,True)
 # IMU初始化
 imu = IMU660RX()
 
-# tof深度传感器初始化
-# tof = DL1X()
-
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
 cs = Pin('B29' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
@@ -109,7 +111,6 @@ key_run:    key_data[3]
 
 # 菜单编码器初始化
 enc_rotation = encoder("C0", "C1", True)
-# enc_rotation = encoder("D15", "D16", True)
 
 """""""""创建对象"""""""""
 # 创建状态机对象
@@ -122,9 +123,8 @@ my_beep = ant_else.beep(beep)
 # 从main_config.txt中读取保存所有的参数并保存到config字典中
 my_flash_sys = ant_else.flash_system(my_beep, "/flash/slave_config.txt")
 my_flash_sys.phase_config()
-
-# 创建数学常量对象
-MATH = ant_else.Math()
+# 检查列表格式
+my_flash_sys.check_list_format()
 
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_uart6)
@@ -147,23 +147,14 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
-# 创建编码器卡尔曼滤波器对象
-encoder_ul_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
-encoder_ur_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
-encoder_md_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.05, R = 2.0)
-# 创建tof测距滤波器对象
-# tof_distance_fil = ant_motor.ToFFilter(window_size=5, alpha=0.4)
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
-# 创建主车正余弦滑动平均滤波器对象
-sin_diff_fil = ant_motor.SlipAveragingFilter(50)
-cos_diff_fil = ant_motor.SlipAveragingFilter(50)
 # 创建视觉伺服正余弦滤波对象
 sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, encoder_ul_fil, encoder_ur_fil, encoder_md_fil)
+pose_data = ant_motor.PoseData(my_flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -173,19 +164,27 @@ angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
-my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, MATH, car_yaw_fil, angle_pid,
+my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
                            motor_ul_pid, motor_ur_pid, motor_md_pid,
                            motor_ul, motor_ur, motor_md)
 
 # 创建路径规划数据对象
-plan_data = ant_plan.Plan_data(my_flash_sys)
+plan_data = ant_plan.PlanData(my_flash_sys)
+
+# 创建路径规划对象
+my_path = ant_plan.PathPlan(plan_data, my_car)
 
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.Plan(my_flash_sys, plan_data, MATH, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, sin_diff_fil, cos_diff_fil)
+my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, MATH, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
+# 搬运控制类
+my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
+
+# 任务及类
+my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
 ###################################【函数定义】###################################
@@ -209,9 +208,8 @@ def voltage_detect(limit_min: float) -> None:
 
 # 角度环计算函数
 def angle_pid_compute():
-    filter_yaw = my_car.car_yaw_filter.car_yaw_filtering(my_car.now_yaw * 180 / MATH.PI)
     # 计算z轴的目标速度
-    angle_pid.compute_pid(my_car.turn_angle_target, filter_yaw)
+    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / PI)
 
 # 用于从车启动的函数
 def slave_start():
@@ -232,9 +230,8 @@ def slave_start():
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_state.state_work = DOWN
                 # 初始状态设置为准备导航状态
-                my_state.state = my_state.READY_NAVIGATE
+                my_state.state =READY_NAVIGATE
                 start_flag = True
                 # 延时一秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -270,33 +267,29 @@ def complete_angle_circle():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state == my_state.NAVIGATE or my_state.state == my_state.RETURN or my_state.state == my_state.STOP or my_state.state == my_state.SCAN or my_state.state == my_state.MOVE :
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.SERVO:
+    elif my_state.state == MOVE:
+        if my_moving.current_state == ORBIT:
+            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
+        elif my_moving.current_state == SERVO:
+            my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
+        elif my_moving.current_state in [ADJUST, MOVE]:
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+    elif my_state.state == SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.CALIBRATE:
-        if my_vision_manager.if_ready_calibrate == False:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        else:
-            # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行轨迹的导航控制
-            if my_vision_manager.if_lost_object == False:
-                my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-            else:
-                my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == my_state.ORBIT:
+    elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-    elif my_state.state == my_state.READY_NAVIGATE:
-        my_car.move_ctrl(0, 0.0, my_car.now_yaw * 180.0 / MATH.PI)
 
 # 测试主从同步
 def test_main_slave_sync():
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
         main_pose = my_slave_protocol.get_main_pose()
         if main_pose:
             my_plan.target_v = main_pose[0]
@@ -307,12 +300,12 @@ def test_main_slave_sync():
 
 # 设置pid参数
 def set_pid_params():
-    if my_state.state == my_state.MOVE or my_state.state == my_state.ORBIT or my_state.state == my_state.CALIBRATE:
+    if my_state.state == MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
     else:
-        brake_threshold = 15
+        brake_threshold = 5.0
         target_limit = 1.0
         # 初始化pid参数（线性回归）
         if motor_ul_pid.target <= target_limit and abs(motor_ul_pid.nowError) >= brake_threshold:
@@ -360,6 +353,11 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
+
+# 任务机执行函数
+def task_machine():
+    my_task.run()
+
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -388,19 +386,19 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # collaborative_task_machine()
+    # task_machine()
 
     # 全向定位测试程序
     """
-    if my_state.state == my_state.READY_NAVIGATE:
-        my_state.state = my_state.NAVIGATE
-    elif my_state.state == my_state.NAVIGATE:
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
         my_plan.navigate([[15.0, -15.0]], 180.0)
         if my_plan.finish_navigate == True:
             my_plan.finish_navigate = False
-            my_state.state = my_state.STOP
+            my_state.state = STOP
             my_beep.test()
-    elif my_state.state == my_state.STOP:
+    elif my_state.state == STOP:
         my_plan.stop()
     """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
@@ -414,7 +412,7 @@ def time_pit3_handler(time) -> None:
     # 环绕物体测试程序
     # test_orbit_control()
 
-    test_main_slave_sync()
+    # test_main_slave_sync()
     pass
 
 
@@ -429,77 +427,7 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
 
-    # 视觉伺服
-    # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
-    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
-    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
-    # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
-    # my_uart3.write(f"{my_vision_manager.angle_buffer},{my_vision_manager.calibrate_times}\n")
-    # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
-    # my_uart3.write(f"{my_vision_manager.relative_raw_x},{my_vision_manager.relative_raw_y}\n")
-    # my_uart3.write(f"{my_vision_manager.real_servo_point}\n")
-    # 速度环输出波形图调参
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
-        
-    # 角度环输出
-    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
-    # my_uart3.write(f"{pose_data.gyro_z}, {pose_data.gyro_z_bias}\n")
-    # imu原始数据
-    # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
-    # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
-                                                                          
-    # 里程计：
-    # my_uart3.write(f"{my_plan.target_yaw}\n")
-    # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
-    # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / MATH.PI, angle_pid.pwm_output))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.target_v, my_car.now_yaw * 180 / MATH.PI, my_plan.arrive_flag))
-    
-    # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
-    
-    # 路径规划
-    # my_uart3.write(f"{my_plan.current_path}\n")
-    
-    # tof传感器测试
-    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
 
-    # 测试边线校准
-    # my_uart3.write(f"{my_plan.calibrate_angle}\n")
-    
-    # 速度规划
-    # my_uart3.write(("target_v: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.target_v, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
-    # my_uart3.write(f"{my_plan.stage}")
-    # 检测自转角是否准确
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / MATH.PI))
-    
-    # 观察速度
-    # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
-    
-    # 检测四元数解算结果是否准确
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
-    # my_uart3.write(f"{pose_data.q[0]},{pose_data.q[1]},{pose_data.q[2]},{pose_data.q[3]}\n")
-
-    # 检测gkd项数量级
-    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
-    
-    # 环绕测试
-    # my_uart3.write(f"{my_vision_manager.orbit_radius}\n")
-    # my_uart3.write(f"{my_vision_manager.x_coordinate},{orbit_pid.pwm_output_x},{orbit_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\n")
-    # 卡尔曼滤波（速度）
-    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
-    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
-
-    # 任务机
-    # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
-    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / MATH.PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
-
-    # 搬运检查模式
-    # my_uart3.write(f"pickup_check: {my_vision_manager.lost_object_frames}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

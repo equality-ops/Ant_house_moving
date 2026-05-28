@@ -82,7 +82,7 @@ def collaborative_task_machine():
             path_message = my_slave_protocol.get_path_list()
             if path_message:
                 my_slave_protocol.aimed_object = path_message[0] 
-                plan_data.current_path = path_message[1]
+                plan_data.current_path = [path_message[2]] # 封装成列表形式供 navigate 遍历
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
                 # 当传来的坐标点的纵坐标大于170.0时，将状态工作设为UP，控制小车绕到矩形上边沿
@@ -231,7 +231,7 @@ def collaborative_task_machine():
             path_message = my_slave_protocol.get_path_list()
             if path_message:
                 my_slave_protocol.aimed_object = path_message[0] 
-                plan_data.current_path = path_message[1]
+                plan_data.current_path = [path_message[2]]
                 my_slave_protocol.send_slave_state("get")
                 my_state.state = my_state.NAVIGATE
                 # 当传来的坐标点为从车起点时，将状态工作设为RETURN_WORK，控制小车返回起点
@@ -378,4 +378,78 @@ def collaborative_task_machine():
         elif my_state.state == my_state.STOP:
             my_plan.stop()
 
+            [[ 2.53412974e+00, -6.38412017e-02, -1.99675761e+02],
+            [-3.71806303e-16, -2.58229617e+00,  2.68558802e+02],
+            [-1.26680170e-17,  8.36909871e-02,  1.00000000e+00]]
+    # 视觉伺服
+    # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
+    # my_uart3.write("x: {:<f}, y: {:<f}, speed: {:<f}, yaw: {:<f},  {:<f},{:<f}\n".format(servo_pid.actual_x, servo_pid.actual_y, my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, servo_pid.pwm_output_x, servo_pid.pwm_output_y))
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\r\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y},{my_vision_manager.target_rel_yaw}\r\n")
+    # my_uart3.write("{:<f},{:<f}\n".format(ant_plan.my_vision_manager.target_rel_yaw, ant_plan.my_vision_manager.target_rel_yaw_fil))
+    # my_uart3.write(f"{my_vision_manager.angle_buffer},{my_vision_manager.calibrate_times}\n")
+    # my_uart3.write(f"{my_vision_manager.angle_buffer}\n")
+    # my_uart3.write(f"{my_vision_manager.relative_raw_x},{my_vision_manager.relative_raw_y}\n")
+    # my_uart3.write(f"{my_vision_manager.real_servo_point}\n")
+    # 速度环输出波形图调参
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual))
+        
+    # 角度环输出
+    # my_uart3.write(f"{angle_pid.pwm_output},{angle_pid.target},{angle_pid.actual}\n")
+    # my_uart3.write(f"{pose_data.gyro_z}, {pose_data.gyro_z_bias}\n")
+    # imu原始数据
+    # my_uart3.write("acc = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[0], pose_data.imu_data[1], pose_data.imu_data[2]))
+    # my_uart3.write("gyro = {:>6d}, {:>6d}, {:>6d}\n".format(pose_data.imu_data[3], pose_data.imu_data[4], pose_data.imu_data[5]))
+                                                                          
+    # 里程计：
+    # my_uart3.write(f"{my_plan.target_yaw}\n")
+    # my_uart3.write("ul: {:<f}, ur: {:<f}, md: {:<f}\n".format(my_car.encouder_ul, my_car.encouder_ur, my_car.encouder_md))
+    # my_uart3.write("now: {:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_car.now_yaw * 180 / PI, angle_pid.pwm_output))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current, my_plan.rest_distance, my_plan.target_v, my_car.now_yaw * 180 / PI, my_plan.arrive_flag))
+    
+    # my_uart3.write(f"{my_car.angle_pid.target}, {my_car.angle_pid.actual}, {my_car.angle_pid.nowError}, {my_state.state}\n")
+    
+    # 路径规划
+    # my_uart3.write(f"{my_plan.current_path}\n")
+    
+    # tof传感器测试
+    # my_uart3.write(f"{tof_distance_fil.update(tof.get())},{tof.get()}\r\n")
+
+    # 测试边线校准
+    # my_uart3.write(f"{my_plan.calibrate_angle}\n")
+    
+    # 速度规划
+    # my_uart3.write(("target_v: %d, rest_dis: %.3f, dec_speed_index: %d\r\n") % (ant_plan.my_plan.target_v, ant_plan.my_plan.rest_distance, ant_plan.my_plan.dec_speed_index))
+    # my_uart3.write(f"{my_plan.stage}")
+    # 检测自转角是否准确
+    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / PI))
+    
+    # 观察速度
+    # my_uart3.write(f"{motor_ul_pid.target},{motor_ul_pid.actual}\n")
+    
+    # 检测四元数解算结果是否准确
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw}\n")
+    # my_uart3.write(f"{pose_data.q[0]},{pose_data.q[1]},{pose_data.q[2]},{pose_data.q[3]}\n")
+
+    # 检测gkd项数量级
+    # my_uart3.write(f"{pose_data.gyro_z * my_car.gkd}, {pose_data.gyro_z}\n")
+    
+    # 环绕测试
+    # my_uart3.write(f"{my_vision_manager.orbit_radius}\n")
+    # my_uart3.write(f"{my_vision_manager.x_coordinate},{orbit_pid.pwm_output_x},{orbit_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle}\n")
+    # 卡尔曼滤波（速度）
+    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(ant_motor.my_car.car_speed_x, ant_motor.speed_x_fil.update(ant_motor.my_car.car_speed_x), ant_motor.speed_x_fil2.filtering(ant_motor.my_car.car_speed_x)))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul, pose_data.encoder_data_ul_2,pose_data.encoder_data_ur, pose_data.encoder_data_ur_2,pose_data.encoder_data_md, pose_data.encoder_data_md_2))
+    # my_uart3.write("{:<f},{:<f},{:<f}\n".format(pose_data.encoder_data_ul,pose_data.encoder_data_ur,pose_data.encoder_data_md))
+
+    # 任务机
+    # my_uart3.write(f"servo: {my_vision_manager.target_rel_turn_angle}, plan: {my_plan.turn_angle_target}\n")
+    # my_uart3.write(f"state_work: {my_state.state_work}, state: {my_state.state}, yaw: {my_car.now_yaw * 180 / PI}, current_object: {my_vision_manager.current_servo_object}, {my_plan.turn_angle_target}\n")
+
+    # 搬运检查模式
+    # my_uart3.write(f"pickup_check: {my_vision_manager.lost_object_frames}\n")
 '''

@@ -210,7 +210,7 @@ class LinkProtocol:
     def send_path(self, target_object, target_turn, target_point):
         """
         发送路径点列表 (非阻塞)
-        格式: #P/S/B/T/E/W,0.0,120.5,80.1!
+        格式: #P/S/B/T/E/W/A,0.0,120.5,80.1!
         :param target_object: 目标物体种类
         :param target_turn: 目标转向角度
         :param target_point: (x, y) 目标点坐标
@@ -222,11 +222,11 @@ class LinkProtocol:
     def send_pose(self, v, yaw, turn_angle):
         """
         发送数据包 (非阻塞)
-        格式: #A,120.0,0.0,0.0!
+        格式: #Z,120.0,0.0,0.0!
         :param v, yaw, turn_angle: 浮点数，分别表示当前速度、航向角和姿态角
         """
         # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频率
-        packet = "#A,{:.1f},{:.1f},{:.1f}!".format(
+        packet = "#Z,{:.1f},{:.1f},{:.1f}!".format(
             v, yaw, turn_angle
         )
         self.my_uart3.write(packet.encode('utf-8'))
@@ -289,7 +289,7 @@ class AssistLinkProtocol:
         gc.collect()
 
     # 用于主车向辅助车发送即将到达的边界信息
-    def send_advanced_line(self, line: str):
+    def send_advanced_line(self, line):
         """
         发送状态 (非阻塞)
         格式: *line666!
@@ -468,7 +468,7 @@ class flash_system:
 
 # 状态机类
 class TaskController:
-    def __init__(self, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol, assist_protocol):
+    def __init__(self, beep: beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, assist_protocol: AssistLinkProtocol):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -564,7 +564,8 @@ class TaskController:
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
             if not self.if_send_path:
-                self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
+                # 发送路径信息给从车
+                self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
 
             # 向辅助车发送回线消息
             self.my_assist_protocol.send_back_message()
@@ -634,10 +635,21 @@ class TaskController:
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
-            # 退出搬运状态，停止搬运动作
-            self.my_moving.if_finish_move = False  # 重置搬运完成标志
-            self.data.current_index += 1  # 当前物体处理完成，进入下一个物体的准备导航状态
-            self.my_state.state = CALIBRATE  # 直接切换到校准状态
+            # 给从车发送辅助车的坐标
+            if len(self.my_vision.assist_car_pos) == 2:
+                self.my_main_protocol.send_path('A', 999, self.my_vision.assist_car_pos)
+            # 退出搬运状态，停止搬运动作 
+            # 若从车丢失物体，则跳过当前物体      
+            self.data.current_index += 1
+            if self.my_moving.current_state == MOVE:
+                self.my_state.state = CALIBRATE  # 直接切换到校准状态
+            # 此时从车丢失物体
+            elif self.my_moving.current_state == ORBIT:
+                self.my_plan.reset_navigate_angle()
+                # 如果从车丢失物体直接返回发车区避免浪费时间
+                self.my_state.state = RETURN 
+            # 跳过当前物体
+            self.my_moving.reset_move()  # 重置搬运标志
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
@@ -651,9 +663,18 @@ class TaskController:
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更新
-            pass
+            self.my_vision.reset_orbit()
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
+            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == RETURN:
+            if not self.if_send_path:
+                # 发送路径信息给从车
+                self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4]) 
+        
             # 退出返回状态，完成返回后进行必要的状态更新
+            self.if_send_path = True
             self.my_plan.reset_navigate()  # 重置导航标志
             self.my_state.state = STOP  # 直接切换到停止状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
@@ -768,11 +789,31 @@ class TaskController:
 
     def handle_adjust(self):
         # if state == ADJUST
+        '''
+        if self.my_vision.if_finish_orbit:
+            # 反环绕防止误触物体
+            self.my_vision.orbit_control(self.navigate_message[1])
+        else:
+            # 回到扫描点附近
+            self.my_plan.navigate(path = [self.navigate_message[0][-1]])
+
+        if self.my_plan.if_finish_navigate and self.my_vision.if_finish_orbit:
+            self.exit()  # 退出当前状态，进入下一个状态
+        '''
         pass
 
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = [self.data.fixed_point[3]])  # 返回起始点
+                
+        # 主车行驶多远后给从车发送路径信息
+        dist_threshold = 30.0
+        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
+            self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
+            self.if_send_path = True  # 设置标志位，避免重复发送路径信息
+
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入停止状态
 
     def handle_stop(self):
         # if state == STOP

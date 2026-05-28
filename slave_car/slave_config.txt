@@ -65,40 +65,35 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.152369
-# 电机补偿系数
-ul_compensation = 1.0
-ur_compensation = 1.0
-md_compensation = 1.0
+gyro_y_supply = 1.147976
 
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 53
-# 已弃用
-boost_time_threshold = 60
+uart_and_menu_T = 20
 
 ###################【路径规划】####################
-plan_arrive_threshold = 1.5
-plan_point_transition_T = 5
-error_x_T = -1.0
-error_x_S = -3.0
-error_x_B = -3.0
+final_threshold = 1.5
+branch_threshold = 5.0
+blend_radius = 20.0
+
+cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
+circle = "(262.5, 88.8)"
+error_x_T = 0.0
+error_x_S = 2.0
+error_x_B = 2.0
 ###################【速度规划】####################
 min_start_v = 20
-long_v_max = 190
-short_v_max = 110
-dead_zone_v = 40
-transit_v = 100
-# 已弃用
-orbit_v = 100
+long_v_max = 160
+find_line_v_max = 100
+acc_coef = 0.0556
+dec_coef = 0.1875
+max_yaw_rate = 4.0 
 
 orbit_v_max = 80
-orbit_v_min = 20
-# 已弃用
-move_v_max = 35
-scan_v_max = 120
+orbit_v_min = 0
+
 # 不同物体的搬运速度
 move_v_max_T = 100
 move_v_max_S = 130
@@ -124,9 +119,9 @@ servo_calibrate_kd_y = 10.0
 
 servo_target_x = 80
 servo_target_y_A = 11.0
-servo_target_y_T = 2.0
-servo_target_y_S = 4.0
-servo_target_y_B = 12.0
+servo_target_y_T = 18.0
+servo_target_y_S = 17.0
+servo_target_y_B = 20.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -139,11 +134,11 @@ max_rel_speed = 100
 servo_pwmout_limitmax = 100
 
 ###################【环绕控制】####################
-radius_T = 3.15
-radius_S = 3.55
-radius_B = 4.9
+radius_T = 18.0
+radius_S = 17.0
+radius_B = 20.0
 angle_T = 137.0
-angle_S = 142.0
-angle_B = 145.0
+angle_S = 140.0
+angle_B = 140.0
 
 # 小车最高速度为290

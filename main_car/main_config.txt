@@ -1,4 +1,4 @@
-# 修改时间 4.26	  16:37
+# 修改时间 5.28	  12:56
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -66,29 +66,19 @@ speed_conversion_gamma = 1.0
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
 gyro_y_supply = 1.147976
-# 电机补偿系数（已弃用）
-ul_compensation = 1.0
-ur_compensation = 1.0
-md_compensation = 1.0
 
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 20
-# 已弃用
-boost_time_threshold = 60
-
 ###################【路径规划】####################
 final_threshold = 1.5
 branch_threshold = 5.0
 blend_radius = 20.0
-assist_car_to_line = 20.0
-# 已弃用
-plan_arrive_threshold = 1.5
-plan_point_transition_T = 5
+assist_car_to_line = 30.0
 
-rogue_planning = "[(160.0, 120.0), 'S', 'D', [('y', 150.0)]]"
+rogue_planning = "[(160.0, 120.0), 'T', 'R', [('y', 150.0)]], [(160.0, 120.0), 'T', 'D', [('x', 150.0)]]"
 cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0
@@ -97,6 +87,7 @@ error_x_B = 2.0
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 160
+find_line_v_max = 100
 acc_coef = 0.0556
 dec_coef = 0.1875
 max_yaw_rate = 4.0 
@@ -109,20 +100,7 @@ move_v_max_T = 100
 move_v_max_S = 130
 move_v_max_B = 100
 
-# 已弃用
-short_v_max = 110
-dead_zone_v = 40
-transit_v = 100
-orbit_v = 100
-move_v_max = 35
-scan_v_max = 120
 ###################【视觉伺服】####################
-# 已弃用
-servo_kp_x = 3.5
-servo_kd_x = 5.0
-servo_kp_y = 3.5
-servo_kd_y = 5.0
-
 # 普通的视觉伺服pid参数
 servo_normal_kp_x = 7.0
 servo_normal_kd_x = 15.0
@@ -134,7 +112,6 @@ servo_calibrate_kd_x = 10.0
 servo_calibrate_kp_y = 7.0
 servo_calibrate_kd_y = 10.0
 
-servo_target_x = 80
 servo_target_y_A = 11.0
 servo_target_y_T = 18.0
 servo_target_y_S = 17.0
@@ -145,9 +122,6 @@ finish_threshold_y = 1.0
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
-
-# 物体距离多远认定为合理
-dist_threshold = 30
 
 min_rel_speed = 20
 max_rel_speed = 100

@@ -65,7 +65,6 @@ class VisionManager:
         self.target_rel_speed_y = 0.0          # type: float   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: float   # 视觉伺服控制最大速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: float   # 视觉伺服控制最小速度 
-        self.dist_threshold = self.flash_sys.find_value("dist_threshold")    # type: float # 物体距离多远认定为合理
         self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0.0                 # type: float     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
@@ -589,9 +588,7 @@ class MoveControl:
 
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_orbit_command = False  # 是否发送过环绕控制指令
-        self.if_main_car_adjust = False  # 主车是否进行微调防止阻挡从车视野
         self.if_start_orbit = False  # 是否开始环绕
-        self.if_finish_adjust = False  # 是否完成微调
         self.if_finish_move = False  # 是否完成搬运
 
         gc.collect()
@@ -725,6 +722,18 @@ class MoveControl:
         self.vision_manager.if_orbit_ready = False
         self.vision_manager.if_finish_orbit = False
 
+    # 重置搬运控制相关变量
+    def reset_move(self):
+        self.moving_idx = 0
+        self.moving_point.clear()
+        self.angle_buffer.clear()
+        self.next_point.clear()
+        self.adjust_point.clear()
+        self.current_state = ORBIT
+        self.reset_orbit()
+        self.if_finish_move = False
+        gc.collect()
+
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):
         # 当前车头朝向 (弧度)
@@ -797,7 +806,6 @@ class MoveControl:
             self.moving_idx += 1
             if self.moving_idx >= len(self.moving_point):
                 self.if_finish_move = True
-                self.current_state = ORBIT
             else:
                 self.current_state = ADJUST
                 self.calculate_adjustment_point()
@@ -840,18 +848,24 @@ class MoveControl:
                             self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
                             self.if_send_orbit_command = True
 
-                        if self.my_main_protocol.get_slave_state() == "finish":
+                        order = self.my_main_protocol.get_slave_state()
+                        if order == "finish":
                             self.reset_orbit()
                             self.if_start_orbit = True
                             self.angle_buffer[self.moving_idx][2] = 'S'
-                            
+                        elif order == "lost":
+                            self.if_finish_move = True
+
                 elif self.angle_buffer[self.moving_idx][2] == 'S':
                     if self.if_send_orbit_command == False:
                         self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
                         self.if_send_orbit_command = True
                     
-                    if self.my_main_protocol.get_slave_state() == "finish":
+                    order = self.my_main_protocol.get_slave_state()
+                    if order == "finish":
                         self.if_start_orbit = True
+                    elif order == "lost":
+                        self.if_finish_move = True
 
             else:
                 self.vision_manager.orbit_control(self.angle_buffer[self.moving_idx][0])
@@ -861,8 +875,12 @@ class MoveControl:
                             self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
                             self.if_send_orbit_command = True
 
-                        if self.my_main_protocol.get_slave_state() == "finish":
+                        order = self.my_main_protocol.get_slave_state()
+                        if order == "finish":
                            self.state_transition()
+                        elif order == "lost":
+                            self.if_finish_move = True
+
                     elif self.angle_buffer[self.moving_idx][2] == 'S':
                         self.state_transition()
 

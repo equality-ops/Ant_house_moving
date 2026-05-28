@@ -188,7 +188,7 @@ my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_visio
 my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
+# my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
 
 gc.collect()
 ###################################【函数定义】###################################
@@ -242,7 +242,6 @@ def main_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
-
 
 # 小车姿态总控制函数
 def master_control():
@@ -401,12 +400,12 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     main_start()
-    
+    """
     if start_flag == False:
         # 读取按键（中断中避免阻塞，快速返回）
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
-
+    """
     # my_uart3.write(f"{angle_pid.target},{angle_pid.actual}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）

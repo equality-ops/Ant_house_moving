@@ -2,6 +2,26 @@ from micropython import const
 import time
 import gc
 
+READY_NAVIGATE = const(0)   # 准备导航状态
+NAVIGATE = const(1)       # 导航状态
+SCAN = const(2)           # 扫描状态
+SERVO = const(3)          # 视觉伺服状态
+ORBIT = const(4)          # 环绕状态
+MOVE = const(5)           # 搬运状态
+CALIBRATE = const(6)      # 校准状态
+ADJUST = const(7)           # 微调状态
+RETURN = const(8)		    # 返回状态
+STOP = const(9)           # 停止状态
+
+object_to_line_dict = {
+    'T': 'U',
+    'S': 'L',
+    'E': 'L',
+    'W': 'R',
+    'B': 'R'
+}
+# 计数器
+counter = 0 
 ##############################【蜂鸣器】##############################
 BEEP_OFF = const(0)
 BEEP_ON = const(1)
@@ -220,8 +240,8 @@ class LinkProtocol:
     def get_path_list(self):
             """
             解析主车发送的任务路径包
-            发送格式: #T,L,120.5,80.1!  (或 #S, #B, #P, #E, #W，中间包含转向角度等)
-            :return: 成功返回 [task_type, target_turn, (x, y)], 如 ['T', 'L', (120.5, 80.1)]
+            发送格式: #T,90.0,120.5,80.1!  (或 #S, #B, #P, #E, #W，#M，#A，#R，中间包含转向角度等)
+            :return: 成功返回 [task_type, target_turn, (x, y)], 如 ['T', 90.0, (120.5, 80.1)]
                     失败返回 None
             """
             # 1. 填充缓冲区 (保持原样)
@@ -265,7 +285,7 @@ class LinkProtocol:
                 tag_type = self.raw_buffer[self.start_idx + 1 : self.start_idx + 2].decode('utf-8')
                 
                 # 如果不是我们预期的指令，说明可能是脏数据
-                if tag_type not in ['T', 'S', 'B', 'P', 'E', 'W']:
+                if tag_type not in ['T', 'S', 'B', 'P', 'E', 'W', 'M', 'A', 'R']:
                     # 这种情况下，丢弃这个错误的开头，继续找下一个
                     self.raw_buffer = self.raw_buffer[self.start_idx + 1:]
                     return None
@@ -287,7 +307,7 @@ class LinkProtocol:
                 # 按照逗号分割，应该得到比如 ['L', '120.5', '80.1'] 这样的3个元素
                 parts = payload_str.split(',')
                 if len(parts) == 3:
-                    target_turn = parts[0]
+                    target_turn = float(parts[0])
                     x = float(parts[1])
                     y = float(parts[2])
                     
@@ -350,6 +370,51 @@ class LinkProtocol:
 
         return None
 
+    # 解析主车发送的环绕角度
+    def get_orbit_angle(self):
+        # 1. 填充缓冲区
+        if self.my_uart3.any():
+            try:
+                chunk = self.my_uart3.read()
+                if chunk:
+                    self.raw_buffer += chunk
+            except:
+                pass
+
+        if not self.raw_buffer:
+            return None
+
+        # 内存保护
+        if len(self.raw_buffer) > self.max_buf:
+            self.raw_buffer = self.raw_buffer[-self.max_buf:]
+
+        # 2. 寻找包头 '#O,' 和包尾 '!'
+        start_idx = self.raw_buffer.find(b'#O,')
+        if start_idx == -1:
+            # 没找到需要的包头，清理掉无关的数据，防止内存越界
+            if len(self.raw_buffer) > 3:
+                 self.raw_buffer = self.raw_buffer[-3:]
+            return None
+            
+        end_idx = self.raw_buffer.find(b'!', start_idx)
+        if end_idx == -1:
+            # 包尾还没收到，说明数据还没传完，等下次再解析
+            return None
+
+        # 3. 提取有效数据段并清空已经处理的缓冲
+        payload_bytes = self.raw_buffer[start_idx + 3 : end_idx]
+        self.raw_buffer = self.raw_buffer[end_idx + 1:]
+
+        # 4. 解析数据
+        try:
+            angle = float(payload_bytes.decode('utf-8'))
+            return angle
+        except Exception as e:
+            # 解析失败（如数据转换乱码等）
+            pass
+
+        return None
+
 ##############################【flash系统操作】##############################
 class flash_system:
     def __init__(self, beep, file_path: str):
@@ -398,7 +463,16 @@ class flash_system:
             var_name = line[0].strip()
             var_value = line[1].strip()
             # 解析变量值
-            self.config[var_name] = self.phase_num_string(var_value)
+            # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
+            if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
+                var_value = "[" + var_value[1:-1] + "]"
+                try:
+                    self.config[var_name] = eval(var_value)
+                except Exception as e:
+                    print(f"Error: Failed to evaluate {var_name} = {var_value}")
+                    self.beep.beep_warn()
+            else:
+                self.config[var_name] = self.phase_num_string(var_value)
         f.close()
 
 
@@ -410,27 +484,270 @@ class flash_system:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
             self.beep.beep_warn()
             return 0
+        
+    def check_list_format(self) -> None:
+        """检查特定的列表与其内部变量格式是否正确"""
+        error_flag = False
+
+        # 检查 cube_obstacles: [(float, float, float, float), ...]
+        if "cube_obstacles" in self.config:
+            co = self.config["cube_obstacles"]
+            if type(co) is not list:
+                print("Error: 'cube_obstacles' 必须是列表")
+                error_flag = True
+            else:
+                for obs in co:
+                    if type(obs) is not tuple or len(obs) != 4 or not all(type(x) in (int, float) for x in obs):
+                        print("Error: 'cube_obstacles' 的元素格式错误，应为包干4个数字的元组 (float, float, float, float)")
+                        error_flag = True
+                        break
+
+        # 检查 circle: [(float, float), ...]
+        if "circle" in self.config:
+            cr = self.config["circle"]
+            if type(cr) is not list:
+                print("Error: 'circle' 必须是列表")
+                error_flag = True
+            else:
+                for cir in cr:
+                    if type(cir) is not tuple or len(cir) != 2 or not all(type(x) in (int, float) for x in cir):
+                        print("Error: 'circle' 的元素格式错误，应为包干2个数字的元组 (float, float)")
+                        error_flag = True
+                        break
+
+        if error_flag:
+            self.beep.beep_warn()
+
+# 状态机类
+class TaskController:
+    def __init__(self, beep: beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, slave_protocol: LinkProtocol):
+        # 注入对象
+        self.my_beep = beep
+        self.my_path = path
+        self.my_uart = uart
+        self.my_plan = plan
+        self.my_vision = vision
+        self.my_state = state
+        self.my_car = car
+        self.my_moving = moving
+        self.data = plan_data
+        self.my_order_manager = order_manager
+        self.my_art_protocol = art_protocal
+        self.my_slave_protocol = slave_protocol
+
+        # 状态映射表：将状态常量映射到对应的处理函数
+        self.handlers = {
+            READY_NAVIGATE: self.handle_ready_navigate,
+            NAVIGATE: self.handle_navigate,
+            SCAN:     self.handle_scan,
+            SERVO:    self.handle_servo,
+            MOVE:     self.handle_move,
+            CALIBRATE: self.handle_calibrate,
+            ADJUST:   self.handle_adjust,
+            RETURN:    self.handle_return,
+            STOP:      self.handle_stop,
+            # ... 其他状态
+        }
+
+        self.navigate_message = []  # 导航信息：目标点坐标和朝向
+        self.pt_buffer = []  # 目标点坐标缓冲区
+        self.current_object = ''  # 当前目标物体种类
+        # 标志位
+        self.if_transitioning = True  # 是否正在进行状态转换
+
+        gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
+        
+    # 不同模式下的执行函数
+    def run(self):
+        if self.if_transitioning:
+            self.enter()  # 进入新状态执行一次性的进入函数
+
+        # 获取当前状态对应的函数并执行
+        handler = self.handlers.get(self.my_state.state)
+        if handler:
+            handler()
+
+    # 模式之间的进入和退出函数
+    def enter(self):
+        state = self.my_state.state
+        self.if_transitioning = False  # 进入新状态，重置状态转换标志位
+
+        if state == READY_NAVIGATE:
+            # 进入准备导航状态，做好路径规划准备和导航信息准备
+            self.my_plan.reset_navigate_angle()
+        elif state == NAVIGATE:
+            # 进入导航状态，开始执行路径跟随
+            pass
+        elif state == SCAN:
+            pass
+        elif state == SERVO:
+            # 进入伺服状态，开始精确对准目标物体
+            pass
+        elif state == MOVE:
+            pass
+        elif state == CALIBRATE:
+            # 进入校准状态，进行位置或传感器校准
+            # 记录小车在哪个边线
+            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
+        elif state == ADJUST:
+            # 进入调整状态，根据需要进行微调
+            pass
+        elif state == RETURN:
+            # 进入返回状态，返回起始点或下一任务点
+            pass
+        elif state == STOP:
+            # 进入停止状态，停止所有动作等待下一指令
+            self.my_plan.reset_navigate_angle()
+
+    def exit(self):
+        state = self.my_state.state
+
+        if state == READY_NAVIGATE:
+            # 退出准备导航状态，清理路径规划相关资源
+            if self.current_object == 'R':
+                # 若当前物体信息为回程信息
+                self.my_state.state = RETURN  # 直接切换到返回状态
+            else:
+                self.my_state.state = NAVIGATE  # 直接切换到导航状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == NAVIGATE:
+            # 退出导航状态，停止路径跟随
+            if self.current_object == 'P':
+                self.my_plan.reset_navigate_angle()  # 重置导航角度
+                self.my_plan.reset_navigate()  # 重置导航标志
+                self.my_state.state = READY_NAVIGATE
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            else:
+                if self.my_vision.if_send_order == False:
+                    # 发送指令给openart，切换到目标识别模式
+                    self.my_order_manager.mode_target()  
+                    # 设置标志位，避免重复发送指令
+                    self.my_vision.if_send_order = True  
+
+                target_point = self.my_art_protocol.coordinate_receive()
+                if target_point and target_point[2] == self.current_object:
+                    self.my_plan.current_object = target_point[2]
+                    self.my_vision.ready_servo_and_orbit(target_point)
+                    self.my_vision.reset_servo_angle()
+                    self.my_plan.reset_navigate()  # 重置导航相关变量
+                    self.current_state = SERVO
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == SCAN:
+            pass
+        elif state == SERVO:
+            # 退出伺服状态，停止精确对准动作
+            if self.my_vision.if_finish_servo:
+                # 重置环绕角度
+                self.my_vision.reset_orbit_angle()
+                self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                self.my_state.state = MOVE  # 直接切换到搬运状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            elif self.my_plan.if_finish_navigate:
+                self.my_vision.if_lost_object = False
+                # 将openart置为等待模式
+                self.my_order_manager.finish()
+                self.my_plan.reset_navigate()
+                self.my_slave_protocol.send_slave_state("lost")  # 通知主车丢失物体
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = READY_NAVIGATE
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == MOVE:
+            # 退出搬运状态，停止搬运动作
+            self.my_moving.if_finish_move = False  # 重置搬运完成标志
+            self.my_state.state = CALIBRATE  # 直接切换到校准状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == CALIBRATE:
+            # 退出校准状态，完成校准后进行必要的状态更新
+            self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
+            self.my_plan.reset_navigate_angle()
+            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == ADJUST:
+            # 退出调整状态，完成微调后进行必要的状态更新
+            pass
+        elif state == RETURN:
+            # 退出返回状态，完成返回后进行必要的状态更新
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_state.state = STOP  # 直接切换到停止状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == STOP:
+            # 退出停止状态，准备进入下一任务或待命状态
+            self.my_beep.test()  # 任务完成，发出提示音
     
+    def handle_ready_navigate(self):
+        # 进入准备导航状态，做好路径规划准备和导航信息准备
+        path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
+        if path:
+            # 只有当路径信息为过渡或者回城时才记录目标点坐标
+            if path[0] in ['P', 'R']:
+                self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
+            # 进行路径规划
+            self.my_path.plan_path(path[2])
+            self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
+            self.current_object = path[0]  # 当前物体种类
+            self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
+            self.exit()  # 退出当前状态，进入导航状态
 
- 
-# 调试程序
-"""
-if __name__ == "__main__":
-    test_strings = ["123", "45.67", "hello", "-89", "3.14159", "world123"]
+    def handle_navigate(self):
+        # if state == NAVIGATE
+        self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
 
-    # 检测phase_num_string函数
-    for s in test_strings:
-        result = phase_num_string(s)
-        print(f"Input: {s} => Output: {result} (Type: {type(result).__name__})")
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入扫描状态
+   
+    def handle_scan(self):
+        # if state == SCAN
+        pass
 
-    # 检测find_aimed_value函数
-    config = phase_config("config.txt")
+    def handle_servo(self):
+        # if state == SERVO
+        if self.my_vision.if_lost_object == False:
+            self.my_vision.visual_servo_control()
+        else:
+            # 若丢失物体则四处移动寻找物体
+            x = self.my_car.x_current
+            y = self.my_car.y_current
+            self.my_plan.navigate(path = [[x+10.0, y], [x-10.0, y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
+            
+            target_point = self.my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
+                self.my_vision.ready_servo_and_orbit(target_point)
+                self.my_plan.reset_navigate()
+                self.my_vision.if_lost_object = False
 
-    print("Parsed Successfully:")
-    for key, value in config.items():
-        print(f"{key} = {value} (Type: {type(value).__name__})")
+        if self.my_vision.if_finish_servo or self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入搬运状态
 
-    # 检测phase_config函数
-    print(f"I want to find 'encouder_l_normal_kp' value: {find_aimed_value(config, 'encouder_l_normal_kp')}")
-    print(f"I want to find 'encouder_l_normal_ks' value: {find_aimed_value(config, 'encouder_l_normal_ks')}")
-"""
+    def handle_move(self):
+        # if state == MOVE
+        self.my_moving.moving()
+
+        if self.my_moving.if_finish_move:
+            self.exit()  # 退出当前状态，进入下一个状态
+
+    def handle_calibrate(self):
+        # if state == CALIBRATE
+        global counter
+        self.my_vision.apriltag_calibrate_control()
+
+        if self.my_vision.if_finish_calibrate:
+            counter += 1
+            # 延时100ms
+            if counter >= 10:
+                counter = 0
+                self.exit()  # 退出当前状态，进入下一个状态
+
+    def handle_adjust(self):
+        # if state == ADJUST
+        pass
+
+    def handle_return(self):
+        # if state == RETURN
+        self.my_plan.navigate(path = [self.pt_buffer[0]])  # 返回起始点
+
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入停止状态
+
+    def handle_stop(self):
+        # if state == STOP
+        self.my_plan.stop()
