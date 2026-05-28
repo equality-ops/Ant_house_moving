@@ -17,11 +17,15 @@ from display import *
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER
 from smartcar import ticker, encoder
 import ant_vision
+gc.collect()
 import ant_plan
+gc.collect()
 import ant_else
 gc.collect()
 import ant_motor
+gc.collect()
 import ant_menu
+gc.collect()
 import math
 
 ###################################【变量定义及初始化】###################################
@@ -242,7 +246,7 @@ def main_start():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
@@ -257,15 +261,13 @@ def master_control():
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == CALIBRATE:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
     
 # 测试
 # 设置pid参数
 def set_pid_params():
-    if my_state.state == MOVE or my_state.state == ORBIT or my_state.state == CALIBRATE:
+    if my_state.state == MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
         motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
@@ -405,10 +407,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
 
-    my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / PI))
-    # my_uart3.write(f"state:{my_state.state}, {my_task.navigate_message}\r\n")
-    # my_uart3.write(f"{my_car.x_current},{my_car.y_current}\r\n")
-    # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
+    # my_uart3.write(f"{angle_pid.target},{angle_pid.actual}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

@@ -22,6 +22,8 @@ object_to_line_dict = {
     'B': 'R'
 }
 
+# 计数器
+counter = 0 
 ##############################【蜂鸣器】##############################
 BEEP_OFF = const(0)
 BEEP_ON = const(1)
@@ -301,7 +303,7 @@ class AssistLinkProtocol:
             line_temp = 'C'
         else:
             line_temp = 'D'
-        packet = "*{}666!".format(line)
+        packet = "*{}666!".format(line_temp)
         self.my_uart.write(packet.encode('utf-8'))
 
     # 用于主车向辅助车发送回到线上的消息
@@ -526,7 +528,7 @@ class TaskController:
             pass
         elif state == NAVIGATE:
             # 进入导航状态，开始执行路径跟随
-            self.my_plan.reset_navigate_angle()
+            pass
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物体
             self.my_order_manager.mode_target() # 打开目标识别模式
@@ -594,7 +596,17 @@ class TaskController:
             if self.my_vision.if_finish_servo:
                 # 发送主车信息给从车
                 if self.if_send_path == False:
-                    self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], self.slave_navigate_message[0])  
+                    stop_threshold = 20.0
+                    if self.slave_navigate_message[1] == 0.0:
+                         # 发送路径信息给从车
+                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current - stop_threshold])   
+                    elif self.slave_navigate_message[1] == 90.0:
+                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current - stop_threshold, self.my_car.y_current])
+                    elif self.slave_navigate_message[1] == -90.0:
+                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current + stop_threshold, self.my_car.y_current])
+                    else:
+                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
+                    
                     self.if_send_path = True  # 设置标志位，避免重复发送路径信息
 
                 if self.my_main_protocol.get_slave_state() == "get":
@@ -686,7 +698,6 @@ class TaskController:
         self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
 
         self.navigate_message = [self.my_path.ready_path, target_angle]  # 准备导航信息
-        self.my_uart.write(f"main_final_pt: {main_final_pt}, Navigate Message: {self.navigate_message}\r\n")
         self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):
@@ -745,10 +756,15 @@ class TaskController:
 
     def handle_calibrate(self):
         # if state == CALIBRATE
+        global counter
         self.my_vision.apriltag_calibrate_control()
 
         if self.my_vision.if_finish_calibrate:
-            self.exit()  # 退出当前状态，进入下一个状态
+            counter += 1
+            # 延时100ms
+            if counter >= 10:
+                counter = 0
+                self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_adjust(self):
         # if state == ADJUST

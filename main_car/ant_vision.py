@@ -191,7 +191,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.45, min(1.0, dist / 15.0)) # 15cm外全速，近处最少降至45%
+        scale = max(0.6, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
 
@@ -234,8 +234,26 @@ class VisionManager:
         
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
+            # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
             self.calculate_dist(self.target_point[0], self.target_point[1], 'far')
-
+            '''
+            # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
+            jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
+            
+            if old_servo_point != [0, 0] and jump_dist > 10.0:  # 10cm以上的跳变认为是其他物体
+                self.real_servo_point = old_servo_point   # 判断为其他物体，还原回被锁定的旧目标坐标
+                self.servo_lost_count += 1                # 视作掉帧或丢失
+                
+                # 彻底丢失保护
+                if self.servo_lost_count >= 150:
+                    self.target_rel_speed = 0.0
+                    self.target_rel_yaw = 0.0
+                    self.if_lost_object = True
+                    self.servo_lost_count = 0
+                    return
+            else:
+            '''
+            # 当前物体验证通过，或是第一帧
             # 记录下小车当前的坐标点
             self.last_car_x = self.my_car.x_current
             self.last_car_y = self.my_car.y_current
@@ -418,11 +436,9 @@ class VisionManager:
                 self.point_buffer.clear()
                 # 重置阶段标志
                 self.if_ready_calibrate = True
-                # 重置速度和转角
-                self.target_rel_speed = 0.0
-                self.target_rel_yaw = 0.0
-                self.target_rel_turn_angle = self.my_plan.turn_angle_target
                 self.my_order_manager.mode_apriltag()
+                # 测试，直接完成矫正跳到下一个物体
+                self.if_finish_calibrate = True 
         else:
             if self.if_finish_calibrate == True:
                 return # 已经完成校准，直接返回
@@ -475,13 +491,11 @@ class VisionManager:
 
                 # 里程计和姿态角硬复位  
                 # 测试不矫正
-                # self.pose_data.reset_yaw(avg_angle)
+                self.pose_data.reset_yaw(avg_angle)
                 
                 if self.car_position == 'L':
-                    pass
-                    # 测试不矫正
-                    # self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    # self.my_car.y_current = self.assist_car_pos[1] - real_y
+                    self.my_car.x_current = self.assist_car_pos[0] - real_x
+                    self.my_car.y_current = self.assist_car_pos[1] - real_y
                 elif self.car_position == 'U':
                     self.my_car.x_current = self.assist_car_pos[0] - real_x
                     self.my_car.y_current = self.assist_car_pos[1] - real_y
@@ -754,15 +768,15 @@ class MoveControl:
         if self.my_plan.current_object == 'T':  
             final_pos = self.next_point[0] + correct_dist
             self.my_assist_protocol.send_target_pos('B', final_pos)
-            # self.vision_manager.assist_car_pos = [final_pos, 240.0 + self.vision_manager.assist_car_to_line]
+            self.vision_manager.assist_car_pos = [final_pos, 240.0 + self.vision_manager.assist_car_to_line]
             # 测试代码，记得删去
-            self.vision_manager.assist_car_pos = [160.0, 240.0 + self.vision_manager.assist_car_to_line]
+            # self.vision_manager.assist_car_pos = [160.0, 240.0 + self.vision_manager.assist_car_to_line]
         elif self.my_plan.current_object in ['S', 'E']:
             final_pos = self.next_point[1] + correct_dist
             self.my_assist_protocol.send_target_pos('A', final_pos)
-            # self.vision_manager.assist_car_pos = [0.0 - self.vision_manager.assist_car_to_line, final_pos]
+            self.vision_manager.assist_car_pos = [0.0 - self.vision_manager.assist_car_to_line, final_pos]
             # 测试代码，记得删去
-            self.vision_manager.assist_car_pos = [0.0 - self.vision_manager.assist_car_to_line, 145.0]
+            # self.vision_manager.assist_car_pos = [0.0 - self.vision_manager.assist_car_to_line, 145.0]
         elif self.my_plan.current_object in ['B', 'W']:
             final_pos = self.next_point[1] - correct_dist
             self.my_assist_protocol.send_target_pos('C', final_pos)
@@ -822,6 +836,10 @@ class MoveControl:
                         target_angle = (self.angle_buffer[self.moving_idx][0] + 140.0 + 180.0) % 360.0 - 180.0
                     self.vision_manager.orbit_control(target_angle)
                     if self.vision_manager.if_finish_orbit == True:
+                        if self.if_send_orbit_command == False:
+                            self.my_main_protocol.send_orbit_angle(self.angle_buffer[self.moving_idx][1])
+                            self.if_send_orbit_command = True
+
                         if self.my_main_protocol.get_slave_state() == "finish":
                             self.reset_orbit()
                             self.if_start_orbit = True
