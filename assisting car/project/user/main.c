@@ -311,6 +311,11 @@ void all_init(void) {//初始化
     xy_PID_Init(&pid_xy,6,0.5,500);
     // EEPROM 初始化
     eeprom_init();
+    //初始化障碍
+    set_barr(SIDE_DOWN,800,240);
+    set_barr(SIDE_DOWN,3050,240);
+    set_barr(SIDE_RIGHT,100,120);
+    set_barr(SIDE_RIGHT,1200,450);
 }
 
 void main(void) {
@@ -364,12 +369,15 @@ void main(void) {
     Set_TARGET_ATTITUDE(&Nevigate_Target,0,0,0,0,0,0,0,0,0,0,2);//targetx,targety,targetyaw,targetspeedx,targetspeedy,v1,v2,v3,v4,mode
     set_nevigate_target(&Nevigate_Target);
     WHOLE_STATE=WAITING_;
-    TRACKING_LINE=TRUE;
+    TRACKING_LINE=FALSE;
     car_direction=FACING_UP;
-    ANGLE_CALIBRATION=TRUE;
+    ANGLE_CALIBRATION=FALSE;
     line_base=0;
     Car_Control_State=CONTORL_NEVIGATE_SPEED_MID;
-
+    track_and_avoid(FACING_RIGHT,0,3200,&car);
+    track_and_avoid(FACING_UP,2400,3200,&car);
+    track_and_avoid(FACING_DOWN,0,3200,&car);
+    track_and_avoid(FACING_LEFT,0,0,&car);
     //tracking_and_nevigate(FACING_UP,2400,0,&car);
     //tracking_and_nevigate(FACING_RIGHT,2400,3200,&car);
     //tracking_and_nevigate(FACING_DOWN,1200,3200,&car);

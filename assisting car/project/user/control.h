@@ -13,6 +13,7 @@
 #define NEVIGATE_BOOM_level 0.95f//越小越快预热完成
 #define OUTLINE_HIGHT 500.0f//出界高度
 #define OUTLINE_WIDTH 800.0f//出界宽度
+#define AVOID_DISTANCE 100.0f
 typedef enum
 {
     CONTORL_NONE  = 0,// 无控制
@@ -55,6 +56,12 @@ typedef enum{
     BACK_TO_LINE=6,
     END_=7
 }CAR_STATE_ENUM;
+typedef struct 
+{
+    float XY;
+    float LENGTH;
+}barrier;
+
 extern CAR_STATE_ENUM WHOLE_STATE;
 extern car_control_state_enum Car_Control_State;
 extern car_rotate_state_enum Rotate_State;
@@ -76,4 +83,6 @@ int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y);
 float w_tracking_UPDATE(car_facing_direction_enum direction,float *offset,int erro,int erro2,CAR_ATTITUDE *car);
 BOOL yorx_trackline_UPDATE(car_facing_direction_enum direction,float base,CAR_ATTITUDE *car,int erro,CAR_ATTITUDE *Target_Speed);
 void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car);
+void track_and_avoid(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car);
+void set_barr(SIDE_ENUM barr_side,float xy,float length);
 #endif

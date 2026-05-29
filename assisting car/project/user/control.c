@@ -16,9 +16,55 @@ BOOL TRACKING_LINE=FALSE;
 float line_base=0;
 int line_angle_count=0;
 car_facing_direction_enum car_direction=FACING_UP;
+barrier L_BARRIERS[2];
+uint8 num_barr_l=0;
+barrier R_BARRIERS[2];
+uint8 num_barr_r=0;
+barrier U_BARRIERS[2];
+uint8 num_barr_u=0;
+barrier D_BARRIERS[2];
+uint8 num_barr_d=0;
 float yaw_offset=0;
 //                           st    ld       l                    lu                  u                          ru                         r                          rd                d             ed
 float TURNING_POINT[10][2]={{0,0},{0,0},{area_HEIGHT/2.0f,0},{area_HEIGHT,0},{area_HEIGHT,area_WIDTH/2.0f},{area_HEIGHT,area_WIDTH},{area_HEIGHT/2.0f,area_WIDTH},{0,area_WIDTH},{0,area_WIDTH/2.0f},{0,0}};
+
+car_facing_direction_enum yaw_to_direction(float yaw)
+{
+    return ((int)(yaw+360)/90)%4;
+}
+
+float direction_to_yaw(car_facing_direction_enum dir)
+{
+    return (dir+1)%4*90-90;
+}
+
+//-------------------------------------------设置障碍相关函数--------------------------------------------
+void set_barr(SIDE_ENUM barr_side,float xy,float length){//st小，end大
+    barrier* barr;
+    switch (barr_side)
+    {
+        case SIDE_LEFT:
+            barr=&L_BARRIERS[num_barr_l];
+            num_barr_l++;
+            break;
+        case SIDE_UP:
+            barr=&U_BARRIERS[num_barr_u];
+            num_barr_u++;
+            break;
+        case SIDE_RIGHT:
+            barr=&R_BARRIERS[num_barr_r];
+            num_barr_r++;
+            break;
+        case SIDE_DOWN:
+            barr=&D_BARRIERS[num_barr_d];
+            num_barr_d++;
+            break;
+        default:
+            break;
+    }
+    barr->LENGTH=(length+300)/2;
+    barr->XY=xy;
+}
 //-------------------------------------------底层旋转惯导函数--------------------------------------------
 
 void rotate_to_yaw(float target_yaw,CAR_ATTITUDE *now_car, car_rotate_state_enum rotate_state){
@@ -124,8 +170,142 @@ void tracking_and_nevigate(car_facing_direction_enum direction,float target_x,fl
     beep_once(50);
     system_delay_ms(100);
 }
+void track_and_avoid_up_down(car_facing_direction_enum direction,int8 bar_num,barrier *barrs,float avoid_y,float tx,float ty,CAR_ATTITUDE *car){
+    int8 i=0,ied=bar_num,ki=1;
+    BOOL in_barr=FALSE;
+    float t_yaw=direction_to_yaw(direction);
+    if(tx<car->x)//向下
+    {
+        ki=-1;
+        i=bar_num-1;
+        ied=-1;
+    }
 
-
+    while(i!=ied)
+    {
+        float bst=max(min((barrs[i].XY-barrs[i].LENGTH*ki),area_HEIGHT+AVOID_DISTANCE),-AVOID_DISTANCE);
+        float bed=max(min((barrs[i].XY+barrs[i].LENGTH*ki),area_HEIGHT+AVOID_DISTANCE),-AVOID_DISTANCE);
+        if(bed*ki<car->x*ki)
+        {
+            i+=ki;
+            continue;
+        }
+        else if(car->x*ki>=bst*ki||bst<=0||bst>=area_HEIGHT)//起始点在障碍中
+        {
+            if(bed*ki<tx*ki){
+                //回线
+                nevigate(t_yaw,bed,avoid_y,car);
+                nevigate(t_yaw,bed,ty,car);
+                in_barr=FALSE;
+            }
+            else
+                in_barr=TRUE;
+        }
+        else if(car->x*ki<bst*ki&&bst*ki<tx*ki)//砖块在起点到终点中
+        {
+            //到达障碍
+            tracking_and_nevigate(direction,bst,ty,car);
+            //躲避障碍
+            nevigate(t_yaw,bst,avoid_y,car);
+            if(bed*ki<tx*ki){
+                //回线
+                nevigate(t_yaw,bed,avoid_y,car);
+                nevigate(t_yaw,bed,ty,car);
+                in_barr=FALSE;
+            }
+            else
+                in_barr=TRUE;
+        }
+        i+=ki;
+    }
+    if(!in_barr)
+        tracking_and_nevigate(direction,tx,ty,car);//沿线到达终点
+    else
+        if (tx==area_HEIGHT)//角点
+            nevigate(t_yaw,area_HEIGHT+AVOID_DISTANCE,avoid_y,car);//不回线
+        else if(tx==0)
+            nevigate(t_yaw,-AVOID_DISTANCE,avoid_y,car);//不回线
+        else
+            nevigate(t_yaw,tx,avoid_y,car);//不回线
+}
+void track_and_avoid_right_left(car_facing_direction_enum direction,int8 bar_num,barrier *barrs,float avoid_x,float tx,float ty,CAR_ATTITUDE *car){
+    int8 i=0,ied=bar_num,ki=1;
+    BOOL in_barr=FALSE;
+    float t_yaw=direction_to_yaw(direction);
+    if(ty<car->y)//向左
+    {
+        ki=-1;
+        i=bar_num-1;
+        ied=-1;
+    }
+    while(i!=ied)
+    {
+        float bst=max(min((barrs[i].XY-barrs[i].LENGTH*ki),area_WIDTH+AVOID_DISTANCE),-AVOID_DISTANCE);
+        float bed=max(min((barrs[i].XY+barrs[i].LENGTH*ki),area_WIDTH+AVOID_DISTANCE),-AVOID_DISTANCE);
+        if(bed*ki<car->y*ki)
+        {
+            i+=ki;
+            continue;
+        }
+        else if(car->y*ki>=bst*ki||bst<=0||bst>=area_WIDTH)//起始点在障碍中
+        {
+            if(bed*ki<ty*ki){
+                //回线
+                nevigate(t_yaw,avoid_x,bed,car);
+                nevigate(t_yaw,tx,bed,car);
+                in_barr=FALSE;
+            }
+            else
+                in_barr=TRUE;
+        }
+        else if(car->y*ki<bst*ki&&bst*ki<ty*ki)
+        {
+            //到达障碍
+            tracking_and_nevigate(direction,tx,bst,car);
+            nevigate(t_yaw,avoid_x,bst,car);
+            if(bed*ki<ty*ki){
+                //回线
+                nevigate(t_yaw,avoid_x,bed,car);
+                nevigate(t_yaw,tx,bed,car);
+                in_barr=FALSE;
+            }
+            else
+                in_barr=TRUE;
+        }
+        i+=ki;
+    }
+    if(!in_barr)
+        tracking_and_nevigate(direction,tx,ty,car);
+    else
+        if (ty==area_WIDTH)//角点
+            nevigate(t_yaw,avoid_x,area_WIDTH+AVOID_DISTANCE,car);//不回线
+        else if(ty==0)
+            nevigate(t_yaw,avoid_x,-AVOID_DISTANCE,car);//不回线
+        else
+            nevigate(t_yaw,avoid_x,ty,car);
+}
+void track_and_avoid(car_facing_direction_enum direction,float target_x,float target_y,CAR_ATTITUDE *car)
+{
+    switch (direction)
+    {
+        case FACING_UP:
+        case FACING_DOWN:
+            if(target_y==0)//side_left
+                track_and_avoid_up_down(direction,num_barr_l,L_BARRIERS,-AVOID_DISTANCE,target_x,target_y,car);
+            else if(target_y==area_WIDTH)//side_right
+                track_and_avoid_up_down(direction,num_barr_r,R_BARRIERS,area_WIDTH+AVOID_DISTANCE,target_x,target_y,car);
+            return;
+        case FACING_RIGHT:
+        case FACING_LEFT:
+            if(target_x==0)//side_down
+                track_and_avoid_right_left(direction,num_barr_d,D_BARRIERS,-AVOID_DISTANCE,target_x,target_y,car);
+            else if(target_x==area_HEIGHT)//side_up
+                track_and_avoid_right_left(direction,num_barr_u,U_BARRIERS,area_HEIGHT+AVOID_DISTANCE,target_x,target_y,car);
+            return;
+        default:
+            return;
+    }
+}
 //-------------------------------------------路径规划相关函数--------------------------------------------
 
 
@@ -319,6 +499,7 @@ int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 t
             }
             planning_points_num++;
         }
+
         if(RUNNING_IF_CLOCKWISE)i=(i+1)%9;
         else i=(i+8)%9;
     }
@@ -328,9 +509,9 @@ int planning(SIDE_ENUM target_side,SIDE_ENUM now_side,CAR_ATTITUDE *car,uint16 t
 int tracking_line_running(CAR_ATTITUDE *car){
     int i;
     for (i = 0; i < planning_points_num; i++) {
-        car_facing_direction_enum direction = ((int)(PLANNING_POINTS[i].yaw+360)/90)%4;
+        car_facing_direction_enum direction = yaw_to_direction(PLANNING_POINTS[i].yaw);
         tracking_and_nevigate(direction,PLANNING_POINTS[i].x,PLANNING_POINTS[i].y,car);
-        //nevigate(PLANNING_POINTS[i].yaw, PLANNING_POINTS[i].x, PLANNING_POINTS[i].y,car);
+        
     }
     return 1;
 }
@@ -338,6 +519,7 @@ int tracking_line_running(CAR_ATTITUDE *car){
 //OUT_LINE_RUNNING状态机
 int planning_outline(SIDE_ENUM target_side,uint16 target_x_or_y){//规划线外惯导到达点，当收到666时返回0，持续等待
     if (target_x_or_y==6660)return 0;//666代表只规划了边
+    if (target_x_or_y<0||target_x_or_y>3200)return 0;//错误坐标退出
     calculate_target_point(target_x_or_y, target_side, &PLANNING_OUTLINE_POINTS[0], &PLANNING_OUTLINE_POINTS[1], &PLANNING_OUTLINE_POINTS[2], &PLANNING_BACK_POINT);
     planning_outline_points_num=3;
     if (PLANNING_POINTS[planning_points_num-1].x==PLANNING_OUTLINE_POINTS[0].x && PLANNING_POINTS[planning_points_num-1].y==PLANNING_OUTLINE_POINTS[0].y){
@@ -351,11 +533,11 @@ int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side
     int i;
     if (!planning_outline(target_side, target_x_or_y)) return 0;//规划轮廓失败不进入
     if (planning_outline_points_num>0){
-        car_facing_direction_enum direction = ((int)(PLANNING_OUTLINE_POINTS[0].yaw+360)/90)%4;
+        car_facing_direction_enum direction = yaw_to_direction(PLANNING_OUTLINE_POINTS[0].yaw);
         tracking_and_nevigate(direction,PLANNING_OUTLINE_POINTS[0].x,PLANNING_OUTLINE_POINTS[0].y,car);
     }
     for (i = 1; i < planning_outline_points_num; i++) {
-        car_facing_direction_enum direction = ((int)(PLANNING_OUTLINE_POINTS[0].yaw+360)/90)%4;
+        car_facing_direction_enum direction = yaw_to_direction(PLANNING_OUTLINE_POINTS[0].yaw);
         car_direction=direction;
         switch (direction)
         {
@@ -380,10 +562,11 @@ int out_line_running(CAR_ATTITUDE *car,SIDE_ENUM *now_side,SIDE_ENUM target_side
     return 1;
 }
 
+
 //BACK_TO_LINE状态机
 int back_to_line(CAR_ATTITUDE *car,uint16 target_x_or_y){
     char str[20];
-    car_facing_direction_enum direction = ((int)(PLANNING_BACK_POINT.yaw+360)/90)%4;
+    car_facing_direction_enum direction = yaw_to_direction(PLANNING_BACK_POINT.yaw);
     if (!wireless_analyze_state) return 0;//未收到信号不返回
     func_int_to_str(str,target_x_or_y);
     wireless_uart_send_string(str);
