@@ -381,6 +381,22 @@ def collaborative_task_machine():
             [[ 2.53412974e+00, -6.38412017e-02, -1.99675761e+02],
             [-3.71806303e-16, -2.58229617e+00,  2.68558802e+02],
             [-1.26680170e-17,  8.36909871e-02,  1.00000000e+00]]
+
+
+            # 测试主从同步
+def test_main_slave_sync():
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        main_pose = my_slave_protocol.get_main_pose()
+        if main_pose:
+            my_plan.target_v = main_pose[0]
+            my_plan.target_yaw = main_pose[1]
+            # my_plan.turn_angle_target = main_pose[2]
+            # 测试
+            # my_beep.test()
+
+            
     # 视觉伺服
     # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")

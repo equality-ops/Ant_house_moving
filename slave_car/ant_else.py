@@ -600,6 +600,7 @@ class TaskController:
             self.my_plan.reset_navigate_angle()
 
     def exit(self):
+        global counter
         state = self.my_state.state
 
         if state == READY_NAVIGATE:
@@ -608,6 +609,8 @@ class TaskController:
                 # 若当前物体信息为回程信息
                 self.my_state.state = RETURN  # 直接切换到返回状态
             else:
+                if self.current_object != 'P':
+                    self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到消息                self.my_state.state = NAVIGATE  # 直接切换到导航状态
                 self.my_state.state = NAVIGATE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
@@ -624,13 +627,28 @@ class TaskController:
                     # 设置标志位，避免重复发送指令
                     self.my_vision.if_send_order = True  
 
+                counter += 1
+                # 若超过1秒则认为丢失物体
+                if counter > 100:
+                    # 计数器清零
+                    self.counter = 0
+                    self.my_vision.if_send_order = False  # 重置发送指令标志位
+                    self.my_vision.if_lost_object = True
+                    self.my_plan.reset_navigate()
+                    self.my_state.state = SERVO
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                    return
+                
                 target_point = self.my_art_protocol.coordinate_receive()
-                if target_point and target_point[2] == self.current_object:
-                    self.my_plan.current_object = target_point[2]
+                if target_point and chr(target_point[2]) == self.current_object:
+                    # 计数器清零
+                    self.counter = 0
+                    self.my_vision.if_send_order = False  # 重置发送指令标志位
+                    self.my_plan.current_object = chr(target_point[2])
                     self.my_vision.ready_servo_and_orbit(target_point)
                     self.my_vision.reset_servo_angle()
                     self.my_plan.reset_navigate()  # 重置导航相关变量
-                    self.current_state = SERVO
+                    self.my_state.state = SERVO
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
             pass
@@ -653,9 +671,13 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             # 退出搬运状态，停止搬运动作
-            self.my_moving.if_finish_move = False  # 重置搬运完成标志
-            self.my_state.state = CALIBRATE  # 直接切换到校准状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            assist_car_pos = self.my_slave_protocol.get_path_list()  # 获取主车位置
+            if assist_car_pos and assist_car_pos[0] == 'A':
+                self.my_vision.assist_car_pos = assist_car_pos[2]  # 更新辅助车车位置
+                self.my_moving.if_finish_move = False  # 重置搬运完成标志
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = CALIBRATE  # 直接切换到校准状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
             self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
@@ -682,10 +704,10 @@ class TaskController:
             if path[0] in ['P', 'R']:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
             # 进行路径规划
-            self.my_path.plan_path(path[2])
+            self.my_path.plan_path(path[2][0], path[2][1])  # 传入目标坐标进行路径规划
             self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
-            self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
+            # self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
             self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):
@@ -707,10 +729,10 @@ class TaskController:
             # 若丢失物体则四处移动寻找物体
             x = self.my_car.x_current
             y = self.my_car.y_current
-            self.my_plan.navigate(path = [[x+10.0, y], [x-10.0, y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
+            self.my_plan.navigate(path = [[x+15.0, y], [x-15.0, y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
             
             target_point = self.my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
+            if target_point and chr(target_point[2]) == self.current_object:
                 self.my_vision.ready_servo_and_orbit(target_point)
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False

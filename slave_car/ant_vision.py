@@ -118,7 +118,7 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.car_radius = 11.0   # 小车推杆到中心的距离
-        self.correct_dist = 1.0    # 经验修正值（物体在推杆正前方的值）
+        self.correct_dist = -2.0    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -197,7 +197,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        self.relative_raw_y = self.relative_raw_y + self.car_radius- self.correct_dist - self.final_dist
+        self.relative_raw_y = self.relative_raw_y + self.car_radius - self.correct_dist - self.final_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -233,7 +233,7 @@ class VisionManager:
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
-            self.calculate_dist(self.target_point[0], self.target_point[1], 'far')
+            self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
             '''
             # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
             jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
@@ -262,6 +262,8 @@ class VisionManager:
             self.servo_lost_count += 1
             # 彻底丢失保护
             if self.servo_lost_count >= 150:
+                # 测试
+                self.my_beep.test()
                 self.target_rel_speed = 0.0
                 self.target_rel_yaw = 0.0
                 self.if_lost_object = True
@@ -287,7 +289,7 @@ class VisionManager:
         if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
-            self.my_order_manager.finish()
+            self.my_order_manager.finish()  
             # 选择正常伺服状态下的pid参数
             self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
             self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
@@ -566,8 +568,9 @@ class VisionManager:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, beep, car, plan, plan_data, vision_manager: VisionManager, state, slave_protocol, art_protocol, order_manager):
+    def __init__(self, beep, uart, car, plan, plan_data, vision_manager: VisionManager, state, slave_protocol, art_protocol, order_manager):
         self.my_beep = beep
+        self.my_uart = uart
         self.vision_manager = vision_manager
         self.my_plan = plan
         self.plan_data = plan_data
@@ -583,7 +586,7 @@ class MoveControl:
         self.adjust_point = []   # 微调目标点
 
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
-        self.if_send_to_main = False  # 是否向主车发送完成信号
+        self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
         self.if_get_orbit_angle = False  # 是否获取环绕角度
 
@@ -610,30 +613,38 @@ class MoveControl:
 
     # 处理主车发送的下一搬运途径点
     def handle_next_point(self, move_pt_buffer):
-        direct = move_pt_buffer[1]
+        direct = move_pt_buffer[2][0]
+        coord_val = move_pt_buffer[2][1]
 
-        if direct == ord('x'):
-            self.next_point = [self.move_pt_buffer[0], self.my_car.y_current]
-        elif direct == ord('y'):
-            self.next_point = [self.my_car.x_current, self.move_pt_buffer[0]]
+        if direct == float(ord('x')):
+            self.next_point = [coord_val, self.my_car.y_current]
+        elif direct == float(ord('y')):
+            self.next_point = [self.my_car.x_current, coord_val]
+
+        # 测试打印
+        # self.my_uart.write(f"next point: {self.next_point}, buffer: {move_pt_buffer}\r\n")
         
     # 状态过渡函数
     def state_transition(self):
         if self.current_state == ORBIT:
             if self.if_send_to_main == False:
-                self.my_order_manager.finish()
+                # 通知主车已完成当前环绕
+                self.my_slave_protocol.send_slave_state("finish")
                 self.if_send_to_main = True
 
             path = self.my_slave_protocol.get_path_list()
             if path and path[0] == 'M':
+                # 测试
+                self.my_beep.test()
                 self.handle_next_point(path)
                 self.reset_orbit()
                 self.my_plan.reset_navigate_angle()
                 self.if_send_to_main = False
                 self.current_state = MOVE
+                
         elif self.current_state == MOVE:
             self.my_plan.reset_navigate()
-            if not self.my_plan.if_near_line:
+            if self.my_plan.if_near_line:
                 self.my_plan.if_near_line = False
                 self.if_finish_move = True
                 self.current_state = ORBIT

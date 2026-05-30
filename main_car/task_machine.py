@@ -616,22 +616,6 @@ def test_apriltag_calibrate():
         if my_plan.if_finish_navigate == True:  
             my_plan.reset_navigate()
             my_state.state = STOP
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180    
-
                 
 spin_angle = 90.0
 def test_spin():

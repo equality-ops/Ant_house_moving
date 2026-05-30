@@ -4,15 +4,13 @@ import time
 import math
 import tf
 import mjpeg
+from pyb import LED
 from machine import UART
 from ulab import numpy as np
 import seekfree
 import ustruct
-from pyb import LED #导入LED
 
 # ======================== 常量定义 ========================
-white = LED(4)  # 定义一个LED4   照明灯
-
 # 串口配置
 UART_PORT = 12
 UART_BAUDRATE = 115200
@@ -20,8 +18,8 @@ UART_BAUDRATE = 115200
 # 摄像头配置
 CAMERA_PIXFORMAT = sensor.RGB565
 CAMERA_FRAMESIZE = sensor.QQVGA  # 160x120
-CAMERA_FRAMERATE = 60
-CAMERA_BRIGHTNESS = 600 # 800在plus上可能导致apriltag识别失败，降低亮度可以改善
+CAMERA_FRAMERATE = 60   
+CAMERA_BRIGHTNESS = 600
 
 # 屏幕尺寸
 SCREEN_WIDTH = 160
@@ -82,15 +80,12 @@ face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
 #载入模型
 net = tf.load(face_detect)
 
-global_counter = 0
-first_time = time.ticks_ms()
-
 # ======================== 通信模块 ========================
 class Communicator:
     def __init__(self, uart):
         self.uart = uart
-        # self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
-        # self.last_sent_y = SCREEN_CENTER_Y
+        self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
+        self.last_sent_y = SCREEN_CENTER_Y
 
     def send_coordinate(self, x, y, obj_type = ''):
         """发送目标坐标（带防抖和范围限制）"""
@@ -104,36 +99,34 @@ class Communicator:
         # if not is_first_send and abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             # return
 
-        # # 限制单次坐标变化幅度（最大±30）
-        # dx_coord = min(30, max(-30, x - self.last_sent_x))
-        # dy_coord = min(30, max(-30, y - self.last_sent_y))
-        # x_limited = self.last_sent_x + dx_coord
-        # y_limited = self.last_sent_y + dy_coord
+        # 限制单次坐标变化幅度（最大±30）
+        dx_coord = min(30, max(-30, x - self.last_sent_x))
+        dy_coord = min(30, max(-30, y - self.last_sent_y))
+        x_limited = self.last_sent_x + dx_coord
+        y_limited = self.last_sent_y + dy_coord
 
-        # # 坐标范围限制（0~160, 0~120）
-        # x_limited = max(0, min(SCREEN_WIDTH, x_limited))
-        # y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
+        # 坐标范围限制（0~160, 0~120）
+        x_limited = max(0, min(SCREEN_WIDTH, x_limited))
+        y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
 
-        # # 更新上次发送的坐标
-        # self.last_sent_x = x_limited
-        # self.last_sent_y = y_limited
+        # 更新上次发送的坐标
+        self.last_sent_x = x_limited
+        self.last_sent_y = y_limited
 
         # 获取颜色类型对应的ASCII码
         type_char = COLOR_TYPE_MAP.get(obj_type, 0x00)
 
         # 打包并发送数据
-        
         data = ustruct.pack(
             "<BBBBBB",
             PROTOCOL_HEADER1,
             PROTOCOL_HEADER2_COORD,
-            x,
-            y,
+            x_limited,
+            y_limited,
             type_char,
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
-        # self.uart.write(f"{PROTOCOL_HEADER1} {PROTOCOL_HEADER2_COORD} {x} {y} {PROTOCOL_FOOTER}\r\n")
 
     def send_coordinate_with_angle(self, tag_cx, tag_cy, rotation):
         tag_cx = int(round(tag_cx))
@@ -552,11 +545,8 @@ def handle_uart_commands(uart):
 LED(4).on()
 time.sleep_ms(500)
 LED(4).off()
-
 # 串口初始化
 uart = UART(UART_PORT, baudrate=UART_BAUDRATE)
-time.sleep_ms(100)  # 等待串口稳定
-
 # 摄像头初始化
 sensor.reset()
 sensor.set_pixformat(CAMERA_PIXFORMAT)
@@ -615,9 +605,9 @@ while True:
         center = [] # 本帧检测到的目标中心列表
 
         objects = model_detector.detect(img)
-        brown_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'brown' and obj[5] > 0.3]
-        white_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'white' and obj[5] > 0.3]
-        other_objects = [(obj, LABEL_TO_COLOR[obj[4]]) for obj in objects if LABEL_TO_COLOR[obj[4]] in ['red','blue','green'] and obj[5] > 0.6]
+        brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+        white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+        other_objects = [(obj, LABEL_TO_COLOR.get(obj[4])) for obj in objects if LABEL_TO_COLOR.get(obj[4]) in ['red','blue','green'] and obj[5] > 0.6]
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
@@ -635,12 +625,12 @@ while True:
         #     is_sent = True
         # elif not target_locker.is_locked and center:
         if center:
+            # 未锁定：按原有逻辑选y最大的坐标
             target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]
             target_kind = target[2]
             communicator.send_coordinate(target_x, target_y, target_kind)
-            global_counter += 1
             is_sent = True
 
         displayed_text = 'YES' if is_sent else 'NO'

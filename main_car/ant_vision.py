@@ -234,7 +234,7 @@ class VisionManager:
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
-            self.calculate_dist(self.target_point[0], self.target_point[1], 'far')
+            self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
             '''
             # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
             jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)

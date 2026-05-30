@@ -181,7 +181,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_car, my_state, my_
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
+my_moving = ant_vision.MoveControl(my_beep, my_uart3, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
@@ -225,7 +225,7 @@ def slave_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 初始化小车坐标
@@ -246,10 +246,10 @@ def slave_start():
 def show_speed_PID_test():
     global counter
     counter += 1
-    # motor_ul_pid.compute_pid(290, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(300, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(300, pose_data.encoder_data_md)
-
+    motor_ul_pid.compute_pid(100, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(100, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(100, pose_data.encoder_data_md)
+    '''
     # 测试不同速度下的pid参数切换情况
     if counter >= 8000:
         counter = 0
@@ -261,6 +261,7 @@ def show_speed_PID_test():
         motor_ur_pid.compute_pid(-100, pose_data.encoder_data_ur)
     else:
         motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
+    '''
 
 # 测试角度闭环函数
 def complete_angle_circle():
@@ -286,18 +287,7 @@ def master_control():
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
 
-# 测试主从同步
-def test_main_slave_sync():
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        main_pose = my_slave_protocol.get_main_pose()
-        if main_pose:
-            my_plan.target_v = main_pose[0]
-            my_plan.target_yaw = main_pose[1]
-            # my_plan.turn_angle_target = main_pose[2]
-            # 测试
-            # my_beep.test()
+
 
 # 设置pid参数
 def set_pid_params():
@@ -354,24 +344,10 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180    
-
 # 任务机执行函数
 def task_machine():
     my_task.run()
+
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -404,10 +380,10 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -422,7 +398,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-    
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -432,7 +408,7 @@ def time_pit3_handler(time) -> None:
     # test_apriltag_calibrate()
 
     # 环绕物体测试程序
-    # test_orbit_control()
+    # test_orbit()
 
     # test_main_slave_sync()
 
@@ -455,7 +431,7 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
     """
 
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）

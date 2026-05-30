@@ -547,7 +547,8 @@ class TaskController:
         elif state == MOVE:
             # 进入搬运状态，开始搬运物体
             self.my_moving.ready_move()  # 准备搬运动作
-            self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
+            # 测试
+            # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
             # 记录小车在哪个边线
@@ -649,6 +650,7 @@ class TaskController:
             # 若从车丢失物体，则跳过当前物体      
             self.data.current_index += 1
             if self.my_moving.current_state == MOVE:
+                self.my_plan.reset_navigate_angle()
                 self.my_state.state = CALIBRATE  # 直接切换到校准状态
             # 此时从车丢失物体
             elif self.my_moving.current_state == ORBIT:

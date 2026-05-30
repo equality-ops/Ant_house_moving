@@ -229,7 +229,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -242,6 +242,28 @@ def main_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+
+# 调试电机速度环pid函数
+def show_speed_PID_test():
+    global counter
+    counter += 1
+    motor_ul_pid.compute_pid(100, pose_data.encoder_data_ul)
+    motor_ur_pid.compute_pid(100, pose_data.encoder_data_ur)
+    motor_md_pid.compute_pid(100, pose_data.encoder_data_md)
+    '''
+    # 测试不同速度下的pid参数切换情况
+    if counter >= 8000:
+        counter = 0
+    elif counter >= 6000:
+        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
+    elif counter >= 4000:
+        motor_ur_pid.compute_pid(-200, pose_data.encoder_data_ur)
+    elif counter >= 2000:
+        motor_ur_pid.compute_pid(-100, pose_data.encoder_data_ur)
+    else:
+        motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
+    '''
+
 
 # 小车姿态总控制函数
 def master_control():
@@ -407,7 +429,7 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     """
     # my_uart3.write(f"{angle_pid.target},{angle_pid.actual}\r\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
