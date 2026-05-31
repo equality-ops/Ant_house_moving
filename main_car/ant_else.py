@@ -74,6 +74,12 @@ class beep:
             return
 
 
+class PhotoControl:
+    def __init__(self, photo):
+        # 注入光电管对象
+        self.photo = photo
+        
+
 ##############################【uart串口解析数据】##############################
 # 指令管理类
 class order_manager:

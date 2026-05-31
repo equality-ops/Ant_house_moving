@@ -536,6 +536,8 @@ class VisionManager:
         self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+        # 选择正常伺服状态下的pwm限幅
+        self.servo_pid.
         # 控制小车面向物体进行视觉伺服控制
         self.current_servo_object = chr(target_point[2])
         # 更新导航中的物品种类便于在搬运状态中进行速度规划
@@ -705,3 +707,18 @@ class MoveControl:
             self.vision_manager.visual_servo_control()
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
+
+# 红外灯跟随控制类
+class IRFollowControl:
+    def __init(self, flash_sys, uart, car, state, art_protocol, order_manager):
+        self.flash_sys = flash_sys
+        self.my_uart = uart
+        self.my_car = car
+        self.my_state = state
+        self.my_art_protocol = art_protocol
+        self.my_order_manager = order_manager
+
+        # 红外灯跟随相关变量
+        self.follow_speed = 0.0  # 目标相对速度
+        self.follow_yaw = 0.0    # 目标相对航向角
+        self.follow_turn_angle = 0.0   # 目标转向角

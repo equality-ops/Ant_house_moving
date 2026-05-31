@@ -1,3 +1,4 @@
+import micropython
 from micropython import const
 import math
 import time
@@ -6,6 +7,51 @@ import gc
 PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
+READY_NAVIGATE = const(0)   # 准备导航状态
+NAVIGATE = const(1)       # 导航状态
+SCAN = const(2)           # 扫描状态
+SERVO = const(3)          # 视觉伺服状态
+ORBIT = const(4)          # 环绕状态
+MOVE = const(5)           # 搬运状态
+CALIBRATE = const(6)      # 校准状态
+ADJUST = const(7)           # 微调状态
+RETURN = const(8)		    # 返回状态
+STOP = const(9)           # 停止状态
+
+# 无刷风扇控制类
+class FanControl:
+    def __init__(self, flash_sys, fan , state):
+        self.flash_sys = flash_sys
+        self.my_fan = fan
+        self.my_state = state
+
+        self.fan_signal_limit = 1350  # type: int  # 无刷风扇信号限幅
+        self.if_fan = self.flash_sys.find_value("if_fan")  # type: bool  # 是否开启风扇控制
+        self.fixed_high_level_us = self.flash_sys.find_value("fixed_high_level_us")  # type: int  # 高电平持续时间，单位微秒
+
+        gc.collect()
+
+        
+    # 设置无刷风扇的高电平时间
+    def set_fan_signal(self):
+         # 限幅在 1000-self.fan_signal_limit 之间
+        if self.my_state in [NAVIGATE, RETURN]:
+            high_level_us = self.fixed_high_level_us
+        else:
+            high_level_us = 1000
+
+        high_level_us = max(1000, min(high_level_us, self.fan_signal_limit)) 
+        # 更新高电平时间值
+        self.my_fan.highlevel_us(high_level_us)
+
+    # 测试用的风扇高电平时间设置函数，直接传入一个值进行测试
+    def test_fan(self, high_level_us):
+        high_level_us = max(1000, min(high_level_us, self.fan_signal_limit)) 
+        self.my_fan.highlevel_us(high_level_us)
+
+    # 关闭风扇（设置为最低信号）
+    def fan_off(self):
+        self.my_fan.highlevel_us(1000)
 
 class PID_data:
     def __init__(self, flash_sys):
@@ -63,6 +109,8 @@ class SlipAveragingFilter:
         self.last_value = 0.0
         self.buffer = [0.0] * filter_size
 
+        gc.collect()
+
     def buffer_init(self, initial_value):
         self.buffer = [initial_value] * self.filter_size
 
@@ -79,6 +127,8 @@ class KalmanFilter:
         self.Q = Q
         self.R = R
         self.Output = initial_output
+
+        gc.collect()
 
     def update(self, input_value):
         self.P += self.Q
@@ -119,6 +169,10 @@ class PoseData:
         self.gyro_y = 0             # type: float
         self.gyro_z = 0             # type: float
         self.gyro_z_gkd = 0         # type: float # 供角速度环控制用的原始角速度值
+        # 加速度误差
+        self.acc_x_bias = 0.0       # type: float
+        self.acc_y_bias = 0.0       # type: float
+        self.acc_z_bias = 0.0       # type: float
         # 角速度零漂误差
         self.gyro_x_bias = 0.0       # type: float
         self.gyro_y_bias = 0.0       # type: float
@@ -134,7 +188,7 @@ class PoseData:
 
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
-        self.kp = 1.0  # 加速度计权重
+        self.kp = 2.0  # 加速度计权重
         self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
@@ -145,6 +199,7 @@ class PoseData:
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 更新四元数
+    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -162,8 +217,8 @@ class PoseData:
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
         # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.1
+        LOWER_THRESHOLD = 0.1
+        UPPER_THRESHOLD = 0.2
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -194,7 +249,7 @@ class PoseData:
         ez = (ax*vy - ay*vx)
         
         # --- 改进1：增加积分限幅 (Anti-Windup) ---
-        I_LIMIT = 0.2  # 限制积分项最大影响
+        I_LIMIT = 0.1  # 限制积分项最大影响
         self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
         self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
         self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正，强制清零
@@ -222,6 +277,7 @@ class PoseData:
         self.q[3] = q3_new/norm
     
     # 将四元数转化为欧拉角
+    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
@@ -296,11 +352,9 @@ class PoseData:
 
     # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
-        """暂时不需要这些数据
         acc_x_sum = 0
         acc_y_sum = 0
         acc_z_sum = 0
-        """
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
@@ -326,35 +380,37 @@ class PoseData:
         self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
         self.last_update_time = current_time
 
+        # print(f"dt: {self.dt:.6f} s")
         # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
             self.dt = 0.002
 
-        self.encoder_data_ul = self.encoder_ul.get() * 4
-        self.encoder_data_ur = self.encoder_ur.get() * 4
-        self.encoder_data_md = self.encoder_md.get() * 4
+        self.encoder_data_ul = self.encoder_ul.get() * 3
+        self.encoder_data_ur = self.encoder_ur.get() * 3
+        self.encoder_data_md = self.encoder_md.get() * 3
 
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         # self.gkd用于角速度环控制
-        self.gyro_z_gkd = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # gyro_z用于四元数解算
-        self.gyro_z = -self.gyro_z_gkd * (PI / 180.0)
+        self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
 
         DEADBAND = 0.004 # 弧度每秒
         if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
         if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
         if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
 
-        # --- 终极死区：如果三轴角速度都极小，认为完全静止，不更新四元数 ---
-        if self.gyro_x == 0.0 and self.gyro_y == 0.0 and self.gyro_z == 0.0:
-            # 更新欧拉角输出
-            self.update_euler_angles()
-            return
+        # 注意：这里千万不要因为陀螺仪为 0 就直接 return 退出！
+        # 如果退出，加速度计就无法把移动时产生的错误倾角（Pitch/Roll）慢慢修正回 0
             
-        # 3. 运行 AHRS 算法（gyro_z顺时针为正，四元数解算需要逆时针为正）
-        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], self.gyro_x, self.gyro_y, self.gyro_z)
+        # 3. 运行 AHRS 算法（构建严格的“右前上”或“前往左上”右手坐标系）
+        # 基于你的物理方向，我们将其映射为：X向前，Y向左，Z向上 (这也是标准的 FLU 右手标系)
+        # 加速度映射：原X向后->取负变向前；原Y向左->保留向左(+1)；原Z向下(静止负)->取负变向上
+        # 角速度映射：原gx(绕向后)被翻转；原gy(绕向左)保留；原gz(顺时针)被翻转为逆时针
+        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], 
+                         -self.gyro_x, self.gyro_y, -self.gyro_z)
         
         # 4. 更新欧拉角输出
         self.update_euler_angles()

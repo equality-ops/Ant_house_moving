@@ -29,7 +29,7 @@ class PlanData:
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
         # fixed_point[3]为主车返回点, [4]为从车返回点
-        self.fixed_point = [[35.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -349,11 +349,13 @@ class PathPlan:
 
 # 导航规划类
 class NavigationPlan:
-    def __init__(self, flash_sys, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
         self.plan_data = plan_data
+        # 注入无刷负压
+        self.my_fan = fan
         # 注入小车位置对象
         self.my_car = car
         # 注入状态机对象
@@ -432,14 +434,14 @@ class NavigationPlan:
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
             
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
-            if delta_yaw > 90.0:
+            if delta_yaw > 120.0:
                 self.waypoint_v[i] = self.min_start_v
             elif delta_yaw < 10.0:
                 self.waypoint_v[i] = self.long_v_max
             else:
                 speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
-                # 再缩放0.2系数，让速度更保守一些，增加过弯安全裕量
-                self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.2
+                # 我加负压了，给我拉满过弯速度
+                self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v)
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -474,16 +476,16 @@ class NavigationPlan:
         y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.966702
+            self.my_car.alpha_x = 1.0
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.932782
+            self.my_car.alpha_y = 1.0
         elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 0.955172
+            self.my_car.alpha_y = 1.0
         else:
             self.my_car.alpha_y = 1.0
 
@@ -660,16 +662,16 @@ class NavigationPlan:
             y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
             # 依据到过渡点的距离计算里程计系数
             if x_transit_dis >= 50.0:
-                self.my_car.alpha_x = 0.966702
+                self.my_car.alpha_x = 1.0
             elif x_transit_dis >= 10.0:
                 self.my_car.alpha_x = 1.0
             else:
                 self.my_car.alpha_x = 1.0
 
             if y_transit_dis >= 50.0:
-                self.my_car.alpha_y = 0.932782
+                self.my_car.alpha_y = 1.0
             elif y_transit_dis >= 10.0:
-                self.my_car.alpha_y = 0.955172
+                self.my_car.alpha_y = 1.0
             else:
                 self.my_car.alpha_y = 1.0
         elif is_last_segment and self.rest_dist <= self.final_threshold:
@@ -705,7 +707,7 @@ class NavigationPlan:
                     # 当角度误差小于 20.0 度时，开始线性降低 kp（避免小角度震荡过冲）
                     diff_threshold = 20.0
                     if diff < diff_threshold:
-                        dynamic_kp = original_kp * (0.4 + 0.6 * (diff / diff_threshold))
+                        dynamic_kp = original_kp * (0.5 + 0.5 * (diff / diff_threshold))
                         self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax * 0.4
                     else:
                         dynamic_kp = original_kp

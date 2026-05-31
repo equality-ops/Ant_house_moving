@@ -470,6 +470,10 @@ class ServoPID(ControlPID):
         self.servo_normal_kd_x = self.flash_sys.find_value("servo_normal_kd_x")        # type: float
         self.servo_normal_kp_y = self.flash_sys.find_value("servo_normal_kp_y")        # type: float
         self.servo_normal_kd_y = self.flash_sys.find_value("servo_normal_kd_y")        # type: float
+        self.servo_IR_kp_x = self.flash_sys.find_value("servo_IR_kp_x")        # type: float
+        self.servo_IR_kd_x = self.flash_sys.find_value("servo_IR_kd_x")        # type: float
+        self.servo_IR_kp_y = self.flash_sys.find_value("servo_IR_kp_y")        # type: float
+        self.servo_IR_kd_y = self.flash_sys.find_value("servo_IR_kd_y")        # type: float
         self.servo_kp_x = 0.0
         self.servo_kd_x = 0.0
         self.servo_kp_y = 0.0
@@ -481,7 +485,9 @@ class ServoPID(ControlPID):
         
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
-        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
+        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    
+        # 红外灯跟随下y轴距离阈值   
+        self.target_y_IR = self.flash_sys.find_value("servo_target_y_IR")   # type: float
 
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
@@ -491,12 +497,14 @@ class ServoPID(ControlPID):
         self.derivative_y = 0 # type: float
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
-        self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
+        self.pwmout_normal_limit = self.flash_sys.find_value("pwmout_normal_limit") 
+        self.pwmout_IR_limit = self.flash_sys.find_value("pwmout_IR_limit")
+        self.pwmout_limitmax = 100    # type: int
     
         gc.collect()  # 主动触发垃圾回收，释放内存
 
-    # 模型下的pid计算
-    def model_compute_pid(self, actual_x: float, actual_y: float):
+    # pid计算
+    def compute_pid(self, actual_x: float, actual_y: float):
         self.actual_x = actual_x
         self.actual_y = actual_y    
         self.preError_x = self.nowError_x
@@ -511,8 +519,8 @@ class ServoPID(ControlPID):
         self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
 
         # pwm_output限幅
-        self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
-        self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
+        self.pwm_output_x = max(-self.pwmout_limitmax, min(self.pwm_output_x, self.pwmout_limitmax))
+        self.pwm_output_y = max(-self.pwmout_limitmax, min(self.pwm_output_y, self.pwmout_limitmax))
 
 # 小车姿态控制
 class CarPose:
