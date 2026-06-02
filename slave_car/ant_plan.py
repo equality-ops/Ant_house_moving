@@ -341,11 +341,13 @@ class PathPlan:
 
 # 导航规划类
 class NavigationPlan:
-    def __init__(self, flash_sys, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, fan, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
         self.plan_data = plan_data
+        # 注入无刷负压控制对象
+        self.my_fan = fan
         # 注入小车位置对象
         self.my_car = car
         # 注入状态机对象
@@ -407,8 +409,15 @@ class NavigationPlan:
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False     # type: bool  # 判断是否完成导航标志位
         self.if_near_line = False           # type: bool  # 判断是否接近边界标志位
+   
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
+        # 打开无刷负压风扇
+        if self.current_object in ['R', 'P']:
+            self.my_fan.set_fan_signal()
+        else:
+            self.my_fan.fan_off()
+
         self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
@@ -466,16 +475,16 @@ class NavigationPlan:
         y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.966702
+            self.my_car.alpha_x = 1.0
         elif x_transit_dis >= 10.0:
             self.my_car.alpha_x = 1.0
         else:
             self.my_car.alpha_x = 1.0
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.932782
+            self.my_car.alpha_y = 1.0
         elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 0.955172
+            self.my_car.alpha_y = 1.0
         else:
             self.my_car.alpha_y = 1.0
 
@@ -648,19 +657,22 @@ class NavigationPlan:
             y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
             # 依据到过渡点的距离计算里程计系数
             if x_transit_dis >= 50.0:
-                self.my_car.alpha_x = 0.966702
+                self.my_car.alpha_x = 1.0
             elif x_transit_dis >= 10.0:
                 self.my_car.alpha_x = 1.0
             else:
                 self.my_car.alpha_x = 1.0
 
             if y_transit_dis >= 50.0:
-                self.my_car.alpha_y = 0.932782
+                self.my_car.alpha_y = 1.0
             elif y_transit_dis >= 10.0:
-                self.my_car.alpha_y = 0.955172
+                self.my_car.alpha_y = 1.0
             else:
                 self.my_car.alpha_y = 1.0
         elif is_last_segment and self.rest_dist <= self.final_threshold:
+            # 到达目标点关闭负压风扇
+            self.my_fan.fan_off()
+            # 重置导航标志位
             self.if_finish_navigate = True
             self.stop()
 

@@ -540,8 +540,7 @@ class VisionManager:
         self.servo_pid.
         # 控制小车面向物体进行视觉伺服控制
         self.current_servo_object = chr(target_point[2])
-        # 更新导航中的物品种类便于在搬运状态中进行速度规划
-        self.my_plan.current_object = self.current_servo_object
+
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T

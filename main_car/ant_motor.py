@@ -7,16 +7,25 @@ import gc
 PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
-READY_NAVIGATE = const(0)   # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
-STOP = const(9)           # 停止状态
+
+# 光电管控制类
+class PhotoControl:
+    def __init__(self, flash_sys, beep, photo) -> None:
+        self.flash_sys = flash_sys
+        self.my_beep = beep
+        self.my_photo = photo
+        self.photo_state = self.my_photo.value()
+        self.if_change = False
+
+    def update_photo_state(self):
+        current_state = self.my_photo.value()
+        if current_state != self.photo_state and self.if_change == False:
+            self.photo_state = current_state
+            self.if_change = True
+
+    def reset_change_flag(self):
+        self.if_change = False
+        
 
 # 无刷风扇控制类
 class FanControl:
@@ -31,18 +40,15 @@ class FanControl:
 
         gc.collect()
 
-        
     # 设置无刷风扇的高电平时间
     def set_fan_signal(self):
          # 限幅在 1000-self.fan_signal_limit 之间
-        if self.my_state in [NAVIGATE, RETURN]:
-            high_level_us = self.fixed_high_level_us
+        if self.if_fan:
+            high_level_us = max(1000, min(self.fixed_high_level_us, self.fan_signal_limit)) 
+            # 更新高电平时间值
+            self.my_fan.highlevel_us(high_level_us)
         else:
-            high_level_us = 1000
-
-        high_level_us = max(1000, min(high_level_us, self.fan_signal_limit)) 
-        # 更新高电平时间值
-        self.my_fan.highlevel_us(high_level_us)
+            self.fan_off()
 
     # 测试用的风扇高电平时间设置函数，直接传入一个值进行测试
     def test_fan(self, high_level_us):
@@ -169,10 +175,6 @@ class PoseData:
         self.gyro_y = 0             # type: float
         self.gyro_z = 0             # type: float
         self.gyro_z_gkd = 0         # type: float # 供角速度环控制用的原始角速度值
-        # 加速度误差
-        self.acc_x_bias = 0.0       # type: float
-        self.acc_y_bias = 0.0       # type: float
-        self.acc_z_bias = 0.0       # type: float
         # 角速度零漂误差
         self.gyro_x_bias = 0.0       # type: float
         self.gyro_y_bias = 0.0       # type: float
@@ -352,9 +354,6 @@ class PoseData:
 
     # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
-        acc_x_sum = 0
-        acc_y_sum = 0
-        acc_z_sum = 0
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0

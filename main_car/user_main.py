@@ -140,6 +140,9 @@ my_flash_sys.check_list_format()
 # 创建无刷风扇控制对象
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
 
+# 创建光电管控制对象
+my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
+
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_uart6)
 
@@ -197,7 +200,7 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  
 my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
 
 # 任务及类
-my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+my_task = ant_else.TaskController(my_beep, my_photomy_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -394,10 +397,12 @@ def time_pit1_handler(time):
 
     # 更新负压风扇的高电平时间
     # my_fan.set_fan_signal()
+    """
     if my_fan.if_fan:
         my_fan.test_fan(1200)
         my_fan.if_fan = False
-    
+    """
+
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）

@@ -1,3 +1,4 @@
+import micropython
 from micropython import const
 import math
 import time
@@ -7,6 +8,38 @@ PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
 
+# 无刷风扇控制类
+class FanControl:
+    def __init__(self, flash_sys, fan , state):
+        self.flash_sys = flash_sys
+        self.my_fan = fan
+        self.my_state = state
+
+        self.fan_signal_limit = 1350  # type: int  # 无刷风扇信号限幅
+        self.if_fan = self.flash_sys.find_value("if_fan")  # type: bool  # 是否开启风扇控制
+        self.fixed_high_level_us = self.flash_sys.find_value("fixed_high_level_us")  # type: int  # 高电平持续时间，单位微秒
+
+        gc.collect()
+
+    # 设置无刷风扇的高电平时间
+    def set_fan_signal(self):
+         # 限幅在 1000-self.fan_signal_limit 之间
+        if self.if_fan:
+            high_level_us = max(1000, min(self.fixed_high_level_us, self.fan_signal_limit)) 
+            # 更新高电平时间值
+            self.my_fan.highlevel_us(high_level_us)
+        else:
+            self.fan_off()
+
+    # 测试用的风扇高电平时间设置函数，直接传入一个值进行测试
+    def test_fan(self, high_level_us):
+        high_level_us = max(1000, min(high_level_us, self.fan_signal_limit)) 
+        self.my_fan.highlevel_us(high_level_us)
+
+    # 关闭风扇（设置为最低信号）
+    def fan_off(self):
+        self.my_fan.highlevel_us(1000)
+        
 class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
@@ -87,9 +120,11 @@ class KalmanFilter:
     
     
 class PoseData:
-    def __init__(self, flash_sys, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
+    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
         # 注入flash系统对象
         self.flash_sys = flash_sys
+        # 注入串口对象
+        self.my_uart3 = my_uart3
         # 注入传感器对象
         self.imu = imu
         self.encoder_ul = encoder_ul
@@ -97,13 +132,14 @@ class PoseData:
         self.encoder_md = encoder_md
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
-
         # IMU数据列表
         self.imu_data = []   # type: list
 
+        # 传感器数据
         self.encoder_data_ul = 0    # type: int
         self.encoder_data_ur = 0    # type: int
         self.encoder_data_md = 0    # type: int
+        
         # 陀螺仪补偿系数
         self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
         # 加速度
@@ -130,7 +166,7 @@ class PoseData:
 
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
-        self.kp = 1.0  # 加速度计权重
+        self.kp = 2.0  # 加速度计权重
         self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
@@ -138,7 +174,10 @@ class PoseData:
         self.now_roll = 0.0   # 横滚角
         self.now_yaw = 0.0    # 偏航角
 
+        gc.collect()  # 主动触发垃圾回收，释放内存
+
     # 更新四元数
+    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -156,8 +195,8 @@ class PoseData:
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
         # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.1
+        LOWER_THRESHOLD = 0.1
+        UPPER_THRESHOLD = 0.2
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -188,7 +227,7 @@ class PoseData:
         ez = (ax*vy - ay*vx)
         
         # --- 改进1：增加积分限幅 (Anti-Windup) ---
-        I_LIMIT = 0.2  # 限制积分项最大影响
+        I_LIMIT = 0.1  # 限制积分项最大影响
         self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
         self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
         self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正，强制清零
@@ -214,8 +253,9 @@ class PoseData:
         self.q[1] = q1_new/norm
         self.q[2] = q2_new/norm
         self.q[3] = q3_new/norm
-
+    
     # 将四元数转化为欧拉角
+    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
@@ -250,9 +290,9 @@ class PoseData:
         :param ref_yaw_deg: 外部传感器获取的绝对偏航角，单位：度 (°)
         """
         # 1. 将角度转换为半角弧度
-        half_roll = self.now_roll * 0.5 * (math.pi / 180.0)
-        half_pitch = self.now_pitch * 0.5 * (math.pi / 180.0)
-        half_yaw = ref_yaw_deg * 0.5 * (math.pi / 180.0)
+        half_roll = self.now_roll * 0.5 * (PI / 180.0)
+        half_pitch = self.now_pitch * 0.5 * (PI / 180.0)
+        half_yaw = -ref_yaw_deg * 0.5 * (PI / 180.0)
 
         # 2. 预计算三角函数以提高运算效率
         sr = math.sin(half_roll)
@@ -288,7 +328,7 @@ class PoseData:
         # 6. 同步更新底层的欧拉角输出，确保下一个控制周期读取的数据是最新值
         self.update_euler_angles()
 
-    # 初始零偏计算函数，总计需延时4s，初始化陀螺仪的同时进行启动延时，确保平稳启动
+    # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
         gyro_x_sum = 0
         gyro_y_sum = 0
@@ -309,15 +349,27 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
-        self.encoder_data_ul = self.encoder_ul.get() * 4
-        self.encoder_data_ur = self.encoder_ur.get() * 4
-        self.encoder_data_md = self.encoder_md.get() * 4
-        
-        self.gyro_x = -(self.imu_data[3] - self.gyro_x_bias) / 16.4 * self.gyro_z_supply * (PI / 180.0)
-        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * self.gyro_z_supply * (PI / 180.0)
-        # self.gyro用于角速度环控制
+        # 1. 计算真实的动态 dt
+        current_time = time.ticks_us()
+        # 计算时间差并转换为秒 (MicroPython 下推荐用 ticks_diff 防溢出)
+        self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
+        self.last_update_time = current_time
+
+        # print(f"dt: {self.dt:.6f} s")
+        # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
+        # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
+        if self.dt > 0.1: 
+            self.dt = 0.002
+
+        self.encoder_data_ul = self.encoder_ul.get() * 3
+        self.encoder_data_ur = self.encoder_ur.get() * 3
+        self.encoder_data_md = self.encoder_md.get() * 3
+
+        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
+        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
+        # self.gkd用于角速度环控制
         self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
-        # gyro_z用于四元数解算（转化成弧度制）
+        # gyro_z用于四元数解算
         self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
 
         DEADBAND = 0.004 # 弧度每秒
@@ -325,14 +377,15 @@ class PoseData:
         if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
         if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
 
-        # --- 终极死区：如果三轴角速度都极小，认为完全静止，不更新四元数 ---
-        if self.gyro_x == 0.0 and self.gyro_y == 0.0 and self.gyro_z == 0.0:
-            # 更新欧拉角输出
-            self.update_euler_angles()
-            return
-
-        # 3. 运行 AHRS 算法
-        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], self.gyro_x, self.gyro_y, self.gyro_z)
+        # 注意：这里千万不要因为陀螺仪为 0 就直接 return 退出！
+        # 如果退出，加速度计就无法把移动时产生的错误倾角（Pitch/Roll）慢慢修正回 0
+            
+        # 3. 运行 AHRS 算法（构建严格的“右前上”或“前往左上”右手坐标系）
+        # 基于你的物理方向，我们将其映射为：X向前，Y向左，Z向上 (这也是标准的 FLU 右手标系)
+        # 加速度映射：原X向后->取负变向前；原Y向左->保留向左(+1)；原Z向下(静止负)->取负变向上
+        # 角速度映射：原gx(绕向后)被翻转；原gy(绕向左)保留；原gz(顺时针)被翻转为逆时针
+        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], 
+                         -self.gyro_x, self.gyro_y, -self.gyro_z)
         
         # 4. 更新欧拉角输出
         self.update_euler_angles()

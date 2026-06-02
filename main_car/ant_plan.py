@@ -419,6 +419,12 @@ class NavigationPlan:
     
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
+        # 打开无刷负压风扇
+        if self.current_object in ['R', 'P']:
+            self.my_fan.set_fan_signal()
+        else:
+            self.my_fan.fan_off()
+
         self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
@@ -675,6 +681,9 @@ class NavigationPlan:
             else:
                 self.my_car.alpha_y = 1.0
         elif is_last_segment and self.rest_dist <= self.final_threshold:
+            # 到达目标点关闭负压风扇
+            self.my_fan.fan_off()
+
             self.if_finish_navigate = True
             self.stop()
 

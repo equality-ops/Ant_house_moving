@@ -702,6 +702,8 @@ class TaskController:
         target_x = self.data.rogue_planning[self.data.current_index][0][0]
         target_y = self.data.rogue_planning[self.data.current_index][0][1]
         self.current_object = self.data.rogue_planning[self.data.current_index][1]  # 提取当前物体种类信息
+        # 更新导航中的物品种类便于在搬运状态中进行速度规划和控制负压
+        self.my_plan.current_object = self.current_object
         turn = self.data.rogue_planning[self.data.current_index][2]
         
         # 主车最终目标点
