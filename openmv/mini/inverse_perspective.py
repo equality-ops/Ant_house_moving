@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 
 # 1. 图像中的四个点坐标 (pixel)
-pts_src = np.array([[1, 105], [159, 104], [2, 19], [158, 19]], dtype='float32')
+pts_src = np.array([[18, 64], [146, 64], [107, 42], [38, 42]], dtype='float32')
 
 # 2. 对应的物理世界坐标 (cm)
-pts_dst = np.array([[-20, 4.7], [20, 4.7], [-69, 76.8], [69, 76.8]], dtype='float32')
+pts_dst = np.array([[-19, 7.8], [24.5, 9], [14.6, 29.2], [-28.9, 33.3]], dtype='float32')
 
 # 3. 计算单应性矩阵 H
 h, status = cv2.findHomography(pts_src, pts_dst)

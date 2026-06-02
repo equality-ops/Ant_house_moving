@@ -16,9 +16,9 @@ sensor.skip_frames(time = 2000)
 clock = time.clock()
 uart = UART(2, baudrate=115200)
 
-H_matrix = [[ 1.73277793e+00, -4.03832162e-02, -1.43148863e+02],
-            [-2.48551759e-02, -1.47533261e+00,  1.77324371e+02],
-            [-1.12359403e-03,  5.60745066e-02,  1.00000000e+00]]
+H_matrix = [[-9.65659491e-01, -6.04356653e-01, 1.02806428e+02],
+            [-7.06519421e-02, 1.19662988e+00, -9.45029305e+01],
+            [-5.28740196e-03, -5.25801317e-02, 1.00000000e+00]]
 last_angle = 0.0
 last_x, last_y = 0.0, 0.0
 alpha = 0.7
@@ -64,7 +64,7 @@ while(True):
     img = sensor.snapshot()
     img.binary([(230, 255)])
     real_center = []
-    for blob in img.find_blobs([(255, 255)], pixels_threshold=10, area_threshold=10, merge=True):
+    for blob in img.find_blobs([(255, 255)], pixels_threshold=5, area_threshold=5, merge=True):
         #print(blob.cx(), blob.cy())
         #img.draw_rectangle(blob.rect())
         real_cx, real_cy = pixel_to_real_world(blob.cx(), blob.cy())
