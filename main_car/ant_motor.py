@@ -7,6 +7,9 @@ import gc
 PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
+InField = const(-1)
+OnLine = const(0)
+OutLine = const(1)
 
 # 光电管控制类
 class PhotoControl:
@@ -15,16 +18,24 @@ class PhotoControl:
         self.my_beep = beep
         self.my_photo = photo
         self.photo_state = self.my_photo.value()
-        self.if_change = False
+        self.current_state = InField
+        # 当光电管位于黄线正上方的次数
+        self.on_line_times = 0
 
     def update_photo_state(self):
         current_state = self.my_photo.value()
-        if current_state != self.photo_state and self.if_change == False:
-            self.photo_state = current_state
-            self.if_change = True
+        if current_state == 1 and self.current_state == InField:
+            self.on_line_times += 1
+            if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
+                self.on_line_times = 0
+                self.current_state = OnLine
+        
+        if current_state == 0 and self.current_state == OnLine:
+            self.current_state = OutLine
 
-    def reset_change_flag(self):
-        self.if_change = False
+    def reset_photo(self):
+        self.on_line_times = 0
+        self.current_state = InField
         
 
 # 无刷风扇控制类
@@ -218,9 +229,9 @@ class PoseData:
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.1
-        UPPER_THRESHOLD = 0.2
+        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.1
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -452,8 +463,8 @@ class SpeedPositionPID(ControlPID):
 
     def compute_pid(self, target: float, actual: int):
         # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
-        if abs(target) <= 1e-6 and abs(self.target) >= 1e-6:
-            self.integral = 0
+        if abs(target) <= 5 and abs(self.target) >= 1e-6:
+            self.reset_integral()
 
         self.target = target
         self.actual = actual
@@ -499,6 +510,9 @@ class SpeedPositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
+    # 清零积分项
+    def reset_integral(self):
+        self.integral = 0
 
 # 角度环PID
 class AnglePositionPID(ControlPID):
