@@ -71,7 +71,7 @@ gyro_y_supply = 1.147959
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 20
+uart_and_menu_T = 53
 ###################【路径规划】####################
 final_threshold = 1.5
 branch_threshold = 5.0

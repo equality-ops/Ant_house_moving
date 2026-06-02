@@ -14,6 +14,7 @@ ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 
+
 object_to_line_dict = {
     'T': 'U',
     'S': 'L',
@@ -72,12 +73,6 @@ class beep:
             return
         elif self.beep_state == BEEP_ON:
             return
-
-
-class PhotoControl:
-    def __init__(self, photo):
-        # 注入光电管对象
-        self.photo = photo
         
 
 ##############################【uart串口解析数据】##############################

@@ -13,6 +13,10 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+InField = const(-1)
+OnLine = const(0)
+OutLine = const(1)
+
 # 多路复用器计数器
 counter = 0
 
@@ -566,8 +570,9 @@ class VisionManager:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, beep, car, plan, plan_data, vision_manager: VisionManager, state, main_protocol, art_protocol, order_manager, assist_protocol):
+    def __init__(self, beep, photo, car, plan, plan_data, vision_manager: VisionManager, state, main_protocol, art_protocol, order_manager, assist_protocol):
         self.my_beep = beep
+        self.my_photo = photo
         self.vision_manager = vision_manager
         self.my_plan = plan
         self.plan_data = plan_data
@@ -622,11 +627,11 @@ class MoveControl:
                 self.moving_point.append([self.moving_point[-1][0], item[1]])
         
         if current_object == 'T':
-            self.moving_point.append([self.moving_point[-1][0], 240.0])
+            self.moving_point.append([self.moving_point[-1][0], 245.0])
         elif current_object in ['S', 'E']:
-            self.moving_point.append([0.0, self.moving_point[-1][1]])
+            self.moving_point.append([-5.0, self.moving_point[-1][1]])
         elif current_object in ['B', 'W']:
-            self.moving_point.append([320.0, self.moving_point[-1][1]])
+            self.moving_point.append([325.0, self.moving_point[-1][1]])
 
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
@@ -733,6 +738,16 @@ class MoveControl:
         self.reset_orbit()
         self.if_finish_move = False
         gc.collect()
+
+    # 重置小车里程计
+    def reset_car_pos(self):
+        current_object = self.vision_manager.current_servo_object
+        if current_object == 'T':
+            self.my_car.y_current = 240.0
+        elif current_object in ['S', 'E']:
+            self.my_car.x_current = 0.0
+        elif current_object in ['B', 'W']:
+            self.my_car.x_current = 320.0
 
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):
@@ -886,13 +901,18 @@ class MoveControl:
 
         elif self.current_state == MOVE:
             self.my_plan.navigate(path = [self.next_point])
+            self.my_photo.update_photo_state()
+            if self.my_photo.current_state == OutLine:
+                self.reset_car_pos()
+                self.my_photo.reset_photo()
+
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
                     
         elif self.current_state == ADJUST:
-            self.my_plan.navigate(path = [self.adjust_point])
-            if self.my_plan.if_finish_navigate == True:
-                self.state_transition()
+            # self.my_plan.navigate(path = [self.adjust_point])
+            # if self.my_plan.if_finish_navigate == True:
+            self.state_transition()
                     
         elif self.current_state == SERVO:
             self.vision_manager.visual_servo_control()

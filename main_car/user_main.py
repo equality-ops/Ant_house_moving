@@ -197,10 +197,10 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_st
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+my_moving = ant_vision.MoveControl(my_beep, my_car, my_photo, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
 
 # 任务及类
-my_task = ant_else.TaskController(my_beep, my_photomy_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -412,12 +412,13 @@ def time_pit3_handler(time) -> None:
     # task_machine()
 
     # 全向定位测试程序
+    
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0]], target_turn_angle = 90.0)
+        my_plan.navigate(path = [[40.0, 120.0], [0.0, 160.0], [-60.0, 20.0], [-30.0, 10.0], [0.0, 50.0], [0.0, 0.0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
@@ -425,6 +426,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
+    
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -466,6 +468,7 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual, my_plan.target_v))
     my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
+    # my_uart3.write(f"{my_plan.target_v}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
