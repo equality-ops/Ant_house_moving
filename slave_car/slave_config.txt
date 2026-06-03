@@ -13,34 +13,40 @@ md_move_ki = 0.2
 md_move_kd = 40.0
 # speed大于200时
 ul_high_kp = 35.0
-ul_high_ki = 0.65
+ul_high_ki = 1.04
 ul_high_kd = 40.0
+
 ur_high_kp = 35.0
-ur_high_ki = 0.65
+ur_high_ki = 1.04
 ur_high_kd = 40.0
+
 md_high_kp = 35.0
-md_high_ki = 0.65
+md_high_ki = 1.04
 md_high_kd = 40.0
 # speed大于100，小于200时
-ul_mid_kp = 25.0
-ul_mid_ki = 0.425
-ul_mid_kd = 40.0
-ur_mid_kp = 25.0
-ur_mid_ki = 0.425
-ur_mid_kd = 40.0
-md_mid_kp = 25.0
-md_mid_ki = 0.425
-md_mid_kd = 40.0
+ul_mid_kp = 33.0
+ul_mid_ki = 0.87
+ul_mid_kd = 20.0
+
+ur_mid_kp = 33.0
+ur_mid_ki = 0.87
+ur_mid_kd = 20.0
+
+md_mid_kp = 33.0
+md_mid_ki = 0.87
+md_mid_kd = 20.0
 # speed小于100时
-ul_low_kp = 15.0
-ul_low_ki = 0.2
-ul_low_kd = 40.0
-ur_low_kp = 15.0
-ur_low_ki = 0.2
-ur_low_kd = 40.0
-md_low_kp = 15.0
-md_low_ki = 0.2
-md_low_kd = 40.0
+ul_low_kp = 34.0
+ul_low_ki = 0.75
+ul_low_kd = 20.0
+
+ur_low_kp = 34.0
+ur_low_ki = 0.75
+ur_low_kd = 20.0
+
+md_low_kp = 34.0
+md_low_ki = 0.75
+md_low_kd = 20.0
 # 速度前馈系数
 kv = 6.0
 integral_limitmax = 8000
@@ -83,6 +89,16 @@ circle = "(262.5, 88.8)"
 error_x_T = 0.0
 error_x_S = 2.0
 error_x_B = 2.0
+###################【风扇控制】####################
+if_fan = 1
+fixed_high_level_us = 1200
+servo_IR_kp_x = 1
+servo_IR_kd_x = 1
+servo_IR_kp_y = 1
+servo_IR_kd_y = 1
+servo_target_y_IR = 1
+pwmout_normal_limit = 1
+pwmout_IR_limit = 1
 ###################【速度规划】####################
 min_start_v = 20
 long_v_max = 160
