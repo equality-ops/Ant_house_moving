@@ -121,7 +121,7 @@ class Menu:
             "radius_S": "rad_S",
             "radius_B": "rad_B",
         }
-
+        gc.collect()
         # 注入外部硬件对象
         self.flash_sys = flash_sys
         self.beep = beep

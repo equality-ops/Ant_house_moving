@@ -440,14 +440,9 @@ class NavigationPlan:
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
             
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
-            if delta_yaw > 120.0:
-                self.waypoint_v[i] = self.min_start_v
-            elif delta_yaw < 10.0:
-                self.waypoint_v[i] = self.long_v_max
-            else:
-                speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
-                # 我加负压了，给我拉满过弯速度
-                self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v)
+            speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
+            # 我加负压了，给我拉满过弯速度
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.7
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -478,23 +473,31 @@ class NavigationPlan:
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
+        # 固定系数
+        self.my_car.alpha_x = 0.975953
+        self.my_car.alpha_y = 0.941554
+        """
         x_transit_dis = abs(self.my_car.x_current - self.path[1][0])
         y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 100.0:
             self.my_car.alpha_x = 0.975953
         elif x_transit_dis >= 40.0:
-            self.my_car.alpha_x = 0.948665
+            # self.my_car.alpha_x = 0.948665
+            self.my_car.alpha_x = 0.975953
         else:
-            self.my_car.alpha_x = 1.0
+            # self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 0.975953
 
         if y_transit_dis >= 100.0:
             self.my_car.alpha_y = 0.941554
         elif y_transit_dis >= 40.0:
-            self.my_car.alpha_y = 0.932149
+            # self.my_car.alpha_y = 0.932149
+            self.my_car.alpha_y = 0.941554
         else:
-            self.my_car.alpha_y = 1.0
-
+            # self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.941554
+        """
         # 提取当前物体种类信息
         if self.plan_data.current_index < self.plan_data.total_objects_num:
             self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
@@ -554,7 +557,7 @@ class NavigationPlan:
             # k = 0 就是原来的三次方程 (中间最陡)
             # k = 1 就是纯匀速直线 (没有加减速过渡)
             # 推荐使用 0.3 ~ 0.5 之间，这里默认用 0.4
-            k = 0.4
+            k = 0.5
             cubic = 3 * (t ** 2) - 2 * (t ** 3)
             return k * t + (1 - k) * cubic
 
@@ -663,6 +666,7 @@ class NavigationPlan:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
+            """
             # 依据到过渡点的距离计算里程计系数
             x_transit_dis = abs(car_x - self.path[self.aimed_point_index + 1][0])
             y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
@@ -670,20 +674,26 @@ class NavigationPlan:
             if x_transit_dis >= 100.0:
                 self.my_car.alpha_x = 0.975953
             elif x_transit_dis >= 40.0:
-                self.my_car.alpha_x = 0.948665
+                # self.my_car.alpha_x = 0.948665
+                self.my_car.alpha_x = 0.975953
             else:
-                self.my_car.alpha_x = 1.0
+                # self.my_car.alpha_x = 1.0
+                self.my_car.alpha_x = 0.975953
 
             if y_transit_dis >= 100.0:
                 self.my_car.alpha_y = 0.941554
             elif y_transit_dis >= 40.0:
-                self.my_car.alpha_y = 0.932149
+                # self.my_car.alpha_y = 0.932149
+                self.my_car.alpha_y = 0.941554
             else:
-                self.my_car.alpha_y = 1.0
+                # self.my_car.alpha_y = 1.0
+                self.my_car.alpha_y = 0.941554
+            """
         elif is_last_segment and self.rest_dist <= self.final_threshold:
             # 到达目标点关闭负压风扇
             self.my_fan.fan_off()
-
+            # 测试打印
+            self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
             self.if_finish_navigate = True
             self.stop()
 

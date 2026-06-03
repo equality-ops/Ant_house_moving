@@ -10,11 +10,14 @@ import gc
 import time
 
 from micropython import const
-
+gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
+gc.collect()
 from display import *
+gc.collect()
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
+gc.collect()
 from smartcar import ticker, encoder
 gc.collect()
 import ant_vision
@@ -25,9 +28,6 @@ import ant_else
 gc.collect()
 import ant_motor
 gc.collect()
-import ant_menu
-gc.collect()
-import math
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -59,6 +59,10 @@ state2 = switch2.value()
 
 # 构造输入电压分压检测电路接口
 power_adc = ADC('B27')
+
+pit1 = ticker(1)
+pit2 = ticker(2)
+pit3 = ticker(3)
 
 """蜂鸣器初始化"""
 beep = Pin('D24', Pin.OUT, value = False)
@@ -232,7 +236,7 @@ def angle_pid_compute():
 
 # 用于主车启动的函数
 def main_start():
-    global current_time, last_left_time, start_flag, if_press_start_key
+    global current_time, last_left_time, start_flag, if_press_start_key, pit2
     if start_flag == False:
         if if_press_start_key == False:
             if key_data[3] != 0:
@@ -257,6 +261,7 @@ def main_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                pit2.stop()  # 关闭定时器2中断，避免干扰后续操作
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -279,9 +284,23 @@ def show_speed_PID_test():
         motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
     '''
 
-# 测试角度闭环函数
-def complete_angle_circle():
-    my_car.move_ctrl(0, 0, 0)
+orbit_angle = 240.0
+def test_orbit():
+    global orbit_angle, counter, direct_flag
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = ORBIT
+        my_vision_manager.object_radius = 16.0
+        my_vision_manager.current_servo_object = 'S'
+        my_order_manager.mode_target()
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(orbit_angle)
+        if my_vision_manager.if_finish_orbit == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_moving.reset_orbit()
+                orbit_angle += 120.0
+                orbit_angle = (orbit_angle + 180) % 360 - 180
 
 # 小车姿态总控制函数
 def master_control():
@@ -412,13 +431,14 @@ def time_pit3_handler(time) -> None:
     # task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[40.0, 120.0], [0.0, 160.0], [-60.0, 20.0], [-30.0, 10.0], [0.0, 50.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[-50.0, 20.0], [30.0, 40.0], [40.0, 0.0], [0.0, 120.0], [-20.0, 20.0],  [0.0, 50.0], [30.0, 50.0],  [0.0, 0.0]])
+        # my_plan.navigate(path = [[-80.0, 0.0], [-80.0, 80.0], [0.0, 80.0], [0.0, 0.0], [-80.0, 0.0], [-80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
@@ -426,7 +446,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-    
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -437,7 +457,7 @@ def time_pit3_handler(time) -> None:
     # test_apriltag_calibrate()
 
     # 环绕物体测试程序
-    # test_orbit()
+    test_orbit()
 
     # 自转测试程序
     # test_spin()
@@ -458,22 +478,12 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-    # my_uart3.write(f"{angle_pid.target},{angle_pid.actual}\r\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    # my_uart3.write(f"{pose_data.gyro_x},{pose_data.gyro_x_bias},{pose_data.gyro_y},{pose_data.gyro_y_bias},{pose_data.gyro_z},{pose_data.gyro_z_bias}\n")
-    # my_uart3.write("{:<f}\n".format(my_car.now_yaw * 180 / PI))
-    # 速度环输出波形图调参
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual, my_plan.target_v))
     my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
-    # my_uart3.write(f"{my_plan.target_v}\r\n")
+    # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
-    global imu_data
-    pit1 = ticker(1)
+    global imu_data, pit1
     pit1.capture_list(imu, encoder_ul, encoder_ur, encoder_md)
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
@@ -482,14 +492,14 @@ def pit1_start():
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
-    pit2 = ticker(2)
+    global pit2
     pit2.callback(time_pit2_handler)
     pit2.capture_list(key)
     pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
-    pit3 = ticker(3)
+    global pit3
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 

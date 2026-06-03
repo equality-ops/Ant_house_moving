@@ -22,6 +22,8 @@ class PhotoControl:
         # 当光电管位于黄线正上方的次数
         self.on_line_times = 0
 
+        gc.collect()
+
     def update_photo_state(self):
         current_state = self.my_photo.value()
         if current_state == 1 and self.current_state == InField:
