@@ -63,7 +63,7 @@ power_adc = ADC('B27')
 beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
-my_uart6 = UART(5)
+my_uart6 = UART(0)
 my_uart6.init(115200)
 
 """无线串口通信初始化"""
@@ -227,6 +227,8 @@ def slave_start():
                 # 清除按键状态
                 key.clear(4)
                 my_beep.key_test()
+                # 此时开启无刷负压风扇
+                my_fan.set_fan_signal()
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
@@ -239,8 +241,8 @@ def slave_start():
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
-                # 延时一秒避免零漂校准不准确
-                time.sleep_ms(1000)
+                # 延时1.5秒避免零漂校准不准确
+                time.sleep_ms(1500)
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
@@ -353,6 +355,34 @@ def set_pid_params():
 def task_machine():
     my_task.run()
 
+def test_vision_servo():
+    if my_state.state == READY_NAVIGATE:
+        if my_vision_manager.if_send_order == False:
+            my_order_manager.mode_target()#发送目标点指令,摄像头进入模型识别状态
+            my_vision_manager.if_send_order = True#避免重复发送指令
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.ready_servo_and_orbit(target_point)
+            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
+            # my_vision_manager.current_servo_object = target_point[2]
+            my_vision_manager.if_send_order = False
+            my_state.state = SERVO
+    elif my_state.state == SERVO:
+        # print(my_vision_manager.current_servo_object)
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
+            # my_order_manager.mode_target()
+            # my_state.state = ORBIT
+            # my_vision_manager.reset_orbit_angle()
+            my_state.state = STOP
+            my_plan.reset_navigate_angle()
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(140.0)
+        if my_vision_manager.if_finish_orbit == True:
+            my_state.state = STOP
+            my_plan.reset_navigate_angle()
+    elif my_state.state == STOP:
+        my_plan.stop()
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -366,20 +396,20 @@ def time_pit1_handler(time):
     my_car.update_pose()
 
     # 测试角度闭环
-    # complete_angle_circle()
+    #complete_angle_circle()
+    """
     if my_fan.if_fan:
         my_fan.test_fan(my_fan.fixed_high_level_us)
         my_fan.if_fan = False
+    """
     # 速度环测试
-    show_speed_PID_test()
+    #show_speed_PID_test()
     
     # 总控制函数
-    #master_control()
+    master_control()
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
-
-
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
@@ -387,16 +417,18 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    #task_machine()
     
     # 全向定位测试程序
-    """
+    '''
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        #my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
+        #my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
@@ -405,11 +437,12 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-    """
+        my_uart3.write(f"x{my_car.x_current},y{my_car.y_current}\n")
+    '''
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_apriltag_calibrate()
@@ -420,7 +453,7 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_sync()
 
     # 自转测试函数
-    # test_spin()
+    #test_spin()
 
     pass
 
@@ -431,7 +464,7 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     slave_start()
-    my_uart3.write(f"{motor_md_pid.target},{pose_data.encoder_data_md},{pose_data.encoder_data_ur}\n");
+    #my_uart3.write(f"{pose_data.now_yaw}\n")
     # 读取按键（中断中避免阻塞，快速返回）
     """
     key = my_menu.read_key()
@@ -492,5 +525,3 @@ while True:
         break
 
     gc.collect()
-
-

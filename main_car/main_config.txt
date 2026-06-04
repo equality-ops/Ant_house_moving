@@ -1,4 +1,4 @@
-# 修改时间 5.31	  23:25
+# 修改时间 6.4	  11:32
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -73,7 +73,7 @@ collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
-final_threshold = 1.5
+final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
 assist_car_to_line = 30.0
@@ -92,8 +92,8 @@ fixed_high_level_us = 1200
 min_start_v = 25
 long_v_max = 220
 find_line_v_max = 100
-acc_coef = 0.0556
-dec_coef = 0.0857
+acc_coef = 0.1025
+dec_coef = 0.1282
 max_yaw_rate = 4.0 
 
 orbit_v_max = 80

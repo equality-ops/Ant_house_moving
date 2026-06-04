@@ -72,13 +72,13 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix =[[ 2.53412974e+00, -6.38412017e-02, -1.99675761e+02],
-                            [-3.71806303e-16, -2.58229617e+00,  2.68558802e+02],
-                            [-1.26680170e-17,  8.36909871e-02,  1.00000000e+00]]
+        self.close_H_matrix =[[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
+                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
+                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
                         
-        self.far_H_matrix = [[ 2.53412974e+00, -6.38412017e-02, -1.99675761e+02],
-                            [-3.71806303e-16, -2.58229617e+00,  2.68558802e+02],
-                            [-1.26680170e-17,  8.36909871e-02,  1.00000000e+00]]
+        self.far_H_matrix = [[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
+                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
+                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -118,7 +118,7 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.car_radius = 11.0   # 小车推杆到中心的距离
-        self.correct_dist = -2.0    # 经验修正值（物体在推杆正前方的值）
+        self.correct_dist = 5.90    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -177,7 +177,7 @@ class VisionManager:
         elif sign == 'far':
             H_matrix = self.far_H_matrix
 
-        K = (23.6 - object_H) / 23.6
+        K = (22.2 - object_H) / 22.2
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -197,7 +197,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        self.relative_raw_y = self.relative_raw_y + self.car_radius - self.correct_dist - self.final_dist
+        self.relative_raw_y = self.relative_raw_y - self.correct_dist - self.final_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -222,7 +222,7 @@ class VisionManager:
         self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
-        # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
+        self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     def visual_servo_control(self):
         if self.if_finish_servo == True:
@@ -262,11 +262,10 @@ class VisionManager:
             self.servo_lost_count += 1
             # 彻底丢失保护
             if self.servo_lost_count >= 150:
-                # 测试
-                self.my_beep.test()
                 self.target_rel_speed = 0.0
                 self.target_rel_yaw = 0.0
-                self.if_lost_object = True
+                # 测试，先不重置丢失物体标志位
+                # self.if_lost_object = True
                 self.servo_lost_count = 0
                 return # 彻底丢失，跳出伺服逻辑
             
@@ -307,8 +306,8 @@ class VisionManager:
                 self.target_rel_yaw -= 360.0
             elif self.target_rel_yaw < -180.0:
                 self.target_rel_yaw += 360.0  
-            if self.target_rel_yaw > 40.0 or self.target_rel_yaw < -40.0:
-                self.target_rel_speed = self.target_rel_speed * 0.6
+            if self.target_rel_yaw > 60.0 or self.target_rel_yaw < -60.0:
+                self.target_rel_speed = self.target_rel_speed * 0.7
             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
     # 计算环绕中心坐标函数（传入物体中心像素点坐标）
@@ -536,11 +535,10 @@ class VisionManager:
         self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
-        # 选择正常伺服状态下的pwm限幅
-        self.servo_pid.
         # 控制小车面向物体进行视觉伺服控制
         self.current_servo_object = chr(target_point[2])
-
+        # 更新视觉伺服pid中的pwm限幅
+        self.servo_pid.pwmout_limitmax = self.servo_pid.pwmout_normal_limit
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T
@@ -706,18 +704,3 @@ class MoveControl:
             self.vision_manager.visual_servo_control()
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
-
-# 红外灯跟随控制类
-class IRFollowControl:
-    def __init(self, flash_sys, uart, car, state, art_protocol, order_manager):
-        self.flash_sys = flash_sys
-        self.my_uart = uart
-        self.my_car = car
-        self.my_state = state
-        self.my_art_protocol = art_protocol
-        self.my_order_manager = order_manager
-
-        # 红外灯跟随相关变量
-        self.follow_speed = 0.0  # 目标相对速度
-        self.follow_yaw = 0.0    # 目标相对航向角
-        self.follow_turn_angle = 0.0   # 目标转向角

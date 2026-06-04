@@ -339,7 +339,15 @@ def collaborative_task_machine():
             my_plan.stop()
 
 
-
+    # 计算环绕中心坐标函数（传入物体中心像素点坐标）
+    def calculate_orbit_center(self, x, y):
+        raw_x, raw_y = self.pixel_to_real_world(x, y, 'close')
+        raw_y = raw_y + self.car_radius # 将物体距离修正为从小车中心到物体的距离
+        raw_yaw = -math.atan2(-raw_x, raw_y)
+        real_yaw = (raw_yaw + self.my_car.now_yaw + PI) % (2 * PI) - PI
+        actual_dist = math.sqrt(raw_x**2 + raw_y**2)
+        self.orbit_center_x = self.my_car.x_current + actual_dist * math.sin(real_yaw)
+        self.orbit_center_y = self.my_car.y_current + actual_dist * math.cos(real_yaw)
 
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
@@ -447,7 +455,7 @@ def collaborative_task_machine():
     # 视觉伺服
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.current_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
     # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI},{my_vision_manager.angle_temp}\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / MATH.PI}\n")
     # my_uart3.write(f"{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x},{my_vision_manager.my_car.x_current - my_vision_manager.last_car_x}\r\n")
     # my_uart3.write(f"{my_vision_manager.absolute_actual_x},{my_vision_manager.absolute_actual_y}\n")

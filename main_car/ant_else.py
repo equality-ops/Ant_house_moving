@@ -829,4 +829,4 @@ class TaskController:
 
     def handle_stop(self):
         # if state == STOP
-        self.my_plan.stop()
+        self.my_plan.stop()             

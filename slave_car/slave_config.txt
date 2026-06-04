@@ -52,14 +52,14 @@ kv = 6.0
 integral_limitmax = 8000
 pwmout_limitmax = 8000
 
-angle_normal_kp = 22.0
+angle_normal_kp = 25.0
 # 已弃用
 angle_normal_ki = 0.0
-angle_normal_kd = 0.0
+angle_normal_kd = 2.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
-high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 360
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 300
 # B大致为最大静差的1.5倍
@@ -77,7 +77,7 @@ gyro_y_supply = 1.147976
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 20
+uart_and_menu_T = 53
 
 ###################【路径规划】####################
 final_threshold = 1.5
@@ -97,18 +97,17 @@ servo_IR_kd_x = 1
 servo_IR_kp_y = 1
 servo_IR_kd_y = 1
 servo_target_y_IR = 1
-pwmout_normal_limit = 1
-pwmout_IR_limit = 1
+
 ###################【速度规划】####################
-min_start_v = 20
-long_v_max = 160
+min_start_v = 25
+long_v_max = 220
 find_line_v_max = 100
-acc_coef = 0.0556
-dec_coef = 0.1875
+acc_coef = 0.1025
+dec_coef = 0.1282
 max_yaw_rate = 4.0 
 
-orbit_v_max = 80
-orbit_v_min = 0
+orbit_v_max = 120
+orbit_v_min = 25
 
 # 不同物体的搬运速度
 move_v_max_T = 100
@@ -117,20 +116,20 @@ move_v_max_B = 100
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 7.0
-servo_normal_kd_x = 15.0
-servo_normal_kp_y = 7.0
-servo_normal_kd_y = 15.0
-# apriltag矫正的视觉伺服pid参数
-servo_calibrate_kp_x = 7.0
-servo_calibrate_kd_x = 10.0
-servo_calibrate_kp_y = 7.0
-servo_calibrate_kd_y = 10.0
+servo_normal_kp_x = 8.0
+servo_normal_kd_x = 10.0
+servo_normal_kp_y = 8.0
+servo_normal_kd_y = 10.0
+# 红外跟随下的pid参数
+servo_IR_kp_x = 1
+servo_IR_kd_x = 1
+servo_IR_kp_y = 1
+servo_IR_kd_y = 1
 
 servo_target_y_A = 11.0
-servo_target_y_T = 18.0
-servo_target_y_S = 17.0
-servo_target_y_B = 20.0
+servo_target_y_T = 3.5
+servo_target_y_S = 2.5
+servo_target_y_B = 5.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -138,9 +137,10 @@ finish_threshold_y = 1.0
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
-min_rel_speed = 20
-max_rel_speed = 100
-servo_pwmout_limitmax = 100
+min_rel_speed = 25
+max_rel_speed = 150
+pwmout_normal_limit = 150
+pwmout_IR_limit = 1
 
 ###################【环绕控制】####################
 radius_T = 18.0
