@@ -396,8 +396,7 @@ def time_pit1_handler(time):
     my_car.update_pose()
 
     # 测试角度闭环
-    #complete_angle_circle()
-    """
+    # complete_angle_circle()
     if my_fan.if_fan:
         my_fan.test_fan(my_fan.fixed_high_level_us)
         my_fan.if_fan = False
@@ -420,7 +419,7 @@ def time_pit3_handler(time) -> None:
     #task_machine()
     
     # 全向定位测试程序
-    '''
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -437,8 +436,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-        my_uart3.write(f"x{my_car.x_current},y{my_car.y_current}\n")
-    '''
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -525,3 +523,5 @@ while True:
         break
 
     gc.collect()
+
+
