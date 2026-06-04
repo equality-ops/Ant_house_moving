@@ -22,7 +22,6 @@ class StateMachine:
         gc.collect()
 
 # 路径和速度规划相关常量
-# 路径和速度规划相关常量
 class PlanData:
     def __init__(self, flash_sys):
         # 注入flash系统对象
@@ -375,7 +374,7 @@ class NavigationPlan:
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
 
         self.waypoint_v = []  # type: list  # 目标速度列表
-        self.current_object = ''  # 当前搬运物体类型 (T/S/E/W/B)
+        self.current_object = 'P'  # 当前搬运物体类型 (T/S/E/W/B)
 
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
@@ -413,11 +412,12 @@ class NavigationPlan:
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         # 打开无刷负压风扇
+        '''
         if self.current_object in ['R', 'P']:
             self.my_fan.set_fan_signal()
         else:
             self.my_fan.fan_off()
-
+        '''
         self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
@@ -433,14 +433,9 @@ class NavigationPlan:
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
             
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
-            if delta_yaw > 90.0:
-                self.waypoint_v[i] = self.min_start_v
-            elif delta_yaw < 10.0:
-                self.waypoint_v[i] = self.long_v_max
-            else:
-                speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
-                # 再缩放0.2系数，让速度更保守一些，增加过弯安全裕量
-                self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.2
+            speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
+            # 再缩放0.2系数，让速度更保守一些，增加过弯安全裕量
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.6
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -475,18 +470,18 @@ class NavigationPlan:
         y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
         # 依据到过渡点的距离计算里程计系数
         if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 0.8675
         elif x_transit_dis >= 10.0:
-            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 0.8675
         else:
-            self.my_car.alpha_x = 1.0
+            self.my_car.alpha_x = 0.8675
 
         if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.9085
         elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.9075
         else:
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_y = 0.9065
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -542,7 +537,7 @@ class NavigationPlan:
             # k = 0 就是原来的三次方程 (中间最陡)
             # k = 1 就是纯匀速直线 (没有加减速过渡)
             # 推荐使用 0.3 ~ 0.5 之间，这里默认用 0.4
-            k = 0.4
+            k = 0.5
             cubic = 3 * (t ** 2) - 2 * (t ** 3)
             return k * t + (1 - k) * cubic
 
@@ -657,18 +652,18 @@ class NavigationPlan:
             y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
             # 依据到过渡点的距离计算里程计系数
             if x_transit_dis >= 50.0:
-                self.my_car.alpha_x = 1.0
+                self.my_car.alpha_x = 0.8675
             elif x_transit_dis >= 10.0:
-                self.my_car.alpha_x = 1.0
+                self.my_car.alpha_x = 0.8675
             else:
-                self.my_car.alpha_x = 1.0
+                self.my_car.alpha_x = 0.8675
 
             if y_transit_dis >= 50.0:
-                self.my_car.alpha_y = 1.0
+                self.my_car.alpha_y = 0.9095
             elif y_transit_dis >= 10.0:
-                self.my_car.alpha_y = 1.0
+                self.my_car.alpha_y = 0.9075
             else:
-                self.my_car.alpha_y = 1.0
+                self.my_car.alpha_y = 0.9065
         elif is_last_segment and self.rest_dist <= self.final_threshold:
             # 到达目标点关闭负压风扇
             self.my_fan.fan_off()

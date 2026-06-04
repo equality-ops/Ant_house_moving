@@ -194,9 +194,9 @@ class PoseData:
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.1
-        UPPER_THRESHOLD = 0.2
+        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.1
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -427,7 +427,7 @@ class SpeedPositionPID(ControlPID):
 
     def compute_pid(self, target: float, actual: int):
         # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
-        if abs(target) <= 1e-6 and abs(self.target) >= 1e-6:
+        if abs(target) <= 5 and abs(self.target) >= 1e-6:
             self.integral = 0
 
         self.target = target
@@ -643,7 +643,7 @@ class CarPose:
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (OneThird * SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
 
         # 计算小车在世界坐标系下的偏航角
-        self.now_yaw = self.pose_data.now_yaw * PI / 180.0
+        self.now_yaw = -self.pose_data.now_yaw * PI / 180.0
         # 限定now_yaw在-2pi到2pi之间
         if self.now_yaw > PI:  self.now_yaw -= 2 * PI
         elif self.now_yaw < -PI:  self.now_yaw += 2 * PI
@@ -686,7 +686,7 @@ class CarPose:
         motor_ul_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target + car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_ur_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target - car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_md_speed_target = (car_speed_w_target * OneThird - car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
-
+        
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
         self.motor_ur_pid.compute_pid(motor_ur_speed_target, self.pose_data.encoder_data_ur)
@@ -697,7 +697,6 @@ class CarPose:
         self.motor_ul.duty(int(self.motor_ul_pid.pwm_output))
         self.motor_ur.duty(int(self.motor_ur_pid.pwm_output))
         self.motor_md.duty(int(self.motor_md_pid.pwm_output))
-
     # pwm信号归零
     def pwm_stop(self):
         self.motor_ul.duty(0)

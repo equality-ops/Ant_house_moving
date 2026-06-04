@@ -366,20 +366,18 @@ def time_pit1_handler(time):
     my_car.update_pose()
 
     # 测试角度闭环
-    # complete_angle_circle()
+    #complete_angle_circle()
     if my_fan.if_fan:
         my_fan.test_fan(my_fan.fixed_high_level_us)
         my_fan.if_fan = False
     # 速度环测试
-    show_speed_PID_test()
+    #show_speed_PID_test()
     
     # 总控制函数
-    #master_control()
+    master_control()
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
-
-
 
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
@@ -387,16 +385,17 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    #task_machine()
     
     # 全向定位测试程序
-    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        #my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
+        #my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
@@ -405,7 +404,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-    """
+        my_uart3.write(f"x{my_car.x_current},y{my_car.y_current}\n")
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -420,7 +419,7 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_sync()
 
     # 自转测试函数
-    # test_spin()
+    #test_spin()
 
     pass
 
@@ -431,7 +430,7 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     slave_start()
-    my_uart3.write(f"{motor_md_pid.target},{pose_data.encoder_data_md},{pose_data.encoder_data_ur}\n");
+    #my_uart3.write(f"{pose_data.now_yaw}\n")
     # 读取按键（中断中避免阻塞，快速返回）
     """
     key = my_menu.read_key()
@@ -492,5 +491,8 @@ while True:
         break
 
     gc.collect()
+
+
+
 
 

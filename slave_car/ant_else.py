@@ -707,8 +707,6 @@ class TaskController:
             self.my_path.plan_path(path[2][0], path[2][1])  # 传入目标坐标进行路径规划
             self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
-            # 更新导航中的物品种类便于在搬运状态中进行速度规划和控制负压
-            self.my_plan.current_object = path[0]
             # self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
             self.exit()  # 退出当前状态，进入导航状态
 
