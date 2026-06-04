@@ -466,22 +466,8 @@ class NavigationPlan:
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
-        x_transit_dis = abs(self.my_car.x_current - self.path[1][0])
-        y_transit_dis = abs(self.my_car.y_current - self.path[1][1])
-        # 依据到过渡点的距离计算里程计系数
-        if x_transit_dis >= 50.0:
-            self.my_car.alpha_x = 0.8675
-        elif x_transit_dis >= 10.0:
-            self.my_car.alpha_x = 0.8675
-        else:
-            self.my_car.alpha_x = 0.8675
-
-        if y_transit_dis >= 50.0:
-            self.my_car.alpha_y = 0.9085
-        elif y_transit_dis >= 10.0:
-            self.my_car.alpha_y = 0.9075
-        else:
-            self.my_car.alpha_y = 0.9065
+        self.my_car.alpha_x = 0.8675
+        self.my_car.alpha_y = 0.9065
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -647,23 +633,6 @@ class NavigationPlan:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
-            # 依据到过渡点的距离计算里程计系数
-            x_transit_dis = abs(car_x - self.path[self.aimed_point_index + 1][0])
-            y_transit_dis = abs(car_y - self.path[self.aimed_point_index + 1][1])
-            # 依据到过渡点的距离计算里程计系数
-            if x_transit_dis >= 50.0:
-                self.my_car.alpha_x = 0.8675
-            elif x_transit_dis >= 10.0:
-                self.my_car.alpha_x = 0.8675
-            else:
-                self.my_car.alpha_x = 0.8675
-
-            if y_transit_dis >= 50.0:
-                self.my_car.alpha_y = 0.9095
-            elif y_transit_dis >= 10.0:
-                self.my_car.alpha_y = 0.9075
-            else:
-                self.my_car.alpha_y = 0.9065
         elif is_last_segment and self.rest_dist <= self.final_threshold:
             # 到达目标点关闭负压风扇
             # self.my_fan.fan_off()
