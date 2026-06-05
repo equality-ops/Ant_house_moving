@@ -395,8 +395,122 @@ def test_main_slave_sync():
             # my_plan.turn_angle_target = main_pose[2]
             # 测试
             # my_beep.test()
+    
+    # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
+    def orbit_control(self, target_angle: float, direct = None):
+        if self.if_orbit_ready == False:
+            target_point = self.my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == self.current_servo_object and \
+            (target_point[0] > 40 or target_point[0] < 120):
+                # 选择合适的里程计系数（无负压）
+                self.my_car.alpha_x = 0.9093
+                self.my_car.alpha_y = 0.936709
+                # 保持静止
+                self.orbit_speed = 0.0
+                self.orbit_radius = self.object_radius
+                self.record_angle = self.my_car.now_yaw * 180 / PI
+                self.target_angle = target_angle
+                # 限制目标角度在-180到180度之间
+                if self.target_angle > 180.0:
+                    self.target_angle -= 360.0
+                elif self.target_angle < -180.0:
+                    self.target_angle += 360.0
+                    
+                # 计算需要旋转的相对角度来确定方向
+                diff_angle = self.target_angle - self.record_angle
+                if diff_angle > 180.0:
+                    diff_angle -= 360.0
+                elif diff_angle < -180.0:
+                    diff_angle += 360.0
+                    
+                # 确定旋转方向（顺时针还是逆时针）
+                if direct is not None:
+                    self.direct = direct
+                elif diff_angle >= 0.0:
+                    self.direct = 'CW'
+                else:
+                    self.direct = 'CCW'
+                self.current_dis = 0.0
 
+                # 计算总的环绕角度（考虑选择的环绕方向，CW为顺时针，CCW为逆时针）
+                natural_cw = (diff_angle >= 0.0)
+                actual_cw = (self.direct == 'CW')
+                self.total_orbit_angle = abs(diff_angle) if natural_cw == actual_cw else 360.0 - abs(diff_angle)
+
+                self.calculate_orbit_center(target_point[0], target_point[1])
+
+                self.if_orbit_ready = True
+        else:
+            if self.if_finish_orbit == True:
+                return # 已经完成环绕控制，直接返回
+            target_point = self.my_art_protocol.coordinate_receive()
+
+            if target_point and target_point[2] == self.current_servo_object and \
+            (target_point[0] > 40 or target_point[0] < 120):
+                self.calculate_orbit_center(target_point[0], target_point[1])
             
+            # ====== 修改：基于当前X/Y坐标的闭环位置控制 ======
+            # 计算当前小车与圆心的实际向量
+            dx = self.orbit_center_x - self.my_car.x_current
+            dy = self.orbit_center_y - self.my_car.y_current
+            actual_r = math.sqrt(dx**2 + dy**2)
+            # 测试
+            # self.my_uart3.write(f"center: ({self.orbit_center_x:.2f}, {self.orbit_center_y:.2f}), car: ({self.my_car.x_current:.2f}, {self.my_car.y_current:.2f})\r\n")
+            self.my_uart3.write(f"dx: {dx:.2f}, dy: {dy:.2f}, orbit_r: {self.orbit_radius:.2f}, actual_r: {actual_r:.2f}\r\n")
+           
+            # 计算当前处于圆上的相位角 (从小车指向圆心)
+            theta = -math.atan2(-dx, dy) * 180.0 / PI
+            
+            # 半径误差（大于0代表实际比指定半径近，需要向外扩）
+            err_r = self.orbit_radius - actual_r
+           
+            # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
+            kr = 3.0
+            
+            if self.direct == 'CW':
+                # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
+                self.orbit_yaw = theta - 90.0 - kr * err_r
+            elif self.direct == 'CCW':
+                # 逆时针切线为 theta + 90。若太近(err_r>0)，需向外偏，增加转角
+                self.orbit_yaw = theta + 90.0 + kr * err_r
+                
+            self.orbit_yaw = (self.orbit_yaw + 180.0) % 360.0 - 180.0
+            
+            # ====== 新增：实时闭环车体姿态角 ======
+            # theta 是从圆心指向小车的角度，小车要面向圆心，所以车头朝向应为 theta + 180 度
+            self.orbit_turn_angle = theta
+            self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
+            
+            # 更新当前小车的速度（保留原有逻辑判断）
+            diff = abs(self.target_angle - self.my_car.now_yaw * 180 / PI)
+            if diff > 180.0:
+                diff = 360.0 - diff
+                
+            # 环绕速度规划：对称梯形速度曲线 —— 启动时线性加速，结束时线性减速
+            accel_range = min(20.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
+            decel_range = min(20.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
+
+            if traveled < accel_range:
+                # 启动阶段：线性从v_min加速到v_max
+                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * traveled / accel_range
+            elif diff < decel_range:
+                # 减速阶段：线性从v_max减速到v_min
+                self.orbit_speed = self.orbit_v_max - (self.orbit_v_max - self.orbit_v_min) * (decel_range - diff) / decel_range
+            else:
+                # 匀速阶段：保持最大速度
+                self.orbit_speed = self.orbit_v_max
+            # 速度限幅
+            self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
+
+            # 判断是否完成环绕
+            if diff <= 1.0:	
+                self.orbit_speed = 0.0
+                self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
+                # 测试（让小车一直环绕）
+                # self.my_order_manager.finish()
+                self.if_finish_orbit = True
+
     # 视觉伺服
     # my_uart3.write(f"object: {my_vision_manager.current_servo_object}, servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.object_radius}, orbit_angle: {my_vision_manager.orbit_angle}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")

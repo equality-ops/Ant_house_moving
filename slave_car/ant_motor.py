@@ -7,6 +7,37 @@ import gc
 PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
+InField = const(-1)
+OnLine = const(0)
+OutLine = const(1)
+
+# 光电管控制类
+class PhotoControl:
+    def __init__(self, flash_sys, beep, photo) -> None:
+        self.flash_sys = flash_sys
+        self.my_beep = beep
+        self.my_photo = photo
+        self.photo_state = self.my_photo.value()
+        self.current_state = InField
+        # 当光电管位于黄线正上方的次数
+        self.on_line_times = 0
+
+        gc.collect()
+
+    def update_photo_state(self):
+        current_state = self.my_photo.value()
+        if current_state == 1 and self.current_state == InField:
+            self.on_line_times += 1
+            if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
+                self.on_line_times = 0
+                self.current_state = OnLine
+        
+        if current_state == 0 and self.current_state == OnLine:
+            self.current_state = OutLine
+
+    def reset_photo(self):
+        self.on_line_times = 0
+        self.current_state = InField
 
 # 无刷风扇控制类
 class FanControl:
@@ -166,8 +197,8 @@ class PoseData:
 
         # 算法参数 (根据你的 2ms 采样周期设置)
         self.dt = 0.002 
-        self.kp = 2.0  # 加速度计权重
-        self.ki = 0.0001 # 零偏补偿权重
+        self.kp = 1.0  # 加速度计权重
+        self.ki = 0.00001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角

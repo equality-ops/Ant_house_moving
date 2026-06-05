@@ -29,7 +29,7 @@ class PlanData:
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
         # fixed_point[3]为主车返回点, [4]为从车返回点
-        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
+        self.fixed_point = [[35.0, -15.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
@@ -627,7 +627,7 @@ class NavigationPlan:
             # 到达目标点关闭负压风扇
             # self.my_fan.fan_off()
             # 测试打印
-            self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
+            # self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
             self.if_finish_navigate = True
             self.stop()
 

@@ -70,6 +70,9 @@ my_uart6.init(115200)
 my_uart3 = UART(2)
 my_uart3.init(115200)
 
+"""光电管初始化"""
+photo = Pin('B4', Pin.IN, value = False)
+
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
@@ -138,8 +141,12 @@ my_slave_protocol = ant_else.LinkProtocol(my_uart3)
 
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
+
 #创建无刷
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
+
+# 创建光电管控制对象
+my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
 
 # 创建电机微分项的滑动平均滤波器对象
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
@@ -184,7 +191,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_sta
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_uart3, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
+my_moving = ant_vision.MoveControl(my_beep, my_photo, my_uart3, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
@@ -230,7 +237,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            #if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -281,11 +288,11 @@ def master_control():
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state == SERVO:
+        elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state in [ADJUST, MOVE]:
+        elif my_moving.current_state == MOVE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == SERVO:
+    elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
@@ -309,17 +316,20 @@ def test_spin():
                 spin_angle += 90.0
                 spin_angle = (spin_angle + 180) % 360 - 180   
                 
-orbit_angle = 120.0
+orbit_angle = 180.0
 def test_orbit():
     global orbit_angle, counter, direct_flag
     if my_state.state == READY_NAVIGATE:
         my_state.state = ORBIT
-        my_vision_manager.object_radius = 16.0
+        my_vision_manager.object_radius = 18.0
         my_vision_manager.current_servo_object = 'S'
         my_order_manager.mode_target()
     elif my_state.state == ORBIT:
         my_vision_manager.orbit_control(orbit_angle)
         if my_vision_manager.if_finish_orbit == True:
+            # 退出环绕状态
+            # my_state.state = STOP
+            # my_plan.reset_navigate_angle()
             counter += 1
             if counter >= 100:
                 counter = 0
@@ -398,7 +408,7 @@ def test_vision_servo():
 
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point)
+            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
             # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
             my_vision_manager.if_send_order = False
             my_state.state = SERVO
@@ -409,17 +419,32 @@ def test_vision_servo():
             # my_plan.reset_navigate_angle()
             # my_state.state = STOP
             counter += 1
-            if counter >= 100:
+            if counter >= 50:
                 counter = 0
                 # 测试
                 my_beep.test()
+                my_vision_manager.if_finish_servo = False
                 my_vision_manager.reset_orbit_angle()
                 my_state.state = ORBIT
     elif my_state.state == ORBIT:
         my_vision_manager.orbit_control(-my_vision_manager.orbit_angle)
         if my_vision_manager.if_finish_orbit == True:
-            my_state.state = STOP
+            if my_vision_manager.if_send_order == False:
+                my_order_manager.mode_target()
+                my_vision_manager.if_send_order = True
+
+            target_point = my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == my_vision_manager.current_servo_object and\
+            target_point[1] >= 40.0:
+                my_vision_manager.ready_servo_and_orbit(target_point, 'adjust')
+                my_vision_manager.if_send_order = False
+                my_vision_manager.reset_servo_angle()
+                my_state.state = ADJUST
+    elif my_state.state == ADJUST:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
             my_plan.reset_navigate_angle()
+            my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
 
@@ -456,7 +481,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    #task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
@@ -493,7 +518,7 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_sync()
 
     # 自转测试函数
-    test_spin()
+    # test_spin()
 
     pass
 
@@ -510,9 +535,11 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
-
+    # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
+    # my_uart3.write(f"state: {my_state.state}\n")
+    # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

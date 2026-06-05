@@ -201,7 +201,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_st
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_car, my_photo, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
@@ -248,7 +248,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -286,7 +286,6 @@ def show_speed_PID_test():
     '''
 
 
-# 视觉伺服测试函数
 def test_vision_servo():
     global counter
     if my_state.state == READY_NAVIGATE:
@@ -298,7 +297,7 @@ def test_vision_servo():
 
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point)
+            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
             # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
             my_vision_manager.if_send_order = False
             my_state.state = SERVO
@@ -309,17 +308,32 @@ def test_vision_servo():
             # my_plan.reset_navigate_angle()
             # my_state.state = STOP
             counter += 1
-            if counter >= 100:
+            if counter >= 50:
                 counter = 0
                 # 测试
                 my_beep.test()
+                my_vision_manager.if_finish_servo = False
                 my_vision_manager.reset_orbit_angle()
                 my_state.state = ORBIT
     elif my_state.state == ORBIT:
         my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
         if my_vision_manager.if_finish_orbit == True:
-            my_state.state = STOP
+            if my_vision_manager.if_send_order == False:
+                my_order_manager.mode_target()
+                my_vision_manager.if_send_order = True
+
+            target_point = my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == my_vision_manager.current_servo_object and\
+            target_point[1] >= 40.0:
+                my_vision_manager.ready_servo_and_orbit(target_point, 'adjust')
+                my_vision_manager.if_send_order = False
+                my_vision_manager.reset_servo_angle()
+                my_state.state = ADJUST
+    elif my_state.state == ADJUST:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
             my_plan.reset_navigate_angle()
+            my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
 
@@ -391,11 +405,11 @@ def master_control():
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state == SERVO:
+        elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state in [ADJUST, MOVE]:
+        elif my_moving.current_state == MOVE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == SERVO:
+    elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
@@ -509,7 +523,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
@@ -530,7 +544,7 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
     """
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 搬运控制测试程序
     # test_moving()
@@ -566,6 +580,9 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{my_state.state}\n")
+    # my_uart3.write(f"{my_moving.current_state}\r\n")
+
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data, pit1

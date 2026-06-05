@@ -2,15 +2,15 @@
 
 ###################【PID参数】####################
 # 搬运模式下
-ul_move_kp = 0.0
-ul_move_ki = 0.0
-ul_move_kd = 0.0
-ur_move_kp = 0.0
-ur_move_ki = 0.0
-ur_move_kd = 0.0
-md_move_kp = 0.0
-md_move_ki = 0.0
-md_move_kd = 0.0
+ul_move_kp = 40.0
+ul_move_ki = 0.4
+ul_move_kd = 20.0
+ur_move_kp = 40.0
+ur_move_ki = 0.4
+ur_move_kd = 20.0
+md_move_kp = 40.0
+md_move_ki = 0.4
+md_move_kd = 20.0
 # speed大于220时
 ul_high_kp = 45.0
 ul_high_ki = 0.45
@@ -96,13 +96,13 @@ acc_coef = 0.1025
 dec_coef = 0.1282
 max_yaw_rate = 4.0 
 
-orbit_v_max = 100
+orbit_v_max = 60
 orbit_v_min = 25
 
 # 不同物体的搬运速度
-move_v_max_T = 100
+move_v_max_T = 120
 move_v_max_S = 130
-move_v_max_B = 100
+move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -113,7 +113,7 @@ servo_normal_kd_y = 15.0
 
 servo_target_y_T = 2.0
 servo_target_y_S = 3.0
-servo_target_y_B = 4.0
+servo_target_y_B = 6.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -126,11 +126,11 @@ max_rel_speed = 150
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 18.0
-radius_S = 17.0
+radius_T = 16.0
+radius_S = 18.0
 radius_B = 20.0
-angle_T = 130.0
+angle_T = 132.0
 angle_S = 137.0
-angle_B = 135.0
+angle_B = 138.0
 
 # 小车最高速度为290

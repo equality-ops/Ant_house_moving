@@ -2,16 +2,19 @@
 
 ###################【PID参数】####################
 # 搬运模式下
-ul_move_kp = 30.0
-ul_move_ki = 0.2
-ul_move_kd = 40.0
-ur_move_kp = 30.0
-ur_move_ki = 0.2
-ur_move_kd = 40.0
-md_move_kp = 30.0
-md_move_ki = 0.2
-md_move_kd = 40.0
-# speed大于200时
+ul_move_kp = 33.0
+ul_move_ki = 0.87
+ul_move_kd = 20.0
+
+ur_move_kp = 33.0
+ur_move_ki = 0.87
+ur_move_kd = 20.0
+
+md_move_kp = 33.0
+md_move_ki = 0.87
+md_move_kd = 20.0
+
+# speed为220时
 ul_high_kp = 35.0
 ul_high_ki = 1.04
 ul_high_kd = 40.0
@@ -23,7 +26,8 @@ ur_high_kd = 40.0
 md_high_kp = 35.0
 md_high_ki = 1.04
 md_high_kd = 40.0
-# speed大于100，小于200时
+
+# speed为165时
 ul_mid_kp = 33.0
 ul_mid_ki = 0.87
 ul_mid_kd = 20.0
@@ -35,7 +39,8 @@ ur_mid_kd = 20.0
 md_mid_kp = 33.0
 md_mid_ki = 0.87
 md_mid_kd = 20.0
-# speed小于100时
+
+# speed小于70时
 ul_low_kp = 34.0
 ul_low_ki = 0.75
 ul_low_kd = 20.0
@@ -71,7 +76,7 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.147976
+gyro_y_supply = 1.151499
 
 ###################【时间规划】####################
 motor_control_T = 2
@@ -80,7 +85,7 @@ plan_calculate_T = 10
 uart_and_menu_T = 53
 
 ###################【路径规划】####################
-final_threshold = 1.5
+final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
 
@@ -101,18 +106,18 @@ servo_target_y_IR = 1
 ###################【速度规划】####################
 min_start_v = 25
 long_v_max = 220
-find_line_v_max = 100
+find_line_v_max = 60
 acc_coef = 0.1025
 dec_coef = 0.1282
 max_yaw_rate = 4.0 
 
-orbit_v_max = 120
+orbit_v_max = 90
 orbit_v_min = 25
 
 # 不同物体的搬运速度
-move_v_max_T = 100
+move_v_max_T = 120
 move_v_max_S = 130
-move_v_max_B = 100
+move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -127,9 +132,9 @@ servo_IR_kp_y = 1
 servo_IR_kd_y = 1
 
 servo_target_y_A = 11.0
-servo_target_y_T = 3.5
-servo_target_y_S = 2.5
-servo_target_y_B = 5.5
+servo_target_y_T = 2.0
+servo_target_y_S = 3.0
+servo_target_y_B = 6.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -143,11 +148,11 @@ pwmout_normal_limit = 150
 pwmout_IR_limit = 1
 
 ###################【环绕控制】####################
-radius_T = 18.0
-radius_S = 17.0
+radius_T = 17.0
+radius_S = 18.0
 radius_B = 20.0
-angle_T = 137.0
-angle_S = 140.0
-angle_B = 140.0
+angle_T = 132.0
+angle_S = 137.0
+angle_B = 138.0
 
 # 小车最高速度为290

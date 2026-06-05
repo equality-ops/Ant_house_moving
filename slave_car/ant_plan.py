@@ -28,7 +28,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为从车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为从车返回点
-        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
+        self.fixed_point = [[15.0, -15.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
         
         # 中心物品摆放的矩形区域
         self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 

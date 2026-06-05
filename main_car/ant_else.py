@@ -587,6 +587,7 @@ class TaskController:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
+                self.my_vision.reset_servo_angle()
                 self.my_state.state = SERVO
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
@@ -620,6 +621,8 @@ class TaskController:
                     self.if_send_path = True  # 设置标志位，避免重复发送路径信息
 
                 if self.my_main_protocol.get_slave_state() == "get":
+                    # 测试
+                    self.my_beep.test()
                     # 向辅助车发送预先到达的边界
                     line = object_to_line_dict.get(self.current_object)
                     self.my_assist_protocol.send_advanced_line(line)
@@ -632,7 +635,7 @@ class TaskController:
             elif self.my_plan.if_finish_navigate:
                 self.my_vision.if_lost_object = False
                 # 将openart置为等待模式
-                self.my_order_manager.finish()
+                # self.my_order_manager.finish()
                 self.my_plan.reset_navigate()
                 self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
                 if self.data.current_index >= self.data.total_objects_num:
@@ -654,7 +657,7 @@ class TaskController:
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = CALIBRATE  # 直接切换到校准状态
             # 此时从车丢失物体
-            elif self.my_moving.current_state == ORBIT:
+            elif self.my_moving.current_state == ADJUST:
                 self.my_plan.reset_navigate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时间
                 self.my_state.state = RETURN 
@@ -750,7 +753,7 @@ class TaskController:
 
         target_point = self.my_art_protocol.coordinate_receive()
         if target_point and chr(target_point[2]) == self.current_object:  
-            self.my_vision.ready_servo_and_orbit(target_point)
+            self.my_vision.ready_servo_and_orbit(target_point, 'servo')
             self.my_beep.test()  # 扫描到目标物体，发出提示音
             self.exit()  # 退出当前状态，进入扫描状态
             return
@@ -771,7 +774,7 @@ class TaskController:
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
-                self.my_vision.ready_servo_and_orbit(target_point)
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
 

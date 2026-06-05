@@ -645,7 +645,7 @@ class TaskController:
                     self.counter = 0
                     self.my_vision.if_send_order = False  # 重置发送指令标志位
                     self.my_plan.current_object = chr(target_point[2])
-                    self.my_vision.ready_servo_and_orbit(target_point)
+                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                     self.my_vision.reset_servo_angle()
                     self.my_plan.reset_navigate()  # 重置导航相关变量
                     self.my_state.state = SERVO
@@ -733,7 +733,7 @@ class TaskController:
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:
-                self.my_vision.ready_servo_and_orbit(target_point)
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
 
