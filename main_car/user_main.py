@@ -245,12 +245,12 @@ def main_start():
                 my_beep.key_test()
                 # 测试，记得双车通信时要打开
                 my_main_protocol.send_start()
-                # 此时开启无刷负压风扇
-                my_fan.set_fan_signal()
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
             # if my_main_protocol.get_slave_state() == "ready":
+                # 此时开启无刷负压风扇
+                my_fan.set_fan_signal()
                 # 初始化小车坐标
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
@@ -305,13 +305,18 @@ def test_vision_servo():
     elif my_state.state == SERVO:
         my_vision_manager.visual_servo_control()
         if my_vision_manager.if_finish_servo == True:
-            my_order_manager.mode_target()
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-            # my_vision_manager.reset_orbit_angle()
-            # my_state.state = ORBIT
+            # my_order_manager.mode_target()
+            # my_plan.reset_navigate_angle()
+            # my_state.state = STOP
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                # 测试
+                my_beep.test()
+                my_vision_manager.reset_orbit_angle()
+                my_state.state = ORBIT
     elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
+        my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
         if my_vision_manager.if_finish_orbit == True:
             my_state.state = STOP
             my_plan.reset_navigate_angle()

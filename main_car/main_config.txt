@@ -1,67 +1,61 @@
-# 修改时间 5.31	  23:25
+# 修改时间 6.4	  11:32
 
 ###################【PID参数】####################
 # 搬运模式下
-ul_move_kp = 30.0
-ul_move_ki = 0.2
-ul_move_kd = 40.0
-ur_move_kp = 30.0
-ur_move_ki = 0.2
-ur_move_kd = 40.0
-md_move_kp = 30.0
-md_move_ki = 0.2
-md_move_kd = 40.0
-# speed大于200时
-ul_high_kp = 35.0
-ul_high_ki = 1.04
-ul_high_kd = 40.0
-
-ur_high_kp = 35.0
-ur_high_ki = 1.04
-ur_high_kd = 40.0
-
-md_high_kp = 35.0
-md_high_ki = 1.04
-md_high_kd = 40.0
-# speed大于100，小于200时
-ul_mid_kp = 33.0
-ul_mid_ki = 0.87
+ul_move_kp = 0.0
+ul_move_ki = 0.0
+ul_move_kd = 0.0
+ur_move_kp = 0.0
+ur_move_ki = 0.0
+ur_move_kd = 0.0
+md_move_kp = 0.0
+md_move_ki = 0.0
+md_move_kd = 0.0
+# speed大于220时
+ul_high_kp = 45.0
+ul_high_ki = 0.45
+ul_high_kd = 25.0
+ur_high_kp = 45.0
+ur_high_ki = 0.45
+ur_high_kd = 25.0
+md_high_kp = 45.0
+md_high_ki = 0.45
+md_high_kd = 25.0
+# speed大于70，小于170时
+ul_mid_kp = 40.0
+ul_mid_ki = 0.4
 ul_mid_kd = 20.0
-
-ur_mid_kp = 33.0
-ur_mid_ki = 0.87
+ur_mid_kp = 40.0
+ur_mid_ki = 0.4
 ur_mid_kd = 20.0
-
-md_mid_kp = 33.0
-md_mid_ki = 0.87
+md_mid_kp = 40.0
+md_mid_ki = 0.4
 md_mid_kd = 20.0
-# speed小于100时
-ul_low_kp = 34.0
-ul_low_ki = 0.75
+# speed小于70时
+ul_low_kp = 30.0
+ul_low_ki = 0.25
 ul_low_kd = 20.0
-
-ur_low_kp = 34.0
-ur_low_ki = 0.75
+ur_low_kp = 30.0
+ur_low_ki = 0.25
 ur_low_kd = 20.0
-
-md_low_kp = 34.0
-md_low_ki = 0.75
+md_low_kp = 30.0
+md_low_ki = 0.25
 md_low_kd = 20.0
 # 速度前馈系数
-kv = 6.0
-integral_limitmax = 8000
+kv = 15.0
+integral_limitmax = 10000
 pwmout_limitmax = 8000
 
 angle_normal_kp = 25.0
 # 已弃用
 angle_normal_ki = 0.0
-angle_normal_kd = 2.0
+angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.25
-high_angle_pwmout_limitmax = 500
-low_angle_pwmout_limitmax = 360
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
-A = 300
+A = 200
 # B大致为最大静差的1.5倍
 B = 100
 
@@ -71,44 +65,39 @@ speed_conversion_gamma = 1.0
 # 速度互补滤波系数（可修改）
 speed_fuse_ratio = 0.3
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.147976
+gyro_y_supply = 1.146632
 
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
 plan_calculate_T = 10
-uart_and_menu_T = 50
-
+uart_and_menu_T = 53
 ###################【路径规划】####################
 final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
+assist_car_to_line = 30.0
 
+rogue_planning = "[(160.0, 120.0), 'S', 'D', [('y', 150.0)]]"
 cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0
 error_x_S = 2.0
 error_x_B = 2.0
-###################【风扇控制】####################
+###################【速度规划】####################
+# 负压风扇
 if_fan = 1
 fixed_high_level_us = 1200
-servo_IR_kp_x = 1
-servo_IR_kd_x = 1
-servo_IR_kp_y = 1
-servo_IR_kd_y = 1
-servo_target_y_IR = 1
-pwmout_normal_limit = 1
-pwmout_IR_limit = 1
-###################【速度规划】####################
+
 min_start_v = 25
-long_v_max = 230
+long_v_max = 220
 find_line_v_max = 100
-acc_coef = 0.0556
-dec_coef = 0.0857
+acc_coef = 0.1025
+dec_coef = 0.1282
 max_yaw_rate = 4.0 
 
-orbit_v_max = 80
-orbit_v_min = 0
+orbit_v_max = 100
+orbit_v_min = 25
 
 # 不同物体的搬运速度
 move_v_max_T = 100
@@ -117,20 +106,14 @@ move_v_max_B = 100
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 7.0
+servo_normal_kp_x = 8.0
 servo_normal_kd_x = 15.0
-servo_normal_kp_y = 7.0
+servo_normal_kp_y = 8.0
 servo_normal_kd_y = 15.0
-# apriltag矫正的视觉伺服pid参数
-servo_calibrate_kp_x = 7.0
-servo_calibrate_kd_x = 10.0
-servo_calibrate_kp_y = 7.0
-servo_calibrate_kd_y = 10.0
 
-servo_target_y_A = 11.0
-servo_target_y_T = 18.0
-servo_target_y_S = 17.0
-servo_target_y_B = 20.0
+servo_target_y_T = 2.0
+servo_target_y_S = 3.0
+servo_target_y_B = 4.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -138,16 +121,16 @@ finish_threshold_y = 1.0
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
-min_rel_speed = 20
-max_rel_speed = 100
-servo_pwmout_limitmax = 100
+min_rel_speed = 25
+max_rel_speed = 150
+servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
 radius_T = 18.0
 radius_S = 17.0
 radius_B = 20.0
-angle_T = 137.0
-angle_S = 140.0
-angle_B = 140.0
+angle_T = 130.0
+angle_S = 137.0
+angle_B = 135.0
 
 # 小车最高速度为290

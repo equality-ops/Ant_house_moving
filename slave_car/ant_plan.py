@@ -466,8 +466,10 @@ class NavigationPlan:
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
+        # 固定系数（负压状态下）
         self.my_car.alpha_x = 0.8675
         self.my_car.alpha_y = 0.9065
+
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -598,28 +600,6 @@ class NavigationPlan:
         # =======================================================
         self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         
-        # 默认目标角度就是当前视线（取消航向角变化限制）
-        # self.target_yaw = los_current  
-
-        # =======================================================
-        # 3. 航向角变化率限制 (防止超调打滑)
-        # =======================================================
-        """
-        yaw_diff = target_yaw - self.target_yaw
-        if yaw_diff > 180: yaw_diff -= 360
-        elif yaw_diff < -180: yaw_diff += 360
-        
-        if abs(yaw_diff) > 90.0:
-            self.target_yaw = target_yaw
-        else:
-            if yaw_diff > self.max_yaw_rate:
-                self.target_yaw += self.max_yaw_rate
-            elif yaw_diff < -self.max_yaw_rate:
-                self.target_yaw -= self.max_yaw_rate
-            else:
-                self.target_yaw = target_yaw
-        """
-
         # 输出限幅在 [-180, 180] 内
         if self.target_yaw > 180: self.target_yaw -= 360
         elif self.target_yaw < -180: self.target_yaw += 360
@@ -648,9 +628,6 @@ class NavigationPlan:
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
     def navigate(self, path = None, target_turn_angle = None):
-        # 获取标准 kp, gkd 作为基准参考
-        original_kp = self.flash_sys.find_value("angle_normal_kp")
-
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
@@ -665,17 +642,6 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    # 动态角度环 kp 
-                    # 当角度误差小于 20.0 度时，开始线性降低 kp（避免小角度震荡过冲）
-                    diff_threshold = 20.0
-                    if diff < diff_threshold:
-                        dynamic_kp = original_kp * (0.4 + 0.6 * (diff / diff_threshold))
-                        self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax * 0.4
-                    else:
-                        dynamic_kp = original_kp
-                    self.my_car.angle_pid.kp = dynamic_kp
-                    # -------------------------
-
                     if diff <= 0.9:
                         # 若不传入路径则当前导航已完成
                         if path is None:
@@ -683,9 +649,8 @@ class NavigationPlan:
                         else:
                             self.if_finish_turn = True
                             self.pre_calculate_profile(path)
-                        # 恢复正常的角度环限幅和 kp
+                        # 恢复正常的角度环限幅
                         self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
-                        self.my_car.angle_pid.kp = original_kp
                 else:
                     self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI
                     if path is None:
@@ -698,14 +663,11 @@ class NavigationPlan:
                     
                     # 没有进行转角调整也要恢复原状
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
-                    self.my_car.angle_pid.kp = original_kp
                     return 
             else:
                 self.navigate_step()
         else:
             self.stop()
-            # 停止时也确保恢复原 kp
-            self.my_car.angle_pid.kp = original_kp
             self.if_finish_turn = False
             self.aimed_point_index = 0
             self.path.clear()

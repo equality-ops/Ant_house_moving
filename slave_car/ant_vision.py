@@ -160,10 +160,10 @@ class VisionManager:
         :param sign: 远近标志
         :return: 真实的物理坐标 (X_w, Y_w)
         """
+        object_H = 0.0  # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         if self.my_state == CALIBRATE:
             object_H = 0.0
         else:
-            object_H = 0.0  # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
             if self.current_servo_object in ['T']:
                 object_H = 2.5
             elif self.current_servo_object in ['S', 'E']:
@@ -323,8 +323,8 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
         if self.if_orbit_ready == False:
-            self.my_car.alpha_x = 1.0
-            self.my_car.alpha_y = 1.0
+            self.my_car.alpha_x = 0.9093
+            self.my_car.alpha_y = 0.936709
             # 保持静止
             self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
@@ -376,7 +376,7 @@ class VisionManager:
             err_r = self.orbit_radius - actual_r
             
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
-            kr = 1.6 
+            kr = 2.0 
             
             if self.direct == 'CW':
                 # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
@@ -528,8 +528,8 @@ class VisionManager:
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point):
         # 选择合适的里程计系数
-        self.my_car.alpha_x = 1.0
-        self.my_car.alpha_y = 1.0
+        self.my_car.alpha_x = 0.9093
+        self.my_car.alpha_y = 0.936709
         # 选择正常伺服状态下的pid参数
         self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
         self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x

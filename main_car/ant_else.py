@@ -540,7 +540,7 @@ class TaskController:
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物体
             self.my_order_manager.mode_target() # 打开目标识别模式
-            self.my_art_protocol.send_object_kind(self.my_plan.current_object)  # 发送目标物体种类信息
+            self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类信息
             self.scan_message.append([self.my_car.x_current, self.my_car.y_current])  # 记录扫描状态开始时小车的位置，作为后续判断是否迷路的参考
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物体
@@ -697,8 +697,6 @@ class TaskController:
         target_x = self.data.rogue_planning[self.data.current_index][0][0]
         target_y = self.data.rogue_planning[self.data.current_index][0][1]
         self.current_object = self.data.rogue_planning[self.data.current_index][1]  # 提取当前物体种类信息
-        # 更新导航中的物品种类便于在搬运状态中进行速度规划和控制负压
-        self.my_plan.current_object = self.current_object
         turn = self.data.rogue_planning[self.data.current_index][2]
         
         # 主车最终目标点

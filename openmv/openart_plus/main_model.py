@@ -77,8 +77,8 @@ DRAW_COLORS = {
 }
 
 #设置模型路径
-face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
-
+# face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
+face_detect = '/sd/yolov4_tiny_final_with_post_processing.tflite'
 #载入模型
 net = tf.load(face_detect)
 
@@ -612,9 +612,9 @@ while True:
         center = [] # 本帧检测到的目标中心列表
 
         objects = model_detector.detect(img)
-        brown_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'brown' and obj[5] > 0.3]
-        white_bear = [obj for obj in objects if LABEL_TO_COLOR[obj[4]] == 'white' and obj[5] > 0.3]
-        other_objects = [(obj, LABEL_TO_COLOR[obj[4]]) for obj in objects if LABEL_TO_COLOR[obj[4]] in ['red','blue','green'] and obj[5] > 0.6]
+        brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+        white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+        other_objects = [(obj, LABEL_TO_COLOR.get(obj[4])) for obj in objects if LABEL_TO_COLOR.get(obj[4]) in ['red','blue','green'] and obj[5] > 0.6]
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
