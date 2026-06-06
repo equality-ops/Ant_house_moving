@@ -81,9 +81,16 @@ class PathPlan:
         gc.collect()
 
     # 路径规划主函数
-    def plan_path(self, x1, y1):
-        circles = self.Data.circle
-        rects = self.Data.rectangles
+    def plan_path(self, x1, y1, ignore_center_rect=False):
+        # 【关键】：必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
+        circles = self.Data.circle[:]
+        rects = self.Data.rectangles[:]
+        
+        # 如果特定状态激活，将原有的中心区域矩形障碍物移除
+        # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
+        if ignore_center_rect and len(rects) > 0:
+            rects.pop(-1)  
+
         start = (float(self.my_car.x_current), float(self.my_car.y_current))
         end = (float(x1), float(y1))
         
@@ -127,7 +134,7 @@ class PathPlan:
         # 添加圆形中继点 (核心修改部分)
         self._add_circle_nodes_fixed(nodes, circles, block_r)
         # 添加矩形中继点
-        self._add_rectangle_nodes(nodes, rects, self.Data.SAFE_MARGIN)
+        self._add_rectangle_nodes(nodes, rects)
         # 剔除无效点和重复点            
         nodes = self._unique_valid_nodes(nodes, circles, rects, block_r)
 
@@ -224,9 +231,9 @@ class PathPlan:
                 nodes.append((px, py))
 
     # 将矩形的四个角点添加为中继点
-    def _add_rectangle_nodes(self, nodes, rects, margin):
+    def _add_rectangle_nodes(self, nodes, rects):
         """原代码中的矩形节点生成逻辑"""
-        d = float(margin) + 1.0
+        d = 2.0
         for rect in rects:
             cx, cy = 0.0, 0.0
             for p in rect: cx += p[0]; cy += p[1]
@@ -546,7 +553,7 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.my_state.state == MOVE:
-            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
+            near_line_threshold = 30.0  # 距离边界的阈值，单位：cm
             if_sandbag = (self.current_object in ['S', 'E'] and self.my_car.x_current <= near_line_threshold)
             if_bear = (self.current_object in ['B', 'W'] and self.my_car.x_current >= 320.0 - near_line_threshold)
             if_tennis = (self.current_object == 'T' and self.my_car.y_current >= 240.0 - near_line_threshold)
@@ -558,10 +565,15 @@ class NavigationPlan:
                 else: # if_tennis
                     ratio = (240.0 - self.my_car.y_current) / near_line_threshold
 
+                # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速
                 ratio = max(0.0, min(1.0, ratio))
+                ratio = ratio * ratio * ratio
+                
                 v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
             else:
                 v_cruise = self.move_v_max
+        # 调试输出当前巡航速度
+        # self.my_uart3.write(f"v: {v_cruise}, object: {self.current_object}, type: {type(self.current_object)}\n")  
 
         # s 直接基于我们之前算出的 usable_len 限制
         s = self.segment_start_dist - self.rest_dist
@@ -685,6 +697,7 @@ class NavigationPlan:
     def reset_navigate(self):
         self.if_finish_turn = False
         self.if_finish_navigate = False
+        self.finished_dist = 0.0
         self.aimed_point_index = 0
         self.path.clear()
 

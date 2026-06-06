@@ -77,8 +77,8 @@ DRAW_COLORS = {
 }
 
 #设置模型路径
-# face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
-face_detect = '/sd/yolov4_tiny_final_with_post_processing.tflite'
+face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
+# face_detect = '/sd/yolov4_tiny_final_with_post_processing.tflite'
 #载入模型
 net = tf.load(face_detect)
 
@@ -513,7 +513,7 @@ class CoordinateCorrection:
 MODE_CORRECTION = 0      # 坐标校正
 MODE_MODEL = 1           # 模型模式
 MODE_WAITING = 2         # 等待模式
-current_mode = MODE_WAITING
+current_mode = MODE_WAITING 
 
 # 存储各颜色卡尔曼坐标的字典
 kalman_coords = {

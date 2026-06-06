@@ -571,7 +571,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.5
+            self.final_dist *= 0.7
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
@@ -638,11 +638,11 @@ class MoveControl:
                 self.moving_point.append([self.moving_point[-1][0], item[1]])
         
         if current_object == 'T':
-            self.moving_point.append([self.moving_point[-1][0], 245.0])
+            self.moving_point.append([self.moving_point[-1][0], 240.0])
         elif current_object in ['S', 'E']:
-            self.moving_point.append([-5.0, self.moving_point[-1][1]])
+            self.moving_point.append([0.0, self.moving_point[-1][1]])
         elif current_object in ['B', 'W']:
-            self.moving_point.append([325.0, self.moving_point[-1][1]])
+            self.moving_point.append([320.0, self.moving_point[-1][1]])
 
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
@@ -794,10 +794,10 @@ class MoveControl:
 
         if step_axis == 'x':
             self.next_point = [self.moving_point[self.moving_idx][0], self.my_car.y_current]
-            self.my_main_protocol.send_path('M', 999, [ord('x'), self.moving_point[self.moving_idx][0]])
+            self.my_main_protocol.send_path('M', 999, [ord('x'), self.moving_point[self.moving_idx][0] - self.my_car.x_current])
         elif step_axis == 'y':
             self.next_point = [self.my_car.x_current, self.moving_point[self.moving_idx][1]]
-            self.my_main_protocol.send_path('M', 999, [ord('y'), self.moving_point[self.moving_idx][1]])
+            self.my_main_protocol.send_path('M', 999, [ord('y'), self.moving_point[self.moving_idx][1] - self.my_car.y_current])
 
     # 向辅助车发送本次搬运的终点信息
     def send_pt_to_assist(self):
@@ -821,6 +821,7 @@ class MoveControl:
         
     # 状态过渡函数
     def state_transition(self):
+        global counter
         if self.current_state == ORBIT:
             if self.vision_manager.if_send_order == False:
                 # 打开摄像头
@@ -836,9 +837,25 @@ class MoveControl:
                 self.current_state = ADJUST
                 self.vision_manager.if_send_order = False
         elif self.current_state == ADJUST:
-            if self.angle_buffer[self.moving_idx][2] == 'M':
-                order = self.my_main_protocol.get_slave_state()
-                if order == "finish":
+            # 延时50ms再进行状态过渡，确保小车已经稳定在视觉伺服的起始位置，避免过早进入搬运状态导致丢失目标
+            if counter >= 5:              
+                if self.angle_buffer[self.moving_idx][2] == 'M':
+                    order = self.my_main_protocol.get_slave_state()
+                    if order == "finish":
+                        self.my_beep.test()
+                        counter = 0
+                        self.vision_manager.if_finish_servo = False
+                        self.handle_next_point()
+                        # 在最后一个搬运点前给辅助车发送具体坐标
+                        if self.moving_idx + 1 >= len(self.moving_point):
+                            self.send_pt_to_assist()
+                        self.my_plan.reset_navigate_angle()
+                        self.current_state = MOVE
+                    elif order == "lost":
+                        counter = 0
+                        self.if_finish_move = True
+                else:
+                    counter = 0
                     self.vision_manager.if_finish_servo = False
                     self.handle_next_point()
                     # 在最后一个搬运点前给辅助车发送具体坐标
@@ -846,16 +863,8 @@ class MoveControl:
                         self.send_pt_to_assist()
                     self.my_plan.reset_navigate_angle()
                     self.current_state = MOVE
-                elif order == "lost":
-                    self.if_finish_move = True
             else:
-                self.vision_manager.if_finish_servo = False
-                self.handle_next_point()
-                # 在最后一个搬运点前给辅助车发送具体坐标
-                if self.moving_idx + 1 >= len(self.moving_point):
-                    self.send_pt_to_assist()
-                self.my_plan.reset_navigate_angle()
-                self.current_state = MOVE
+                counter += 1
         elif self.current_state == MOVE:
             # 如果当前搬运点是最后一个额外增加的终点指令，说明已经完成搬运
             if self.moving_idx >= len(self.moving_point) - 1:

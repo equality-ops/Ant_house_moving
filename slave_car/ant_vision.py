@@ -468,19 +468,11 @@ class VisionManager:
                 self.servo_lost_count = 0
                 # self.angle_temp = target_point[2]
                 corrected_x, corrected_y = self.pixel_to_real_world(target_point[0], target_point[1], 'close')
-                # 矫正量
-                if corrected_x > 0.0:
-                    corrected_x -= 2.35
-                else:
-                    corrected_x -= 1.35
-                corrected_y += 10.68
-
                 # 测试
                 self.my_uart3.write(f"Corrected X: {corrected_x:.2f} cm, Corrected Y: {corrected_y:.2f} cm, angle: {target_point[2]:.2f}\r\n")
                 
                 self.point_buffer.append((corrected_x, corrected_y))
-                # 2.20为矫正量
-                self.angle_buffer.append(self.record_angle + target_point[2] + 2.20)
+                self.angle_buffer.append(self.record_angle + target_point[2])
             else:       
                 self.servo_lost_count += 1
                 # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
@@ -583,7 +575,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.5
+            self.final_dist *= 0.7
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
@@ -654,10 +646,11 @@ class MoveControl:
         direct = move_pt_buffer[2][0]
         coord_val = move_pt_buffer[2][1]
 
+        # 根据指令计算下一目标点坐标，'x'表示在x轴方向上调整，'y'表示在y轴方向上调整
         if direct == float(ord('x')):
-            self.next_point = [coord_val, self.my_car.y_current]
+            self.next_point = [self.my_car.x_current + coord_val, self.my_car.y_current]
         elif direct == float(ord('y')):
-            self.next_point = [self.my_car.x_current, coord_val]
+            self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
 
     # 状态过渡函数
     def state_transition(self):
@@ -703,12 +696,9 @@ class MoveControl:
                 self.current_state = MOVE
 
         elif self.current_state == SERVO:
-            angle_temp = self.my_slave_protocol.get_orbit_angle()
-            if angle_temp:
-                self.next_orbit_angle = angle_temp
-                self.vision_manager.if_finish_servo = False
-                self.vision_manager.reset_orbit_angle()
-                self.current_state = ORBIT
+            self.vision_manager.if_finish_servo = False
+            self.vision_manager.reset_orbit_angle()
+            self.current_state = ORBIT
 
 
     # 搬运控制函数

@@ -594,7 +594,10 @@ class TaskController:
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            pass
+            self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路径
+            self.my_path.ready_path[-1] = self.data.fixed_point[3]
+            # 最后插入一个途径点便于计时
+            self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
@@ -644,7 +647,6 @@ class TaskController:
                     # 计数器清零
                     self.counter = 0
                     self.my_vision.if_send_order = False  # 重置发送指令标志位
-                    self.my_plan.current_object = chr(target_point[2])
                     self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                     self.my_vision.reset_servo_angle()
                     self.my_plan.reset_navigate()  # 重置导航相关变量
@@ -701,13 +703,19 @@ class TaskController:
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
             # 只有当路径信息为过渡或者回城时才记录目标点坐标
-            if path[0] in ['P', 'R']:
+            if path[0] not in ['P', 'R']:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
-            # 进行路径规划
-            self.my_path.plan_path(path[2][0], path[2][1])  # 传入目标坐标进行路径规划
-            self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
+                self.navigate_message = [[path[2]], path[1]]  # 导航信息：目标点坐标和朝向
+            else:
+                # 进行路径规划
+                self.my_path.plan_path(path[2][0], path[2][1])  # 传入目标坐标进行路径规划
+                self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
+            
             self.current_object = path[0]  # 当前物体种类
+            self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
+            # 测试
             # self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
+            # self.my_uart.write(f"{self.my_path.ready_path}\r\n")
             self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):
@@ -765,7 +773,7 @@ class TaskController:
 
     def handle_return(self):
         # if state == RETURN
-        self.my_plan.navigate(path = [self.pt_buffer[0]])  # 返回起始点
+        self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状态

@@ -72,9 +72,15 @@ class PathPlan:
         gc.collect()
 
     # 路径规划主函数
-    def plan_path(self, x1, y1):
+    def plan_path(self, x1, y1, ignore_center_rect=False):
         circles = self.Data.circle
         rects = self.Data.rectangles
+
+        # 如果特定状态激活，将原有的中心区域矩形障碍物移除
+        # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
+        if ignore_center_rect and len(rects) > 0:
+            rects.pop(-1) 
+
         start = (float(self.my_car.x_current), float(self.my_car.y_current))
         end = (float(x1), float(y1))
         
@@ -217,7 +223,9 @@ class PathPlan:
     # 将矩形的四个角点添加为中继点
     def _add_rectangle_nodes(self, nodes, rects, margin):
         """原代码中的矩形节点生成逻辑"""
-        d = float(margin) + 1.0
+        # 注意：这里的 rects 已经是扩展了 SAFE_MARGIN 后的外围多边形
+        # 向外留 2.0 的安全扩展距离生成中继点，防止浮点数碰线
+        d = 2.0
         for rect in rects:
             cx, cy = 0.0, 0.0
             for p in rect: cx += p[0]; cy += p[1]
@@ -535,7 +543,7 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.my_state.state == MOVE:
-            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
+            near_line_threshold = 30.0  # 距离边界的阈值，单位：cm
             if_sandbag = (self.current_object in ['S', 'E'] and self.my_car.x_current <= near_line_threshold)
             if_bear = (self.current_object in ['B', 'W'] and self.my_car.x_current >= 320.0 - near_line_threshold)
             if_tennis = (self.current_object == 'T' and self.my_car.y_current >= 240.0 - near_line_threshold)
@@ -548,7 +556,10 @@ class NavigationPlan:
                 else: # if_tennis
                     ratio = (240.0 - self.my_car.y_current) / near_line_threshold
 
+                # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速
                 ratio = max(0.0, min(1.0, ratio))
+                ratio = ratio * ratio * ratio
+
                 v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
             else:
                 v_cruise = self.move_v_max

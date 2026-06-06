@@ -1,4 +1,4 @@
-# 修改时间 6.4	  18:24
+# 修改时间 6.6	  16:13
 
 ###################【PID参数】####################
 # 搬运模式下
@@ -89,7 +89,7 @@ final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
 
-cube_obstacles = "(33.2, 180.0, 10.6, 23.8), (88.0, 222.0, 23.8, 10.6)"
+cube_obstacles = "(147, 27, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0
 error_x_S = 2.0
@@ -106,7 +106,7 @@ servo_target_y_IR = 1
 ###################【速度规划】####################
 min_start_v = 25
 long_v_max = 220
-find_line_v_max = 60
+find_line_v_max = 40
 acc_coef = 0.1025
 dec_coef = 0.1282
 max_yaw_rate = 4.0 
@@ -115,7 +115,7 @@ orbit_v_max = 90
 orbit_v_min = 25
 
 # 不同物体的搬运速度
-move_v_max_T = 120
+move_v_max_T = 80
 move_v_max_S = 130
 move_v_max_B = 120
 
@@ -151,8 +151,8 @@ pwmout_IR_limit = 1
 radius_T = 17.0
 radius_S = 18.0
 radius_B = 20.0
-angle_T = 132.0
-angle_S = 137.0
-angle_B = 138.0
+angle_T = 138.0
+angle_S = 143.0
+angle_B = 145.0
 
 # 小车最高速度为290

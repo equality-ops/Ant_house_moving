@@ -559,7 +559,11 @@ class TaskController:
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            pass
+            self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路径
+            self.my_path.ready_path[-1] = self.data.fixed_point[3]
+            # 最后插入一个途径点便于计时
+            self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
+            # self.my_uart.write(f"Path: {self.my_path.ready_path}")  # 测试：打印路径点
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
@@ -607,9 +611,9 @@ class TaskController:
             if self.my_vision.if_finish_servo:
                 # 发送主车信息给从车
                 if self.if_send_path == False:
-                    stop_threshold = 20.0
+                    stop_threshold = 10.0
                     if self.slave_navigate_message[1] == 0.0:
-                         # 发送路径信息给从车
+                        # 发送路径信息给从车
                         self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current - stop_threshold])   
                     elif self.slave_navigate_message[1] == 90.0:
                         self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current - stop_threshold, self.my_car.y_current])
@@ -700,6 +704,8 @@ class TaskController:
         target_x = self.data.rogue_planning[self.data.current_index][0][0]
         target_y = self.data.rogue_planning[self.data.current_index][0][1]
         self.current_object = self.data.rogue_planning[self.data.current_index][1]  # 提取当前物体种类信息
+        # 便于边线处减速
+        self.my_plan.current_object = self.current_object  
         turn = self.data.rogue_planning[self.data.current_index][2]
         
         # 主车最终目标点
@@ -739,7 +745,7 @@ class TaskController:
         self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
         
         # 主车行驶多远后给从车发送路径信息
-        dist_threshold = 30.0
+        dist_threshold = 40.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息
@@ -817,10 +823,10 @@ class TaskController:
 
     def handle_return(self):
         # if state == RETURN
-        self.my_plan.navigate(path = [self.data.fixed_point[3]])  # 返回起始点
+        self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
                 
         # 主车行驶多远后给从车发送路径信息
-        dist_threshold = 30.0
+        dist_threshold = 50.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息
