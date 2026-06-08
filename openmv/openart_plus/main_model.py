@@ -614,7 +614,18 @@ while True:
         objects = model_detector.detect(img)
         brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
         white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
-        other_objects = [(obj, LABEL_TO_COLOR.get(obj[4])) for obj in objects if LABEL_TO_COLOR.get(obj[4]) in ['red','blue','green'] and obj[5] > 0.6]
+        other_objects = []
+        for obj in objects:
+            color = LABEL_TO_COLOR.get(obj[4])
+            confidence = obj[5]
+            
+            # 对于红色、绿色物体，保持置信度阈值为0.5
+            if color in ['red', 'green'] and confidence > 0.5:
+                other_objects.append((obj, color))
+            
+            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.3
+            elif color == 'blue' and confidence > 0.3:
+                other_objects.append((obj, color))
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
