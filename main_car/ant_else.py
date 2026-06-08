@@ -661,10 +661,12 @@ class TaskController:
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = CALIBRATE  # 直接切换到校准状态
             # 此时从车丢失物体
-            elif self.my_moving.current_state == ADJUST:
+            elif self.my_moving.current_state == ORBIT:
                 self.my_plan.reset_navigate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时间
                 self.my_state.state = RETURN 
+            # 重置导航标志位
+            self.my_plan.reset_navigate()
             # 跳过当前物体
             self.my_moving.reset_move()  # 重置搬运标志
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态

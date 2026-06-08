@@ -1,6 +1,7 @@
 from micropython import const
 import time
 import gc
+import math
 
 READY_NAVIGATE = const(0)   # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
@@ -737,7 +738,14 @@ class TaskController:
             # 若丢失物体则四处移动寻找物体
             x = self.my_car.x_current
             y = self.my_car.y_current
-            self.my_plan.navigate(path = [[x+15.0, y], [x-15.0, y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
+            now_yaw = self.my_car.now_yaw  # 弧度，0=北(+Y)，90°=东(+X)
+            # 车身右方(+X): (cos(now_yaw), -sin(now_yaw))
+            # 车身左方(-X): (-cos(now_yaw), sin(now_yaw))
+            right_x = x + 15.0 * math.cos(now_yaw)
+            right_y = y - 15.0 * math.sin(now_yaw)
+            left_x = x - 15.0 * math.cos(now_yaw)
+            left_y = y + 15.0 * math.sin(now_yaw)
+            self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:

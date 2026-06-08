@@ -571,7 +571,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.7
+            self.final_dist *= 0.4
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
@@ -638,11 +638,11 @@ class MoveControl:
                 self.moving_point.append([self.moving_point[-1][0], item[1]])
         
         if current_object == 'T':
-            self.moving_point.append([self.moving_point[-1][0], 240.0])
+            self.moving_point.append([self.moving_point[-1][0], 260.0])
         elif current_object in ['S', 'E']:
-            self.moving_point.append([0.0, self.moving_point[-1][1]])
+            self.moving_point.append([-20.0, self.moving_point[-1][1]])
         elif current_object in ['B', 'W']:
-            self.moving_point.append([320.0, self.moving_point[-1][1]])
+            self.moving_point.append([350.0, self.moving_point[-1][1]])
 
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
@@ -799,6 +799,8 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.moving_point[self.moving_idx][1]]
             self.my_main_protocol.send_path('M', 999, [ord('y'), self.moving_point[self.moving_idx][1] - self.my_car.y_current])
 
+        # self.vision_manager.my_uart3.write(f"{self.next_point}\r\n")
+
     # 向辅助车发送本次搬运的终点信息
     def send_pt_to_assist(self):
         correct_dist = (self.vision_manager.car_radius + 2.0) / math.sqrt(2)  # 斜向搬运时的距离修正
@@ -837,8 +839,8 @@ class MoveControl:
                 self.current_state = ADJUST
                 self.vision_manager.if_send_order = False
         elif self.current_state == ADJUST:
-            # 延时50ms再进行状态过渡，确保小车已经稳定在视觉伺服的起始位置，避免过早进入搬运状态导致丢失目标
-            if counter >= 5:              
+            # 延时100ms再进行状态过渡，确保小车已经稳定在视觉伺服的起始位置，避免过早进入搬运状态导致丢失目标
+            if counter >= 10:              
                 if self.angle_buffer[self.moving_idx][2] == 'M':
                     order = self.my_main_protocol.get_slave_state()
                     if order == "finish":
@@ -951,6 +953,7 @@ class MoveControl:
                 self.reset_car_pos()
                 self.my_photo.reset_photo()
                 self.my_beep.test()
+                self.my_plan.if_finish_navigate = True
 
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
