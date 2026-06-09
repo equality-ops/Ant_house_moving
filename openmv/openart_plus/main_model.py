@@ -122,7 +122,7 @@ class Communicator:
         type_char = COLOR_TYPE_MAP.get(obj_type, 0x00)
 
         # 打包并发送数据
-        
+
         data = ustruct.pack(
             "<BBBBBB",
             PROTOCOL_HEADER1,
@@ -236,7 +236,7 @@ class KalmanTracker:
             self.p = p_minus
 
         return self.x_hat
-    
+
 # ======================== 模型检测模块  ========================
 class ModelDetector:
     def __init__(self, net):
@@ -246,8 +246,8 @@ class ModelDetector:
         """模型检测，返回检测结果列表"""
         img1 = img.copy(0.75, 1)
         return tf.detect(self.net, img1)
-    
-    # def detect_and_draw(self, img, center):    
+
+    # def detect_and_draw(self, img, center):
     #     img1 = img.copy(0.75, 1)
     #     for obj in tf.detect(self.net, img1):
     #             x1,y1,x2,y2,label,scores = obj
@@ -266,12 +266,12 @@ class ModelDetector:
     #                 img.draw_rectangle((x1,y1,w,h), color=DRAW_COLORS[color])
     #                 img.draw_cross(cx, cy, color=DRAW_COLORS[color])
     #     return center
-    
+
     def process_kalman_color(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
         """封装卡尔曼处理单颜色逻辑（棕/白/蓝通用）"""
         detected = False
         target_object = None
-        
+
         if objects:
             target_object = max(objects, key=lambda obj: (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height())  # 选择面积最大的目标
             x1,y1,x2,y2,label,scores = target_object
@@ -334,7 +334,7 @@ class ModelDetector:
             kalman_coords_dict[color] = (kcx, kcy)
         else:
             kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
-        
+
         return target_object
 
     def draw_other_objects(self, img, objects, center_list):
@@ -394,7 +394,7 @@ class ModelDetector:
 #                 # 未锁定 → 选择最下方目标
 #                 max_y_obj = max(objects, key=lambda item: (item[1] + item[3]) // 2)
 #                 self.locked_kind = LABEL_TO_COLOR[max_y_obj[4]]
-                
+
 #                 # 优先使用卡尔曼坐标（如果可用且合理）
 #                 if self.locked_kind in ['brown', 'white'] and self.locked_kind in kalman_coords:
 #                     kcx, kcy = kalman_coords[self.locked_kind]
@@ -407,7 +407,7 @@ class ModelDetector:
 #                 else:
 #                     # 非卡尔曼滤波物体直接使用原始坐标
 #                     self.locked_cx, self.locked_cy = (max_y_obj[0] + max_y_obj[2]) // 2, (max_y_obj[1] + max_y_obj[3]) // 2
-                
+
 #                 self.last_cx, self.last_cy = self.locked_cx, self.locked_cy
 #                 self.is_locked = True
 #                 self.lost_count = 0
@@ -422,7 +422,7 @@ class ModelDetector:
 #                 for obj in same_color:
 #                     cx = (obj[0] + obj[2]) // 2
 #                     cy = (obj[1] + obj[3]) // 2
-                    
+
 #                     # 对于卡尔曼滤波物体，使用卡尔曼坐标判断跳变
 #                     if self.locked_kind in ['brown', 'white']:
 #                         if self.locked_kind in kalman_coords:
@@ -437,7 +437,7 @@ class ModelDetector:
 #                 if valid_blobs:
 #                     best_obj, best_cx, best_cy = min(valid_blobs,
 #                         key=lambda item: (item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2)
-                    
+
 #                     # 区分卡尔曼滤波和非卡尔曼滤波物体
 #                     if self.locked_kind in ['brown', 'white', 'blue'] and self.locked_kind in kalman_coords:
 #                         target_pos = kalman_coords[self.locked_kind]
@@ -447,7 +447,7 @@ class ModelDetector:
 #                         target_pos = (best_cx, best_cy)
 #                         # 使用原始坐标更新last_cx, last_cy
 #                         self.last_cx, self.last_cy = best_cx, best_cy
-                    
+
 #                     self.lost_count = 0
 #                     locked_object = best_obj
 #                 else:
@@ -467,9 +467,9 @@ class ModelDetector:
 #         """绘制锁定标识"""
 #         if not self.is_locked:
 #             return
-        
+
 #         lock_cx, lock_cy = None, None
-        
+
 #         # 对于卡尔曼滤波物体，优先使用卡尔曼坐标
 #         if self.locked_kind in ['brown', 'white']:
 #             if self.locked_kind in kalman_coords:
@@ -477,13 +477,13 @@ class ModelDetector:
 #                 # 检查卡尔曼坐标是否有效
 #                 if (kcx, kcy) != (SCREEN_CENTER_X, SCREEN_CENTER_Y):
 #                     lock_cx, lock_cy = kcx, kcy
-        
+
 #         # 如果卡尔曼坐标不可用或非卡尔曼滤波物体，使用原始坐标
 #         if lock_cx is None and locked_object is not None:
 #             x1, y1, x2, y2, _, _ = locked_object
 #             lock_cx = (x1 + x2) // 2
 #             lock_cy = (y1 + y2) // 2
-        
+
 #         if lock_cx is not None and lock_cy is not None:
 #             img.draw_circle(int(lock_cx), int(lock_cy), 5, color=DRAW_COLORS['black'], thickness=2)
 
@@ -513,7 +513,7 @@ class CoordinateCorrection:
 MODE_CORRECTION = 0      # 坐标校正
 MODE_MODEL = 1           # 模型模式
 MODE_WAITING = 2         # 等待模式
-current_mode = MODE_WAITING 
+current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
 kalman_coords = {
@@ -614,7 +614,18 @@ while True:
         objects = model_detector.detect(img)
         brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
         white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
-        other_objects = [(obj, LABEL_TO_COLOR.get(obj[4])) for obj in objects if LABEL_TO_COLOR.get(obj[4]) in ['red','blue','green'] and obj[5] > 0.6]
+        other_objects = []
+        for obj in objects:
+            color = LABEL_TO_COLOR.get(obj[4])
+            confidence = obj[5]
+
+            # 对于红色、绿色物体，保持置信度阈值为0.5
+            if color in ['red', 'green'] and confidence > 0.5:
+                other_objects.append((obj, color))
+
+            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.3
+            elif color == 'blue' and confidence > 0.3:
+                other_objects.append((obj, color))
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
@@ -622,7 +633,7 @@ while True:
 
         # target_pos, target_color, locked_blob = target_locker.process_lock(objects, kalman_coords)
         # target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
-        
+
         # # 发送目标坐标
         # if target_locker.is_locked and target_pos is not None:
         #     # 锁定状态：发送锁定目标坐标

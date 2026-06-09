@@ -1,5 +1,6 @@
 from micropython import const
 import time
+import math
 import gc
 
 PI = const(3.1415926)
@@ -14,14 +15,15 @@ ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 
+InField = const(-1)
+OnLine = const(0)
+OutLine = const(1)
 
-object_to_line_dict = {
-    'T': 'U',
-    'S': 'L',
-    'E': 'L',
-    'W': 'R',
-    'B': 'R'
-}
+# 根据物体位置列举的三种情形
+ALL_IN_BOTTOM = const(0)  # 物体完全在下区域内
+ONE_IN_TOP = const(2)     # 物体有一个在上区域内
+OVER_ONE_IN_TOP = const(4)  # 物体有两个或以上在上区域内
+
 
 # 计数器
 counter = 0 
@@ -276,69 +278,6 @@ class LinkProtocol:
             return None
 
 
-# 主辅助车通信类
-class AssistLinkProtocol:
-    def __init__(self, uart):
-        # 注入串口对象
-        self.my_uart = uart
-        # 创建字节流缓冲区
-        self.raw_buffer = b''           
-        self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
-        self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer）
-        self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer）
-
-        gc.collect()
-
-    # 用于主车向辅助车发送即将到达的边界信息
-    def send_advanced_line(self, line):
-        """
-        发送状态 (非阻塞)
-        格式: *line666!
-        :param line: 字符串，表示小车即将到达的边界，如'A','B','C','D'等
-        """
-        if line == 'U':
-            line_temp = 'B'
-        elif line == 'L':
-            line_temp = 'A'
-        elif line == 'R':
-            line_temp = 'C'
-        else:
-            line_temp = 'D'
-        packet = "*{}666!".format(line_temp)
-        self.my_uart.write(packet.encode('utf-8'))
-
-    # 用于主车向辅助车发送回到线上的消息
-    def send_back_message(self):
-        """
-        发送状态 (非阻塞)
-        格式: *任意字母888!
-        """
-        packet = "*A888!"
-        self.my_uart.write(packet.encode('utf-8'))
-
-    # 用于主车向辅助车发送搬运到的具体位置
-    def send_target_pos(self, line: str, pos: float):
-        """
-        发送目标位置 (非阻塞)
-        格式: *linepos!
-        :param line: 字符串，表示边界，如'A','B','C','D'等
-        :param pos: 整数，表示目标位置x/y坐标
-        """
-        pos_int = int(pos)
-        if pos_int < 0:
-            pos_int = 0
-        
-        # 对于 B 和 D（如上下边界），限幅到 320
-        if line in ('B', 'D') and pos_int > 320:
-            pos_int = 320
-        # 对于 A 和 C（如左右边界），限幅到 240
-        elif line in ('A', 'C') and pos_int > 240:
-            pos_int = 240
-
-        pos_str = "{:03d}".format(pos_int)
-        packet = "*{}{}!".format(line, pos_str)
-        self.my_uart.write(packet.encode('utf-8'))
-
 ##############################【flash系统操作】##############################
 class flash_system:
     def __init__(self, beep, file_path: str):
@@ -476,21 +415,20 @@ class flash_system:
 
 # 状态机类
 class TaskController:
-    def __init__(self, beep: beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, assist_protocol: AssistLinkProtocol):
+    def __init__(self, beep: beep, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol):
         # 注入对象
         self.my_beep = beep
-        self.my_path = path
-        self.my_uart = uart
+        self.my_photo = photo
+        self.my_uart3 = uart3
+        self.my_uart8 = uart8
         self.my_plan = plan
         self.my_vision = vision
         self.my_state = state
         self.my_car = car
-        self.my_moving = moving
         self.data = plan_data
         self.my_order_manager = order_manager
         self.my_art_protocol = art_protocal
         self.my_main_protocol = main_protocol
-        self.my_assist_protocol = assist_protocol
 
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
@@ -503,19 +441,39 @@ class TaskController:
             ADJUST:   self.handle_adjust,
             RETURN:    self.handle_return,
             STOP:      self.handle_stop,
+            ORBIT:     self.handle_orbit,
             # ... 其他状态
         }
 
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝向
-        self.scan_message = []  # 扫描信息：目标物体位置
+        self.scan_final_point = []  # 扫描终点
+        self.move_message = []  # 搬运目标点
+        self.orbit_angle_buf = 0.0  # 环绕角度缓冲区
         self.current_object = ''  # 当前目标物体种类
+        self.object_status = ALL_IN_BOTTOM  # 当前物体位置状态
         # 标志位
+        self.if_start_off = False  # 是否出发车区
         self.if_transitioning = True  # 是否正在进行状态转换
         self.if_send_path = False  # 是否已经发送路径规划信息
+        self.if_to_top = False  # 是否前往上区域
+        self.the_last_one = False  # 是否是最后一个物体
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
-        
+
+    
+    # 重置小车里程计
+    def reset_car_pos(self):
+        # 经验修正值
+        correction = 2.0
+        if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+            self.my_car.y_current = 0.0 + correction
+        elif self.object_status == OVER_ONE_IN_TOP:
+            if self.the_last_one:
+                self.my_car.y_current = 0.0 + correction
+            else:
+                self.my_car.y_current = 240.0 - correction
+
     # 不同模式下的执行函数
     def run(self):
         if self.if_transitioning:
@@ -539,36 +497,60 @@ class TaskController:
             pass
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物体
-            self.my_order_manager.mode_target() # 打开目标识别模式
-            self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类信息
-            self.scan_message.append([self.my_car.x_current, self.my_car.y_current])  # 记录扫描状态开始时小车的位置，作为后续判断是否迷路的参考
+            # 清空视觉串口缓冲区，准备接收新数据
+            lenth = self.my_art_protocol.my_uart.any()
+            self.my_art_protocol.my_uart.read(lenth)  
+            # 打开目标识别模式
+            self.my_order_manager.mode_target() 
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物体
-            pass
+            # 清空视觉串口缓冲区，准备接收新数据
+            lenth = self.my_art_protocol.my_uart.any()
+            self.my_art_protocol.my_uart.read(lenth)
+        elif state == ORBIT:
+            # 进入环绕状态，开始环绕目标物体
+            if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+                # 主车顺时针旋转
+                self.orbit_angle_buf = self.my_vision.orbit_angle
+            elif self.object_status == OVER_ONE_IN_TOP:
+                if self.the_last_one:
+                    # 主车顺时针旋转
+                    self.orbit_angle_buf = self.my_vision.orbit_angle
+                else:
+                    # 主车逆时针旋转
+                    self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
+
         elif state == MOVE:
-            # 进入搬运状态，开始搬运物体
-            self.my_moving.ready_move()  # 准备搬运动作
+            if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+                # 搬运到-20的点保证光电管能检测到边界
+                self.move_message = [self.my_car.x_current + self.my_plan.error_x, -20.0]
+            elif self.object_status == OVER_ONE_IN_TOP:
+                if self.the_last_one:
+                    # 搬运到-20的点保证光电管能检测到边界
+                    self.move_message = [self.my_car.x_current + self.my_plan.error_x, -20.0]
+                else:
+                    # 搬运到260的点保证光电管能检测到边界
+                    self.move_message = [self.my_car.x_current - self.my_plan.error_x, 260.0]
+
             # 测试
-            # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
+            # self.my_uart.write(f"{self.move_message}\n")
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
             # 记录小车在哪个边线
-            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
+            # self.my_vision.car_position = object_to_line_dict.get(self.current_object)
+            pass
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路径
-            self.my_path.ready_path[-1] = self.data.fixed_point[3]
-            # 最后插入一个途径点便于计时
-            self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
-            # self.my_uart.write(f"Path: {self.my_path.ready_path}")  # 测试：打印路径点
+            pass
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
 
     def exit(self):
+        global counter
         state = self.my_state.state
 
         if state == READY_NAVIGATE:
@@ -580,8 +562,6 @@ class TaskController:
                 # 发送路径信息给从车
                 self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
 
-            # 向辅助车发送回线消息
-            self.my_assist_protocol.send_back_message()
             # 退出导航状态，停止路径跟随
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
@@ -590,103 +570,110 @@ class TaskController:
         elif state == SCAN:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
+                # 更新扫描起始点横坐标（缩短用时）
+                if self.object_status == ALL_IN_BOTTOM or (self.object_status == OVER_ONE_IN_TOP and self.if_to_top):
+                    self.data.scan_point[self.object_status][0] = self.my_car.x_current 
                 self.my_plan.reset_navigate()
                 self.my_vision.reset_servo_angle()
                 self.my_state.state = SERVO
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
-                # 如果小车并没有找到物体，先跳过当前物体
                 self.my_plan.reset_navigate()
-                self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
-                if self.data.current_index >= self.data.total_objects_num:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-                else:
-                    self.my_plan.reset_navigate_angle()
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                self.my_plan.reset_navigate_angle()
+                if self.object_status == ALL_IN_BOTTOM:
+                    if self.data.finished_num == self.data.total_objects_num - 1:
+                        self.object_status = ONE_IN_TOP  # 最后一个物体在上区域内
+                    else:
+                        self.object_status = OVER_ONE_IN_TOP  # 还有一个或以上物体在上区域内
                     self.my_state.state = READY_NAVIGATE
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                else:
+                    self.my_state.state = RETURN  # 直接返回
         elif state == SERVO:
             # 退出伺服状态，停止精确对准动作
             if self.my_vision.if_finish_servo:
+                counter += 1
+                # 延时200ms
+                if counter <= 20:
+                    return
+
                 # 发送主车信息给从车
                 if self.if_send_path == False:
-                    stop_threshold = 10.0
-                    if self.slave_navigate_message[1] == 0.0:
+                    stop_threshold = 20.0
+                    if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
                         # 发送路径信息给从车
                         self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current - stop_threshold])   
-                    elif self.slave_navigate_message[1] == 90.0:
-                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current - stop_threshold, self.my_car.y_current])
-                    elif self.slave_navigate_message[1] == -90.0:
-                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current + stop_threshold, self.my_car.y_current])
-                    else:
-                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
+                    else:   # OVER_ONE_IN_TOP的情况
+                        if self.if_to_top == False:
+                            slave_angle = 180 - self.my_vision.orbit_angle
+                            # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运    
+                            self.my_main_protocol.send_path(self.current_object, slave_angle, [self.my_car.x_current - stop_threshold, self.my_car.y_current])   
+                            # 此时小车将过渡到上半区
+                            self.if_to_top = True
+                        else:
+                            if self.the_last_one:
+                                slave_angle = -self.my_vision.orbit_angle
+                                # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
+                                self.my_main_protocol.send_path(self.current_object, slave_angle, [self.my_car.x_current + stop_threshold, self.my_car.y_current])   
+                            else:
+                                self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
                     
                     self.if_send_path = True  # 设置标志位，避免重复发送路径信息
 
+
                 if self.my_main_protocol.get_slave_state() == "get":
-                    # 测试
-                    self.my_beep.test()
-                    # 向辅助车发送预先到达的边界
-                    line = object_to_line_dict.get(self.current_object)
-                    self.my_assist_protocol.send_advanced_line(line)
-                    # 重置环绕角度
-                    self.my_vision.reset_orbit_angle()
+                    # 重置计数器
+                    counter = 0
                     self.if_send_path = False  # 重置路径发送标志位
                     self.my_vision.if_finish_servo = False  # 重置伺服完成标志
-                    self.my_state.state = MOVE  # 直接切换到搬运状态
+                    self.my_vision.reset_orbit_angle()
+                    self.my_state.state = ORBIT  # 直接切换到环绕状态
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.my_plan.if_finish_navigate:
                 self.my_vision.if_lost_object = False
-                # 将openart置为等待模式
-                # self.my_order_manager.finish()
                 self.my_plan.reset_navigate()
-                self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状态
-                if self.data.current_index >= self.data.total_objects_num:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-                else:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = READY_NAVIGATE
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == ORBIT:
+            order = self.my_main_protocol.get_slave_state()
+            if order == "finish":
+                self.my_vision.reset_orbit()  # 重置环绕标志
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = MOVE  # 直接切换到搬运状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            elif order == "lost":
+                self.my_vision.reset_orbit()  # 重置环绕标志
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = RETURN  # 直接切换到返回状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
-            # 给从车发送辅助车的坐标
-            if len(self.my_vision.assist_car_pos) == 2:
-                self.my_main_protocol.send_path('A', 999, self.my_vision.assist_car_pos)
             # 退出搬运状态，停止搬运动作 
             # 若从车丢失物体，则跳过当前物体      
-            self.data.current_index += 1
-            if self.my_moving.current_state == MOVE:
+            self.data.finished_num += 1
+            if self.data.finished_num >= self.data.total_objects_num:
                 self.my_plan.reset_navigate_angle()
-                self.my_state.state = CALIBRATE  # 直接切换到校准状态
-            # 此时从车丢失物体
-            elif self.my_moving.current_state == ORBIT:
-                self.my_plan.reset_navigate_angle()
-                # 如果从车丢失物体直接返回发车区避免浪费时间
+                # 若搬运完成物体直接返回，则进入返回状态
                 self.my_state.state = RETURN 
+            else:
+                if self.data.finished_num == self.data.total_objects_num - 1:
+                    # 现在是最后一个物体
+                    self.the_last_one = True
+                
+                self.my_plan.reset_navigate_angle()
+                # 若搬运完成物体继续处理下一个物体，则进入准备导航状态
+                self.my_state.state = READY_NAVIGATE
+
+            # 测试光电管是否准确
+            # self.my_plan.reset_navigate_angle()
+            # self.my_state.state = STOP
             # 重置导航标志位
             self.my_plan.reset_navigate()
-            # 跳过当前物体
-            self.my_moving.reset_move()  # 重置搬运标志
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
-            self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
-            if self.data.current_index >= self.data.total_objects_num:
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
-            else:
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            pass
         elif state == ADJUST:
-            # 退出调整状态，完成微调后进行必要的状态更新
-            self.my_vision.reset_orbit()
-            self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            pass
         elif state == RETURN:
             if not self.if_send_path:
                 # 发送路径信息给从车
@@ -702,52 +689,44 @@ class TaskController:
             self.my_beep.test()  # 任务完成，发出提示音
     
     def handle_ready_navigate(self):
-        # 进入准备导航状态，做好路径规划准备和导航信息准备
-        target_x = self.data.rogue_planning[self.data.current_index][0][0]
-        target_y = self.data.rogue_planning[self.data.current_index][0][1]
-        self.current_object = self.data.rogue_planning[self.data.current_index][1]  # 提取当前物体种类信息
-        # 便于边线处减速
-        self.my_plan.current_object = self.current_object  
-        turn = self.data.rogue_planning[self.data.current_index][2]
-        
-        # 主车最终目标点
-        main_final_pt = []
-        # 小车导航到物体前的距离
-        stop_threshold = 20.0
-        # 根据小车进入的边界信息选择合适的角度和扫描点信息
-        if turn == "L":
-            target_angle = 90.0
-            self.scan_message = [[target_x - stop_threshold, target_y]]
-            self.slave_navigate_message = [[self.data.fixed_point[1][0] - stop_threshold, target_y], target_angle]
-            main_final_pt = [self.data.fixed_point[1][0], target_y]
-        elif turn == "R":
-            target_angle = -90.0
-            self.scan_message = [[target_x + stop_threshold, target_y]]
-            self.slave_navigate_message = [[self.data.fixed_point[2][0] + stop_threshold, target_y], target_angle]
-            main_final_pt = [self.data.fixed_point[2][0], target_y]
-        elif turn == "U":
-            target_angle = 180.0
-            self.scan_message = [[target_x, target_y + stop_threshold]]
-            self.slave_navigate_message = [[target_x, self.data.fixed_point[2][1] + stop_threshold], target_angle]
-            main_final_pt = [target_x, self.data.fixed_point[2][1]]
-        else:
+        target_point, target_angle = [], 0.0
+        stop_threshold = 20.0  # 从车停止点与主车的距离阈值
+        if self.object_status == ALL_IN_BOTTOM:
+            target_point = self.data.scan_point[0]
             target_angle = 0.0
-            self.scan_message = [[target_x, target_y - stop_threshold]]
-            self.slave_navigate_message = [[target_x, self.data.fixed_point[1][1] - stop_threshold], target_angle]
-            main_final_pt = [target_x, self.data.fixed_point[1][1]]
-            
-         # 进行路径规划
-        self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
+            self.scan_final_point = self.data.scan_point[1]
+            self.slave_navigate_message = [[160.0, target_point[1] - stop_threshold], target_angle]
+        elif self.object_status == ONE_IN_TOP:
+            target_point = self.data.scan_point[2]
+            target_angle = 0.0
+            self.scan_final_point = self.data.scan_point[3]
+            self.slave_navigate_message = [[160.0, target_point[1] - stop_threshold], target_angle]
+        elif self.object_status == OVER_ONE_IN_TOP:
+            if self.if_to_top == False:
+                target_point = self.data.scan_point[2]
+                target_angle = 0.0
+                self.scan_final_point = self.data.scan_point[3]
+                self.slave_navigate_message = [[160.0, target_point[1] - stop_threshold], target_angle]
+            else:
+                target_point = self.data.scan_point[4]
+                target_angle = 180.0
+                self.scan_final_point = self.data.scan_point[5]
+                self.slave_navigate_message = [[160.0, target_point[1] + stop_threshold], target_angle]
 
-        self.navigate_message = [self.my_path.ready_path, target_angle]  # 准备导航信息
+        self.navigate_message = [[target_point], target_angle]  # 准备导航信息
         self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):
         # if state == NAVIGATE
+        if self.if_start_off == False:
+            # 先让小车走到y=10的位置保证顺利发车
+            self.navigate_message[0].insert(0, [self.my_car.x_current, 10.0]) 
+            self.if_start_off = True
+
         self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
         
         # 主车行驶多远后给从车发送路径信息
-        dist_threshold = 40.0
+        dist_threshold = 15.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息
@@ -757,12 +736,12 @@ class TaskController:
    
     def handle_scan(self):
         # if state == SCAN
-        self.my_plan.navigate(path = self.scan_message)
-
+        self.my_plan.navigate(path = [self.scan_final_point])  # 导航到扫描终
+        
         target_point = self.my_art_protocol.coordinate_receive()
-        if target_point and chr(target_point[2]) == self.current_object:  
-            self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-            self.my_beep.test()  # 扫描到目标物体，发出提示音
+        if target_point and self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):  
+            self.current_object = chr(target_point[2])
+            self.my_vision.ready_servo_and_orbit(target_point)
             self.exit()  # 退出当前状态，进入扫描状态
             return
 
@@ -778,57 +757,58 @@ class TaskController:
             # 若丢失物体则四处移动寻找物体
             x = self.my_car.x_current
             y = self.my_car.y_current
-            self.my_plan.navigate(path = [[x+10.0, y], [x-10.0, y], self.navigate_message[0][-1]])
+            self.my_plan.navigate(path = [[x+10.0, y], [x-10.0, y], [x, y]])
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_vision.ready_servo_and_orbit(target_point)
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
 
         if self.my_vision.if_finish_servo or self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入搬运状态
 
+    def handle_orbit(self):
+        # if state == ORBIT
+        self.my_vision.orbit_control(self.orbit_angle_buf)
+
+        if self.my_vision.if_finish_orbit:
+            self.exit()  # 退出当前状态，进入搬运状态
+
     def handle_move(self):
         # if state == MOVE
-        self.my_moving.moving()
+        self.my_plan.navigate(path = [self.move_message])  # 导航到搬运目标点
+        # 更新光电管状态
+        self.my_photo.update_photo_state()
+        if self.my_photo.current_state == OutLine:
+            self.reset_car_pos()
+            self.my_photo.reset_photo()
+            # 测试
+            self.my_beep.test()
+            self.my_plan.if_finish_navigate = True
 
-        if self.my_moving.if_finish_move:
+        if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_calibrate(self):
         # if state == CALIBRATE
-        global counter
-        self.my_vision.apriltag_calibrate_control()
-
-        if self.my_vision.if_finish_calibrate:
-            counter += 1
-            # 延时100ms
-            if counter >= 10:
-                counter = 0
-                self.exit()  # 退出当前状态，进入下一个状态
+        pass
 
     def handle_adjust(self):
         # if state == ADJUST
-        '''
-        if self.my_vision.if_finish_orbit:
-            # 反环绕防止误触物体
-            self.my_vision.orbit_control(self.navigate_message[1])
-        else:
-            # 回到扫描点附近
-            self.my_plan.navigate(path = [self.navigate_message[0][-1]])
-
-        if self.my_plan.if_finish_navigate and self.my_vision.if_finish_orbit:
-            self.exit()  # 退出当前状态，进入下一个状态
-        '''
         pass
 
     def handle_return(self):
         # if state == RETURN
-        self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
+        path = [[self.data.fixed_point[3][0], 20.0], self.data.fixed_point[3]]  # 先回到y=20.0的安全位置再返回起始点
+        # 若小车y坐标小于20.0则先平移到y=20.0处再返回防止打到光电门
+        if self.my_car.y_current < 20.0:
+            path.insert(0, [self.my_car.x_current, 20.0])
+
+        self.my_plan.navigate(path = path)  # 返回起始点
                 
         # 主车行驶多远后给从车发送路径信息
-        dist_threshold = 50.0
+        dist_threshold = 15.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息

@@ -31,6 +31,8 @@ class PhotoControl:
             if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
                 self.current_state = OnLine
+        else:
+            self.on_line_times = 0
         
         if current_state == 0 and self.current_state == OnLine:
             self.current_state = OutLine
@@ -76,16 +78,6 @@ class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        # 搬运过程中的pid参数
-        self.ul_move_kp = self.flash_sys.find_value("ul_move_kp")  # type: float
-        self.ul_move_ki = self.flash_sys.find_value("ul_move_ki")  # type: float
-        self.ul_move_kd = self.flash_sys.find_value("ul_move_kd")  # type: float
-        self.ur_move_kp = self.flash_sys.find_value("ur_move_kp")  # type: float
-        self.ur_move_ki = self.flash_sys.find_value("ur_move_ki")  # type: float
-        self.ur_move_kd = self.flash_sys.find_value("ur_move_kd")  # type: float
-        self.md_move_kp = self.flash_sys.find_value("md_move_kp")  # type: float
-        self.md_move_ki = self.flash_sys.find_value("md_move_ki")  # type: float
-        self.md_move_kd = self.flash_sys.find_value("md_move_kd")  # type: float
 
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float

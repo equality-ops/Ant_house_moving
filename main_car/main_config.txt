@@ -1,16 +1,6 @@
-# 修改时间 6.6	  16:12
+# 修改时间 6.10	  00:20
 
 ###################【PID参数】####################
-# 搬运模式下
-ul_move_kp = 40.0
-ul_move_ki = 0.4
-ul_move_kd = 20.0
-ur_move_kp = 40.0
-ur_move_ki = 0.4
-ur_move_kd = 20.0
-md_move_kp = 40.0
-md_move_ki = 0.4
-md_move_kd = 20.0
 # speed大于220时
 ul_high_kp = 45.0
 ul_high_ki = 0.45
@@ -73,30 +63,27 @@ collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
+total_objects_num = 3
+
 final_threshold = 1.0
 branch_threshold = 5.0
-blend_radius = 20.0
-assist_car_to_line = 30.0
 
-rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', [('x', 210.0)]], [(160.0, 120.0), 'B', 'R', []]"
-cube_obstacles = "(145, 25, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
-circle = "(262.5, 88.8)"
 error_x_T = 0.0
-error_x_S = 2.0
-error_x_B = 2.0
+error_x_S = 0.0
+error_x_B = 0.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1200
+fixed_high_level_us = 1250
 
 min_start_v = 25
 long_v_max = 220
 find_line_v_max = 40
-acc_coef = 0.1025
-dec_coef = 0.1282
+acc_coef = 0.05
+dec_coef = 0.0992
 max_yaw_rate = 4.0 
 
-orbit_v_max = 90
+orbit_v_max = 100
 orbit_v_min = 25
 
 # 不同物体的搬运速度
@@ -117,9 +104,8 @@ servo_target_y_B = 6.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
-# 用于apriltag矫正的阈值
-apriltag_threshold_x = 1.0
-apriltag_threshold_y = 1.0
+
+max_rational_dist = 100.0
 
 min_rel_speed = 25
 max_rel_speed = 150
@@ -127,7 +113,7 @@ servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
 radius_T = 16.0
-radius_S = 18.0
+radius_S = 17.0
 radius_B = 20.0
 angle_T = 138.0
 angle_S = 143.0
