@@ -31,6 +31,8 @@ class PhotoControl:
             if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
                 self.current_state = OnLine
+        else:
+            self.on_line_times = 0
         
         if current_state == 0 and self.current_state == OnLine:
             self.current_state = OutLine
@@ -74,18 +76,7 @@ class FanControl:
 class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
-        self.flash_sys = flash_sys
-        # 搬运过程中的pid参数
-        self.ul_move_kp = self.flash_sys.find_value("ul_move_kp")  # type: float
-        self.ul_move_ki = self.flash_sys.find_value("ul_move_ki")  # type: float
-        self.ul_move_kd = self.flash_sys.find_value("ul_move_kd")  # type: float
-        self.ur_move_kp = self.flash_sys.find_value("ur_move_kp")  # type: float
-        self.ur_move_ki = self.flash_sys.find_value("ur_move_ki")  # type: float
-        self.ur_move_kd = self.flash_sys.find_value("ur_move_kd")  # type: float
-        self.md_move_kp = self.flash_sys.find_value("md_move_kp")  # type: float
-        self.md_move_ki = self.flash_sys.find_value("md_move_ki")  # type: float
-        self.md_move_kd = self.flash_sys.find_value("md_move_kd")  # type: float
-        
+        self.flash_sys = flash_sys        
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
         self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
@@ -550,18 +541,10 @@ class ServoPID(ControlPID):
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        self.servo_normal_kp_x = self.flash_sys.find_value("servo_normal_kp_x")        # type: float
-        self.servo_normal_kd_x = self.flash_sys.find_value("servo_normal_kd_x")        # type: float
-        self.servo_normal_kp_y = self.flash_sys.find_value("servo_normal_kp_y")        # type: float
-        self.servo_normal_kd_y = self.flash_sys.find_value("servo_normal_kd_y")        # type: float
-        self.servo_IR_kp_x = self.flash_sys.find_value("servo_IR_kp_x")        # type: float
-        self.servo_IR_kd_x = self.flash_sys.find_value("servo_IR_kd_x")        # type: float
-        self.servo_IR_kp_y = self.flash_sys.find_value("servo_IR_kp_y")        # type: float
-        self.servo_IR_kd_y = self.flash_sys.find_value("servo_IR_kd_y")        # type: float
-        self.servo_kp_x = 0.0
-        self.servo_kd_x = 0.0
-        self.servo_kp_y = 0.0
-        self.servo_kd_y = 0.0
+        self.servo_kp_x = self.flash_sys.find_value("servo_kp_x")        # type: float
+        self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")        # type: float
+        self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")        # type: float
+        self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
         self.target_x = 0.0
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float
@@ -570,8 +553,6 @@ class ServoPID(ControlPID):
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    
-        # 红外灯跟随下y轴距离阈值   
-        self.target_y_IR = self.flash_sys.find_value("servo_target_y_IR")   # type: float
 
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
@@ -581,9 +562,7 @@ class ServoPID(ControlPID):
         self.derivative_y = 0 # type: float
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
-        self.pwmout_normal_limit = self.flash_sys.find_value("pwmout_normal_limit") 
-        self.pwmout_IR_limit = self.flash_sys.find_value("pwmout_IR_limit")
-        self.pwmout_limitmax = 100    # type: int
+        self.servo_pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax") 
     
         gc.collect()  # 主动触发垃圾回收，释放内存
 
@@ -603,8 +582,8 @@ class ServoPID(ControlPID):
         self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
 
         # pwm_output限幅
-        self.pwm_output_x = max(-self.pwmout_limitmax, min(self.pwm_output_x, self.pwmout_limitmax))
-        self.pwm_output_y = max(-self.pwmout_limitmax, min(self.pwm_output_y, self.pwmout_limitmax))
+        self.pwm_output_x = max(-self.servo_pwmout_limitmax, min(self.pwm_output_x, self.servo_pwmout_limitmax))
+        self.pwm_output_y = max(-self.servo_pwmout_limitmax, min(self.pwm_output_y, self.servo_pwmout_limitmax))
         # 模型下的pid计算
 # 小车姿态控制
 class CarPose:

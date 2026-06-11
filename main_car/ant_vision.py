@@ -142,8 +142,11 @@ class VisionManager:
         gc.collect()
         
     # 重置视觉伺服角度
-    def reset_servo_angle(self):
-        self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / PI
+    def reset_servo_angle(self, target_angle = None):
+        if target_angle is not None:
+            self.target_rel_turn_angle = target_angle
+        else:
+            self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / PI
 
     # 重置环绕角度
     def reset_orbit_angle(self):
@@ -153,6 +156,11 @@ class VisionManager:
     def reset_orbit(self):
         self.if_orbit_ready = False
         self.if_finish_orbit = False
+
+    # 跳过环绕模式
+    def skip_orbit(self):
+        self.if_orbit_ready = True
+        self.if_finish_orbit = True
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world(self, u, v, sign: str):
@@ -285,7 +293,7 @@ class VisionManager:
         dist = math.sqrt(now_error_x ** 2 + now_error_y ** 2)
         self.adjust_pid_by_dist(dist)
         # ================= 高频控制解耦 =================
-        if self.servo_lost_count <= 80:
+        if self.servo_lost_count <= 60:
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
@@ -294,8 +302,9 @@ class VisionManager:
             self.target_rel_speed = 50.0
             return 
 
-        # 4. 判断是否完成视觉伺服控制
-        if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
+        # 4. 判断是否完成视觉伺服控制（离物体的距离和自身转角都需要达到目标）
+        if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y and\
+        abs(abs(self.target_rel_turn_angle) - abs(self.my_car.now_yaw * 180.0 / PI)) <= 2.0:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
             self.my_order_manager.finish()
@@ -532,11 +541,6 @@ class VisionManager:
         # 选择合适的里程计系数（无负压）
         self.my_car.alpha_x = 0.951256
         self.my_car.alpha_y = 0.922584
-        # 选择正常伺服状态下的pid参数
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-        self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         
         self.current_servo_object = chr(target_point[2])
         # 根据物品种类选择伺服距离、环绕半径和搬运速度

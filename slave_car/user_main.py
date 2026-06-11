@@ -70,6 +70,9 @@ my_uart6.init(115200)
 my_uart3 = UART(2)
 my_uart3.init(115200)
 
+my_uart8 = UART(7)
+my_uart8.init(115200)
+
 """光电管初始化"""
 photo = Pin('B4', Pin.IN, value = False)
 
@@ -181,8 +184,6 @@ my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle
 # 创建路径规划数据对象
 plan_data = ant_plan.PlanData(my_flash_sys)
 
-# 创建路径规划对象
-my_path = ant_plan.PathPlan(plan_data, my_car)
 
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
@@ -190,11 +191,8 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_sta
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
-# 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_photo, my_uart3, my_car, my_plan, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
-
 # 任务及类
-my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
+my_task = ant_else.TaskController(my_beep, my_photo, my_state, my_uart3, my_uart8, my_car, my_plan, my_vision_manager, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -283,15 +281,8 @@ def complete_angle_circle():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE, MOVE]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == MOVE:
-        if my_moving.current_state == ORBIT:
-            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state in [SERVO, ADJUST]:
-            my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state == MOVE:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
@@ -333,64 +324,59 @@ def test_orbit():
             counter += 1
             if counter >= 100:
                 counter = 0
-                my_moving.reset_orbit()
+                my_vision_manager.reset_orbit()
                 orbit_angle += 120.0
                 orbit_angle = (orbit_angle + 180) % 360 - 180
 
 # 设置pid参数
 def set_pid_params():
-    if my_state.state == MOVE:
-        motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
-        motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
-        motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
+    brake_threshold = 20.0
+    target_limit = 1.0
+    # 初始化pid参数（线性回归）
+    if motor_ul_pid.target <= target_limit and abs(motor_ul_pid.nowError) >= brake_threshold:
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+    elif abs(motor_ul_pid.target) >= 250:
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+    elif abs(motor_ul_pid.target) >= 165:
+        now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 165) / 85
+        now_ul_ki = pid_data.ul_mid_ki + (pid_data.ul_high_ki - pid_data.ul_mid_ki) * (abs(motor_ul_pid.target) - 165) / 85
+        motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_mid_kd)
+    elif abs(motor_ul_pid.target) >= 70:
+        now_ul_kp = pid_data.ul_low_kp + (pid_data.ul_mid_kp - pid_data.ul_low_kp) * (abs(motor_ul_pid.target) - 70) / 95
+        now_ul_ki = pid_data.ul_low_ki + (pid_data.ul_mid_ki - pid_data.ul_low_ki) * (abs(motor_ul_pid.target) - 70) / 95
+        motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_low_kd)
     else:
-        brake_threshold = 20.0
-        target_limit = 1.0
-        # 初始化pid参数（线性回归）
-        if motor_ul_pid.target <= target_limit and abs(motor_ul_pid.nowError) >= brake_threshold:
-            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        elif abs(motor_ul_pid.target) >= 250:
-            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        elif abs(motor_ul_pid.target) >= 165:
-            now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 165) / 85
-            now_ul_ki = pid_data.ul_mid_ki + (pid_data.ul_high_ki - pid_data.ul_mid_ki) * (abs(motor_ul_pid.target) - 165) / 85
-            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_mid_kd)
-        elif abs(motor_ul_pid.target) >= 70:
-            now_ul_kp = pid_data.ul_low_kp + (pid_data.ul_mid_kp - pid_data.ul_low_kp) * (abs(motor_ul_pid.target) - 70) / 95
-            now_ul_ki = pid_data.ul_low_ki + (pid_data.ul_mid_ki - pid_data.ul_low_ki) * (abs(motor_ul_pid.target) - 70) / 95
-            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_low_kd)
-        else:
-            motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-            
-        if motor_ur_pid.target <= target_limit and abs(motor_ur_pid.nowError) >= brake_threshold:
-            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        elif abs(motor_ur_pid.target) >= 250:
-            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        elif abs(motor_ur_pid.target) >= 165:
-            now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 165) / 85
-            now_ur_ki = pid_data.ur_mid_ki + (pid_data.ur_high_ki - pid_data.ur_mid_ki) * (abs(motor_ur_pid.target) - 165) / 85
-            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_mid_kd)
-        elif abs(motor_ur_pid.target) >= 70:
-            now_ur_kp = pid_data.ur_low_kp + (pid_data.ur_mid_kp - pid_data.ur_low_kp) * (abs(motor_ur_pid.target) - 70) / 95
-            now_ur_ki = pid_data.ur_low_ki + (pid_data.ur_mid_ki - pid_data.ur_low_ki) * (abs(motor_ur_pid.target) - 70) / 95
-            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_low_kd)
-        else:
-            motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+        motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+        
+    if motor_ur_pid.target <= target_limit and abs(motor_ur_pid.nowError) >= brake_threshold:
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+    elif abs(motor_ur_pid.target) >= 250:
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+    elif abs(motor_ur_pid.target) >= 165:
+        now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 165) / 85
+        now_ur_ki = pid_data.ur_mid_ki + (pid_data.ur_high_ki - pid_data.ur_mid_ki) * (abs(motor_ur_pid.target) - 165) / 85
+        motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_mid_kd)
+    elif abs(motor_ur_pid.target) >= 70:
+        now_ur_kp = pid_data.ur_low_kp + (pid_data.ur_mid_kp - pid_data.ur_low_kp) * (abs(motor_ur_pid.target) - 70) / 95
+        now_ur_ki = pid_data.ur_low_ki + (pid_data.ur_mid_ki - pid_data.ur_low_ki) * (abs(motor_ur_pid.target) - 70) / 95
+        motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_low_kd)
+    else:
+        motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
 
-        if motor_md_pid.target <= target_limit and abs(motor_md_pid.nowError) >= brake_threshold:
-            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-        elif abs(motor_md_pid.target) >= 250:
-            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-        elif abs(motor_md_pid.target) >= 165:
-            now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 165) / 85
-            now_md_ki = pid_data.md_mid_ki + (pid_data.md_high_ki - pid_data.md_mid_ki) * (abs(motor_md_pid.target) - 165) / 85
-            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_mid_kd)
-        elif abs(motor_md_pid.target) >= 70:
-            now_md_kp = pid_data.md_low_kp + (pid_data.md_mid_kp - pid_data.md_low_kp) * (abs(motor_md_pid.target) - 70) / 95
-            now_md_ki = pid_data.md_low_ki + (pid_data.md_mid_ki - pid_data.md_low_ki) * (abs(motor_md_pid.target) - 70) / 95
-            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_low_kd)
-        else:
-            motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+    if motor_md_pid.target <= target_limit and abs(motor_md_pid.nowError) >= brake_threshold:
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    elif abs(motor_md_pid.target) >= 250:
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    elif abs(motor_md_pid.target) >= 165:
+        now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 165) / 85
+        now_md_ki = pid_data.md_mid_ki + (pid_data.md_high_ki - pid_data.md_mid_ki) * (abs(motor_md_pid.target) - 165) / 85
+        motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_mid_kd)
+    elif abs(motor_md_pid.target) >= 70:
+        now_md_kp = pid_data.md_low_kp + (pid_data.md_mid_kp - pid_data.md_low_kp) * (abs(motor_md_pid.target) - 70) / 95
+        now_md_ki = pid_data.md_low_ki + (pid_data.md_mid_ki - pid_data.md_low_ki) * (abs(motor_md_pid.target) - 70) / 95
+        motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_low_kd)
+    else:
+        motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
 # 任务机执行函数
 def task_machine():

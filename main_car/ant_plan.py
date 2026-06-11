@@ -74,7 +74,6 @@ class NavigationPlan:
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
 
         self.waypoint_v = []  # type: list  # 目标速度列表
-        self.current_object = 'P'  # 当前搬运物体类型 (T/S/E/W/B)
 
         # 路径规划相关变量
         self.target_x = 0.0         # type: float

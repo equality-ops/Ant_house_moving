@@ -1,19 +1,6 @@
 # 修改时间 6.6	  16:13
 
 ###################【PID参数】####################
-# 搬运模式下
-ul_move_kp = 33.0
-ul_move_ki = 0.87
-ul_move_kd = 20.0
-
-ur_move_kp = 33.0
-ur_move_ki = 0.87
-ur_move_kd = 20.0
-
-md_move_kp = 33.0
-md_move_ki = 0.87
-md_move_kd = 20.0
-
 # speed为220时
 ul_high_kp = 35.0
 ul_high_ki = 1.04
@@ -87,21 +74,13 @@ uart_and_menu_T = 53
 ###################【路径规划】####################
 final_threshold = 1.0
 branch_threshold = 5.0
-blend_radius = 20.0
 
-cube_obstacles = "(147, 27, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
-circle = "(262.5, 88.8)"
 error_x_T = 0.0
-error_x_S = 2.0
-error_x_B = 2.0
+error_x_S = 0.0
+error_x_B = 0.0
 ###################【风扇控制】####################
 if_fan = 1
-fixed_high_level_us = 1200
-servo_IR_kp_x = 1
-servo_IR_kd_x = 1
-servo_IR_kp_y = 1
-servo_IR_kd_y = 1
-servo_target_y_IR = 1
+fixed_high_level_us = 1250
 
 ###################【速度规划】####################
 min_start_v = 25
@@ -109,7 +88,6 @@ long_v_max = 220
 find_line_v_max = 40
 acc_coef = 0.1025
 dec_coef = 0.1282
-max_yaw_rate = 4.0 
 
 orbit_v_max = 90
 orbit_v_min = 25
@@ -121,31 +99,22 @@ move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.0
-servo_normal_kd_x = 10.0
-servo_normal_kp_y = 8.0
-servo_normal_kd_y = 10.0
-# 红外跟随下的pid参数
-servo_IR_kp_x = 1
-servo_IR_kd_x = 1
-servo_IR_kp_y = 1
-servo_IR_kd_y = 1
+servo_kp_x = 8.0
+servo_kd_x = 10.0
+servo_kp_y = 8.0
+servo_kd_y = 10.0
 
-servo_target_y_A = 11.0
 servo_target_y_T = 2.0
 servo_target_y_S = 3.0
 servo_target_y_B = 6.0
+
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
-# 用于apriltag矫正的阈值
-apriltag_threshold_x = 1.0
-apriltag_threshold_y = 1.0
 
 min_rel_speed = 25
 max_rel_speed = 150
-pwmout_normal_limit = 150
-pwmout_IR_limit = 1
+servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
 radius_T = 17.0

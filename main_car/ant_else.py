@@ -513,9 +513,11 @@ class TaskController:
                 # 主车顺时针旋转
                 self.orbit_angle_buf = self.my_vision.orbit_angle
             elif self.object_status == OVER_ONE_IN_TOP:
-                if self.the_last_one:
-                    # 主车顺时针旋转
-                    self.orbit_angle_buf = self.my_vision.orbit_angle
+                if self.the_last_one or self.if_to_top == False:
+                    self.my_vision.skip_orbit()  # 跳过环绕模式
+                    if self.if_to_top == False:
+                        # 此时小车将过渡到上半区
+                        self.if_to_top = True
                 else:
                     # 主车逆时针旋转
                     self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
@@ -574,7 +576,13 @@ class TaskController:
                 if self.object_status == ALL_IN_BOTTOM or (self.object_status == OVER_ONE_IN_TOP and self.if_to_top):
                     self.data.scan_point[self.object_status][0] = self.my_car.x_current 
                 self.my_plan.reset_navigate()
-                self.my_vision.reset_servo_angle()
+                if self.object_status == OVER_ONE_IN_TOP:
+                    if self.if_to_top == False:
+                        self.my_vision.reset_servo_angle(-180 + self.my_vision.orbit_angle)
+                    elif self.the_last_one and self.object_status == OVER_ONE_IN_TOP:
+                        self.my_vision.reset_servo_angle(self.my_vision.orbit_angle)
+                else:
+                    self.my_vision.reset_servo_angle()
                 self.my_state.state = SERVO
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
@@ -608,8 +616,6 @@ class TaskController:
                             slave_angle = 180 - self.my_vision.orbit_angle
                             # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运    
                             self.my_main_protocol.send_path(self.current_object, slave_angle, [self.my_car.x_current - stop_threshold, self.my_car.y_current])   
-                            # 此时小车将过渡到上半区
-                            self.if_to_top = True
                         else:
                             if self.the_last_one:
                                 slave_angle = -self.my_vision.orbit_angle
@@ -757,7 +763,14 @@ class TaskController:
             # 若丢失物体则四处移动寻找物体
             x = self.my_car.x_current
             y = self.my_car.y_current
-            self.my_plan.navigate(path = [[x+10.0, y], [x-10.0, y], [x, y]])
+            now_yaw = self.my_car.now_yaw  # 弧度，0=北(+Y)，90°=东(+X)
+            # 车身右方(+X): (cos(now_yaw), -sin(now_yaw))
+            # 车身左方(-X): (-cos(now_yaw), sin(now_yaw))
+            right_x = x + 15.0 * math.cos(now_yaw)
+            right_y = y - 15.0 * math.sin(now_yaw)
+            left_x = x - 15.0 * math.cos(now_yaw)
+            left_y = y + 15.0 * math.sin(now_yaw)
+            self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:

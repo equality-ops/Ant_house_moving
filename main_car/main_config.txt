@@ -93,10 +93,10 @@ move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.0
-servo_normal_kd_x = 15.0
-servo_normal_kp_y = 8.0
-servo_normal_kd_y = 15.0
+servo_kp_x = 8.0
+servo_kd_x = 15.0
+servo_kp_y = 8.0
+servo_kd_y = 15.0
 
 servo_target_y_T = 2.0
 servo_target_y_S = 3.0
