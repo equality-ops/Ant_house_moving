@@ -367,6 +367,7 @@ class NavigationPlan:
                 
     # 重置导航及速度规划相关标志位
     def reset_navigate(self):
+        self.target_v = 0.0
         self.if_finish_turn = False
         self.if_finish_navigate = False
         self.aimed_point_index = 0

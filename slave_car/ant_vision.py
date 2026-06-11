@@ -62,8 +62,6 @@ class VisionManager:
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
-        self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")  # type: float  # 视觉伺服控制距离阈值
-        self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")  # type: float  # 视觉伺服控制距离阈值
         self.target_rel_speed_x = 0.0          # type: float   # 伺服控制目标x速度
         self.target_rel_speed_y = 0.0          # type: float   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: float   # 视觉伺服控制最大速度
@@ -198,8 +196,8 @@ class VisionManager:
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
         scale = max(0.6, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
@@ -297,10 +295,10 @@ class VisionManager:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
             # 选择正常伺服状态下的pid参数
-            self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-            self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-            self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-            self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+            self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+            self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+            self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+            self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
             self.if_finish_servo = True
         else:
             # 原有的滤波和速度限制逻辑保持不变
@@ -547,7 +545,11 @@ class VisionManager:
         # 选择合适的里程计系数
         self.my_car.alpha_x = 0.9093
         self.my_car.alpha_y = 0.936709
-
+        # 选择正常的视觉伺服pid参数
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+        self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
         # 控制小车面向物体进行视觉伺服控制
         self.current_servo_object = chr(target_point[2])
         # 根据物品种类选择伺服距离、环绕半径和搬运速度

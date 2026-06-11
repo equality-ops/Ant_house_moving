@@ -525,9 +525,10 @@ class flash_system:
 
 # 状态机类
 class TaskController:
-    def __init__(self, beep: beep, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, slave_protocol: LinkProtocol):
+    def __init__(self, beep: beep, fan, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, slave_protocol: LinkProtocol):
         # 注入对象
         self.my_beep = beep
+        self.my_fan = fan
         self.my_photo = photo
         self.my_uart3 = uart3
         self.my_uart8 = uart8
@@ -557,12 +558,14 @@ class TaskController:
 
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.move_message = []  # 搬运信息：目标点坐标
+        self.adjust_message = []  # 微调信息：微调目标坐标
         self.orbit_angle_buf = 0.0  # 环绕角度缓冲区
         self.current_object = ''  # 当前目标物体种类
         self.object_status = ALL_IN_BOTTOM  # 物体位置状态
         # 标志位
         self.if_to_top = False  # 是否需要从下区域切换到上区域
         self.the_last_one = False   # 是否为最后一个物体（此时从车已在上半区）
+        self.if_start_off = False # 是否离开发车区
         self.if_transitioning = True  # 是否正在进行状态转换
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
@@ -622,12 +625,17 @@ class TaskController:
                 else:
                     # 搬运到260的点保证光电管能检测到边界
                     self.move_message = [self.my_car.x_current + self.my_plan.error_x, 260.0]
+
+            # self.my_uart3.write(f"{self.move_message}\r\n")
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
             pass
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
-            pass
+            if self.my_car.y_current < 120.0:
+                self.adjust_message = [self.my_car.x_current + 5.0, self.my_car.y_current]
+            else:
+                self.adjust_message = [self.my_car.x_current - 5.0, self.my_car.y_current]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             pass
@@ -650,17 +658,20 @@ class TaskController:
                     # 判断是否要跳过环绕模式
                     if_skip_orbit = not (abs(self.navigate_message[1] - 180.0) < 1e-6 or abs(self.navigate_message[1]) < 1e-6)
                     if if_skip_orbit:
+                         # 在导航路径的起始点前插入一个点，y坐标为当前y坐标，x坐标不变
+                        self.navigate_message[0].insert(0, [self.navigate_message[0][0][0], self.my_car.y_current]) 
                         if self.navigate_message[1] > 0.0:
                             self.object_status = OVER_ONE_IN_TOP
                         else:
                             self.the_last_one = True  # 最后一个物体
-                    self.my_state.state = NAVIGATE  # 直接切换到导航状态
+
+                self.my_state.state = NAVIGATE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
             # 退出导航状态，停止路径跟随
             if self.current_object == 'P':
-                self.my_plan.reset_navigate_angle()  # 重置导航角度
                 self.my_plan.reset_navigate()  # 重置导航标志
+                self.my_plan.reset_navigate_angle()  # 重置导航角度
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
@@ -678,6 +689,7 @@ class TaskController:
                     self.my_vision.if_send_order = False  # 重置发送指令标志位
                     self.my_vision.if_lost_object = True
                     self.my_plan.reset_navigate()
+                    self.my_vision.reset_servo_angle()
                     self.my_state.state = SERVO
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                     return
@@ -687,7 +699,10 @@ class TaskController:
                     # 计数器清零
                     self.counter = 0
                     self.my_vision.if_send_order = False  # 重置发送指令标志位
-                    self.my_vision.ready_servo_and_orbit(target_point)
+                    if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
+                        self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
+                    else:
+                        self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                     self.my_vision.reset_servo_angle()
                     self.my_plan.reset_navigate()  # 重置导航相关变量
                     self.my_state.state = SERVO
@@ -700,12 +715,12 @@ class TaskController:
                 
                 if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
                     counter += 1
-                    # 延时200ms
-                    if counter > 20:
+                    # 延时100ms
+                    if counter > 10:
                         # 重置计数器
                         counter = 0
                         self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服
-                        self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                        self.my_vision.if_finish_servo = False  # 重置伺服`完成标志
                         self.if_to_top = True  # 已经从下区域切换到上区域
                         self.my_plan.reset_navigate_angle()
                         self.my_state.state = MOVE  # 直接切换到搬运状态
@@ -727,9 +742,11 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
 
         elif state == ORBIT:
+            # 搬运过程中停下负压防止起步不同步
+            # self.my_fan.fan_off()
             counter += 1
-            # 延时200ms
-            if counter > 200:
+            # 延时300ms
+            if counter > 30:
                 # 重置计数器
                 counter = 0
                 self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕
@@ -739,16 +756,20 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             # 退出搬运状态，停止搬运动作
+            # self.my_fan.set_fan_signal()  # 搬运结束，重新开启负压
             self.my_plan.reset_navigate()  # 重置导航标志
             self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
+            self.my_state.state = ADJUST  # 直接切换到准备导航状态，准备处理下一个物体
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
             pass
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更新
-            pass
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
+            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == RETURN:
             # 退出返回状态，完成返回后进行必要的状态更新
             self.my_plan.reset_navigate()  # 重置导航标志
@@ -762,13 +783,17 @@ class TaskController:
         # 进入准备导航状态，做好路径规划准备和导航信息准备
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
-            self.navigate_message = [[path[2][0]], path[1]]  # 目标坐标和转向角度
+            self.navigate_message = [[path[2]], path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
-            self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
             self.exit()  # 退出当前状态，进入导航状态
 
     def handle_navigate(self):
         # if state == NAVIGATE
+        if self.if_start_off == False:
+            # 先让小车走到y=10的位置保证顺利发车
+            self.navigate_message[0].insert(0, [self.my_car.x_current, 10.0]) 
+            self.if_start_off = True
+
         self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
 
         if self.my_plan.if_finish_navigate:
@@ -797,7 +822,10 @@ class TaskController:
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:
-                self.my_vision.ready_servo_and_orbit(target_point)
+                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
+                    self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
+                else:
+                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
 
@@ -813,7 +841,6 @@ class TaskController:
 
     def handle_move(self):
         # if state == MOVE
-        self.my_plan.navigate(path = [self.move_message])  # 导航到搬运目标点
         # 更新光电管状态
         self.my_photo.update_photo_state()
         if self.my_photo.current_state == OutLine:
@@ -822,6 +849,8 @@ class TaskController:
             # 测试
             self.my_beep.test()
             self.my_plan.if_finish_navigate = True
+
+        self.my_plan.navigate(path = [self.move_message])  # 导航到搬运目标点
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入下一个状态
@@ -840,7 +869,10 @@ class TaskController:
 
     def handle_adjust(self):
         # if state == ADJUST
-        pass
+        self.my_plan.navigate(path = [self.adjust_message])
+
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_return(self):
         # if state == RETURN

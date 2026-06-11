@@ -13,6 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+SPIN = const(10)          # 旋转状态
 
 # 状态机
 class StateMachine:
@@ -375,6 +376,7 @@ class NavigationPlan:
                 
     # 重置导航及速度规划相关标志位
     def reset_navigate(self):
+        self.target_v = 0.0
         self.if_finish_turn = False
         self.if_finish_navigate = False
         self.finished_dist = 0.0

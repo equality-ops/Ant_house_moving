@@ -541,10 +541,14 @@ class ServoPID(ControlPID):
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        self.servo_kp_x = self.flash_sys.find_value("servo_kp_x")        # type: float
-        self.servo_kd_x = self.flash_sys.find_value("servo_kd_x")        # type: float
-        self.servo_kp_y = self.flash_sys.find_value("servo_kp_y")        # type: float
-        self.servo_kd_y = self.flash_sys.find_value("servo_kd_y")        # type: float
+        self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
+        self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
+        self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
+        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
+        self.servo_kp_x = 0.0
+        self.servo_kd_x = 0.0
+        self.servo_kp_y = 0.0
+        self.servo_kd_y = 0.0
         self.target_x = 0.0
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float

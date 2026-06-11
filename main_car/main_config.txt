@@ -1,4 +1,4 @@
-# 修改时间 6.10	  00:20
+# 修改时间 6.12	  00:02
 
 ###################【PID参数】####################
 # speed大于220时
@@ -68,9 +68,9 @@ total_objects_num = 3
 final_threshold = 1.0
 branch_threshold = 5.0
 
-error_x_T = 0.0
-error_x_S = 0.0
-error_x_B = 0.0
+error_x_T = 2.0
+error_x_S = 2.0
+error_x_B = 2.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
@@ -87,16 +87,16 @@ orbit_v_max = 100
 orbit_v_min = 25
 
 # 不同物体的搬运速度
-move_v_max_T = 80
-move_v_max_S = 130
-move_v_max_B = 120
+move_v_max_T = 140
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_kp_x = 8.0
-servo_kd_x = 15.0
-servo_kp_y = 8.0
-servo_kd_y = 15.0
+servo_kp_normal_x = 8.0
+servo_kd_normal_x = 15.0
+servo_kp_normal_y = 8.0
+servo_kd_normal_y = 15.0
 
 servo_target_y_T = 2.0
 servo_target_y_S = 3.0
@@ -112,11 +112,11 @@ max_rel_speed = 150
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 16.0
-radius_S = 17.0
-radius_B = 20.0
-angle_T = 138.0
-angle_S = 143.0
-angle_B = 145.0
+radius_T = 15.0
+radius_S = 16.0
+radius_B = 19.0
+angle_T = 137.0
+angle_S = 142.0
+angle_B = 144.0
 
 # 小车最高速度为290

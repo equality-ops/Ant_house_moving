@@ -13,6 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+SPIN = const(10)          # 旋转状态
 # 多路复用器计数器
 counter = 0
 
@@ -208,8 +209,8 @@ class VisionManager:
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
         scale = max(0.6, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
@@ -293,7 +294,7 @@ class VisionManager:
         dist = math.sqrt(now_error_x ** 2 + now_error_y ** 2)
         self.adjust_pid_by_dist(dist)
         # ================= 高频控制解耦 =================
-        if self.servo_lost_count <= 60:
+        if self.servo_lost_count <= 80:
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
@@ -303,16 +304,15 @@ class VisionManager:
             return 
 
         # 4. 判断是否完成视觉伺服控制（离物体的距离和自身转角都需要达到目标）
-        if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y and\
-        abs(abs(self.target_rel_turn_angle) - abs(self.my_car.now_yaw * 180.0 / PI)) <= 2.0:
+        if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
+            # 切换回正常的视觉伺服pid参数
+            self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+            self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+            self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+            self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
             self.my_order_manager.finish()
-            # 选择正常伺服状态下的pid参数
-            self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-            self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-            self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-            self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
             self.if_finish_servo = True
         else:
             # 原有的滤波和速度限制逻辑保持不变
@@ -541,6 +541,11 @@ class VisionManager:
         # 选择合适的里程计系数（无负压）
         self.my_car.alpha_x = 0.951256
         self.my_car.alpha_y = 0.922584
+        # 选择正常的视觉伺服pid参数
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+        self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
         
         self.current_servo_object = chr(target_point[2])
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
