@@ -58,7 +58,9 @@ class NavigationPlan:
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int  # 最小制动速度
         self.long_v_max = self.flash_sys.find_value("long_v_max")    # type: int  # 长距离时的最大速度
-        self.acc_coef = self.flash_sys.find_value("acc_coef")          # 加速距离系数
+        self.acc_coef = 0.0          # 加速距离系数
+        self.acc_normal_coef = self.flash_sys.find_value("acc_normal_coef")     # 正常导航的加速距离系数
+        self.acc_move_coef = self.flash_sys.find_value("acc_move_coef")         # 搬运状态下的加速距离系数
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
         self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
@@ -114,6 +116,12 @@ class NavigationPlan:
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
         
+        # 根据当前状态选择合适的加速距离系数
+        if self.my_state.state == MOVE:
+            self.acc_coef = self.acc_move_coef
+        else:
+            self.acc_coef = self.acc_normal_coef
+
         n = len(self.path)
         self.waypoint_v = [self.min_start_v] * n
 
@@ -227,7 +235,7 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.my_state.state == MOVE:
-            near_line_threshold = 15.0  # 距离边界的阈值，单位：cm
+            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             
             if self.my_car.y_current >= 240.0 - near_line_threshold:
                 ratio = (240.0 - self.my_car.y_current) / near_line_threshold

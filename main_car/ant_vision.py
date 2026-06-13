@@ -13,7 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
-SPIN = const(10)          # 旋转状态
+PREDICT = const(10)       # 预测状态
 # 多路复用器计数器
 counter = 0
 
@@ -244,6 +244,27 @@ class VisionManager:
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
+    # 推测目标点位并进行视觉伺服控制
+    def predict_point(self, x, y):
+        car_radius = 12.0
+
+        raw_x, raw_y = self.pixel_to_real_world(x, y, 'far')
+        raw_y += car_radius
+        relative_angle = -math.atan2(-raw_x, raw_y)
+        actual_angle = self.my_car.now_yaw + relative_angle
+        if actual_angle > PI:
+            actual_angle -= 2 * PI
+        elif actual_angle < -PI:
+            actual_angle += 2 * PI
+
+        actual_dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
+        absolute_x = actual_dist * math.sin(actual_angle) + self.my_car.x_current
+        absolute_y = actual_dist * math.cos(actual_angle) + self.my_car.y_current
+
+        return [absolute_x, absolute_y]
+
+
+    # 视觉伺服控制函数
     def visual_servo_control(self):
         if self.if_finish_servo == True:
             return # 已经完成视觉伺服控制，直接返回
@@ -281,6 +302,8 @@ class VisionManager:
         else:
             self.servo_lost_count += 1
             # 彻底丢失保护
+            # if self.servo_lost_count >= 150:
+            # 测试
             if self.servo_lost_count >= 150:
                 self.target_rel_speed = 0.0
                 self.target_rel_yaw = 0.0
@@ -294,6 +317,7 @@ class VisionManager:
         dist = math.sqrt(now_error_x ** 2 + now_error_y ** 2)
         self.adjust_pid_by_dist(dist)
         # ================= 高频控制解耦 =================
+        # if self.servo_lost_count <= 80:
         if self.servo_lost_count <= 80:
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x

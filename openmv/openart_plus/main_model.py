@@ -547,6 +547,26 @@ def handle_uart_commands(uart):
             current_mode = MODE_WAITING
             reset_all()
 
+current_obj = ''
+if_change_mode = False
+def update_current_object(uart):
+    global current_obj, if_change_mode
+    if uart.any():
+        cmd = uart.read(1)
+        if cmd == b'b':
+            current_obj = 'brown'
+        elif cmd == b'w':
+            current_obj = 'white'
+        elif cmd == b's':
+            current_obj = 'red'
+        elif cmd == b'e':
+            current_obj = 'blue'
+        elif cmd == b't':
+            current_obj = 'green'
+        if_change_mode = True
+    else:
+        current_obj = ''
+
 # ======================== 初始化 ========================
 # 检验是否成功运行程序并延时使其稳定
 LED(4).on()
@@ -596,6 +616,7 @@ while True:
 
     # 等待模式：无操作
     if current_mode == MODE_WAITING:
+        if_change_mode = False
         continue
 
     # 坐标校正模式
@@ -608,6 +629,9 @@ while True:
 
     # 模型模式
     elif current_mode == MODE_MODEL:
+        if not if_change_mode:
+            update_current_object(uart)
+
         is_sent = False # 是否发送了坐标
         center = [] # 本帧检测到的目标中心列表
 
@@ -623,8 +647,8 @@ while True:
             if color in ['red', 'green'] and confidence > 0.5:
                 other_objects.append((obj, color))
 
-            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.3
-            elif color == 'blue' and confidence > 0.3:
+            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
+            elif color == 'blue' and confidence > 0.5:
                 other_objects.append((obj, color))
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
@@ -643,7 +667,14 @@ while True:
         #     is_sent = True
         # elif not target_locker.is_locked and center:
         if center:
-            target = max(center, key=lambda coordinate: coordinate[1])
+            # 先筛选出与当前目标物体类型一致的物体
+            matched = [c for c in center if c[2] == current_obj]
+            if matched:
+                # 如果有与当前目标物体类型一致的物体，优先选择其中y坐标最大的（最下方的）一个
+                target = max(matched, key=lambda coordinate: coordinate[1])
+            else:
+                # 如果没有与当前目标物体类型一致的物体，则在所有检测到的物体中选择y坐标最大的一个
+                target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]
             target_kind = target[2]

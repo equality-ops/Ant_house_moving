@@ -115,6 +115,10 @@ class UARTProtocol:
 
         gc.collect()
 
+    # 发送物体种类
+    def send_object_kind(self, object_kind):
+        self.my_uart.write(object_kind.lower())
+
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
         last_valid_frame = None
@@ -654,7 +658,6 @@ class TaskController:
                 self.my_state.state = RETURN  # 直接切换到返回状态
             else:
                 if self.current_object != 'P':
-                    self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到消息
                     # 判断是否要跳过环绕模式
                     if_skip_orbit = not (abs(self.navigate_message[1] - 180.0) < 1e-6 or abs(self.navigate_message[1]) < 1e-6)
                     if if_skip_orbit:
@@ -680,6 +683,8 @@ class TaskController:
                     self.my_order_manager.mode_target()  
                     # 设置标志位，避免重复发送指令
                     self.my_vision.if_send_order = True  
+
+                    self.my_art_protocol.send_object_kind(self.current_object)  # 发送当前物体种类给openart
 
                 counter += 1
                 # 若超过1秒则认为丢失物体

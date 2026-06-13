@@ -1,4 +1,4 @@
-# 修改时间 6.12	  0:02
+# 修改时间 6.13	  0:52
 
 ###################【PID参数】####################
 # speed大于220时
@@ -77,15 +77,16 @@ fixed_high_level_us = 1250
 ###################【速度规划】####################
 min_start_v = 25
 long_v_max = 220
-find_line_v_max = 40
-acc_coef = 0.05
+find_line_v_max = 60
+acc_normal_coef = 0.05
+acc_move_coef = 0.11
 dec_coef = 0.0992
 
-orbit_v_max = 90
-orbit_v_min = 25
+orbit_v_max = 100
+orbit_v_min = 20
 
 # 不同物体的搬运速度
-move_v_max_T = 140
+move_v_max_T = 160
 move_v_max_S = 160
 move_v_max_B = 160
 
@@ -97,7 +98,7 @@ servo_kp_normal_y = 8.0
 servo_kd_normal_y = 10.0
 
 servo_target_y_T = 2.0
-servo_target_y_S = 3.0
+servo_target_y_S = 2.5
 servo_target_y_B = 6.0
 
 # 普通的视觉伺服阈值
@@ -112,8 +113,8 @@ servo_pwmout_limitmax = 150
 radius_T = 16.0
 radius_S = 18.5
 radius_B = 20.0
-angle_T = 137.0
-angle_S = 142.0
-angle_B = 144.0
+angle_T = 135.0
+angle_S = 140.0
+angle_B = 142.0
 
 # 小车最高速度为290
