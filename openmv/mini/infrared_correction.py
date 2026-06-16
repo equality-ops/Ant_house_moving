@@ -38,23 +38,30 @@ def pixel_to_real_world(u, v):
 
         return X_w, Y_w
 
-def send_coordinate_angle(x, y, angle):
+def send_coordinate(x1, y1, x2, y2):
         """发送目标坐标（带防抖和范围限制）"""
         # is_first_send = (self.last_sent_x == SCREEN_CENTER_X) and (self.last_sent_y == SCREEN_CENTER_Y)
 
-        # 坐标换算
-        x = int(round(x, 1) * 10)
-        y = int(round(y, 1) * 10)
-        angle = int(round(angle, 1) * 10)
+        # 保证 x1,y1 为左侧点，x2,y2 为右侧点
+        if x1 > x2:
+            x1, x2 = x2, x1
+            y1, y2 = y2, y1
+
+        # 坐标换算（保留一位小数，乘以 10 转为整数发送）
+        x1 = int(round(x1, 1) * 10)
+        y1 = int(round(y1, 1) * 10)
+        x2 = int(round(x2, 1) * 10)
+        y2 = int(round(y2, 1) * 10)
 
         # 打包并发送数据
         data = ustruct.pack(
-            "<BBhhhB",
+            "<BBhhhhB",
             0xA1,
             0xA2,
-            x,
-            y,
-            angle,
+            x1,
+            y1,
+            x2,
+            y2,
             0xA3
         )
         uart.write(data)
@@ -73,22 +80,22 @@ while(True):
 
     if len(real_center) == 2:
         # 计算当前现实世界原始的中点和角度
-        curr_x = (real_center[0][0] + real_center[1][0]) / 2
-        curr_y = (real_center[0][1] + real_center[1][1]) / 2
-        curr_angle = math.degrees(math.atan2(real_center[1][1] - real_center[0][1], real_center[1][0] - real_center[0][0]))
+        # curr_x = (real_center[0][0] + real_center[1][0]) / 2
+        # curr_y = (real_center[0][1] + real_center[1][1]) / 2
+        # curr_angle = math.degrees(math.atan2(real_center[1][1] - real_center[0][1], real_center[1][0] - real_center[0][0]))
         
         # 一阶滞后滤波，防止数据跳变
-        target_coordinate_x = alpha * curr_x + (1 - alpha) * last_x
-        target_coordinate_y = alpha * curr_y + (1 - alpha) * last_y
-        target_angle = alpha * curr_angle + (1 - alpha) * last_angle
+        # target_coordinate_x = alpha * curr_x + (1 - alpha) * last_x
+        # target_coordinate_y = alpha * curr_y + (1 - alpha) * last_y
+        # target_angle = alpha * curr_angle + (1 - alpha) * last_angle
         
         # 更新历史数据
-        last_x, last_y = target_coordinate_x, target_coordinate_y
-        last_angle = target_angle
+        # last_x, last_y = target_coordinate_x, target_coordinate_y
+        # last_angle = target_angle
 
-        send_coordinate_angle(target_coordinate_x, target_coordinate_y, target_angle)
+        send_coordinate(real_center[0][0], real_center[0][1], real_center[1][0], real_center[1][1])
     else:
-        data = ustruct.pack("<BBhhhB", 0xA1, 0xA2, -1, -1, -9999, 0xA3)
+        data = ustruct.pack("<BBhhhhB", 0xA1, 0xA2, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0xA3)
         uart.write(data)
         pass
     #print(clock.fps())
