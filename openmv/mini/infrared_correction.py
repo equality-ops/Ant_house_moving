@@ -94,8 +94,8 @@ while(True):
         # last_angle = target_angle
 
         send_coordinate(real_center[0][0], real_center[0][1], real_center[1][0], real_center[1][1])
+    elif len(real_center) == 1:
+        send_coordinate(real_center[0][0], real_center[0][1], real_center[0][0], real_center[0][1])
     else:
-        data = ustruct.pack("<BBhhhhB", 0xA1, 0xA2, 0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0xA3)
-        uart.write(data)
         pass
     #print(clock.fps())
