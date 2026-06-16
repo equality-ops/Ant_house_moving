@@ -40,6 +40,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+FOLLOW = const(10)          # 跟随状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -65,6 +66,8 @@ beep = Pin('D24', Pin.OUT, value = False)
 """异步串口通信初始化"""
 my_uart6 = UART(0)
 my_uart6.init(115200)
+my_uart9 = UART(8)
+my_uart9.init(115200)
 
 """无线串口通信初始化"""
 my_uart3 = UART(2)
@@ -139,6 +142,9 @@ my_order_manager = ant_else.order_manager(my_uart6)
 # 创建openart串口解析对象
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
+# 创建openart串口解析对象2
+my_art_protocol2 = ant_else.UARTProtocol2(my_uart9)
+
 # 创建主从车无线串口通信对象
 my_slave_protocol = ant_else.LinkProtocol(my_uart3)
 
@@ -188,8 +194,11 @@ plan_data = ant_plan.PlanData(my_flash_sys)
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
-# 创建视觉伺服管理对象2
+# 创建视觉伺服管理对象
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+
+# 创建红外灯跟随对象
+my_ir_follow = ant_vision.IRFollow(my_flash_sys,my_car, my_uart3, my_art_protocol2)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_fan, my_photo, my_state, my_uart3, my_uart8, my_car, my_plan, my_vision_manager, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
@@ -327,6 +336,17 @@ def test_orbit():
                 my_vision_manager.reset_orbit()
                 orbit_angle += 120.0
                 orbit_angle = (orbit_angle + 180) % 360 - 180
+
+# 测试红外跟随
+def test_ir_follow():
+    if my_state.state == READY_NAVIGATE:
+        my_ir_follow.reset_follow_angle()
+        my_state.state = FOLLOW
+    elif my_state.state == FOLLOW:
+        if my_photo.if_detect == True:
+            my_car.move_ctrl(50, 0, 0)
+        else:
+            my_car.move_ctrl(0, 0, 0)
 
 # 设置pid参数
 def set_pid_params():

@@ -13,6 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+FOLLOW = const(10)          # 跟随状态
 
 # 状态机
 class StateMachine:
