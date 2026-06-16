@@ -213,10 +213,73 @@ class UARTProtocol2:
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
+        self.state_IR_cordinate = 0  # 0:等待帧头1, 1:等待帧头2, 2:等待x1低字节, 3:等待x1高字节, 4:等待y1低字节, 5:等待y1高字节, 6:等待x2低字节, 7:等待x2高字节, 8:等待y2低字节, 9:等待y2高字节, 10:等待帧尾
+        self.IR_cordinate_buffer = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
         gc.collect()
 
+    # 非阻塞接收并解析红外灯坐标数据
     def get_IR_cordinate(self):
+        last_valid_frame = None
+        # 持续读取直到处理完当前缓冲区的所有数据
+        while self.my_uart.any():
+            byte = self.my_uart.read(1)[0]
+
+            if self.state_IR_cordinate == 0:
+                if byte == 0xA1:
+                    self.state_IR_cordinate = 1
+            elif self.state_IR_cordinate == 1:
+                if byte == 0xA2:
+                    self.state_IR_cordinate = 2
+                else:
+                    self.state_IR_cordinate = 0
+            elif self.state_IR_cordinate == 2:
+                self.IR_cordinate_buffer[2] = byte
+                self.state_IR_cordinate = 3
+            elif self.state_IR_cordinate == 3:
+                self.IR_cordinate_buffer[3] = byte
+                self.state_IR_cordinate = 4
+            elif self.state_IR_cordinate == 4:
+                self.IR_cordinate_buffer[4] = byte
+                self.state_IR_cordinate = 5
+            elif self.state_IR_cordinate == 5:
+                self.IR_cordinate_buffer[5] = byte
+                self.state_IR_cordinate = 6
+            elif self.state_IR_cordinate == 6:
+                self.IR_cordinate_buffer[6] = byte
+                self.state_IR_cordinate = 7
+            elif self.state_IR_cordinate == 7:
+                self.IR_cordinate_buffer[7] = byte
+                self.state_IR_cordinate = 8
+            elif self.state_IR_cordinate == 8:
+                self.IR_cordinate_buffer[8] = byte
+                self.state_IR_cordinate = 9
+            elif self.state_IR_cordinate == 9:
+                self.IR_cordinate_buffer[9] = byte
+                self.state_IR_cordinate = 10
+            elif self.state_IR_cordinate == 10:
+                if byte == 0xA3:
+                    # 解析成功，保存当前帧，但【不要】清空缓冲区，【不要】立即返回
+                    # 还原为有符号16位整数（小端序），除以10恢复实际坐标(cm)
+                    x1_raw = self.IR_cordinate_buffer[2] | (self.IR_cordinate_buffer[3] << 8)
+                    if x1_raw >= 32768:
+                        x1_raw -= 65536
+                    y1_raw = self.IR_cordinate_buffer[4] | (self.IR_cordinate_buffer[5] << 8)
+                    if y1_raw >= 32768:
+                        y1_raw -= 65536
+                    x2_raw = self.IR_cordinate_buffer[6] | (self.IR_cordinate_buffer[7] << 8)
+                    if x2_raw >= 32768:
+                        x2_raw -= 65536
+                    y2_raw = self.IR_cordinate_buffer[8] | (self.IR_cordinate_buffer[9] << 8)
+                    if y2_raw >= 32768:
+                        y2_raw -= 65536
+                    last_valid_frame = (x1_raw / 10.0, y1_raw / 10.0, x2_raw / 10.0, y2_raw / 10.0)
+                    self.state_IR_cordinate = 0
+                else:
+                    self.state_IR_cordinate = 0
+
+        # 循环结束后，返回缓冲区里最新的一帧
+        return last_valid_frame
 
     
 # 主从机通信类

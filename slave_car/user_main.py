@@ -300,6 +300,8 @@ def master_control():
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
+    elif my_state.state == FOLLOW:
+        my_car.move_ctrl(my_ir_follow.output_speed, my_ir_follow.output_angle, my_ir_follow.output_turn)
 
 spin_angle = 90.0
 def test_spin():
