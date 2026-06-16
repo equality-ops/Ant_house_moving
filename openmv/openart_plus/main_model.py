@@ -167,9 +167,9 @@ class Communicator:
         for cx, cy, color in center_list:
             buf[idx] = COLOR_TYPE_MAP.get(color, 0x00)
             idx += 1
-            buf[idx] = max(0, min(255, int(cx)))
+            buf[idx] = max(0, min(SCREEN_WIDTH, int(cx)))
             idx += 1
-            buf[idx] = max(0, min(255, int(cy)))
+            buf[idx] = max(0, min(SCREEN_HEIGHT, int(cy)))
             idx += 1
 
         buf[idx] = PROTOCOL_PREVIEW_FOOTER
@@ -596,6 +596,29 @@ def update_current_object(uart):
     else:
         current_obj = ''
 
+def detect_all_objects(img, Ts):
+    """检测所有物体，返回 center 列表和原始检测结果"""
+    center = []
+    objects = model_detector.detect(img)
+    
+    brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+    white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+    
+    other_objects = []
+    for obj in objects:
+        color = LABEL_TO_COLOR.get(obj[4])
+        confidence = obj[5]
+        if color in ['red', 'green'] and confidence > 0.5:
+            other_objects.append((obj, color))
+        elif color == 'blue' and confidence > 0.5:
+            other_objects.append((obj, color))
+    
+    model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+    model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+    model_detector.draw_other_objects(img, other_objects, center)
+    
+    return center, objects
+
 # ======================== 初始化 ========================
 # 检验是否成功运行程序并延时使其稳定
 LED(4).on()
@@ -661,28 +684,29 @@ while True:
         if not if_change_mode:
             update_current_object(uart)
 
+        center, objects = detect_all_objects(img, Ts)
         is_sent = False # 是否发送了坐标
-        center = [] # 本帧检测到的目标中心列表
+        # center = [] # 本帧检测到的目标中心列表
 
-        objects = model_detector.detect(img)
-        brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
-        white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
-        other_objects = []
-        for obj in objects:
-            color = LABEL_TO_COLOR.get(obj[4])
-            confidence = obj[5]
+        # objects = model_detector.detect(img)
+        # brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+        # white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+        # other_objects = []
+        # for obj in objects:
+        #     color = LABEL_TO_COLOR.get(obj[4])
+        #     confidence = obj[5]
 
-            # 对于红色、绿色物体，保持置信度阈值为0.5
-            if color in ['red', 'green'] and confidence > 0.5:
-                other_objects.append((obj, color))
+        #     # 对于红色、绿色物体，保持置信度阈值为0.5
+        #     if color in ['red', 'green'] and confidence > 0.5:
+        #         other_objects.append((obj, color))
 
-            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
-            elif color == 'blue' and confidence > 0.5:
-                other_objects.append((obj, color))
+        #     # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
+        #     elif color == 'blue' and confidence > 0.5:
+        #         other_objects.append((obj, color))
 
-        model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
-        model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
-        model_detector.draw_other_objects(img, other_objects, center)
+        # model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+        # model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+        # model_detector.draw_other_objects(img, other_objects, center)
 
         # target_pos, target_color, locked_blob = target_locker.process_lock(objects, kalman_coords)
         # target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
@@ -716,26 +740,27 @@ while True:
         img.draw_string(5, 5, displayed_text, color = displayed_text_color, scale = 2)
 
     elif current_mode == MODE_PREVIEW:
-        center = []
-        objects = model_detector.detect(img)
-        brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
-        white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
-        other_objects = []
-        for obj in objects:
-            color = LABEL_TO_COLOR.get(obj[4])
-            confidence = obj[5]
+        # center = []
+        # objects = model_detector.detect(img)
+        # brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+        # white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+        # other_objects = []
+        # for obj in objects:
+        #     color = LABEL_TO_COLOR.get(obj[4])
+        #     confidence = obj[5]
 
-            # 对于红色、绿色物体，保持置信度阈值为0.5
-            if color in ['red', 'green'] and confidence > 0.5:
-                other_objects.append((obj, color))
+        #     # 对于红色、绿色物体，保持置信度阈值为0.5
+        #     if color in ['red', 'green'] and confidence > 0.5:
+        #         other_objects.append((obj, color))
 
-            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
-            elif color == 'blue' and confidence > 0.5:
-                other_objects.append((obj, color))
+        #     # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
+        #     elif color == 'blue' and confidence > 0.5:
+        #         other_objects.append((obj, color))
 
-        model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
-        model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
-        model_detector.draw_other_objects(img, other_objects, center)
+        # model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+        # model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+        # model_detector.draw_other_objects(img, other_objects, center)
+        center, objects = detect_all_objects(img, Ts)
         communicator.pack_center_data(center)
 
     # 显示图像到LCD
