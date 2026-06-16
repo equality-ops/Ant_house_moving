@@ -44,6 +44,8 @@ PROTOCOL_HEADER2_COORD = 0xA6
 PROTOCOL_HEADER2_ANGLE = 0xA7
 PROTOCOL_HEADER2_APRILTAG = 0xA8
 PROTOCOL_FOOTER = 0x5B
+PROTOCOL_PREVIEW_HEADER = 0x77
+PROTOCOL_PREVIEW_FOOTER = 0x78
 
 # 颜色标签映射（label → 名称）
 LABEL_TO_COLOR = {
@@ -149,6 +151,29 @@ class Communicator:
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
+
+    def pack_center_data(self, center_list):
+        count = len(center_list)
+        if count == 0:
+            return None
+        buf = bytearray(1 + 1 + count * 3 + 1)
+        idx = 0
+
+        buf[idx] = PROTOCOL_PREVIEW_HEADER
+        idx += 1
+        buf[idx] = count
+        idx += 1
+
+        for cx, cy, color in center_list:
+            buf[idx] = COLOR_TYPE_MAP.get(color, 0x00)
+            idx += 1
+            buf[idx] = max(0, min(255, int(cx)))
+            idx += 1
+            buf[idx] = max(0, min(255, int(cy)))
+            idx += 1
+
+        buf[idx] = PROTOCOL_PREVIEW_FOOTER
+        self.uart.write(buf)
 
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
@@ -512,7 +537,8 @@ class CoordinateCorrection:
 # 模式定义
 MODE_CORRECTION = 0      # 坐标校正
 MODE_MODEL = 1           # 模型模式
-MODE_WAITING = 2         # 等待模式
+MODE_PREVIEW = 2         # 预览模式
+MODE_WAITING = 3         # 等待模式
 current_mode = MODE_WAITING
 
 # 存储各颜色卡尔曼坐标的字典
@@ -542,6 +568,9 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
+            reset_all()
+        elif cmd == b'A':
+            current_mode = MODE_PREVIEW
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
@@ -685,6 +714,29 @@ while True:
         displayed_text = 'YES' if is_sent else 'NO'
         displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
         img.draw_string(5, 5, displayed_text, color = displayed_text_color, scale = 2)
+
+    elif current_mode == MODE_PREVIEW:
+        center = []
+        objects = model_detector.detect(img)
+        brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
+        white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+        other_objects = []
+        for obj in objects:
+            color = LABEL_TO_COLOR.get(obj[4])
+            confidence = obj[5]
+
+            # 对于红色、绿色物体，保持置信度阈值为0.5
+            if color in ['red', 'green'] and confidence > 0.5:
+                other_objects.append((obj, color))
+
+            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
+            elif color == 'blue' and confidence > 0.5:
+                other_objects.append((obj, color))
+
+        model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+        model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+        model_detector.draw_other_objects(img, other_objects, center)
+        communicator.pack_center_data(center)
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
