@@ -13,6 +13,8 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+FOLLOW = const(10)          # 跟随状态
+
 InField = const(-1)
 OnLine = const(0)
 OutLine = const(1)
@@ -582,3 +584,235 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1], 'far')
+
+# 红外跟随控制类
+# 利用主车尾部两盏红外灯的逆透视坐标 (x,y) 和实际物理间距，
+# 解算 IR 板中心位姿并控制小车实时跟随。
+class IRFollow:
+    def __init__(self, flash_sys, car, uart3, my_IR_protocol):
+        """
+        flash_sys: 参数存储系统对象
+        car:       CarPose 对象，用于获取小车位姿和调用 move_ctrl
+        uart3:     调试串口对象
+        my_IR_protocol: IR 协议对象，用于接收 IR 坐标数据
+        """
+        self.flash_sys = flash_sys
+        self.my_car = car
+        self.my_uart3 = uart3
+        self.my_IR_protocol = my_IR_protocol
+
+        # ========== IR 跟随 PD 参数（从 flash 读取）==========
+        self.kp_y = flash_sys.find_value("ir_kp_y")     # 距离环 (Y轴) 比例系数
+        self.kd_y = flash_sys.find_value("ir_kd_y")     # 距离环 (Y轴) 微分系数
+        self.kp_x = flash_sys.find_value("ir_kp_x")     # 横向环 (X轴) 比例系数
+        self.kd_x = flash_sys.find_value("ir_kd_x")     # 横向环 (X轴) 微分系数
+
+        # 目标跟车距离 (cm)
+        self.target_dist = flash_sys.find_value("ir_target_dist")   
+        # 目标跟车横移距离
+        self.target_offset_x = flash_sys.find_value("ir_target_offset_x")
+        # 目标红外灯角度
+        self.target_angle = flash_sys.find_value("ir_target_angle")
+        # 摄像头偏离小车正前方的角度
+        self.art_to_car_angle = flash_sys.find_value("ir_art_to_car_angle")  
+
+        # ========== 逆透视校正参数 ==========
+        # L_actual 与 L_measured 比值的有效范围
+        self.scale_min = 0.5  # 默认 0.5
+        self.scale_max = 1.8  # 默认 1.8
+        # 校正系数低通滤波权重（平滑突变）
+        self.scale_smooth = 0.7  # 默认 0.7
+
+        # ========== 控制输出 ==========
+        self.output_speed = 0.0       # 合速度 (cm/s), 对应 move_ctrl 的 move_speed_target
+        self.output_angle = 0.0       # 运动方向角 (度), 对应 move_ctrl 的 move_angle_target
+        self.output_turn = 0.0        # 自转角速度 (度), 对应 move_ctrl 的 turn_angle_target
+
+        # ========== 状态变量 ==========
+        # 上一帧误差（用于微分计算）
+        self.last_err_x = 0.0
+        self.last_err_y = 0.0
+        self.last_err_a = 0.0
+        # 上一帧的尺度校正因子（用于低通平滑）
+        self.last_scale = 1.0
+        # 逆透视校正后的 IR 板中心坐标
+        self.cx_corrected = 0.0
+        self.cy_corrected = 0.0
+        # IR 板朝向角 (度)
+        self.board_heading = 0.0
+        # 当前帧的逆透视校正因子
+        self.current_scale = 1.0
+
+        # ========== 丢帧与有效性判定 ==========
+        self.ir_lost_count = 0            # 连续无效帧计数
+        self.ir_lost_threshold = 50       # 连续丢帧阈值（约 0.5s，10ms 周期下）
+        self.if_ir_lost = False           # 是否处于 IR 丢失状态
+        self.if_frame_valid = False       # 当前帧是否有效
+
+        # ========== 速度限幅与死区 ==========
+        self.max_speed = flash_sys.find_value("ir_max_speed")      # 默认 220.0
+        self.min_speed = flash_sys.find_value("ir_min_speed")      # 默认 25.0
+        self.dead_dist_y = flash_sys.find_value("ir_dead_dist_y")  # Y 轴死区, 默认 1.5
+        self.dead_dist_x = flash_sys.find_value("ir_dead_dist_x")  # X 轴死区, 默认 1.0
+        self.dead_angle = flash_sys.find_value("ir_dead_angle")    # 角度死区, 默认 2.0
+
+        gc.collect()
+
+    # ==================================================================
+    # 核心接口：每收到一帧 IR 坐标时调用
+    #   x1, y1 : 灯1 逆透视后的相对坐标 (cm)
+    #   x2, y2 : 灯2 逆透视后的相对坐标 (cm)
+    #   L_actual: 两灯实际物理间距 (cm)
+    # 返回: True 表示本帧有效且控制量已更新, False 表示本帧无效
+    # ==================================================================
+    def compute(self, x1: float, y1: float, x2: float, y2: float, L_actual: float) -> bool:
+        # ---------- 1. 原始测量值 ----------
+        self.cx_raw = (x1 + x2) / 2.0          # IR 板中心 X (横向偏移)
+        self.cy_raw = (y1 + y2) / 2.0          # IR 板中心 Y (纵向距离)
+
+        dx = x2 - x1                            # 灯间 X 差
+        dy = y2 - y1                            # 灯间 Y 差
+        L_measured = math.sqrt(dx * dx + dy * dy)  # 图像测得的灯间距
+
+        # IR 板朝向角：两灯连线的角度
+        self.board_heading_raw = -math.atan2(-dx, dy) * 180.0 / PI
+
+        # ---------- 2. 帧有效性判定 ----------
+        if L_measured < 0.01:
+            # 两灯重合或检测异常
+            self._mark_invalid()
+            return False
+
+        scale_raw = L_actual / L_measured  # 逆透视尺度校正因子
+
+        # 尺度因子超出合理范围 → 帧无效
+        if scale_raw < self.scale_min or scale_raw > self.scale_max:
+            self._mark_invalid()
+            return False
+
+        # ---------- 3. 低通滤波平滑尺度因子 ----------
+        self.current_scale = (self.scale_smooth * self.last_scale +
+                              (1.0 - self.scale_smooth) * scale_raw)
+        self.last_scale = self.current_scale
+
+        # ---------- 4. 逆透视失真校正 ----------
+        # 用尺度校正因子修正中心坐标（逆透视的线性误差在不同距离下会缩放）
+        self.cx_corrected = self.cx_raw * self.current_scale
+        self.cy_corrected = self.cy_raw * self.current_scale
+
+        # 板朝向角同样受畸变影响——两灯连线的角度在校正前后一致
+        # （因为两个坐标等比例缩放不改变连线方向），所以直接使用原始值
+        self.board_heading = self.board_heading_raw
+
+        # ---------- 5. 帧有效，重置丢帧计数 ----------
+        self.if_frame_valid = True
+        self.if_ir_lost = False
+        self.ir_lost_count = 0
+
+        # ---------- 6. PD 控制计算 ----------
+        self._pd_control()
+
+        return True
+
+    # ==================================================================
+    # 标记无效帧并处理丢帧逻辑
+    # ==================================================================
+    def _mark_invalid(self):
+        self.if_frame_valid = False
+        self.ir_lost_count += 1
+
+        if self.ir_lost_count >= self.ir_lost_threshold:
+            self.if_ir_lost = True
+            # 丢失后减速停车，避免盲跑
+            self.output_speed = 0.0
+            self.output_angle = 0.0
+            self.output_turn = 0.0
+            # 重置误差历史，防止找回后微分项跳变
+            self.last_err_x = 0.0
+            self.last_err_y = 0.0
+            self.last_err_a = 0.0
+        else:
+            # 短暂丢帧期间，保持上一帧输出（靠里程计惯性维持）
+            pass
+
+    # ==================================================================
+    # PD 反馈控制
+    # 三环解耦: Y轴距离环 + X轴横向环 + 角度环
+    # ==================================================================
+    def _pd_control(self):
+        # ======== Y轴距离环 ========
+        err_y = self.cy_corrected - self.target_dist    # +: 太远需追近
+        d_err_y = err_y - self.last_err_y
+        output_y = self.kp_y * err_y + self.kd_y * d_err_y
+
+        # ======== X轴横向环 ========
+        err_x = self.cx_corrected - self.target_offset_x  # +: 偏右需右移
+        d_err_x = err_x - self.last_err_x
+        output_x = self.kp_x * err_x + self.kd_x * d_err_x
+
+        # ======== 角度环：计算绝对偏航角目标 ========
+        # 板相对小车的偏角误差
+        err_a = self.target_angle - self.board_heading
+        # 归一化到 [-180, 180]
+        if err_a > 180.0:
+            err_a -= 360.0
+        elif err_a < -180.0:
+            err_a += 360.0
+
+        # 小车当前偏航角 (度)
+        car_yaw_deg = self.my_car.now_yaw * 180.0 / PI
+
+        # 板子相对朝向
+        board_abs_heading = self.board_heading - self.target_angle
+
+        # 世界坐标系下的绝对朝向 = 小车当前朝向 + 板子相对朝向
+        self.output_turn = car_yaw_deg + board_abs_heading
+
+        # 归一化到 [-180, 180]，供 angle_pid 使用
+        self.output_turn = (self.output_turn + 180.0) % 360.0 - 180.0
+
+        # ======== 合成全向运动指令 ========
+        self.output_speed = math.sqrt(output_x * output_x + output_y * output_y)
+
+        if self.output_speed > 0.01:
+            self.output_angle = -math.atan2(-output_x, output_y) * 180.0 / PI
+            # 补偿摄像头安装偏角
+            self.output_angle = (self.output_angle + self.art_to_car_angle + 180.0) % 360.0 - 180.0
+        else:
+            self.output_angle = 0.0
+
+        # ======== 死区：距离 + 横向 + 角度 都满足才停车 ========
+        if (abs(err_y) < self.dead_dist_y and
+            abs(err_x) < self.dead_dist_x and
+            abs(err_a) < self.dead_angle):
+            self.output_speed = 0.0
+            self.output_angle = 0.0
+            # output_turn 保持当前值不归零，让 angle_pid 自行维持姿态
+
+        # ======== 速度限幅 ========
+        self.output_speed = max(self.min_speed, min(self.output_speed, self.max_speed))
+
+        # ======== 保存误差历史 ========
+        self.last_err_x = err_x
+        self.last_err_y = err_y
+        self.last_err_a = err_a
+
+    # ==================================================================
+    # 重置状态（进入 IR 跟随模式时调用）
+    # ==================================================================
+    def reset_IR_follow(self):
+        self.last_err_x = 0.0
+        self.last_err_y = 0.0
+        self.last_err_a = 0.0
+        self.last_scale = 1.0
+        self.current_scale = 1.0
+        self.ir_lost_count = 0
+        self.if_ir_lost = False
+        self.if_frame_valid = False
+        self.output_speed = 0.0
+        self.output_angle = 0.0
+        self.output_turn = 0.0  
+
+    # 重置红外跟随角度
+    def reset_follow_angle(self):
+        self.output_turn = self.my_car.now_yaw * 180.0 / PI

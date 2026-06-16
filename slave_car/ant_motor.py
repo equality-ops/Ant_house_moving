@@ -544,7 +544,7 @@ class ServoPID(ControlPID):
         self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
         self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
         self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
-        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
+        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")  
         self.servo_kp_x = 0.0
         self.servo_kd_x = 0.0
         self.servo_kp_y = 0.0
@@ -552,7 +552,7 @@ class ServoPID(ControlPID):
         self.target_x = 0.0
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float
-        self.actual_y = 0.0     # type: float
+        self.actual_y = 0.0   # type: float
         
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
@@ -588,7 +588,7 @@ class ServoPID(ControlPID):
         # pwm_output限幅
         self.pwm_output_x = max(-self.servo_pwmout_limitmax, min(self.pwm_output_x, self.servo_pwmout_limitmax))
         self.pwm_output_y = max(-self.servo_pwmout_limitmax, min(self.pwm_output_y, self.servo_pwmout_limitmax))
-        # 模型下的pid计算
+        
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,

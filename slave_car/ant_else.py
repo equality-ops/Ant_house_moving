@@ -13,6 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+FOLLOW = const(10)          # 跟随状态
 
 # 根据物体位置列举的三种情形
 ALL_IN_BOTTOM = const(0)  # 物体完全在下区域内
@@ -207,6 +208,17 @@ class UARTProtocol:
         else:
             return None
 
+# 红外跟随通信协议类
+class UARTProtocol2:
+    def __init__(self, uart):
+        # 注入串口对象
+        self.my_uart = uart
+
+        gc.collect()
+
+    def get_IR_cordinate(self):
+
+    
 # 主从机通信类
 class LinkProtocol:
     def __init__(self, uart3):
