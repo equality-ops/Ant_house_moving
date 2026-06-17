@@ -64,10 +64,10 @@ power_adc = ADC('B27')
 beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
-my_uart6 = UART(0)
+my_uart1 = UART(0)
+my_uart1.init(115200)
+my_uart6 = UART(5)
 my_uart6.init(115200)
-my_uart9 = UART(8)
-my_uart9.init(115200)
 
 """无线串口通信初始化"""
 my_uart3 = UART(2)
@@ -137,13 +137,13 @@ my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
 
 # 创建指令管理对象
-my_order_manager = ant_else.order_manager(my_uart6)
+my_order_manager = ant_else.order_manager(my_uart1)
 
 # 创建openart串口解析对象
-my_art_protocol = ant_else.UARTProtocol(my_uart6)
+my_art_protocol = ant_else.UARTProtocol(my_uart1)
 
 # 创建openart串口解析对象2
-my_art_protocol2 = ant_else.UARTProtocol2(my_uart9)
+my_art_protocol2 = ant_else.UARTProtocol2(my_uart6)
 
 # 创建主从车无线串口通信对象
 my_slave_protocol = ant_else.LinkProtocol(my_uart3)
@@ -244,7 +244,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -345,10 +345,10 @@ def test_ir_follow():
         my_ir_follow.reset_follow_angle()
         my_state.state = FOLLOW
     elif my_state.state == FOLLOW:
-        if my_photo.if_detect == True:
-            my_car.move_ctrl(50, 0, 0)
-        else:
-            my_car.move_ctrl(0, 0, 0)
+        IR_light = my_art_protocol2.get_IR_cordinate()
+        if IR_light:
+            # my_uart3.write(f"IR Light: {IR_light}\r\n")
+            my_ir_follow.compute(IR_light)
 
 # 设置pid参数
 def set_pid_params():
@@ -494,7 +494,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
     """
@@ -533,6 +533,9 @@ def time_pit3_handler(time) -> None:
     # 自转测试函数
     # test_spin()
 
+    # 测试红外跟随
+    test_ir_follow()
+
     pass
 
 
@@ -553,7 +556,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
-
+    # my_uart3.write(f"{my_ir_follow.output_speed}, {my_ir_follow.output_angle}, {my_ir_follow.output_turn}\n")
+    my_uart3.write(f"{my_ir_follow.cx_corrected},{my_ir_follow.cy_corrected}\n")
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

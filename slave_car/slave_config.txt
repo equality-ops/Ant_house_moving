@@ -60,7 +60,7 @@ gyro_y_supply = 1.151499
 ###################【时间规划】####################
 motor_control_T = 2
 collect_dt = 0.002
-plan_calculate_T = 10
+plan_calculate_T = 30
 uart_and_menu_T = 53
 
 ###################【路径规划】####################
@@ -71,7 +71,7 @@ error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
 ###################【风扇控制】####################
-if_fan = 1
+if_fan = 0
 fixed_high_level_us = 1250
 
 ###################【速度规划】####################
@@ -117,4 +117,20 @@ angle_T = 135.0
 angle_S = 140.0
 angle_B = 142.0
 
+###################【红外跟随】####################
+ir_kp_x = 10.0
+ir_kd_x = 0.0
+ir_kp_y = 10.0
+ir_kd_y = 0.0
+
+ir_target_dist = 9.0
+ir_target_offset_x = 0.0
+ir_target_angle = 90.0
+ir_art_to_car_angle = -20.0
+ir_max_speed = 220
+ir_min_speed = 25
+
+ir_dead_dist_x = 3.0
+ir_dead_dist_y = 3.0
+ir_dead_angle = 3.0
 # 小车最高速度为290

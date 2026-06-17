@@ -654,18 +654,22 @@ class IRFollow:
         self.min_speed = flash_sys.find_value("ir_min_speed")      # 默认 25.0
         self.dead_dist_y = flash_sys.find_value("ir_dead_dist_y")  # Y 轴死区, 默认 1.5
         self.dead_dist_x = flash_sys.find_value("ir_dead_dist_x")  # X 轴死区, 默认 1.0
-        self.dead_angle = flash_sys.find_value("ir_dead_angle")    # 角度死区, 默认 2.0
+        self.dead_angle = flash_sys.find_value("ir_dead_angle")   # 角度死区, 默认 2.0
 
         gc.collect()
 
     # ==================================================================
     # 核心接口：每收到一帧 IR 坐标时调用
-    #   x1, y1 : 灯1 逆透视后的相对坐标 (cm)
-    #   x2, y2 : 灯2 逆透视后的相对坐标 (cm)
+    #   输入: ir_light = [x1, y1, x2, y2] 两盏红外灯的图像坐标
     #   L_actual: 两灯实际物理间距 (cm)
     # 返回: True 表示本帧有效且控制量已更新, False 表示本帧无效
     # ==================================================================
-    def compute(self, x1: float, y1: float, x2: float, y2: float, L_actual: float) -> bool:
+    def compute(self, ir_light) -> bool:
+        x1 = ir_light[0]
+        y1 = ir_light[1]
+        x2 = ir_light[2]
+        y2 = ir_light[3]
+
         # ---------- 1. 原始测量值 ----------
         self.cx_raw = (x1 + x2) / 2.0          # IR 板中心 X (横向偏移)
         self.cy_raw = (y1 + y2) / 2.0          # IR 板中心 Y (纵向距离)
@@ -677,12 +681,15 @@ class IRFollow:
         # IR 板朝向角：两灯连线的角度
         self.board_heading_raw = -math.atan2(-dx, dy) * 180.0 / PI
 
+        # self.my_uart3.write(f"Raw CX: {self.cx_raw:.2f}, Raw CY: {self.cy_raw:.2f}, L_measured: {L_measured:.2f}, Board Heading: {self.board_heading_raw:.2f}\r\n")
+
         # ---------- 2. 帧有效性判定 ----------
         if L_measured < 0.01:
             # 两灯重合或检测异常
             self._mark_invalid()
             return False
-
+        
+        L_actual = 9.4
         scale_raw = L_actual / L_measured  # 逆透视尺度校正因子
 
         # 尺度因子超出合理范围 → 帧无效
@@ -766,10 +773,12 @@ class IRFollow:
         board_abs_heading = self.board_heading - self.target_angle
 
         # 世界坐标系下的绝对朝向 = 小车当前朝向 + 板子相对朝向
-        self.output_turn = car_yaw_deg + board_abs_heading
+        # 测试不该变角度
+        # self.output_turn = car_yaw_deg + board_abs_heading
 
         # 归一化到 [-180, 180]，供 angle_pid 使用
-        self.output_turn = (self.output_turn + 180.0) % 360.0 - 180.0
+        # 测试不该变角度
+        # self.output_turn = (self.output_turn + 180.0) % 360.0 - 180.0
 
         # ======== 合成全向运动指令 ========
         self.output_speed = math.sqrt(output_x * output_x + output_y * output_y)
@@ -782,9 +791,10 @@ class IRFollow:
             self.output_angle = 0.0
 
         # ======== 死区：距离 + 横向 + 角度 都满足才停车 ========
+        # 测试：此时不控制角度取消角度的死区控制
         if (abs(err_y) < self.dead_dist_y and
-            abs(err_x) < self.dead_dist_x and
-            abs(err_a) < self.dead_angle):
+            abs(err_x) < self.dead_dist_x):
+            # abs(err_a) < self.dead_angle):
             self.output_speed = 0.0
             self.output_angle = 0.0
             # output_turn 保持当前值不归零，让 angle_pid 自行维持姿态
