@@ -244,7 +244,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -494,7 +494,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
@@ -534,7 +534,7 @@ def time_pit3_handler(time) -> None:
     # test_spin()
 
     # 测试红外跟随
-    test_ir_follow()
+    # test_ir_follow()
 
     pass
 
@@ -557,7 +557,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_ir_follow.output_speed}, {my_ir_follow.output_angle}, {my_ir_follow.output_turn}\n")
-    my_uart3.write(f"{my_ir_follow.cx_corrected},{my_ir_follow.cy_corrected}\n")
+    # my_uart3.write(f"{my_ir_follow.cx_corrected},{my_ir_follow.cy_corrected}\n")
+    
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

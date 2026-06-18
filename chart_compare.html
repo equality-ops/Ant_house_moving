@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>插值函数对比</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: 'Microsoft YaHei', sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+  h1 { text-align: center; color: #00d4ff; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-box { background: #16213e; border-radius: 12px; padding: 15px; }
+  .chart-box.full { grid-column: 1 / -1; }
+  canvas { width: 100%; }
+  .insight { background: #0f3460; border-left: 4px solid #00d4ff; padding: 12px; margin: 15px 0; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  th, td { padding: 8px 12px; text-align: center; border: 1px solid #333; }
+  th { background: #0f3460; }
+  .highlight { color: #00d4ff; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>插值函数对比 — Ease-Out vs Smoothstep</h1>
+
+<div class="insight">
+  <strong>核心问题：</strong>当前 smoothstep (k=0.5) 在 t=0 处导数为 <span class="highlight">0.5</span>，
+  起步加速度太小。<br>
+  <strong>解决方案：</strong>Ease-Out 函数 f(t)=1−(1−t)ⁿ，t=0 处导数为 <span class="highlight">n</span>，起步加速明显更快。
+</div>
+
+<div class="grid">
+  <div class="chart-box"><canvas id="chartSpeed"></canvas></div>
+  <div class="chart-box"><canvas id="chartAccel"></canvas></div>
+  <div class="chart-box full"><canvas id="chartDisp"></canvas></div>
+</div>
+
+<div class="chart-box full" style="margin-top:20px;">
+  <h3 style="color:#00d4ff;">关键数值对比表</h3>
+  <table id="dataTable"></table>
+</div>
+
+<script>
+const t = [];
+for (let i = 0; i <= 100; i++) t.push(i / 100);
+
+function smoothstep(t, k=0.5) {
+  const tt = Math.max(0, Math.min(1, t));
+  return k * tt + (1 - k) * (3 * tt**2 - 2 * tt**3);
+}
+function smoothstepD(t, k=0.5) {
+  const tt = Math.max(0, Math.min(1, t));
+  return k + (1 - k) * (6 * tt - 6 * tt**2);
+}
+function easeOut(t, n) {
+  const tt = Math.max(0, Math.min(1, t));
+  return 1 - (1 - tt)**n;
+}
+function easeOutD(t, n) {
+  const tt = Math.max(0, Math.min(1, t));
+  return n * (1 - tt)**(n - 1);
+}
+
+const curves = [
+  { label: 'smoothstep k=0.5 (当前)', color: '#888888', dash: [8,4], f: t => smoothstep(t), d: t => smoothstepD(t) },
+  { label: 'Ease-Out n=2', color: '#2196F3', dash: [], f: t => easeOut(t,2), d: t => easeOutD(t,2) },
+  { label: 'Ease-Out n=3 ★推荐', color: '#4CAF50', dash: [], f: t => easeOut(t,3), d: t => easeOutD(t,3) },
+  { label: 'Ease-Out n=4', color: '#FF5722', dash: [], f: t => easeOut(t,4), d: t => easeOutD(t,4) },
+  { label: 'Ease-Out n=5', color: '#9C27B0', dash: [], f: t => easeOut(t,5), d: t => easeOutD(t,5) },
+];
+
+function makeDataset(fn, curve) {
+  const data = t.map(fn);
+  return {
+    label: curve.label,
+    data: data,
+    borderColor: curve.color,
+    backgroundColor: curve.color + '20',
+    borderWidth: 2,
+    borderDash: curve.dash,
+    pointRadius: 0,
+    tension: 0,
+  };
+}
+
+const commonOptions = {
+  responsive: true,
+  plugins: {
+    legend: { labels: { color: '#ccc', boxWidth: 20, padding: 15, font: { size: 12 } } }
+  },
+  scales: {
+    x: { title: { display: true, text: 't (归一化距离)', color: '#999' }, grid: { color: '#333' }, ticks: { color: '#999' }, min: 0, max: 1 },
+    y: { grid: { color: '#333' }, ticks: { color: '#999' } }
+  },
+  interaction: { mode: 'index', intersect: false },
+};
+
+// Speed chart
+new Chart(document.getElementById('chartSpeed'), {
+  type: 'line',
+  data: {
+    labels: t.map(v => v.toFixed(2)),
+    datasets: curves.map(c => makeDataset(c.f, c)),
+  },
+  options: {
+    ...commonOptions,
+    plugins: {
+      ...commonOptions.plugins,
+      title: { display: true, text: '速度曲线 f(t)', color: '#00d4ff', font: { size: 16 } }
+    },
+    scales: {
+      ...commonOptions.scales,
+      y: { ...commonOptions.scales.y, title: { display: true, text: '速度因子', color: '#999' }, min: 0, max: 1 }
+    }
+  }
+});
+
+// Acceleration chart
+new Chart(document.getElementById('chartAccel'), {
+  type: 'line',
+  data: {
+    labels: t.map(v => v.toFixed(2)),
+    datasets: curves.map(c => makeDataset(c.d, c)),
+  },
+  options: {
+    ...commonOptions,
+    plugins: {
+      ...commonOptions.plugins,
+      title: { display: true, text: "加速度曲线 f'(t)", color: '#00d4ff', font: { size: 16 } }
+    },
+    scales: {
+      ...commonOptions.scales,
+      y: { ...commonOptions.scales.y, title: { display: true, text: '加速度因子', color: '#999' }, min: 0 }
+    }
+  }
+});
+
+// Displacement chart (integral)
+function cumInt(c, n) {
+  const dt = 1 / n;
+  let sum = 0;
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    out.push(sum);
+    if (i < n) sum += c.f(i * dt) * dt;
+  }
+  return out;
+}
+
+const intDatasets = curves.map(c => ({
+  label: c.label,
+  data: cumInt(c, 100),
+  borderColor: c.color,
+  borderWidth: 2,
+  borderDash: c.dash,
+  pointRadius: 0,
+}));
+
+new Chart(document.getElementById('chartDisp'), {
+  type: 'line',
+  data: { labels: t.map(v => v.toFixed(2)), datasets: intDatasets },
+  options: {
+    ...commonOptions,
+    plugins: {
+      ...commonOptions.plugins,
+      title: { display: true, text: '累积位移 ∫f(τ)dτ', color: '#00d4ff', font: { size: 16 } }
+    },
+    scales: {
+      ...commonOptions.scales,
+      y: { ...commonOptions.scales.y, title: { display: true, text: '累积位移', color: '#999' }, min: 0, max: 0.7 }
+    }
+  }
+});
+
+// Data table
+const checkPoints = [0, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.75, 1.0];
+let html = '<tr><th>t</th>';
+curves.forEach(c => html += `<th>${c.label}<br>f(t) | f\'(t)</th>`);
+html += '</tr>';
+checkPoints.forEach(tp => {
+  html += `<tr><td><b>${tp.toFixed(2)}</b></td>`;
+  curves.forEach(c => {
+    const v = c.f(tp).toFixed(3);
+    const a = c.d(tp).toFixed(3);
+    const style = tp <= 0.2 ? 'style="color:#ff6b6b"' : '';
+    html += `<td ${style}>${v} | ${a}</td>`;
+  });
+  html += '</tr>';
+});
+document.getElementById('dataTable').innerHTML = html;
+</script>
+</body>
+</html>

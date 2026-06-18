@@ -179,9 +179,9 @@ class VisionManager:
             object_H = 1.75
         else:
             if self.current_servo_object in ['T']:
-                object_H = 2.5
+                object_H = 2.0
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 7.0
+                object_H = 4.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H = 2.0
 

@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - heading "插值函数对比 — Ease-Out vs Smoothstep" [level=1] [ref=e2]
+  - generic [ref=e3]:
+    - strong [ref=e4]: 核心问题：
+    - text: 当前 smoothstep (k=0.5) 在 t=0 处导数为 0.5， 起步加速度太小。
+    - strong [ref=e5]: 解决方案：
+    - text: Ease-Out 函数 f(t)=1−(1−t)ⁿ，t=0 处导数为 n，起步加速明显更快。
+  - generic [ref=e13]:
+    - heading "关键数值对比表" [level=3] [ref=e14]
+    - table [ref=e15]:
+      - rowgroup [ref=e16]:
+        - row "t smoothstep k=0.5 (当前) f(t) | f'(t) Ease-Out n=2 f(t) | f'(t) Ease-Out n=3 ★推荐 f(t) | f'(t) Ease-Out n=4 f(t) | f'(t) Ease-Out n=5 f(t) | f'(t)" [ref=e17]:
+          - columnheader "t" [ref=e18]
+          - columnheader "smoothstep k=0.5 (当前) f(t) | f'(t)" [ref=e19]:
+            - text: smoothstep k=0.5 (当前)
+            - text: f(t) | f'(t)
+          - columnheader "Ease-Out n=2 f(t) | f'(t)" [ref=e20]:
+            - text: Ease-Out n=2
+            - text: f(t) | f'(t)
+          - columnheader "Ease-Out n=3 ★推荐 f(t) | f'(t)" [ref=e21]:
+            - text: Ease-Out n=3 ★推荐
+            - text: f(t) | f'(t)
+          - columnheader "Ease-Out n=4 f(t) | f'(t)" [ref=e22]:
+            - text: Ease-Out n=4
+            - text: f(t) | f'(t)
+          - columnheader "Ease-Out n=5 f(t) | f'(t)" [ref=e23]:
+            - text: Ease-Out n=5
+            - text: f(t) | f'(t)
+        - row "0.00 0.000 | 0.500 0.000 | 2.000 0.000 | 3.000 0.000 | 4.000 0.000 | 5.000" [ref=e24]:
+          - cell "0.00" [ref=e25]
+          - cell "0.000 | 0.500" [ref=e26]
+          - cell "0.000 | 2.000" [ref=e27]
+          - cell "0.000 | 3.000" [ref=e28]
+          - cell "0.000 | 4.000" [ref=e29]
+          - cell "0.000 | 5.000" [ref=e30]
+        - row "0.05 0.029 | 0.643 0.098 | 1.900 0.143 | 2.708 0.185 | 3.429 0.226 | 4.073" [ref=e31]:
+          - cell "0.05" [ref=e32]
+          - cell "0.029 | 0.643" [ref=e33]
+          - cell "0.098 | 1.900" [ref=e34]
+          - cell "0.143 | 2.708" [ref=e35]
+          - cell "0.185 | 3.429" [ref=e36]
+          - cell "0.226 | 4.073" [ref=e37]
+        - row "0.10 0.064 | 0.770 0.190 | 1.800 0.271 | 2.430 0.344 | 2.916 0.410 | 3.280" [ref=e38]:
+          - cell "0.10" [ref=e39]
+          - cell "0.064 | 0.770" [ref=e40]
+          - cell "0.190 | 1.800" [ref=e41]
+          - cell "0.271 | 2.430" [ref=e42]
+          - cell "0.344 | 2.916" [ref=e43]
+          - cell "0.410 | 3.280" [ref=e44]
+        - row "0.15 0.105 | 0.882 0.278 | 1.700 0.386 | 2.167 0.478 | 2.456 0.556 | 2.610" [ref=e45]:
+          - cell "0.15" [ref=e46]
+          - cell "0.105 | 0.882" [ref=e47]
+          - cell "0.278 | 1.700" [ref=e48]
+          - cell "0.386 | 2.167" [ref=e49]
+          - cell "0.478 | 2.456" [ref=e50]
+          - cell "0.556 | 2.610" [ref=e51]
+        - row "0.20 0.152 | 0.980 0.360 | 1.600 0.488 | 1.920 0.590 | 2.048 0.672 | 2.048" [ref=e52]:
+          - cell "0.20" [ref=e53]
+          - cell "0.152 | 0.980" [ref=e54]
+          - cell "0.360 | 1.600" [ref=e55]
+          - cell "0.488 | 1.920" [ref=e56]
+          - cell "0.590 | 2.048" [ref=e57]
+          - cell "0.672 | 2.048" [ref=e58]
+        - row "0.30 0.258 | 1.130 0.510 | 1.400 0.657 | 1.470 0.760 | 1.372 0.832 | 1.200" [ref=e59]:
+          - cell "0.30" [ref=e60]
+          - cell "0.258 | 1.130" [ref=e61]
+          - cell "0.510 | 1.400" [ref=e62]
+          - cell "0.657 | 1.470" [ref=e63]
+          - cell "0.760 | 1.372" [ref=e64]
+          - cell "0.832 | 1.200" [ref=e65]
+        - row "0.50 0.500 | 1.250 0.750 | 1.000 0.875 | 0.750 0.938 | 0.500 0.969 | 0.313" [ref=e66]:
+          - cell "0.50" [ref=e67]
+          - cell "0.500 | 1.250" [ref=e68]
+          - cell "0.750 | 1.000" [ref=e69]
+          - cell "0.875 | 0.750" [ref=e70]
+          - cell "0.938 | 0.500" [ref=e71]
+          - cell "0.969 | 0.313" [ref=e72]
+        - row "0.75 0.797 | 1.063 0.938 | 0.500 0.984 | 0.188 0.996 | 0.063 0.999 | 0.020" [ref=e73]:
+          - cell "0.75" [ref=e74]
+          - cell "0.797 | 1.063" [ref=e75]
+          - cell "0.938 | 0.500" [ref=e76]
+          - cell "0.984 | 0.188" [ref=e77]
+          - cell "0.996 | 0.063" [ref=e78]
+          - cell "0.999 | 0.020" [ref=e79]
+        - row "1.00 1.000 | 0.500 1.000 | 0.000 1.000 | 0.000 1.000 | 0.000 1.000 | 0.000" [ref=e80]:
+          - cell "1.00" [ref=e81]
+          - cell "1.000 | 0.500" [ref=e82]
+          - cell "1.000 | 0.000" [ref=e83]
+          - cell "1.000 | 0.000" [ref=e84]
+          - cell "1.000 | 0.000" [ref=e85]
+          - cell "1.000 | 0.000" [ref=e86]

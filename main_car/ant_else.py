@@ -197,6 +197,13 @@ class UARTProtocol:
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame
 
+    # 清空串口缓冲区数据
+    def clear_buffer(self):
+        # 清空视觉串口缓冲区，准备接收新数据
+        lenth = self.my_uart.any()
+        if lenth:
+            self.my_uart.read(lenth)  
+        
 # 主从机通信类
 class LinkProtocol:
     def __init__(self, uart3):
@@ -464,10 +471,11 @@ class TaskController:
         self.if_send_path = False  # 是否已经发送路径规划信息
         self.if_to_top = False  # 是否前往上区域
         self.the_last_one = False  # 是否是最后一个物体
+        self.if_second_verify = False  # 是否进行第二次确认（扫描状态）
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
 
-    
+    # ===========功能函数===========
     # 重置小车里程计
     def reset_car_pos(self):
         # 经验修正值
@@ -480,6 +488,32 @@ class TaskController:
             else:
                 self.my_car.y_current = 240.0 - correction
 
+    def get_rectangle_vertices(self, center, half_w, half_h):
+        """
+        根据中心点和长宽的一半，计算长方形的四个顶点坐标。
+        
+        :param center: 中心点坐标，格式为 (x, y) 或 [x, y]
+        :param half_w: 水平方向（X轴）长度的一半
+        :param half_h: 垂直方向（Y轴）宽度/高度的一半
+        :return: 包含四个顶点坐标的列表 [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+        """
+        cx, cy = center
+        
+        # 计算X轴和Y轴的边界值
+        x_min = cx - half_w
+        x_max = cx + half_w
+        y_min = cy - half_h
+        y_max = cy + half_h
+        
+        # 组合成四个顶点（顺时针或逆时针排列，这里按照常见的四个象限组合组合）
+        # 在标准的直角坐标系中，这四个点分别对应：左上、右上、右下、左下    
+        v1 = [x_min, y_max]  # 左上
+        v2 = [x_max, y_max]  # 右上
+        v3 = [x_max, y_min]  # 右下
+        v4 = [x_min, y_min]  # 左下
+        
+        return [v1, v2, v3, v4]
+    
     # 不同模式下的执行函数
     def run(self):
         if self.if_transitioning:
@@ -504,15 +538,20 @@ class TaskController:
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物体
             # 清空视觉串口缓冲区，准备接收新数据
-            lenth = self.my_art_protocol.my_uart.any()
-            self.my_art_protocol.my_uart.read(lenth)  
+            self.my_art_protocol.clear_buffer()
             # 打开目标识别模式
             self.my_order_manager.mode_target() 
+        elif state == PREDICT:
+            # 进入预测状态，进行目标位置预测
+            if self.predict_message:
+                # 将预测点的横坐标和当前纵坐标组合成新的预测点
+                self.predict_message.insert(0, [self.predict_message[-1][0], self.my_car.y_current])
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物体
             # 清空视觉串口缓冲区，准备接收新数据
-            lenth = self.my_art_protocol.my_uart.any()
-            self.my_art_protocol.my_uart.read(lenth)
+            self.my_art_protocol.clear_buffer()
+            # 打开目标识别模式
+            self.my_order_manager.mode_target() 
         elif state == ORBIT:
             # 进入环绕状态，开始环绕目标物体
             if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
@@ -539,13 +578,8 @@ class TaskController:
                 else:
                     # 搬运到260的点保证光电管能检测到边界
                     self.move_message = [self.my_car.x_current - self.my_plan.error_x, 260.0]
-
-            # 测试
-            # self.my_uart.write(f"{self.move_message}\n")
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
-            # 记录小车在哪个边线
-            # self.my_vision.car_position = object_to_line_dict.get(self.current_object)
             pass
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
@@ -559,9 +593,6 @@ class TaskController:
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
-        elif state == PREDICT:
-            # 进入预测状态，进行目标位置预测
-            pass
 
     def exit(self):
         global counter
@@ -589,42 +620,43 @@ class TaskController:
                     self.data.scan_point[self.object_status][0] = self.my_car.x_current 
 
                 self.my_plan.reset_navigate()
+                # 向openart发送finish消息
+                self.my_order_manager.finish()
 
-                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                    # 留4度的旋转角度裕量
-                    reserved_angle = 4.0
-                    x_threshold = 25.0
-                    y_threshold = 15.0
-                    slave_stop_threshold = 25.0
-                    if self.if_to_top == False:
-                        self.spin_angle_buf = -180 + self.my_vision.orbit_angle + reserved_angle
-                        slave_angle = 180 - self.my_vision.orbit_angle - reserved_angle
-                        
-                        self.predict_message[0] += x_threshold
-                        self.predict_message[1] -= y_threshold
-                        
-                        # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold - slave_stop_threshold, self.predict_message[1] - y_threshold])   
-                    elif self.the_last_one:
-                        self.spin_angle_buf = self.my_vision.orbit_angle + reserved_angle
-                        slave_angle = -self.my_vision.orbit_angle - reserved_angle
-
-                        self.predict_message[0] -= x_threshold
-                        self.predict_message[1] += y_threshold
-                        
-                        # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] + x_threshold + slave_stop_threshold, self.predict_message[1] + y_threshold]) 
-                    
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = PREDICT
+                x_threshold = 25.0
+                y_threshold = 15.0
+                slave_stop_threshold = 5.0
+                rectangle_pt = self.get_rectangle_vertices(self.predict_message, x_threshold, y_threshold)
+                if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP] or\
+                    (self.object_status == OVER_ONE_IN_TOP and (self.the_last_one)):                    
+                    # 主车顺时针旋转
+                    self.spin_angle_buf = self.my_vision.orbit_angle
+                    slave_angle = -self.my_vision.orbit_angle
+                                        
+                    self.predict_message = [rectangle_pt[0]]
+                    # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
+                    self.my_main_protocol.send_path(self.current_object, slave_angle, [rectangle_pt[1][0] - slave_stop_threshold, rectangle_pt[1][1] - slave_stop_threshold])
                 else:
-                    self.my_vision.reset_servo_angle()
-                    self.my_state.state = SERVO
+                    if self.if_to_top == False:
+                        # 此时小车将过渡到上半区
+                        self.if_to_top = True
 
+                    self.predict_message = [rectangle_pt[2]]
+                    self.spin_angle_buf = -180 + self.my_vision.orbit_angle
+                    slave_angle = 180 - self.my_vision.orbit_angle
+
+                    # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
+                    self.my_main_protocol.send_path(self.current_object, slave_angle, [rectangle_pt[3][0] + slave_stop_threshold, rectangle_pt[3][1] + slave_stop_threshold]) 
+
+               
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = PREDICT
+                self.if_second_verify = False  # 重置第二次确认标志位
+                self.my_plan.if_second_verify = False  # 重置第二次确认标志位
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
                 self.my_plan.reset_navigate()
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                
                 self.my_plan.reset_navigate_angle()
                 if self.object_status == ALL_IN_BOTTOM:
                     if self.data.finished_num == self.data.total_objects_num - 1:
@@ -634,42 +666,33 @@ class TaskController:
                     self.my_state.state = READY_NAVIGATE
                 else:
                     self.my_state.state = RETURN  # 直接返回
-        elif state == SERVO:
-            # 退出伺服状态，停止精确对准动作
-            if self.my_vision.if_finish_servo:
-                counter += 1
-                # 延时100ms
-                if counter <= 10:
-                    return
-
-                stop_threshold = 25.0
-                if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
-                    # 发送路径信息给从车
-                    self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current - stop_threshold])   
-                else:   # OVER_ONE_IN_TOP的情况
-                    if self.if_to_top and not self.the_last_one:
-                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
-
-                # 重置计数器
-                counter = 0
-                self.if_send_path = False  # 重置路径发送标志位
-                self.my_vision.if_finish_servo = False  # 重置伺服完成标志
-                self.my_vision.reset_orbit_angle()
-                self.my_state.state = ORBIT  # 直接切换到环绕状态
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-            elif self.my_plan.if_finish_navigate:
-                self.my_vision.if_lost_object = False
-                self.my_plan.reset_navigate()
-                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == PREDICT:
             self.my_plan.reset_navigate()
             self.my_vision.reset_servo_angle()
             self.my_state.state = SERVO  # 直接切换到伺服状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == SERVO:
+            # 退出伺服状态，停止精确对准动作
+            if self.my_vision.if_finish_servo:
+                order = self.my_main_protocol.get_slave_state()
+                if order == "finish":
+                    self.my_main_protocol.send_start()
+                    self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = MOVE  # 直接切换到搬运状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                elif order == "lost":
+                    self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = RETURN  # 直接切换到返回状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            elif self.my_plan.if_finish_navigate:
+                self.my_vision.if_lost_object = False
+                self.my_plan.reset_navigate()
+                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == ORBIT:
-            # 此时关闭负压风扇
-            # self.my_fan.fan_off()
             order = self.my_main_protocol.get_slave_state()
             if order == "finish":
                 self.my_vision.reset_orbit()  # 重置环绕标志
@@ -774,23 +797,46 @@ class TaskController:
    
     def handle_scan(self):
         # if state == SCAN
+        global counter
         self.my_plan.navigate(path = [self.scan_final_point])  # 导航到扫描终点
-        
+
         target_point = self.my_art_protocol.coordinate_receive()
         if target_point and self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):  
-            self.current_object = chr(target_point[2])
-            self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
-            if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
-                self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+            if not self.if_second_verify:
+                self.my_plan.if_second_verify = True
+
+                counter += 1
+                # 只有连续扫到5帧目标体才认为是有效目标
+                if counter >= 5:
+                    counter = 0
+                    # 清空串口缓冲区
+                    self.my_art_protocol.clear_buffer()
+                    self.if_second_verify = True
             else:
+                self.current_object = chr(target_point[2])
+                self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
+                self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
                 self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-            self.exit()  # 退出当前状态，进入扫描状态
+                """
+                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
+                    self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
+                    self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+                else:
+                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                """
+                self.exit()  # 退出当前状态，进入扫描状态
             return
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入伺服状态
             return
+
+    def handle_predict(self):
+        # if state == PREDICT
+        self.my_plan.navigate(path = self.predict_message, target_turn_angle = self.spin_angle_buf)  # 导航到预测的目标点
+
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入搬运状态
 
     def handle_servo(self):
         # if state == SERVO
@@ -811,10 +857,7 @@ class TaskController:
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
-                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                    self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
-                else:
-                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
 
@@ -826,13 +869,6 @@ class TaskController:
         self.my_vision.orbit_control(self.orbit_angle_buf)
 
         if self.my_vision.if_finish_orbit:
-            self.exit()  # 退出当前状态，进入搬运状态
-
-    def handle_predict(self):
-        # if state == PREDICT
-        self.my_plan.navigate(path = [self.predict_message], target_turn_angle = self.spin_angle_buf)  # 导航到预测的目标点
-
-        if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入搬运状态
 
     def handle_move(self):

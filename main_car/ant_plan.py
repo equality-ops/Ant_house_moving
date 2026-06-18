@@ -32,7 +32,7 @@ class PlanData:
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.fixed_point = [[35.0, -14.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         # [0]为扫描点1，[1]为扫描点2，[2]为扫描点3，[3]为扫描点4，[4]为扫描点5，[5]为扫描点6
-        self.scan_point = [[120.0, 55.0], [200.0, 55.0], [200.0, 100.0], [120.0, 100.0], [120.0, 185.0], [200.0, 185.0]]
+        self.scan_point = [[130.0, 55.0], [190.0, 55.0], [190.0, 100.0], [130.0, 100.0], [130.0, 185.0], [190.0, 185.0]]
 
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
@@ -72,6 +72,7 @@ class NavigationPlan:
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
         self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
+        self.scan_v_max = self.flash_sys.find_value("scan_v_max")  # 扫描时的最大速度
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
         self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")# type: int  # 搬运沙包时的最大速度
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
@@ -109,7 +110,8 @@ class NavigationPlan:
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False              # type: bool  # 判断是否完成导航标志位
-    
+        self.if_second_verify = False              # type: bool  # 判断是否进行第二次确认（扫描状态）标志位
+
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         # 打开无刷负压风扇
@@ -232,7 +234,7 @@ class NavigationPlan:
             # k = 0 就是原来的三次方程 (中间最陡)
             # k = 1 就是纯匀速直线 (没有加减速过渡)
             # 推荐使用 0.3 ~ 0.5 之间，这里默认用 0.4
-            k = 0.5
+            k = 0.7
             cubic = 3 * (t ** 2) - 2 * (t ** 3)
             return k * t + (1 - k) * cubic
 
@@ -260,7 +262,12 @@ class NavigationPlan:
                 ratio = 1.0
                 
             v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
-        
+        elif self.my_state.state == SCAN:
+            if not self.if_second_verify:
+                v_cruise = self.scan_v_max
+            else:
+                v_cruise = self.find_line_v_max
+
         # 调试输出当前巡航速度
         # self.my_uart3.write(f"v: {v_cruise}, object: {self.current_object}, type: {type(self.current_object)}\n")  
 
@@ -325,10 +332,6 @@ class NavigationPlan:
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
         elif is_last_segment and self.rest_dist <= self.final_threshold:
-            # 到达目标点关闭负压风扇
-            # self.my_fan.fan_off()
-            # 测试打印
-            # self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
             self.if_finish_navigate = True
             self.stop()
 
@@ -354,7 +357,7 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    if diff <= 0.9:
+                    if diff <= 1.5:
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True

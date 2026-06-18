@@ -790,6 +790,9 @@ class IRFollow:
         else:
             self.output_angle = 0.0
 
+        # ======== 速度限幅 ========
+        self.output_speed = max(self.min_speed, min(self.output_speed, self.max_speed))
+
         # ======== 死区：距离 + 横向 + 角度 都满足才停车 ========
         # 测试：此时不控制角度取消角度的死区控制
         if (abs(err_y) < self.dead_dist_y and
@@ -798,9 +801,6 @@ class IRFollow:
             self.output_speed = 0.0
             self.output_angle = 0.0
             # output_turn 保持当前值不归零，让 angle_pid 自行维持姿态
-
-        # ======== 速度限幅 ========
-        self.output_speed = max(self.min_speed, min(self.output_speed, self.max_speed))
 
         # ======== 保存误差历史 ========
         self.last_err_x = err_x
