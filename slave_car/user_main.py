@@ -40,7 +40,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
-FOLLOW = const(10)          # 跟随状态
+PREDICT = const(10)          # 预测状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -290,7 +290,7 @@ def complete_angle_circle():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE, MOVE, ADJUST]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE, MOVE, ADJUST, PREDICT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -300,55 +300,7 @@ def master_control():
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-    elif my_state.state == FOLLOW:
-        my_car.move_ctrl(my_ir_follow.output_speed, my_ir_follow.output_angle, my_ir_follow.output_turn)
 
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180   
-                
-orbit_angle = 180.0
-def test_orbit():
-    global orbit_angle, counter, direct_flag
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = ORBIT
-        my_vision_manager.object_radius = 18.0
-        my_vision_manager.current_servo_object = 'S'
-        my_order_manager.mode_target()
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(orbit_angle)
-        if my_vision_manager.if_finish_orbit == True:
-            # 退出环绕状态
-            # my_state.state = STOP
-            # my_plan.reset_navigate_angle()
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_vision_manager.reset_orbit()
-                orbit_angle += 120.0
-                orbit_angle = (orbit_angle + 180) % 360 - 180
-
-# 测试红外跟随
-def test_ir_follow():
-    if my_state.state == READY_NAVIGATE:
-        my_ir_follow.reset_follow_angle()
-        my_state.state = FOLLOW
-    elif my_state.state == FOLLOW:
-        IR_light = my_art_protocol2.get_IR_cordinate()
-        if IR_light:
-            # my_uart3.write(f"IR Light: {IR_light}\r\n")
-            my_ir_follow.compute(IR_light)
 
 # 设置pid参数
 def set_pid_params():
@@ -461,6 +413,54 @@ def test_vision_servo():
     elif my_state.state == STOP:
         my_plan.stop()
 
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180   
+                
+orbit_angle = 180.0
+def test_orbit():
+    global orbit_angle, counter, direct_flag
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = ORBIT
+        my_vision_manager.object_radius = 18.0
+        my_vision_manager.current_servo_object = 'S'
+        my_order_manager.mode_target()
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(orbit_angle)
+        if my_vision_manager.if_finish_orbit == True:
+            # 退出环绕状态
+            # my_state.state = STOP
+            # my_plan.reset_navigate_angle()
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_vision_manager.reset_orbit()
+                orbit_angle += 120.0
+                orbit_angle = (orbit_angle + 180) % 360 - 180
+
+# 测试点位预测函数
+def test_predict():
+    if my_state.state == READY_NAVIGATE:
+        my_task.predict_message = [[[0.0, 0.0]], 0.0]
+        my_order_manager.mode_target()
+        my_state.state = PREDICT
+    elif my_state.state == PREDICT:
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            pt = my_vision_manager.predict_point(target_point[0], target_point[1])
+            my_uart3.write(f"x: {pt[0] - my_car.x_current}, y: {pt[1]  - my_car.y_current}\n")
+
 """ 定时器类 """
 # 定时器1中断回调函数
 def time_pit1_handler(time):
@@ -533,8 +533,8 @@ def time_pit3_handler(time) -> None:
     # 自转测试函数
     # test_spin()
 
-    # 测试红外跟随
-    # test_ir_follow()
+    # 测试点位预测
+    # test_predict()
 
     pass
 
@@ -558,7 +558,8 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_ir_follow.output_speed}, {my_ir_follow.output_angle}, {my_ir_follow.output_turn}\n")
     # my_uart3.write(f"{my_ir_follow.cx_corrected},{my_ir_follow.cy_corrected}\n")
-    
+    # my_uart3.write(f"{my_state.state}\r\n")
+
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data

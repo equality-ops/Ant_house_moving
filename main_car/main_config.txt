@@ -63,7 +63,7 @@ collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
-total_objects_num = 5
+total_objects_num = 3
 
 final_threshold = 1.0
 branch_threshold = 5.0
@@ -100,9 +100,9 @@ servo_kd_normal_x = 10.0
 servo_kp_normal_y = 6.0
 servo_kd_normal_y = 10.0
 
-servo_target_y_T = 1.5
-servo_target_y_S = 2.0
-servo_target_y_B = 3.0
+servo_target_y_T = 2.0
+servo_target_y_S = 3.0
+servo_target_y_B = 4.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0

@@ -13,7 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
-FOLLOW = const(10)          # 跟随状态
+PREDICT = const(10)          # 预测状态
 
 InField = const(-1)
 OnLine = const(0)
@@ -173,9 +173,9 @@ class VisionManager:
             object_H = 0.0
         else:
             if self.current_servo_object in ['T']:
-                object_H = 2.5
+                object_H = 2.0
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 7.0
+                object_H = 4.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H = 2.0
 
@@ -194,6 +194,25 @@ class VisionManager:
 
         return X_w, Y_w
 
+    # 推测目标点位并进行视觉伺服控制
+    def predict_point(self, x, y):
+        car_radius = 11.0
+
+        raw_x, raw_y = self.pixel_to_real_world(x, y, 'far')
+        raw_y = raw_y + car_radius - self.correct_dist
+        relative_angle = -math.atan2(-raw_x, raw_y)
+        actual_angle = self.my_car.now_yaw + relative_angle
+        if actual_angle > PI:
+            actual_angle -= 2 * PI
+        elif actual_angle < -PI:
+            actual_angle += 2 * PI
+
+        actual_dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
+        absolute_x = actual_dist * math.sin(actual_angle) + self.my_car.x_current
+        absolute_y = actual_dist * math.cos(actual_angle) + self.my_car.y_current
+
+        return [absolute_x, absolute_y]
+    
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；

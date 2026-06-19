@@ -13,7 +13,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
-FOLLOW = const(10)          # 跟随状态
+PREDICT = const(10)          # 预测状态
 
 # 状态机
 class StateMachine:
@@ -226,7 +226,7 @@ class NavigationPlan:
             # k = 0 就是原来的三次方程 (中间最陡)
             # k = 1 就是纯匀速直线 (没有加减速过渡)
             # 推荐使用 0.3 ~ 0.5 之间，这里默认用 0.4
-            k = 0.7
+            k = 0.5
             cubic = 3 * (t ** 2) - 2 * (t ** 3)
             return k * t + (1 - k) * cubic
 

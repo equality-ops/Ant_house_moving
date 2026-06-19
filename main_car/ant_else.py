@@ -625,28 +625,38 @@ class TaskController:
 
                 x_threshold = 25.0
                 y_threshold = 15.0
-                slave_stop_threshold = 5.0
-                rectangle_pt = self.get_rectangle_vertices(self.predict_message, x_threshold, y_threshold)
+                slave_stop_threshold = 30.0
+                predict_pt = self.predict_message
+                rectangle_pt = self.get_rectangle_vertices(predict_pt, x_threshold, y_threshold)
                 if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP] or\
                     (self.object_status == OVER_ONE_IN_TOP and (self.the_last_one)):                    
                     # 主车顺时针旋转
                     self.spin_angle_buf = self.my_vision.orbit_angle
-                    slave_angle = -self.my_vision.orbit_angle
-                                        
+                    if self.the_last_one and self.object_status == OVER_ONE_IN_TOP:
+                        slave_angle = -self.my_vision.orbit_angle
+                        slave_navigate_message = [predict_pt[0] + x_threshold, predict_pt[1] + slave_stop_threshold]
+                    else:
+                        slave_angle = 0.0
+                        slave_navigate_message = [predict_pt[0], predict_pt[1] - slave_stop_threshold]
+                    
                     self.predict_message = [rectangle_pt[0]]
                     # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
-                    self.my_main_protocol.send_path(self.current_object, slave_angle, [rectangle_pt[1][0] - slave_stop_threshold, rectangle_pt[1][1] - slave_stop_threshold])
+                    self.my_main_protocol.send_path(self.current_object, slave_angle, slave_navigate_message)
                 else:
                     if self.if_to_top == False:
                         # 此时小车将过渡到上半区
                         self.if_to_top = True
+                        slave_angle = 180 - self.my_vision.orbit_angle
+                        slave_navigate_message = [predict_pt[0] - x_threshold, predict_pt[1] - slave_stop_threshold]
+                    else:
+                        slave_angle = 180
+                        slave_navigate_message = [predict_pt[0], predict_pt[1] + slave_stop_threshold]
 
                     self.predict_message = [rectangle_pt[2]]
                     self.spin_angle_buf = -180 + self.my_vision.orbit_angle
-                    slave_angle = 180 - self.my_vision.orbit_angle
-
+                    
                     # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
-                    self.my_main_protocol.send_path(self.current_object, slave_angle, [rectangle_pt[3][0] + slave_stop_threshold, rectangle_pt[3][1] + slave_stop_threshold]) 
+                    self.my_main_protocol.send_path(self.current_object, slave_angle, slave_navigate_message) 
 
                
                 self.my_plan.reset_navigate_angle()
@@ -677,11 +687,12 @@ class TaskController:
             if self.my_vision.if_finish_servo:
                 order = self.my_main_protocol.get_slave_state()
                 if order == "finish":
-                    self.my_main_protocol.send_start()
                     self.my_vision.if_finish_servo = False  # 重置伺服完成标志
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = MOVE  # 直接切换到搬运状态
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+
+                    self.my_main_protocol.send_start()
                 elif order == "lost":
                     self.my_vision.if_finish_servo = False  # 重置伺服完成标志
                     self.my_plan.reset_navigate_angle()

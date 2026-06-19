@@ -552,6 +552,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_task.current_object}, {my_state.state}, {my_vision_manager.real_servo_point}\n")
+    # my_uart8.write(f"{my_vision_manager.current_servo_object}\r\n")
     # if my_task.predict_message:
     #    my_uart3.write(f"x: {my_task.predict_message[0] - my_car.x_current}, y: {my_task.predict_message[1] - my_car.y_current}\r\n")
 
