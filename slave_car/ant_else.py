@@ -1,7 +1,9 @@
 from micropython import const
 import time
 import gc
+import math
 
+PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
@@ -12,6 +14,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+RETREAT = const(10)
 
 object_to_line_dict = {
     'T': 'U',
@@ -93,6 +96,9 @@ class order_manager:
     def mode_pickup_check(self):
         self.my_uart.write("D")
 
+    def mode_all_detect(self):
+        self.my_uart.write("A")
+
     # 当前模式结束
     def finish(self):
         self.my_uart.write("F")    
@@ -108,8 +114,22 @@ class UARTProtocol:
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
 
-        gc.collect()
+        self.object_species = [ord('T'),ord('E'),ord('S'),ord('B'),ord('W')]
 
+        self.state_detect_all_objects = 0 # 0:等待帧头1, 1:等待物体数量, 2:等待发送物体讯息, 5:等待帧尾
+        self.detect_buffer = [0,[]]
+        self.object_buffer = ['',0,0]
+        self.state_object = 0 # 0:等待物体种类, 1:等待x, 2:等待y, 3:等待帧尾
+        gc.collect()
+    def clear_uart_buffer(self):
+        self.state_coordinate = 0
+        self.state_apriltag = 0
+        self.state_detect_all_objects = 0
+        self.state_object = 0
+        self.detect_buffer = [0,[]]
+        self.coordinate_buffer = [0, 0, 0, 0, '', 0]
+        self.object_buffer = ['',0,0]
+        self.my_uart.read(self.my_uart.any())#清空缓冲区
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
         last_valid_frame = None
@@ -145,14 +165,62 @@ class UARTProtocol:
                 
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame
-    
+    def reset_detect_objects(self):
+        self.state_detect_all_objects = 0
+        self.state_object = 0
+        self.detect_buffer = [0,[]]
+        self.object_buffer = ['',0,0]
+    def detect_objects_on_the_court(self):
+        objects_package = None
+        while self.my_uart.any():
+            byte = self.my_uart.read(1)[0]
+            if self.state_detect_all_objects == 0:
+                self.reset_detect_objects()
+                if byte == 0x77:
+                    self.state_detect_all_objects = 1
+            elif self.state_detect_all_objects == 1:#等待物体数量
+                if byte>0x00 and byte<=0x10:#物体数量大于0小于等于16
+                    self.detect_buffer[0]=byte
+                    self.state_detect_all_objects = 2
+                else:
+                    self.reset_detect_objects()
+                    continue
+            elif self.state_detect_all_objects == 2:
+                if self.state_object == 0:
+                    if byte in self.object_species:
+                        self.state_object = 1
+                        self.object_buffer[0] = byte
+                    else:
+                        self.reset_detect_objects()
+                        continue
+                elif self.state_object == 1:
+                    self.object_buffer[1] = byte
+                    self.state_object = 2
+                elif self.state_object == 2:
+                    self.object_buffer[2] = byte
+                    self.state_object = 3
+                elif self.state_object == 3:
+                    if byte == 0x5B:
+                        self.state_object = 0
+                        self.detect_buffer[1].append(self.object_buffer[:])
+                        if len(self.detect_buffer[1])>=self.detect_buffer[0]:
+                            self.state_detect_all_objects = 3
+                    else:
+                        self.reset_detect_objects()
+                        continue
+            elif self.state_detect_all_objects == 3:
+                if byte == 0x78:
+                    objects_package = self.detect_buffer
+                self.reset_detect_objects()
+                continue
+        return objects_package
     # 非阻塞接收并解析apriltag码的像素点坐标和角度  
+    
     def apriltag_receive(self):
         last_valid_frame = None
         # 持续读取直到处理完当前缓冲区的所有数据
         while self.my_uart.any():	
             byte = self.my_uart.read(1)[0]
-            
             if self.state_apriltag == 0:
                 if byte == 0xA5:
                     self.state_apriltag = 1
@@ -318,8 +386,6 @@ class LinkProtocol:
                     
             except Exception as e:
                 return None
-
-    # 解析主车发送的当前姿态信息
     def get_main_pose(self):
         # 1. 填充缓冲区
         if self.my_uart3.any():
@@ -367,52 +433,6 @@ class LinkProtocol:
         except Exception as e:
             # 解析失败（如数据转换乱码等）
             pass
-
-        return None
-
-    # 解析主车发送的环绕角度
-    def get_orbit_angle(self):
-        # 1. 填充缓冲区
-        if self.my_uart3.any():
-            try:
-                chunk = self.my_uart3.read()
-                if chunk:
-                    self.raw_buffer += chunk
-            except:
-                pass
-
-        if not self.raw_buffer:
-            return None
-
-        # 内存保护
-        if len(self.raw_buffer) > self.max_buf:
-            self.raw_buffer = self.raw_buffer[-self.max_buf:]
-
-        # 2. 寻找包头 '#O,' 和包尾 '!'
-        start_idx = self.raw_buffer.find(b'#O,')
-        if start_idx == -1:
-            # 没找到需要的包头，清理掉无关的数据，防止内存越界
-            if len(self.raw_buffer) > 3:
-                 self.raw_buffer = self.raw_buffer[-3:]
-            return None
-            
-        end_idx = self.raw_buffer.find(b'!', start_idx)
-        if end_idx == -1:
-            # 包尾还没收到，说明数据还没传完，等下次再解析
-            return None
-
-        # 3. 提取有效数据段并清空已经处理的缓冲
-        payload_bytes = self.raw_buffer[start_idx + 3 : end_idx]
-        self.raw_buffer = self.raw_buffer[end_idx + 1:]
-
-        # 4. 解析数据
-        try:
-            angle = float(payload_bytes.decode('utf-8'))
-            return angle
-        except Exception as e:
-            # 解析失败（如数据转换乱码等）
-            pass
-
         return None
 
 ##############################【flash系统操作】##############################
@@ -546,6 +566,7 @@ class TaskController:
             ADJUST:   self.handle_adjust,
             RETURN:    self.handle_return,
             STOP:      self.handle_stop,
+            RETREAT: self.handle_retreat,
             # ... 其他状态
         }
 
@@ -574,6 +595,7 @@ class TaskController:
 
         if state == READY_NAVIGATE:
             # 进入准备导航状态，做好路径规划准备和导航信息准备
+            self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
         elif state == NAVIGATE:
             # 进入导航状态，开始执行路径跟随
@@ -584,6 +606,7 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
+            self.my_moving.ready_move(self.pt_buffer[1],self.pt_buffer[0])
             pass
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
@@ -612,8 +635,6 @@ class TaskController:
                 # 若当前物体信息为回程信息
                 self.my_state.state = RETURN  # 直接切换到返回状态
             else:
-                if self.current_object != 'P':
-                    self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到消息                self.my_state.state = NAVIGATE  # 直接切换到导航状态
                 self.my_state.state = NAVIGATE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
@@ -624,34 +645,18 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
-                if self.my_vision.if_send_order == False:
-                    # 发送指令给openart，切换到目标识别模式
-                    self.my_order_manager.mode_target()  
-                    # 设置标志位，避免重复发送指令
-                    self.my_vision.if_send_order = True  
+                #target_point = self.my_art_protocol.coordinate_receive()
+                #if target_point and chr(target_point[2]) == self.current_object:
+                # 计数器清零
+                self.my_plan.reset_navigate()
+                self.counter = 0
+                self.my_vision.if_send_order = False  # 重置发送指令标志位
+                self.my_vision.ready_servo_and_orbit(self.current_object, 'servo')
+                self.my_vision.reset_servo_angle()
+                self.my_plan.reset_navigate()  # 重置导航相关变量
 
-                counter += 1
-                # 若超过1秒则认为丢失物体
-                if counter > 100:
-                    # 计数器清零
-                    self.counter = 0
-                    self.my_vision.if_send_order = False  # 重置发送指令标志位
-                    self.my_vision.if_lost_object = True
-                    self.my_plan.reset_navigate()
-                    self.my_state.state = SERVO
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-                    return
-                
-                target_point = self.my_art_protocol.coordinate_receive()
-                if target_point and chr(target_point[2]) == self.current_object:
-                    # 计数器清零
-                    self.counter = 0
-                    self.my_vision.if_send_order = False  # 重置发送指令标志位
-                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-                    self.my_vision.reset_servo_angle()
-                    self.my_plan.reset_navigate()  # 重置导航相关变量
-                    self.my_state.state = SERVO
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                self.my_state.state = MOVE
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
             pass
         elif state == SERVO:
@@ -672,13 +677,10 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
-            # 退出搬运状态，停止搬运动作
-            assist_car_pos = self.my_slave_protocol.get_path_list()  # 获取主车位置
-            if assist_car_pos and assist_car_pos[0] == 'A':
-                self.my_vision.assist_car_pos = assist_car_pos[2]  # 更新辅助车车位置
                 self.my_moving.if_finish_move = False  # 重置搬运完成标志
                 self.my_plan.reset_navigate_angle()
-                self.my_state.state = CALIBRATE  # 直接切换到校准状态
+                self.my_plan.reset_navigate()
+                self.my_state.state = RETREAT  # 直接切换到校准状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
@@ -697,18 +699,41 @@ class TaskController:
         elif state == STOP:
             # 退出停止状态，准备进入下一任务或待命状态
             self.my_beep.test()  # 任务完成，发出提示音
+        elif state == RETREAT:
+            # 重置导航标志位
+            self.my_plan.reset_navigate()
+            self.my_plan.reset_navigate_angle()
+            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
     
     def handle_ready_navigate(self):
         # 进入准备导航状态，做好路径规划准备和导航信息准备
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
             # 只有当路径信息为过渡或者回城时才记录目标点坐标
+            horizon_stop_threshold=10
             if path[0] not in ['P', 'R']:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
-                self.navigate_message = [[path[2]], path[1]]  # 导航信息：目标点坐标和朝向
+                self.navigate_message = []  # 收到物体坐标先不导航
             else:
                 # 进行路径规划
-                self.my_path.plan_path(path[2][0], path[2][1])  # 传入目标坐标进行路径规划
+                tx=path[2][0]
+                ty=path[2][1]
+                #规划停在主车左/右侧
+                current_yaw_deg = self.my_car.now_yaw * 180.0 / PI
+                if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
+                    current_turn_deg = 0.0
+                elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:
+                    current_turn_deg = 90.0
+                elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:
+                    current_turn_deg = 180.0
+                elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
+                    current_turn_deg = -90.0
+                if current_turn_deg == 0 or current_turn_deg == 180:
+                    tx=min(max(path[2][0]-horizon_stop_threshold,self.my_car.x_current),path[2][0]+horizon_stop_threshold)
+                else:
+                    ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
+                self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
                 self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
             
             self.current_object = path[0]  # 当前物体种类
@@ -720,8 +745,10 @@ class TaskController:
 
     def handle_navigate(self):
         # if state == NAVIGATE
-        self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
-
+        if self.navigate_message:
+            self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
+        else:
+            self.my_plan.if_finish_navigate=True#直接退出
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状态
    
@@ -737,14 +764,22 @@ class TaskController:
             # 若丢失物体则四处移动寻找物体
             x = self.my_car.x_current
             y = self.my_car.y_current
-            self.my_plan.navigate(path = [[x+15.0, y], [x-15.0, y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
+            now_yaw = self.my_car.now_yaw  # 弧度，0=北(+Y)，90°=东(+X)
+            # 车身右方(+X): (cos(now_yaw), -sin(now_yaw))
+            # 车身左方(-X): (-cos(now_yaw), sin(now_yaw))
+            right_x = x + 15.0 * math.cos(now_yaw)
+            right_y = y - 15.0 * math.sin(now_yaw)
+            left_x = x - 15.0 * math.cos(now_yaw)
+            left_y = y + 15.0 * math.sin(now_yaw)
+            self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:
+                self.my_vision.if_send_order = False
                 self.my_vision.ready_servo_and_orbit(target_point, 'servo')
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
-
+                self.my_order_manager.mode_target() # 打开目标识别模式
         if self.my_vision.if_finish_servo or self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入搬运状态
 
@@ -753,8 +788,32 @@ class TaskController:
         self.my_moving.moving()
 
         if self.my_moving.if_finish_move:
+            current_object = self.current_object
+            retreat_threhold = 5
+            if current_object == 'T':
+                if self.my_car.now_yaw<0:
+                    self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
+                else:
+                    self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
+            elif current_object in ['S', 'E']:
+                if self.my_car.now_yaw<-PI/2:
+                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
+                else:
+                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
+            elif current_object in ['B', 'W']:
+                if self.my_car.now_yaw<PI/2:
+                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
+                else:
+                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
             self.exit()  # 退出当前状态，进入下一个状态
 
+    def handle_retreat(self):
+        # if state == ADJUST
+        self.my_plan.navigate(path = [self.retreat_message])
+
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入下一个状态
+    
     def handle_calibrate(self):
         # if state == CALIBRATE
         global counter

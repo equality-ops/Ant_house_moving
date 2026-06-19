@@ -41,6 +41,7 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
+RETREAT = const(10) 
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -197,11 +198,15 @@ my_path = ant_plan.PathPlan(plan_data, my_car)
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
+import ant_boundary_plan
+gc.collect()
+move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path)
+gc.collect()
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan, plan_data, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
@@ -338,73 +343,15 @@ def test_vision_servo():
         my_plan.stop()
 
 orbit_angle = 240.0
-def test_orbit():
-    global orbit_angle, counter, direct_flag
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = ORBIT
-        my_vision_manager.object_radius = 16.0
-        my_vision_manager.current_servo_object = 'S'
-        my_order_manager.mode_target()
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(orbit_angle)
-        if my_vision_manager.if_finish_orbit == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_moving.reset_orbit()
-                orbit_angle += 120.0
-                orbit_angle = (orbit_angle + 180) % 360 - 180
-
 spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
 
-# 边线和apriltag码校准测试程序
-def test_apriltag_calibrate():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = CALIBRATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[160.0, 220.0], [0.0, 120.0], [130.0, -5.0]], target_turn_angle = 40.0)
-        if my_plan.if_finish_navigate == True:  
-            my_plan.reset_navigate()
-            my_state.state = CALIBRATE
-            my_vision_manager.assist_car_pos = [160.0, 0.0]
-            my_vision_manager.car_position = 'R'
-    elif my_state.state == CALIBRATE:
-        my_vision_manager.apriltag_calibrate_control()
-        if my_vision_manager.if_finish_calibrate == True:
-            counter += 1
-            # 延时1s
-            if counter >= 100:
-                counter = 0
-                my_vision_manager.reset_apriltag_calibrate()
-                my_plan.reset_navigate_angle()
-                my_state.state = STOP
-    elif my_state.state == RETURN:
-        my_plan.navigate(path = [[0.0, 0.0]], target_turn_angle = 0.0)
-        if my_plan.if_finish_navigate == True:  
-            my_plan.reset_navigate()
-            my_state.state = STOP
-            
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, CALIBRATE]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
-            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         elif my_moving.current_state == MOVE:
@@ -422,9 +369,9 @@ def master_control():
 # 设置pid参数
 def set_pid_params():
     if my_state.state == MOVE:
-        motor_ul_pid.set_pid_params(pid_data.ul_move_kp, pid_data.ul_move_ki, pid_data.ul_move_kd)
-        motor_ur_pid.set_pid_params(pid_data.ur_move_kp, pid_data.ur_move_ki, pid_data.ur_move_kd)
-        motor_md_pid.set_pid_params(pid_data.md_move_kp, pid_data.md_move_ki, pid_data.md_move_kd)
+        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
+        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     else:
         brake_threshold = 20.0
         target_limit = 1.0

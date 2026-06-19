@@ -75,16 +75,6 @@ class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        # 搬运过程中的pid参数
-        self.ul_move_kp = self.flash_sys.find_value("ul_move_kp")  # type: float
-        self.ul_move_ki = self.flash_sys.find_value("ul_move_ki")  # type: float
-        self.ul_move_kd = self.flash_sys.find_value("ul_move_kd")  # type: float
-        self.ur_move_kp = self.flash_sys.find_value("ur_move_kp")  # type: float
-        self.ur_move_ki = self.flash_sys.find_value("ur_move_ki")  # type: float
-        self.ur_move_kd = self.flash_sys.find_value("ur_move_kd")  # type: float
-        self.md_move_kp = self.flash_sys.find_value("md_move_kp")  # type: float
-        self.md_move_ki = self.flash_sys.find_value("md_move_ki")  # type: float
-        self.md_move_kd = self.flash_sys.find_value("md_move_kd")  # type: float
         
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
@@ -554,10 +544,6 @@ class ServoPID(ControlPID):
         self.servo_normal_kd_x = self.flash_sys.find_value("servo_normal_kd_x")        # type: float
         self.servo_normal_kp_y = self.flash_sys.find_value("servo_normal_kp_y")        # type: float
         self.servo_normal_kd_y = self.flash_sys.find_value("servo_normal_kd_y")        # type: float
-        self.servo_IR_kp_x = self.flash_sys.find_value("servo_IR_kp_x")        # type: float
-        self.servo_IR_kd_x = self.flash_sys.find_value("servo_IR_kd_x")        # type: float
-        self.servo_IR_kp_y = self.flash_sys.find_value("servo_IR_kp_y")        # type: float
-        self.servo_IR_kd_y = self.flash_sys.find_value("servo_IR_kd_y")        # type: float
         self.servo_kp_x = 0.0
         self.servo_kd_x = 0.0
         self.servo_kp_y = 0.0
@@ -570,8 +556,6 @@ class ServoPID(ControlPID):
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    
-        # 红外灯跟随下y轴距离阈值   
-        self.target_y_IR = self.flash_sys.find_value("servo_target_y_IR")   # type: float
 
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
@@ -582,7 +566,6 @@ class ServoPID(ControlPID):
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
         self.pwmout_normal_limit = self.flash_sys.find_value("pwmout_normal_limit") 
-        self.pwmout_IR_limit = self.flash_sys.find_value("pwmout_IR_limit")
         self.pwmout_limitmax = 100    # type: int
     
         gc.collect()  # 主动触发垃圾回收，释放内存

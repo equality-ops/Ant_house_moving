@@ -1,16 +1,6 @@
 # 修改时间 6.6	  16:12
 
 ###################【PID参数】####################
-# 搬运模式下
-ul_move_kp = 40.0
-ul_move_ki = 0.4
-ul_move_kd = 20.0
-ur_move_kp = 40.0
-ur_move_ki = 0.4
-ur_move_kd = 20.0
-md_move_kp = 40.0
-md_move_ki = 0.4
-md_move_kd = 20.0
 # speed大于220时
 ul_high_kp = 45.0
 ul_high_ki = 0.45
@@ -76,10 +66,10 @@ uart_and_menu_T = 53
 final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
-assist_car_to_line = 30.0
-
-rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', [('x', 210.0)]], [(160.0, 120.0), 'B', 'R', []]"
-cube_obstacles = "(145, 25, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
+IF_rogue_plan = 0
+total_objects_num = 3
+rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
+cube_obstacles = "(145, 25, 23.8, 10.6), (70.0, 92.0,10.6, 23.8)"
 circle = "(262.5, 88.8)"
 error_x_T = 0.0
 error_x_S = 2.0
@@ -100,9 +90,9 @@ orbit_v_max = 90
 orbit_v_min = 25
 
 # 不同物体的搬运速度
-move_v_max_T = 80
-move_v_max_S = 130
-move_v_max_B = 120
+move_v_max_T = 210
+move_v_max_S = 210
+move_v_max_B = 210
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数

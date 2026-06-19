@@ -54,10 +54,14 @@ class PlanData:
         # T是网球，S是红沙包，E是蓝沙包，W是白熊，B是棕熊
         # 物品信息第一个参数为物体坐标，第二个为物体种类，第三个为搬运途径信息，第四个为小车从哪个边界靠近物体
         # 物品信息示例：[(160.0, 85.0), 'E', [('x', 160.0)], "L"]
-        self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
-        self.current_index = 0          # 当前搬运物体索引         
-        self.total_objects_num = len(self.rogue_planning) if isinstance(self.rogue_planning, list) else 0
+        self.if_rogue_plan = self.flash_sys.find_value("IF_rogue_plan")
 
+        self.rogue_planning = self.flash_sys.find_value("rogue_planning")  # type: list 
+        self.current_index = 0          # 当前搬运物体索引   
+        if self.if_rogue_plan:
+            self.total_objects_num = len(self.rogue_planning) if isinstance(self.rogue_planning, list) else 0
+        else:
+            self.total_objects_num = self.flash_sys.find_value("total_objects_num")
         gc.collect()
 
     # 辅助函数：由于原代码矩形检测未膨胀，这里手动对外扩充矩形顶点
@@ -71,13 +75,20 @@ class PlanData:
             (x_center - hw, y_center + hh)
         ]
 
+# 推动规划类
+class MovePlan:
+    def __init__(self, plan_data: PlanData, car):
+        self.Data = plan_data
+        self.my_car = car
+        self.ready_path = []    # 规划好的路径
+        gc.collect()
+    
 # 路径规划类
 class PathPlan:
     def __init__(self, plan_data: PlanData, car):
         self.Data = plan_data
         self.my_car = car
         self.ready_path = []    # 规划好的路径
-
         gc.collect()
 
     # 路径规划主函数
@@ -352,8 +363,6 @@ class PathPlan:
     # 将返回的坐标点转换为列表形式
     def _path_to_list(self, path):
         return [[p[0], p[1]] for p in path]
-
-
 # 导航规划类
 class NavigationPlan:
     def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
@@ -485,7 +494,7 @@ class NavigationPlan:
         self.my_car.alpha_x = 0.939524
         self.my_car.alpha_y = 0.915747
         # 提取当前物体种类信息
-        if self.plan_data.current_index < self.plan_data.total_objects_num:
+        if  self.plan_data.if_rogue_plan and self.plan_data.current_index < self.plan_data.total_objects_num:
             self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
         
 

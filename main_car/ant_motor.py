@@ -76,16 +76,7 @@ class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        # 搬运过程中的pid参数
-        self.ul_move_kp = self.flash_sys.find_value("ul_move_kp")  # type: float
-        self.ul_move_ki = self.flash_sys.find_value("ul_move_ki")  # type: float
-        self.ul_move_kd = self.flash_sys.find_value("ul_move_kd")  # type: float
-        self.ur_move_kp = self.flash_sys.find_value("ur_move_kp")  # type: float
-        self.ur_move_ki = self.flash_sys.find_value("ur_move_ki")  # type: float
-        self.ur_move_kd = self.flash_sys.find_value("ur_move_kd")  # type: float
-        self.md_move_kp = self.flash_sys.find_value("md_move_kp")  # type: float
-        self.md_move_ki = self.flash_sys.find_value("md_move_ki")  # type: float
-        self.md_move_kd = self.flash_sys.find_value("md_move_kd")  # type: float
+
 
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
@@ -586,7 +577,8 @@ class ServoPID(ControlPID):
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
         self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
-    
+        
+        
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 模型下的pid计算
