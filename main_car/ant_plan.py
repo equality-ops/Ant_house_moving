@@ -32,7 +32,7 @@ class PlanData:
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.fixed_point = [[35.0, -14.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         # [0]为扫描点1，[1]为扫描点2，[2]为扫描点3，[3]为扫描点4，[4]为扫描点5，[5]为扫描点6
-        self.scan_point = [[120.0, 55.0], [200.0, 55.0], [200.0, 100.0], [120.0, 100.0], [120.0, 185.0], [200.0, 185.0]]
+        self.scan_point = [[140.0, 55.0], [180.0, 55.0], [180.0, 100.0], [140.0, 100.0], [140.0, 185.0], [180.0, 185.0]]
 
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
@@ -109,7 +109,8 @@ class NavigationPlan:
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False              # type: bool  # 判断是否完成导航标志位
-    
+        self.if_second_verify = False              # type: bool  # 判断是否进行第二次验证视觉
+
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         # 打开无刷负压风扇
@@ -260,7 +261,15 @@ class NavigationPlan:
                 ratio = 1.0
                 
             v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
-        
+        elif self.my_state.state == SCAN:
+            # 在经过第二次视觉验证后减速预测目标点位
+            if self.if_second_verify:
+                v_cruise = self.find_line_v_max
+            else:
+                v_cruise = self.long_v_max
+        else:
+            v_cruise = self.long_v_max
+
         # 调试输出当前巡航速度
         # self.my_uart3.write(f"v: {v_cruise}, object: {self.current_object}, type: {type(self.current_object)}\n")  
 

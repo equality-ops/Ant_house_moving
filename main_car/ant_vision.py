@@ -181,7 +181,7 @@ class VisionManager:
             if self.current_servo_object in ['T']:
                 object_H = 2.5
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 7.0
+                object_H = 4.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H = 2.0
 
@@ -596,7 +596,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.4
+            self.final_dist *= 0.8
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current

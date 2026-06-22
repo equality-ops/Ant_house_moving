@@ -63,7 +63,7 @@ collect_dt = 0.002
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
-total_objects_num = 5
+total_objects_num = 3
 
 final_threshold = 1.0
 branch_threshold = 5.0
@@ -79,8 +79,8 @@ fixed_high_level_us = 1250
 min_start_v = 25
 long_v_max = 220
 find_line_v_max = 60
-acc_normal_coef = 0.05
-acc_move_coef = 0.11
+acc_normal_coef = 0.03
+acc_move_coef = 0.02
 dec_coef = 0.0992
 max_yaw_rate = 4.0 
 
@@ -100,7 +100,7 @@ servo_kp_normal_y = 8.0
 servo_kd_normal_y = 15.0
 
 servo_target_y_T = 2.0
-servo_target_y_S = 3.0
+servo_target_y_S = 4.0
 servo_target_y_B = 6.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
@@ -113,11 +113,11 @@ max_rel_speed = 150
 servo_pwmout_limitmax = 150
 
 ###################【环绕控制】####################
-radius_T = 15.0
-radius_S = 16.0
+radius_T = 16.5
+radius_S = 17.0
 radius_B = 19.0
-angle_T = 135.0
-angle_S = 140.0
-angle_B = 142.0
+angle_T = 134.0
+angle_S = 138.0
+angle_B = 141.0
 
 # 小车最高速度为290

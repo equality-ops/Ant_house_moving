@@ -720,8 +720,8 @@ class TaskController:
                 
                 if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
                     counter += 1
-                    # 延时100ms
-                    if counter > 10:
+                    # 延时300ms
+                    if counter > 30:
                         # 重置计数器
                         counter = 0
                         self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服

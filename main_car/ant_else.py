@@ -119,6 +119,12 @@ class UARTProtocol:
 
         gc.collect()
     
+    # 清空缓冲区数据
+    def clear_buffer(self):
+        lenth = self.my_uart.any()
+        if lenth > 0:
+            self.my_uart.read(lenth) 
+        
     # 发送物体种类
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
@@ -464,6 +470,7 @@ class TaskController:
         self.if_send_path = False  # 是否已经发送路径规划信息
         self.if_to_top = False  # 是否前往上区域
         self.the_last_one = False  # 是否是最后一个物体
+        self.if_second_verify = False  # 是否进行第二次验证视觉
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
 
@@ -504,15 +511,13 @@ class TaskController:
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物体
             # 清空视觉串口缓冲区，准备接收新数据
-            lenth = self.my_art_protocol.my_uart.any()
-            self.my_art_protocol.my_uart.read(lenth)  
+            self.my_art_protocol.clear_buffer()
             # 打开目标识别模式
             self.my_order_manager.mode_target() 
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物体
             # 清空视觉串口缓冲区，准备接收新数据
-            lenth = self.my_art_protocol.my_uart.any()
-            self.my_art_protocol.my_uart.read(lenth)
+            self.my_art_protocol.clear_buffer()
         elif state == ORBIT:
             # 进入环绕状态，开始环绕目标物体
             if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
@@ -591,29 +596,32 @@ class TaskController:
                 self.my_plan.reset_navigate()
 
                 if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                    # 留4度的旋转角度裕量
-                    reserved_angle = 4.0
+                    # 重置二次验证标志位
+                    self.if_second_verify = False
+                    self.my_plan.if_second_verify = False
+                    
                     x_threshold = 25.0
-                    y_threshold = 15.0
-                    slave_stop_threshold = 25.0
+                    y_threshold = 20.0
+                    x_slave_stop_threshold = 20.0
+                    y_slave_stop_threshold = 5.0
                     if self.if_to_top == False:
-                        self.spin_angle_buf = -180 + self.my_vision.orbit_angle + reserved_angle
-                        slave_angle = 180 - self.my_vision.orbit_angle - reserved_angle
+                        self.spin_angle_buf = -180 + self.my_vision.orbit_angle
+                        slave_angle = 180 - self.my_vision.orbit_angle
                         
                         self.predict_message[0] += x_threshold
                         self.predict_message[1] -= y_threshold
                         
                         # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold - slave_stop_threshold, self.predict_message[1] - y_threshold])   
+                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold - x_slave_stop_threshold, self.predict_message[1] - y_slave_stop_threshold])   
                     elif self.the_last_one:
-                        self.spin_angle_buf = self.my_vision.orbit_angle + reserved_angle
-                        slave_angle = -self.my_vision.orbit_angle - reserved_angle
+                        self.spin_angle_buf = self.my_vision.orbit_angle
+                        slave_angle = -self.my_vision.orbit_angle
 
                         self.predict_message[0] -= x_threshold
                         self.predict_message[1] += y_threshold
                         
                         # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] + x_threshold + slave_stop_threshold, self.predict_message[1] + y_threshold]) 
+                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] + x_threshold + x_slave_stop_threshold, self.predict_message[1] + y_slave_stop_threshold]) 
                     
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = PREDICT
@@ -773,19 +781,34 @@ class TaskController:
             self.exit()  # 退出当前状态，进入扫描状态
    
     def handle_scan(self):
+        global counter
         # if state == SCAN
         self.my_plan.navigate(path = [self.scan_final_point])  # 导航到扫描终点
         
         target_point = self.my_art_protocol.coordinate_receive()
         if target_point and self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):  
-            self.current_object = chr(target_point[2])
-            self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
             if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
-                self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+                if not self.if_second_verify:
+                    self.my_plan.if_second_verify = True
+
+                    counter += 1
+                    # 只有连续扫到5帧目标体才认为是有效目标
+                    if counter >= 5:
+                        counter = 0
+                        # 清空串口缓冲区
+                        self.my_art_protocol.clear_buffer()
+                        self.if_second_verify = True
+                else:
+                    self.current_object = chr(target_point[2])
+                    self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
+                    self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+                    self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
+                    self.exit()  # 退出当前状态
             else:
+                self.current_object = chr(target_point[2])
+                self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
                 self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-            self.exit()  # 退出当前状态，进入扫描状态
+                self.exit()  # 退出当前状态
             return
 
         if self.my_plan.if_finish_navigate:
