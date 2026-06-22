@@ -167,8 +167,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 0.8675
-        self.my_car.alpha_y = 0.9065
+        self.my_car.alpha_x = 0.939524
+        self.my_car.alpha_y = 0.915747
 
 
     # 根据当前过渡距离计算加减速距离

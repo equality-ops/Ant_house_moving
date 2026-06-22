@@ -4,13 +4,15 @@ import time
 import math
 import tf
 import mjpeg
-from pyb import LED
 from machine import UART
 from ulab import numpy as np
 import seekfree
 import ustruct
+from pyb import LED #导入LED
 
 # ======================== 常量定义 ========================
+white = LED(4)  # 定义一个LED4   照明灯
+
 # 串口配置
 UART_PORT = 12
 UART_BAUDRATE = 115200
@@ -19,7 +21,7 @@ UART_BAUDRATE = 115200
 CAMERA_PIXFORMAT = sensor.RGB565
 CAMERA_FRAMESIZE = sensor.QQVGA  # 160x120
 CAMERA_FRAMERATE = 60
-CAMERA_BRIGHTNESS = 600
+CAMERA_BRIGHTNESS = 600 # 800在plus上可能导致apriltag识别失败，降低亮度可以改善
 
 # 屏幕尺寸
 SCREEN_WIDTH = 160
@@ -80,12 +82,15 @@ face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
 #载入模型
 net = tf.load(face_detect)
 
+global_counter = 0
+first_time = time.ticks_ms()
+
 # ======================== 通信模块 ========================
 class Communicator:
     def __init__(self, uart):
         self.uart = uart
-        self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
-        self.last_sent_y = SCREEN_CENTER_Y
+        # self.last_sent_x = SCREEN_CENTER_X  # 初始化为屏幕中心
+        # self.last_sent_y = SCREEN_CENTER_Y
 
     def send_coordinate(self, x, y, obj_type = ''):
         """发送目标坐标（带防抖和范围限制）"""
@@ -99,34 +104,36 @@ class Communicator:
         # if not is_first_send and abs(x - self.last_sent_x) < 3 and abs(y - self.last_sent_y) < 3 and y <= 40:
             # return
 
-        # 限制单次坐标变化幅度（最大±30）
-        dx_coord = min(30, max(-30, x - self.last_sent_x))
-        dy_coord = min(30, max(-30, y - self.last_sent_y))
-        x_limited = self.last_sent_x + dx_coord
-        y_limited = self.last_sent_y + dy_coord
+        # # 限制单次坐标变化幅度（最大±30）
+        # dx_coord = min(30, max(-30, x - self.last_sent_x))
+        # dy_coord = min(30, max(-30, y - self.last_sent_y))
+        # x_limited = self.last_sent_x + dx_coord
+        # y_limited = self.last_sent_y + dy_coord
 
-        # 坐标范围限制（0~160, 0~120）
-        x_limited = max(0, min(SCREEN_WIDTH, x_limited))
-        y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
+        # # 坐标范围限制（0~160, 0~120）
+        # x_limited = max(0, min(SCREEN_WIDTH, x_limited))
+        # y_limited = max(0, min(SCREEN_HEIGHT, y_limited))
 
-        # 更新上次发送的坐标
-        self.last_sent_x = x_limited
-        self.last_sent_y = y_limited
+        # # 更新上次发送的坐标
+        # self.last_sent_x = x_limited
+        # self.last_sent_y = y_limited
 
         # 获取颜色类型对应的ASCII码
         type_char = COLOR_TYPE_MAP.get(obj_type, 0x00)
 
         # 打包并发送数据
+
         data = ustruct.pack(
             "<BBBBBB",
             PROTOCOL_HEADER1,
             PROTOCOL_HEADER2_COORD,
-            x_limited,
-            y_limited,
+            x,
+            y,
             type_char,
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
+        # self.uart.write(f"{PROTOCOL_HEADER1} {PROTOCOL_HEADER2_COORD} {x} {y} {PROTOCOL_FOOTER}\r\n")
 
     def send_coordinate_with_angle(self, tag_cx, tag_cy, rotation):
         tag_cx = int(round(tag_cx))
@@ -519,17 +526,34 @@ kalman_coords = {
 last_time = time.ticks_ms()
 
 # ======================== 工具函数 ========================
+# 当前选中目标类型（由下位机通过UART指定）
+current_obj = ''
 def handle_uart_commands(uart):
-    """处理串口命令，切换运行模式"""
-    global current_mode
+    """处理来自下位机的串口命令：切换运行模式 OR 更新当前目标物体类型
+
+    模式切换命令:
+        C → MODE_CORRECTION (坐标校正)
+        M → MODE_MODEL (目标检测与跟踪)
+        A → MODE_PREVIEW (全量数据预览)
+        F → MODE_WAITING (空闲等待)
+
+    物体类型命令:
+        b → 棕色熊(brown)
+        w → 白色熊(white)
+        s → 红色沙包(red)
+        e → 蓝色沙包(blue)
+        t → 绿色网球(green)
+    """
+    global current_mode, current_obj
     if uart.any():
         cmd = uart.read(1)
 
         def reset_all():
+            """重置各跟踪器状态，确保模式切换时轨迹不混叠"""
             brown_tracker.reset()
             white_tracker.reset()
-            # target_locker.reset()
 
+        # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_CORRECTION
             reset_all()
@@ -539,6 +563,18 @@ def handle_uart_commands(uart):
         elif cmd == b'F':
             current_mode = MODE_WAITING
             reset_all()
+
+        # ---------- 物体类型命令 ----------
+        elif cmd == b'b':
+            current_obj = 'brown'
+        elif cmd == b'w':
+            current_obj = 'white'
+        elif cmd == b's':
+            current_obj = 'red'
+        elif cmd == b'e':
+            current_obj = 'blue'
+        elif cmd == b't':
+            current_obj = 'green'
 
 # ======================== 初始化 ========================
 # 检验是否成功运行程序并延时使其稳定
@@ -607,7 +643,18 @@ while True:
         objects = model_detector.detect(img)
         brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
         white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
-        other_objects = [(obj, LABEL_TO_COLOR.get(obj[4])) for obj in objects if LABEL_TO_COLOR.get(obj[4]) in ['red','blue','green'] and obj[5] > 0.6]
+        other_objects = []
+        for obj in objects:
+            color = LABEL_TO_COLOR.get(obj[4])
+            confidence = obj[5]
+
+            # 对于红色、绿色物体，保持置信度阈值为0.5
+            if color in ['red', 'green'] and confidence > 0.5:
+                other_objects.append((obj, color))
+
+            # 对于蓝色物体（假设蓝色沙包），置信度阈值改为0.5
+            elif color == 'blue' and confidence > 0.5:
+                other_objects.append((obj, color))
 
         model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
         model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
@@ -624,14 +671,20 @@ while True:
         #     communicator.send_coordinate(tx, ty, target_locker.locked_kind)
         #     is_sent = True
         # elif not target_locker.is_locked and center:
-
         if center:
-            # 未锁定：按原有逻辑选y最大的坐标
-            target = max(center, key=lambda coordinate: coordinate[1])
+            # 先筛选出与当前目标物体类型一致的物体
+            matched = [c for c in center if c[2] == current_obj]
+            if matched:
+                # 如果有与当前目标物体类型一致的物体，优先选择其中y坐标最大的（最下方的）一个
+                target = max(matched, key=lambda coordinate: coordinate[1])
+            else:
+                # 如果没有与当前目标物体类型一致的物体，则在所有检测到的物体中选择y坐标最大的一个
+                target = max(center, key=lambda coordinate: coordinate[1])
             target_x = target[0]
             target_y = target[1]
             target_kind = target[2]
             communicator.send_coordinate(target_x, target_y, target_kind)
+            global_counter += 1
             is_sent = True
 
         displayed_text = 'YES' if is_sent else 'NO'

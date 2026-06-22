@@ -792,8 +792,8 @@ class TaskController:
                     self.my_plan.if_second_verify = True
 
                     counter += 1
-                    # 只有连续扫到5帧目标体才认为是有效目标
-                    if counter >= 5:
+                    # 只有连续扫到3帧目标体才认为是有效目标
+                    if counter >= 3:
                         counter = 0
                         # 清空串口缓冲区
                         self.my_art_protocol.clear_buffer()

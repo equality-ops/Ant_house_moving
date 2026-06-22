@@ -78,17 +78,17 @@ fixed_high_level_us = 1250
 min_start_v = 25
 long_v_max = 220
 find_line_v_max = 60
-acc_normal_coef = 0.05
-acc_move_coef = 0.11
-dec_coef = 0.0992
+acc_normal_coef = 0.03
+acc_move_coef = 0.01
+dec_coef = 0.08
 
 orbit_v_max = 100
 orbit_v_min = 20
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 160
-move_v_max_B = 160
+move_v_max_T = 180
+move_v_max_S = 180
+move_v_max_B = 180
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -113,7 +113,7 @@ servo_pwmout_limitmax = 150
 radius_T = 16.0
 radius_S = 18.5
 radius_B = 20.0
-angle_T = 135.0
+angle_T = 134.0
 angle_S = 140.0
 angle_B = 142.0
 
