@@ -34,6 +34,9 @@ KALMAN_MAX_LOST_FRAMES = 3
 MAX_SPEED = 80
 JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 
+# 去噪配置
+MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
+
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
 PROTOCOL_HEADER2_COORD = 0xA6
@@ -499,6 +502,10 @@ def detect_all_objects(img, Ts):
     """
     center = []
     objects = model_detector.detect(img)
+    objects = [
+    obj for obj in objects
+    if (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height() >= MIN_DETECT_AREA
+]
 
     # 按颜色分类过滤（不同颜色置信度阈值不同）
     brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
