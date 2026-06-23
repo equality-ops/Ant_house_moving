@@ -555,7 +555,25 @@ class MoveControl:
             'LDD': LDD,
             'RDD': RDD,
         }
-    def ready_move(self,turn_angle,point):
+    def judge_next_turn(self,st,sp,ref_yaw=None):
+        if ref_yaw is None:ref_yaw = self.record_angle
+        else:ref_yaw = ref_yaw * PI / 180.0
+        if sp == 'T': next_pt = [st[0],240] 
+        elif sp in ['S','E']: next_pt = [0,st[1]]
+        elif sp in ['W','B']: next_pt = [240,st[1]]
+        dx = next_pt[0] - st[0]
+        dy = next_pt[1] - st[1]
+        # 将世界坐标系下的差值投影到小车坐标系 (按 Y轴为车头前方，X轴为车身右侧 进行转换)
+        # 根据世界坐标向北为0度，向东为90度的定义推导的旋转变换
+        cy = dx * math.sin(ref_yaw) + dy * math.cos(ref_yaw)
+        cx = dx * math.cos(ref_yaw) - dy * math.sin(ref_yaw)
+        if abs(cx) > abs(cy):
+            if cx > 0:return 90.0  # 车身右侧
+            else:return -90.0  # 车身左侧
+        else:
+            if cy > 0:return 0.0  # 车头前方
+            else:return 180.0  # 车尾后方
+    def ready_move(self,current_ref_yaw_deg,point,sp):
         self.now_object_pt=point
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         current_yaw_deg = self.record_angle * 180.0 / PI
@@ -567,47 +585,42 @@ class MoveControl:
             current_turn_deg = 180.0
         elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
             current_turn_deg = -90.0
-        self.get_object_square_points(current_turn_deg,15)
+        
         # 初始参考偏航角就是当前小车所在方向（度数）
-        current_ref_yaw_deg = current_turn_deg
+        turn_angle = 0
+        new_side = None
+        if current_ref_yaw_deg != current_turn_deg:
+            if  current_ref_yaw_deg==0.0:new_side = 'D'
+            elif current_ref_yaw_deg ==180:new_side = 'U'
+            elif current_ref_yaw_deg ==90 :new_side =  'L'     
+            else:new_side =  'R' 
+            turn_angle = self.judge_next_turn(point,sp,current_ref_yaw_deg)
+        self.get_object_square_points(current_ref_yaw_deg,15)
         target_turn = current_ref_yaw_deg + turn_angle
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
-        
         if turn_angle == 0.0:
-            self.my_path.plan_path(self.surrounding_points['RDD'][0],self.surrounding_points['RDD'][1], ignore_center_rect=True)
-            sla_p=self.my_path.ready_path
-            sla_p.append(self.surrounding_points['RD'])
-            self.navigate_buffer={
-                
-                        'SLA_P':sla_p,
-                        'ANGLE':angle_r,
-                    }
+            sla_p=[self.surrounding_points['RDD'],self.surrounding_points['RD']]
+            angle = angle_r
         elif turn_angle == 90.0:
-            self.my_path.plan_path(self.surrounding_points['LDD'][0],self.surrounding_points['LDD'][1], ignore_center_rect=True)
-            sla_p=self.my_path.ready_path
-            sla_p.append(self.surrounding_points['LD'])
-            self.navigate_buffer={
-                        'SLA_P':sla_p,
-                        'ANGLE':angle_r,
-                    }
+            sla_p=[self.surrounding_points['LDD'],self.surrounding_points['LD']]
+            angle = angle_r
         elif turn_angle == 180.0:
-            self.my_path.plan_path(self.surrounding_points['LDD'][0],self.surrounding_points['LDD'][1], ignore_center_rect=True)
-            sla_p=self.my_path.ready_path
-            sla_p.append(self.surrounding_points['LD'])
-            sla_p.append(self.surrounding_points['LU'])
-            self.navigate_buffer={
-                        'SLA_P':sla_p,
-                        'ANGLE':angle_r,
-                    }
+            sla_p=[self.surrounding_points['LDD'],self.surrounding_points['LD'],self.surrounding_points['LU']]
+            angle = angle_r
         elif turn_angle == -90.0:
-            self.my_path.plan_path(self.surrounding_points['RDD'][0],self.surrounding_points['RDD'][1], ignore_center_rect=True)
-            sla_p=self.my_path.ready_path
-            sla_p.append(self.surrounding_points['RD'])
-            self.navigate_buffer={
-                        'SLA_P':sla_p,
-                        'ANGLE':angle_l,
-                    }
+            sla_p=[self.surrounding_points['RDD'],self.surrounding_points['RD']]
+            angle = angle_l
+        if new_side:
+                if new_side =='D':self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[0][1])
+                elif new_side =='U':self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[3][1])
+                elif new_side =='L':self.my_path.plan_path(self.my_plan.Data.center_rect[0][0],sla_p[0][1])   
+                else:self.my_path.plan_path(self.my_plan.Data.center_rect[3][0],sla_p[0][1])
+                sla_p = self.my_path.ready_path + sla_p
+        self.navigate_buffer={
+                    'SLA_P':sla_p,
+                    'ANGLE':angle,
+                }
         
         self.if_get_orbit_angle=True
         self.current_state = ORBIT

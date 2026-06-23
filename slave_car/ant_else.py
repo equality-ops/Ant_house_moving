@@ -265,7 +265,9 @@ class UARTProtocol:
                 return None
         else:
             return None
-
+        
+    def send_object_kind(self, object_kind):
+        self.my_uart.write(object_kind.lower())
 # 主从机通信类
 class LinkProtocol:
     def __init__(self, uart3):
@@ -606,7 +608,8 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
-            self.my_moving.ready_move(self.pt_buffer[1],self.pt_buffer[0])
+            self.my_art_protocol.send_object_kind(self.current_object)
+            self.my_moving.ready_move(self.pt_buffer[1],self.pt_buffer[0],self.current_object)
             pass
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准

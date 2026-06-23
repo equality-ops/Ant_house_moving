@@ -98,6 +98,8 @@ class order_manager:
     def mode_apriltag(self):
         self.my_uart.write("C")
 
+    def mode_detect(self):
+        self.my_uart.write("A")
     # 当前模式结束
     def finish(self):
         self.my_uart.write("F")    
@@ -118,7 +120,7 @@ class UARTProtocol:
         self.state_detect_all_objects = 0 # 0:等待帧头1, 1:等待物体数量, 2:等待发送物体讯�? 5:等待帧尾
         self.detect_buffer = [0,[]]
         self.object_buffer = ['',0,0]
-        self.state_object = 0 # 0:等待物体种类, 1:等待x, 2:等待y, 3:等待帧尾
+        self.state_object = 0 # 0:等待x, 1:等待y, 2:等待物体种类
         gc.collect()
     def clear_uart_buffer(self):
         self.state_coordinate = 0
@@ -188,20 +190,14 @@ class UARTProtocol:
                     continue
             elif self.state_detect_all_objects == 2:
                 if self.state_object == 0:
-                    if byte in self.object_species:
-                        self.state_object = 1
-                        self.object_buffer[0] = byte
-                    else:
-                        self.reset_detect_objects()
-                        continue
-                elif self.state_object == 1:
                     self.object_buffer[1] = byte
+                    self.state_object = 1
+                elif self.state_object == 1:
+                    self.object_buffer[2] = byte
                     self.state_object = 2
                 elif self.state_object == 2:
-                    self.object_buffer[2] = byte
-                    self.state_object = 3
-                elif self.state_object == 3:
-                    if byte == 0x5B:
+                    if byte in self.object_species:
+                        self.object_buffer[0] = byte
                         self.state_object = 0
                         self.detect_buffer[1].append(self.object_buffer[:])
                         if len(self.detect_buffer[1])>=self.detect_buffer[0]:
@@ -293,6 +289,12 @@ class LinkProtocol:
         :param target_point: (x, y) 目标点坐�?
         """
         packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
+        self.my_uart3.write(packet.encode('utf-8'))
+
+    def send_detected_object(self, object_kind, target_point):
+        if isinstance(object_kind, int):
+            object_kind = chr(object_kind)
+        packet = "#D,{},{:.1f},{:.1f}!".format(object_kind, target_point[0], target_point[1])
         self.my_uart3.write(packet.encode('utf-8'))
     # 用于主车向从车发送当前姿�?
     def send_pose(self, v, yaw, turn_angle):
@@ -537,7 +539,7 @@ class flash_system:
         if "circle" in self.config:
             cr = self.config["circle"]
             if type(cr) is not list:
-                print("Error: 'circle' 必须是列�")
+                print("Error: circle must be list")
                 error_flag = True
             else:
                 for cir in cr:
@@ -551,7 +553,7 @@ class flash_system:
 
 # 状态机�?
 class TaskController:
-    def __init__(self, beep: beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, assist_protocol: AssistLinkProtocol):
+    def __init__(self,object_plan, beep: beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, assist_protocol: AssistLinkProtocol):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -566,7 +568,7 @@ class TaskController:
         self.my_art_protocol = art_protocal
         self.my_main_protocol = main_protocol
         self.my_assist_protocol = assist_protocol
-
+        self.object_plan = object_plan
         # 状态映射表：将状态常量映射到对应的处理函�?
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -589,9 +591,11 @@ class TaskController:
         # 标志�?
         self.if_transitioning = True  # 是否正在进行状态转�?
         self.if_send_path = False  # 是否已经发送路径规划信�?
+        self.detected_num = 0
+        self.if_send_detect_message = False
         self.last_side = 'D'
         self.retreat_message= (0,0)
-
+        
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -617,13 +621,19 @@ class TaskController:
             pass
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物�?
+            '''
             if self.my_vision.if_send_order == False:
                 # 打开摄像�?
                 self.my_order_manager.mode_target()
                 self.my_vision.if_send_order = True
+            '''
+            self.my_vision.reset_analysed_objects()
+            self.detected_num = 0
+            self.my_order_manager.mode_detect()
             if self.if_rogue_plan:
                 self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类信�?
-            self.scan_message.append([self.my_car.x_current, self.my_car.y_current])  # 记录扫描状态开始时小车的位置，作为后续判断是否迷路的参�?
+            self.my_vision.reset_analysed_objects()
+            #self.scan_message.append([self.my_car.x_current, self.my_car.y_current])  # 记录扫描状态开始时小车的位置，作为后续判断是否迷路的参�?
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物�?
             pass
@@ -658,11 +668,10 @@ class TaskController:
 
     def exit(self):
         state = self.my_state.state
-
         if state == READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
-            self.my_state.state = NAVIGATE  # 直接切换到导航状�?
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+            self.my_state.state = NAVIGATE  # 直接切换到导航状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
             if not self.if_send_path:
                 # 发送路径信息给从车
@@ -670,19 +679,18 @@ class TaskController:
             # 退出导航状态，停止路径跟随
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_state.state = SCAN  # 直接切换到扫描状�?
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+            self.my_state.state = SCAN  # 直接切换到扫描状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
-            
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
                 self.my_vision.reset_servo_angle()
                 self.my_art_protocol.send_object_kind(self.current_object)
                 self.my_state.state = MOVE
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
-                # 如果小车并没有找到物体，先跳过当前物�?
+                # 如果小车并没有找到物体，直接return
                 self.my_plan.reset_navigate()
                 self.my_state.state = RETURN
                 self.if_transitioning = True  # 退出当前状态，直接回家
@@ -834,11 +842,12 @@ class TaskController:
         else:
             target_angle = 0.0
             self.slave_navigate_message = [[target_x-scan_threshold, self.data.fixed_point[1][1] - slave_stop_threshold], target_angle]
-            main_final_pt = [target_x-scan_threshold, self.data.fixed_point[1][1]]
+            main_final_pt = [target_x-scan_threshold, self.data.fixed_point[1][1]-5]
+            #main_final_pt = [target_x, self.data.fixed_point[1][1]-5]
             if self.if_rogue_plan:
                 self.scan_message = [[target_x, target_y - stop_threshold]]
             else:
-                self.scan_message = [[target_x+scan_threshold,self.data.fixed_point[1][1]]]
+                self.scan_message = [[target_x+scan_threshold,self.data.fixed_point[1][1]-5]]
          # 进行路径规划
         self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
         self.navigate_message = [self.my_path.ready_path, target_angle]  # 准备导航信息
@@ -855,33 +864,48 @@ class TaskController:
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状�?
-   
-    def handle_scan(self):
-        # if state == SCAN
-        self.my_plan.navigate(path = self.scan_message)
 
-        target_point = self.my_art_protocol.coordinate_receive()
-        if self.if_rogue_plan:
-            if target_point:
-                self.my_vision.current_servo_object = self.current_object
-            if target_point and chr(target_point[2]) == self.current_object and self.my_moving.ready_move(target_point):  # 准备搬运动作  
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-                self.my_beep.test()  # 扫描到目标物体，发出提示�?
-                self.exit()  # 退出当前状态，进入扫描状�?
-                return
-        else:
-            if target_point:
-                self.current_object=chr(target_point[2])
+    def handle_scan(self):
+        def analyse_package(num):
+            if not self.if_send_detect_message:
+                self.if_send_detect_message = True
+                self.my_order_manager.mode_detect()
+            object_package=self.my_art_protocol.detect_objects_on_the_court()
+            if object_package:
+                self.my_vision.analyse_object_coordinate(object_package,if_cover = True)
+                self.detected_num+=1
+                if self.detected_num==num:
+                    self.my_order_manager.finish()
+                    self.if_send_detect_message = False
+                    self.my_uart.write(f"1{self.my_vision.analysed_objects}\n")
+        if self.detected_num < 2:
+            analyse_package(2)
+            self.my_plan.if_finish_navigate = False
+        if self.detected_num < 4:
+            self.my_plan.navigate(path = self.scan_message)
+            if self.my_plan.if_finish_navigate:
+                analyse_package(4)
+        if self.detected_num == 4:
+            self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side)
+            target = self.object_plan.find_target()
+            self.my_uart.write(f"score{self.object_plan.objects_score}\n")
+            self.my_uart.write(f"char{self.object_plan.objects_characters}\n")
+            self.my_uart.write(f"pt:{target[5]}\n")
+            if not target:
+                self.my_uart.write("False\n")
+                self.exit()
+            else:
+                #self.my_uart.write("rm ok\n")
+                self.object_plan.barrier.pop(target[0])
+                self.my_moving.now_barriar=self.object_plan.barrier[:]
+                self.current_object=target[4]
                 self.my_plan.current_object = self.current_object
                 self.my_vision.current_servo_object = self.current_object
-            if target_point and self.my_moving.ready_move(target_point) : # 准备搬运动作
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-                self.my_beep.test()  # scan found target
-                self.exit()  # leave scan
-                return
-        if self.my_plan.if_finish_navigate:
-            self.exit()  # 退出当前状态，进入伺服状�?
-            return
+                if target[3]!=self.last_side:rm = self.my_moving.ready_move(target[5],new_side = target[3])
+                else:rm = self.my_moving.ready_move(target[5])
+                self.my_uart.write(f"nav:{self.my_moving.navigate_buffer}\n")
+                if rm:self.my_plan.if_finish_navigate = False
+                self.exit()
 
     def handle_servo(self):
         # if state == SERVO
@@ -945,18 +969,6 @@ class TaskController:
                 self.exit()  # 退出当前状态，进入下一个状�?
 
     def handle_adjust(self):
-        # if state == ADJUST
-        '''
-        if self.my_vision.if_finish_orbit:
-            # 反环绕防止误触物�?
-            self.my_vision.orbit_control(self.navigate_message[1])
-        else:
-            # 回到扫描点附�?
-            self.my_plan.navigate(path = [self.navigate_message[0][-1]])
-
-        if self.my_plan.if_finish_navigate and self.my_vision.if_finish_orbit:
-            self.exit()  # 退出当前状态，进入下一个状�?
-        '''
         pass
 
     def handle_return(self):

@@ -28,6 +28,8 @@ import ant_else
 gc.collect()
 import ant_motor
 gc.collect()
+import ant_boundary_plan
+gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -198,18 +200,17 @@ my_path = ant_plan.PathPlan(plan_data, my_car)
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
-import ant_boundary_plan
-gc.collect()
+
 move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path)
 gc.collect()
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
-
+my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
 # 任务及类
-my_task = ant_else.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+my_task = ant_else.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)

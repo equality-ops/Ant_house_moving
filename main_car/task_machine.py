@@ -665,3 +665,28 @@ def show_speed_PID_test():
 
 '''
 
+        '''
+        self.my_plan.navigate(path = self.scan_message)
+        target_point = self.my_art_protocol.coordinate_receive()
+        if self.if_rogue_plan:
+            if target_point:
+                self.my_vision.current_servo_object = self.current_object
+            if target_point and chr(target_point[2]) == self.current_object and self.my_moving.ready_move(target_point):  # 准备搬运动作  
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_beep.test()  # 扫描到目标物体，发出提示�?
+                self.exit()  # 退出当前状态，进入扫描状�?
+                return
+        else:
+            if target_point:
+                self.current_object=chr(target_point[2])
+                self.my_plan.current_object = self.current_object
+                self.my_vision.current_servo_object = self.current_object
+            if target_point and self.my_moving.ready_move(target_point) : # 准备搬运动作
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_beep.test()  # scan found target
+                self.exit()  # leave scan
+                return
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入伺服状�?
+            return
+        '''
