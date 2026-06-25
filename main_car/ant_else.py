@@ -791,7 +791,6 @@ class TaskController:
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
     
     def handle_ready_navigate(self):
-
         # 进入准备导航状态，做好路径规划准备和导航信息准�?
         target_x = 160
         target_y = 120
@@ -802,7 +801,7 @@ class TaskController:
             self.if_transitioning = True
             return
         # 主车最终目标点
-        main_final_pt = []#惯导先到的位�?
+        main_final_pt = [] # 惯导先到的位�?
         if self.if_rogue_plan:
             target_x = self.data.rogue_planning[self.data.current_index][0][0]
             target_y = self.data.rogue_planning[self.data.current_index][0][1]
@@ -810,7 +809,7 @@ class TaskController:
             # 便于边线处减�?
             self.my_plan.current_object = self.current_object  
             self.last_side = self.data.rogue_planning[self.data.current_index][2]
-            scan_threshold=0
+            scan_threshold = 0
             # 小车导航到物体前的距�?
             stop_threshold = 20.0
             # 根据小车进入的边界信息选择合适的角度和扫描点信息

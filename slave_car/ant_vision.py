@@ -516,10 +516,12 @@ class MoveControl:
         }
 
         gc.collect()
+
     def reset_orbit(self):
         self.if_get_orbit_angle = False
         self.vision_manager.if_orbit_ready = False
         self.vision_manager.if_finish_orbit = False
+
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
         a=self.navigate_distance
         if car_angle == 0:
@@ -573,8 +575,9 @@ class MoveControl:
         else:
             if cy > 0:return 0.0  # 车头前方
             else:return 180.0  # 车尾后方
-    def ready_move(self,current_ref_yaw_deg,point,sp):
-        self.now_object_pt=point
+
+    def ready_move(self, current_ref_yaw_deg, point, sp):
+        self.now_object_pt = point
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         current_yaw_deg = self.record_angle * 180.0 / PI
         if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
@@ -587,36 +590,36 @@ class MoveControl:
             current_turn_deg = -90.0
         
         # 初始参考偏航角就是当前小车所在方向（度数）
-        turn_angle = 0
+        turn_angle = 0.0
         new_side = None
         if current_ref_yaw_deg != current_turn_deg:
-            if  current_ref_yaw_deg==0.0:new_side = 'D'
-            elif current_ref_yaw_deg ==180:new_side = 'U'
-            elif current_ref_yaw_deg ==90 :new_side =  'L'     
-            else:new_side =  'R' 
-            turn_angle = self.judge_next_turn(point,sp,current_ref_yaw_deg)
-        self.get_object_square_points(current_ref_yaw_deg,15)
+            if current_ref_yaw_deg == 0.0: new_side = 'D'
+            elif current_ref_yaw_deg == 180.0: new_side = 'U'
+            elif current_ref_yaw_deg == 90.0 : new_side =  'L'     
+            else: new_side =  'R' 
+            turn_angle = self.judge_next_turn(point, sp, current_ref_yaw_deg)
+        self.get_object_square_points(current_ref_yaw_deg, 15)
         target_turn = current_ref_yaw_deg + turn_angle
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
         if turn_angle == 0.0:
-            sla_p=[self.surrounding_points['RDD'],self.surrounding_points['RD']]
+            sla_p = [self.surrounding_points['RDD'],self.surrounding_points['RD']]
             angle = angle_r
         elif turn_angle == 90.0:
             sla_p=[self.surrounding_points['LDD'],self.surrounding_points['LD']]
             angle = angle_r
         elif turn_angle == 180.0:
-            sla_p=[self.surrounding_points['LDD'],self.surrounding_points['LD'],self.surrounding_points['LU']]
+            sla_p = [self.surrounding_points['LDD'],self.surrounding_points['LD'],self.surrounding_points['LU']]
             angle = angle_r
         elif turn_angle == -90.0:
             sla_p=[self.surrounding_points['RDD'],self.surrounding_points['RD']]
             angle = angle_l
         if new_side:
-                if new_side =='D':self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[0][1])
-                elif new_side =='U':self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[3][1])
-                elif new_side =='L':self.my_path.plan_path(self.my_plan.Data.center_rect[0][0],sla_p[0][1])   
-                else:self.my_path.plan_path(self.my_plan.Data.center_rect[3][0],sla_p[0][1])
-                sla_p = self.my_path.ready_path + sla_p
+            if new_side =='D': self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[0][1])
+            elif new_side =='U': self.my_path.plan_path(sla_p[0][0],self.my_plan.Data.center_rect[3][1])
+            elif new_side =='L': self.my_path.plan_path(self.my_plan.Data.center_rect[0][0],sla_p[0][1])   
+            else: self.my_path.plan_path(self.my_plan.Data.center_rect[3][0],sla_p[0][1])
+            sla_p = self.my_path.ready_path + sla_p
         self.navigate_buffer={
                     'SLA_P':sla_p,
                     'ANGLE':angle,
@@ -628,6 +631,7 @@ class MoveControl:
         self.if_send_to_main = False
         self.my_plan.reset_navigate()
         self.my_plan.reset_navigate_angle()
+
     # 重置小车里程计
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
@@ -663,6 +667,7 @@ class MoveControl:
             self.next_point = [self.my_car.x_current + coord_val, self.my_car.y_current]
         elif direct == float(ord('y')):
             self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
+    
     def caculate_move_path(self,path):
         try:
             dx=path[2][0]
@@ -683,6 +688,7 @@ class MoveControl:
             return [p1,p2]
         except:
             return []
+        
     # 状态过渡函数
     def state_transition(self):
         if self.current_state == ORBIT:

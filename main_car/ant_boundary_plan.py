@@ -76,7 +76,7 @@ class BoundaryPathPlanner:
                 rects.append(swell_rect(rect,swell_angle))
         return rects
 
-    def plan_move(self, direction, swell_dir, objects,x=None,y=None):
+    def plan_move(self, direction, swell_dir, objects, x=None, y=None):
         self.rects = self.special_swell_barriers(objects, swell_dir)
         self.ready_path = self.plan_one_turn(direction,x,y)
         return self.ready_path
@@ -271,6 +271,7 @@ class BoundaryPathPlanner:
             if self.my_plan._segment_hits_poly(a, b, rect):
                 return False
         return True
+    
 class objects_planner:
     def __init__(self, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.Data = plan_data
@@ -279,6 +280,7 @@ class objects_planner:
         self.objects = []
         self.objects_information = []
         self.objects_characters = []
+        self.barrier = []
         self.my_BoundaryPath = my_BoundaryPath
         self.near_therohold = 15
         self.objects_score = []

@@ -268,6 +268,7 @@ class UARTProtocol:
         
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
+
 # 主从机通信类
 class LinkProtocol:
     def __init__(self, uart3):
@@ -609,7 +610,7 @@ class TaskController:
             pass
         elif state == MOVE:
             self.my_art_protocol.send_object_kind(self.current_object)
-            self.my_moving.ready_move(self.pt_buffer[1],self.pt_buffer[0],self.current_object)
+            self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
             pass
         elif state == CALIBRATE:
             # 进入校准状态，进行位置或传感器校准
@@ -714,7 +715,7 @@ class TaskController:
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
             # 只有当路径信息为过渡或者回城时才记录目标点坐标
-            horizon_stop_threshold=10
+            horizon_stop_threshold = 10
             if path[0] not in ['P', 'R']:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
                 self.navigate_message = []  # 收到物体坐标先不导航
