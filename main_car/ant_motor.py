@@ -170,7 +170,7 @@ class PoseData:
         self.encoder_data_md = 0    # type: int
         
         # 陀螺仪补偿系数
-        self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
+        self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")
         # 加速度
         self.acc_x = 0              # type: float
         self.acc_y = 0              # type: float
@@ -193,9 +193,9 @@ class PoseData:
         # 上次更新时间戳
         self.last_update_time = time.ticks_us()
 
-        # 算法参数 (根据你的 2ms 采样周期设置)
-        self.dt = 0.002 
-        self.kp = 1.0  # 加速度计权重
+        # 算法参数 (根据你的 4ms 采样周期设置)
+        self.dt = 0.004 
+        self.kp = 10.0  # 加速度计权重
         self.ki = 0.00001 # 零偏补偿权重
 
         # 最终角度输出
@@ -206,7 +206,6 @@ class PoseData:
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 更新四元数
-    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -218,14 +217,14 @@ class PoseData:
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
 
-        G_REFERENCE = 4096.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
-        
+        G_REFERENCE = 4135.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+       
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.1
+        # 设定信任阈值 (偏差在 0.08g 以内完全信任，偏差大于 0.15g 完全不信任)
+        LOWER_THRESHOLD = 0.1
+        UPPER_THRESHOLD = 0.2
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -268,7 +267,7 @@ class PoseData:
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
-        
+
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
         q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
@@ -284,7 +283,6 @@ class PoseData:
         self.q[3] = q3_new/norm
     
     # 将四元数转化为欧拉角
-    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
@@ -321,7 +319,7 @@ class PoseData:
         # 1. 将角度转换为半角弧度
         half_roll = self.now_roll * 0.5 * (PI / 180.0)
         half_pitch = self.now_pitch * 0.5 * (PI / 180.0)
-        half_yaw = -ref_yaw_deg * 0.5 * (PI / 180.0)
+        half_yaw = ref_yaw_deg * 0.5 * (PI / 180.0)
 
         # 2. 预计算三角函数以提高运算效率
         sr = math.sin(half_roll)
@@ -362,7 +360,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 1000
+        sample_count = 1500
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -370,11 +368,12 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(4)
+            time.sleep_ms(2)  # 延时2ms，确保采样间隔均匀
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
         self.gyro_z_bias = gyro_z_sum / sample_count
+
 
     # 传感器数据更新函数
     def update_data(self):
@@ -384,38 +383,30 @@ class PoseData:
         self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
         self.last_update_time = current_time
 
-        # print(f"dt: {self.dt:.6f} s")
         # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
-            self.dt = 0.002
+            self.dt = 0.004
 
-        self.encoder_data_ul = self.encoder_ul.get() * 3
-        self.encoder_data_ur = self.encoder_ur.get() * 3
-        self.encoder_data_md = self.encoder_md.get() * 3
+        self.encoder_data_ul = self.encoder_ul.get()
+        self.encoder_data_ur = self.encoder_ur.get()
+        self.encoder_data_md = self.encoder_md.get()
 
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         # self.gkd用于角速度环控制
-        self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_z_gkd = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # gyro_z用于四元数解算
-        self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
+        self.gyro_z = -self.gyro_z_gkd * (PI / 180.0)  # 转换为弧度每秒
 
         DEADBAND = 0.004 # 弧度每秒
         if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
         if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
         if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
 
-        # 注意：这里千万不要因为陀螺仪为 0 就直接 return 退出！
-        # 如果退出，加速度计就无法把移动时产生的错误倾角（Pitch/Roll）慢慢修正回 0
-            
-        # 3. 运行 AHRS 算法（构建严格的“右前上”或“前往左上”右手坐标系）
-        # 基于你的物理方向，我们将其映射为：X向前，Y向左，Z向上 (这也是标准的 FLU 右手标系)
-        # 加速度映射：原X向后->取负变向前；原Y向左->保留向左(+1)；原Z向下(静止负)->取负变向上
-        # 角速度映射：原gx(绕向后)被翻转；原gy(绕向左)保留；原gz(顺时针)被翻转为逆时针
-        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], 
-                         -self.gyro_x, self.gyro_y, -self.gyro_z)
-        
+        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2],
+                        -self.gyro_x, -self.gyro_y, -self.gyro_z)
+
         # 4. 更新欧拉角输出
         self.update_euler_angles()
 
@@ -668,7 +659,7 @@ class CarPose:
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (OneThird * SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
 
         # 计算小车在世界坐标系下的偏航角
-        self.now_yaw = -self.pose_data.now_yaw * PI / 180.0
+        self.now_yaw = self.pose_data.now_yaw * PI / 180.0
         # 限定now_yaw在-2pi到2pi之间
         if self.now_yaw > PI:  self.now_yaw -= 2 * PI
         elif self.now_yaw < -PI:  self.now_yaw += 2 * PI

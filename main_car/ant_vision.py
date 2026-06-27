@@ -73,13 +73,10 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix = [[ 4.26029056e+00, -6.84019370e-02, -3.08421308e+02],
-                            [ 4.43673677e-16, -4.32808717e+00,  4.32808717e+02],
-                            [ 1.97122056e-17,  1.60411622e-01,  1.00000000e+00]]
-        
-        self.far_H_matrix = [[ 4.26029056e+00, -6.84019370e-02, -3.08421308e+02],
-                            [ 4.43673677e-16, -4.32808717e+00,  4.32808717e+02],
-                            [ 1.97122056e-17,  1.60411622e-01,  1.00000000e+00]]
+        self.H_matrix = [[-1.91770577e+01, -3.33345955e-01,  1.42802747e+03],
+                            [ 2.31947497e-01, -1.52060135e+01,  1.98827669e+03],
+                            [-1.00738938e-02,  8.54771435e-01,  1.00000000e+00]]
+    
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -164,7 +161,7 @@ class VisionManager:
         self.if_finish_orbit = True
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str):
+    def pixel_to_real_world(self, u, v):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -186,10 +183,7 @@ class VisionManager:
                 object_H = 2.0
 
         # 根据物体远近选择单应性矩阵H
-        if sign == 'close':
-            H_matrix = self.close_H_matrix
-        elif sign == 'far':
-            H_matrix = self.far_H_matrix
+        H_matrix = self.H_matrix
 
         K = (22.0 - object_H) / 22.0
         # 计算缩放因子
@@ -202,7 +196,7 @@ class VisionManager:
 
     # 判断物体实际坐标是否合理（过远则舍弃）
     def judge_if_object_rational(self, x, y):
-        x_w, y_w = self.pixel_to_real_world(x, y, 'far')
+        x_w, y_w = self.pixel_to_real_world(x, y)
         return y_w <= self.max_rational_dist # 合理距离阈值（cm）
 
     # 动态调整视觉伺服pid参数
@@ -213,9 +207,9 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     # 物体像素点坐标解算函数
-    def calculate_dist(self, x: int, y: int, sign: str = 'far'):
+    def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
-        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
+        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
         self.relative_raw_y = self.relative_raw_y - self.final_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
@@ -248,7 +242,7 @@ class VisionManager:
     def predict_point(self, x, y):
         car_radius = 12.0
 
-        raw_x, raw_y = self.pixel_to_real_world(x, y, 'far')
+        raw_x, raw_y = self.pixel_to_real_world(x, y)
         raw_y += car_radius
         relative_angle = -math.atan2(-raw_x, raw_y)
         actual_angle = self.my_car.now_yaw + relative_angle
@@ -274,7 +268,7 @@ class VisionManager:
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
-            self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
+            self.calculate_dist(self.target_point[0], self.target_point[1])
             '''
             # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
             jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
@@ -501,7 +495,7 @@ class VisionManager:
                 # 重置掉帧计数
                 self.servo_lost_count = 0
                 # self.angle_temp = target_point[2]
-                corrected_x, corrected_y = self.pixel_to_real_world(target_point[0], target_point[1], 'close')
+                corrected_x, corrected_y = self.pixel_to_real_world(target_point[0], target_point[1])
 
                 # 测试
                 self.my_uart3.write(f"Corrected X: {corrected_x:.2f} cm, Corrected Y: {corrected_y:.2f} cm, angle: {target_point[2]:.2f}\r\n")
@@ -601,4 +595,4 @@ class VisionManager:
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
-        self.calculate_dist(target_point[0], target_point[1], 'far')
+        self.calculate_dist(target_point[0], target_point[1])
