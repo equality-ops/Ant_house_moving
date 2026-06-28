@@ -195,7 +195,7 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 10.0  # 加速度计权重
+        self.kp = 0.5  # 加速度计权重
         self.ki = 0.00001 # 零偏补偿权重
 
         # 最终角度输出
@@ -222,9 +222,9 @@ class PoseData:
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.08g 以内完全信任，偏差大于 0.15g 完全不信任)
-        LOWER_THRESHOLD = 0.1
-        UPPER_THRESHOLD = 0.2
+        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.1
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -319,7 +319,7 @@ class PoseData:
         # 1. 将角度转换为半角弧度
         half_roll = self.now_roll * 0.5 * (PI / 180.0)
         half_pitch = self.now_pitch * 0.5 * (PI / 180.0)
-        half_yaw = ref_yaw_deg * 0.5 * (PI / 180.0)
+        half_yaw = -ref_yaw_deg * 0.5 * (PI / 180.0)
 
         # 2. 预计算三角函数以提高运算效率
         sr = math.sin(half_roll)
@@ -387,7 +387,7 @@ class PoseData:
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
             self.dt = 0.004
-
+            
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
@@ -405,7 +405,7 @@ class PoseData:
         if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
 
         self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2],
-                        -self.gyro_x, -self.gyro_y, -self.gyro_z)
+                        self.gyro_x, self.gyro_y, self.gyro_z)
 
         # 4. 更新欧拉角输出
         self.update_euler_angles()
@@ -659,7 +659,7 @@ class CarPose:
         self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (OneThird * SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
 
         # 计算小车在世界坐标系下的偏航角
-        self.now_yaw = self.pose_data.now_yaw * PI / 180.0
+        self.now_yaw = -self.pose_data.now_yaw * PI / 180.0
         # 限定now_yaw在-2pi到2pi之间
         if self.now_yaw > PI:  self.now_yaw -= 2 * PI
         elif self.now_yaw < -PI:  self.now_yaw += 2 * PI

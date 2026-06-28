@@ -550,7 +550,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.gyro_z_gkd},{pose_data.gyro_z_gkd * my_car.gkd},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.turn_angle_target}\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{pose_data.q}\r\n")
     # my_uart3.write(f"{my_car.x_current},{my_car.y_current},{my_car.now_yaw * 180 / PI}\n")
     #my_uart3.write(f"{pose_data.e_int}\r\n")
