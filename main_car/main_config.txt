@@ -36,14 +36,14 @@ kv = 20.0
 integral_limitmax = 10000
 pwmout_limitmax = 9000
 
-angle_normal_kp = 25.0
+angle_normal_kp = 30.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.2
-high_angle_pwmout_limitmax = 250
-low_angle_pwmout_limitmax = 200
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 200
 # B大致为最大静差的1.5倍
@@ -51,11 +51,11 @@ B = 100
 
 ###################【系数】####################
 # 速度转换系数(不需要调试)
-speed_conversion_gamma = 2.0
+speed_conversion_gamma = 3.0
 # 速度互补滤波系数（弱滤波）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数(不需要调试)
-gyro_z_supply = 1.147093
+gyro_z_supply = 1.146436
 
 ###################【时间规划】####################
 motor_control_T = 4
@@ -73,13 +73,13 @@ error_x_B = 2.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1380
+fixed_high_level_us = 1350
 
-min_start_v = 40
+min_start_v = 30
 long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
-acc_move_coef = 0.02
+acc_move_coef = 0.04
 dec_coef = 0.08
 
 orbit_v_max = 100

@@ -175,8 +175,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 1.0
-        self.my_car.alpha_y = 1.0
+        self.my_car.alpha_x = 0.949102
+        self.my_car.alpha_y = 0.950803
         
 
     # 根据当前过渡距离计算加减速距离
@@ -334,10 +334,8 @@ class NavigationPlan:
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
         elif is_last_segment and self.rest_dist <= self.final_threshold:
-            # 到达目标点关闭负压风扇
-            # self.my_fan.fan_off()
-            # 测试打印
-            # self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
+            # 清空上一次小车速度
+            self.my_car.clear_last_car_speed()
             self.if_finish_navigate = True
             self.stop()
 

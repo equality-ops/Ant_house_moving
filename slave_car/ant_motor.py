@@ -40,6 +40,7 @@ class PhotoControl:
     def reset_photo(self):
         self.on_line_times = 0
         self.current_state = InField
+        
 
 # 无刷风扇控制类
 class FanControl:
@@ -48,7 +49,7 @@ class FanControl:
         self.my_fan = fan
         self.my_state = state
 
-        self.fan_signal_limit = 1350  # type: int  # 无刷风扇信号限幅
+        self.fan_signal_limit = 1500  # type: int  # 无刷风扇信号限幅
         self.if_fan = self.flash_sys.find_value("if_fan")  # type: bool  # 是否开启风扇控制
         self.fixed_high_level_us = self.flash_sys.find_value("fixed_high_level_us")  # type: int  # 高电平持续时间，单位微秒
 
@@ -56,7 +57,7 @@ class FanControl:
 
     # 设置无刷风扇的高电平时间
     def set_fan_signal(self):
-         # 限幅在 1000-self.fan_signal_limit 之间
+        # 限幅在 1000-self.fan_signal_limit 之间
         if self.if_fan:
             high_level_us = max(1000, min(self.fixed_high_level_us, self.fan_signal_limit)) 
             # 更新高电平时间值
@@ -72,11 +73,12 @@ class FanControl:
     # 关闭风扇（设置为最低信号）
     def fan_off(self):
         self.my_fan.highlevel_us(1000)
-        
+
 class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
-        self.flash_sys = flash_sys        
+        self.flash_sys = flash_sys
+
         self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
         self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
         self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
@@ -107,6 +109,8 @@ class PID_data:
         self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
         self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
 
+        gc.collect()  # 主动触发垃圾回收，释放内存
+
 # 滑动平均滤波器
 class SlipAveragingFilter:
     # 构造对象时传入滤波窗口大小
@@ -115,6 +119,8 @@ class SlipAveragingFilter:
         self.index = 0
         self.last_value = 0.0
         self.buffer = [0.0] * filter_size
+
+        gc.collect()
 
     def buffer_init(self, initial_value):
         self.buffer = [initial_value] * self.filter_size
@@ -133,13 +139,14 @@ class KalmanFilter:
         self.R = R
         self.Output = initial_output
 
+        gc.collect()
+
     def update(self, input_value):
         self.P += self.Q
         K = self.P / (self.P + self.R)
         self.Output += K * (input_value - self.Output)
         self.P = (1 - K) * self.P
-        return self.Output
-    
+        return self.Output    
     
 class PoseData:
     def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
@@ -163,7 +170,7 @@ class PoseData:
         self.encoder_data_md = 0    # type: int
         
         # 陀螺仪补偿系数
-        self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
+        self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")
         # 加速度
         self.acc_x = 0              # type: float
         self.acc_y = 0              # type: float
@@ -186,8 +193,8 @@ class PoseData:
         # 上次更新时间戳
         self.last_update_time = time.ticks_us()
 
-        # 算法参数 (根据你的 2ms 采样周期设置)
-        self.dt = 0.002 
+        # 算法参数 (根据你的 4ms 采样周期设置)
+        self.dt = 0.004 
         self.kp = 1.0  # 加速度计权重
         self.ki = 0.00001 # 零偏补偿权重
 
@@ -199,7 +206,6 @@ class PoseData:
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 更新四元数
-    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -211,14 +217,14 @@ class PoseData:
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
 
-        G_REFERENCE = 4096.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
-        
+        G_REFERENCE = 4195.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+       
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.1
+        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
+        LOWER_THRESHOLD = 0.1
+        UPPER_THRESHOLD = 0.2
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -261,7 +267,7 @@ class PoseData:
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
-        
+
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
         q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
@@ -277,7 +283,6 @@ class PoseData:
         self.q[3] = q3_new/norm
     
     # 将四元数转化为欧拉角
-    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
@@ -355,7 +360,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 1000
+        sample_count = 1500
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -363,11 +368,12 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(4)
+            time.sleep_ms(2)  # 延时2ms，确保采样间隔均匀
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
         self.gyro_z_bias = gyro_z_sum / sample_count
+
 
     # 传感器数据更新函数
     def update_data(self):
@@ -377,40 +383,32 @@ class PoseData:
         self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
         self.last_update_time = current_time
 
-        # print(f"dt: {self.dt:.6f} s")
         # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
-            self.dt = 0.002
-
-        self.encoder_data_ul = self.encoder_ul.get() * 3
-        self.encoder_data_ur = self.encoder_ur.get() * 3
-        self.encoder_data_md = self.encoder_md.get() * 3
+            self.dt = 0.004
+            
+        self.encoder_data_ul = self.encoder_ul.get()
+        self.encoder_data_ur = self.encoder_ur.get()
+        self.encoder_data_md = self.encoder_md.get()
 
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
+        self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         # self.gkd用于角速度环控制
-        self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
-        # gyro_z用于四元数解算
-        self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
+        self.gyro_z_gkd = -self.gyro_z * (180.0 / PI)
 
         DEADBAND = 0.004 # 弧度每秒
         if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
         if abs(self.gyro_y) < DEADBAND: self.gyro_y = 0.0
         if abs(self.gyro_z) < DEADBAND: self.gyro_z = 0.0
 
-        # 注意：这里千万不要因为陀螺仪为 0 就直接 return 退出！
-        # 如果退出，加速度计就无法把移动时产生的错误倾角（Pitch/Roll）慢慢修正回 0
-            
-        # 3. 运行 AHRS 算法（构建严格的“右前上”或“前往左上”右手坐标系）
-        # 基于你的物理方向，我们将其映射为：X向前，Y向左，Z向上 (这也是标准的 FLU 右手标系)
-        # 加速度映射：原X向后->取负变向前；原Y向左->保留向左(+1)；原Z向下(静止负)->取负变向上
-        # 角速度映射：原gx(绕向后)被翻转；原gy(绕向左)保留；原gz(顺时针)被翻转为逆时针
-        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], 
-                         -self.gyro_x, self.gyro_y, -self.gyro_z)
-        
+        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2],
+                        self.gyro_x, self.gyro_y, self.gyro_z)
+
         # 4. 更新欧拉角输出
         self.update_euler_angles()
+
         
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
@@ -450,7 +448,7 @@ class SpeedPositionPID(ControlPID):
     def compute_pid(self, target: float, actual: int):
         # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
         if abs(target) <= 5 and abs(self.target) >= 1e-6:
-            self.integral = 0
+            self.reset_integral()
 
         self.target = target
         self.actual = actual
@@ -496,6 +494,9 @@ class SpeedPositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
+    # 清零积分项
+    def reset_integral(self):
+        self.integral = 0
 
 # 角度环PID
 class AnglePositionPID(ControlPID):
@@ -546,17 +547,17 @@ class ServoPID(ControlPID):
         self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
         self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
         self.servo_kp_x = 0.0
-        self.servo_kd_x = 0.0
         self.servo_kp_y = 0.0
+        self.servo_kd_x = 0.0
         self.servo_kd_y = 0.0
         self.target_x = 0.0
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float
         self.actual_y = 0.0     # type: float
-        
+
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
-        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    
+        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
 
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
@@ -566,11 +567,11 @@ class ServoPID(ControlPID):
         self.derivative_y = 0 # type: float
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
-        self.servo_pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax") 
+        self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
     
         gc.collect()  # 主动触发垃圾回收，释放内存
 
-    # pid计算
+    # 模型下的pid计算
     def model_compute_pid(self, actual_x: float, actual_y: float):
         self.actual_x = actual_x
         self.actual_y = actual_y    
@@ -586,9 +587,9 @@ class ServoPID(ControlPID):
         self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
 
         # pwm_output限幅
-        self.pwm_output_x = max(-self.servo_pwmout_limitmax, min(self.pwm_output_x, self.servo_pwmout_limitmax))
-        self.pwm_output_y = max(-self.servo_pwmout_limitmax, min(self.pwm_output_y, self.servo_pwmout_limitmax))
-        # 模型下的pid计算
+        self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
+        self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
+
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
@@ -639,7 +640,12 @@ class CarPose:
         # self.encouder_md = 0.0
 
         gc.collect()  # 主动触发垃圾回收，释放内存
-        
+    
+    # 清空上一次速度
+    def clear_last_car_speed(self):
+        self.last_car_speed_x = 0.0
+        self.last_car_speed_y = 0.0
+
     # 小车姿态更新
     def update_pose(self):
         ###################【速度计算】###################
@@ -700,7 +706,7 @@ class CarPose:
         motor_ul_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target + car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_ur_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target - car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_md_speed_target = (car_speed_w_target * OneThird - car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
-        
+
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
         self.motor_ur_pid.compute_pid(motor_ur_speed_target, self.pose_data.encoder_data_ur)
@@ -711,6 +717,7 @@ class CarPose:
         self.motor_ul.duty(int(self.motor_ul_pid.pwm_output))
         self.motor_ur.duty(int(self.motor_ur_pid.pwm_output))
         self.motor_md.duty(int(self.motor_md_pid.pwm_output))
+
     # pwm信号归零
     def pwm_stop(self):
         self.motor_ul.duty(0)

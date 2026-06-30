@@ -3,14 +3,14 @@
 ###################【PID参数】####################
 # speed大于220时
 ul_high_kp = 45.0
-ul_high_ki = 0.45
-ul_high_kd = 25.0
+ul_high_ki = 0.5
+ul_high_kd = 30.0
 ur_high_kp = 45.0
-ur_high_ki = 0.45
-ur_high_kd = 25.0
+ur_high_ki = 0.5
+ur_high_kd = 30.0
 md_high_kp = 45.0
-md_high_ki = 0.45
-md_high_kd = 25.0
+md_high_ki = 0.5
+md_high_kd = 30.0
 # speed大于70，小于170时
 ul_mid_kp = 40.0
 ul_mid_ki = 0.4
@@ -23,25 +23,25 @@ md_mid_ki = 0.4
 md_mid_kd = 20.0
 # speed小于70时
 ul_low_kp = 30.0
-ul_low_ki = 0.25
+ul_low_ki = 0.36
 ul_low_kd = 20.0
 ur_low_kp = 30.0
-ur_low_ki = 0.25
+ur_low_ki = 0.36
 ur_low_kd = 20.0
 md_low_kp = 30.0
-md_low_ki = 0.25
+md_low_ki = 0.36
 md_low_kd = 20.0
 # 速度前馈系数
-kv = 15.0
+kv = 20.0
 integral_limitmax = 10000
-pwmout_limitmax = 8000
+pwmout_limitmax = 9000
 
-angle_normal_kp = 25.0
+angle_normal_kp = 30.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.25
+gkd = -0.2
 high_angle_pwmout_limitmax = 450
 low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
@@ -51,15 +51,14 @@ B = 100
 
 ###################【系数】####################
 # 速度转换系数(不需要调试)
-speed_conversion_gamma = 1.0
-# 速度互补滤波系数（可修改）
-speed_fuse_ratio = 0.3
+speed_conversion_gamma = 3.0
+# 速度互补滤波系数（弱滤波）
+speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数(不需要调试)
-gyro_y_supply = 1.151499
+gyro_z_supply = 1.0
 
 ###################【时间规划】####################
-motor_control_T = 2
-collect_dt = 0.002
+motor_control_T = 4
 plan_calculate_T = 10
 uart_and_menu_T = 53
 
@@ -72,7 +71,7 @@ error_x_S = 2.0
 error_x_B = 2.0
 ###################【风扇控制】####################
 if_fan = 1
-fixed_high_level_us = 1250
+fixed_high_level_us = 1350
 
 ###################【速度规划】####################
 min_start_v = 25

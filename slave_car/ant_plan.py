@@ -28,7 +28,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为从车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为从车返回点
-        self.fixed_point = [[15.0, -14.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
+        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
 
         gc.collect()
     
@@ -135,7 +135,7 @@ class NavigationPlan:
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
             # 再缩放0.2系数，让速度更保守一些，增加过弯安全裕量
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.7
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.5
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -167,8 +167,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 0.939524
-        self.my_car.alpha_y = 0.915747
+        self.my_car.alpha_x = 0.934898
+        self.my_car.alpha_y = 0.943381
 
 
     # 根据当前过渡距离计算加减速距离
@@ -315,8 +315,8 @@ class NavigationPlan:
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
         elif is_last_segment and self.rest_dist <= self.final_threshold:
-            # 到达目标点关闭负压风扇
-            # self.my_fan.fan_off()
+            # 清空上一次小车速度
+            self.my_car.clear_last_car_speed()
             # 重置导航标志位
             self.if_finish_navigate = True
             self.stop()

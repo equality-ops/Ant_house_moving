@@ -82,8 +82,8 @@ my_uart8 = UART(7)
 my_uart8.init(115200)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=True)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=False)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty=0, invert=True)
 
 """传感器初始化"""
@@ -499,8 +499,8 @@ def time_pit3_handler(time) -> None:
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[-50.0, 20.0], [30.0, 40.0], [40.0, 0.0], [0.0, 120.0], [-20.0, 20.0],  [0.0, 50.0], [30.0, 50.0],  [0.0, 0.0]])
-        my_plan.navigate(path = [[-80.0, 0.0], [-80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
+        # my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [160.0, 0.0], [0.0, 0.0]])
         # my_plan.navigate(path = [[35.0, 10.0], [155.0, 10.0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
@@ -550,7 +550,9 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.gyro_z_gkd},{pose_data.gyro_z_gkd * my_car.gkd},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.turn_angle_target}\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # if pose_data.imu_data:
+        # my_uart3.write(f"{pose_data.imu_data[0]},{pose_data.imu_data[1]},{pose_data.imu_data[2]},{pose_data.imu_data[3]},{pose_data.imu_data[4]},{pose_data.imu_data[5]}\n")
     # my_uart3.write(f"{pose_data.q}\r\n")
     # my_uart3.write(f"{my_car.x_current},{my_car.y_current},{my_car.now_yaw * 180 / PI}\n")
     #my_uart3.write(f"{pose_data.e_int}\r\n")

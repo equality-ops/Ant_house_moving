@@ -77,15 +77,15 @@ my_uart8.init(115200)
 photo = Pin('B4', Pin.IN, value = False)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=False)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty=0, invert=True)
 
 """传感器初始化"""
 # 编码器初始化
-encoder_md = encoder("D13", "D14", True)
-encoder_ur = encoder("D16", "D15", True)
-encoder_ul = encoder("C2" , "C3" ,True)
+encoder_ul = encoder("C2" , "C3" , True)
+encoder_ur = encoder("D13", "D14", True)
+encoder_md = encoder("D16", "D15", True)
 
 # IMU初始化
 imu = IMU660RX()
@@ -235,7 +235,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -246,8 +246,8 @@ def slave_start():
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
-                # 延时1.5秒避免零漂校准不准确
-                time.sleep_ms(1500)
+                # 延时2秒避免零漂校准不准确
+                time.sleep_ms(2000)
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
@@ -472,20 +472,19 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
-    """
+    
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 90.0)
+        # my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
         # my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
-        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
-        # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        my_plan.navigate(path = [[0.0, 60.0]])
+        # my_plan.navigate(path = [[0.0, 60.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -494,7 +493,6 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -520,6 +518,7 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     slave_start()
+
     #my_uart3.write(f"{pose_data.now_yaw}\n")
     # 读取按键（中断中避免阻塞，快速返回）
     """
@@ -527,9 +526,9 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
     """
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
-    #  my_uart3.write(f"state: {my_state.state}, object_status: {my_task.object_status}\n")
+    # my_uart3.write(f"state: {my_state.state}, object_status: {my_task.object_status}\n")
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
