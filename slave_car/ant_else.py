@@ -717,25 +717,25 @@ class TaskController:
         elif state == SERVO:
             # 退出伺服状态，停止精确对准动作
             if self.my_vision.if_finish_servo:
-                
-                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                    counter += 1
-                    # 延时300ms
-                    if counter > 30:
-                        # 重置计数器
-                        counter = 0
+                counter += 1
+                # 延时200ms
+                if counter > 20:
+                     # 重置计数器
+                    counter = 0
+                    if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
                         self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服
+                        self.my_uart8.write(f"S")
                         self.my_vision.if_finish_servo = False  # 重置伺服`完成标志
                         self.if_to_top = True  # 已经从下区域切换到上区域
                         self.my_plan.reset_navigate_angle()
                         self.my_state.state = MOVE  # 直接切换到搬运状态
-                else:
-                    self.my_vision.if_finish_servo = False  # 重置伺服完成标志
-                    # 重置环绕角度
-                    self.my_vision.reset_orbit_angle()
-                    self.my_state.state = ORBIT  # 直接切换到环绕状态
+                    else:
+                        self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                        # 重置环绕角度
+                        self.my_vision.reset_orbit_angle()
+                        self.my_state.state = ORBIT  # 直接切换到环绕状态
 
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.my_plan.if_finish_navigate:
                 self.my_vision.if_lost_object = False
                 # 将openart置为等待模式
@@ -750,8 +750,8 @@ class TaskController:
             # 搬运过程中停下负压防止起步不同步
             # self.my_fan.fan_off()
             counter += 1
-            # 延时300ms
-            if counter > 30:
+            # 延时200ms
+            if counter > 20:
                 # 重置计数器
                 counter = 0
                 self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕

@@ -240,7 +240,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -301,8 +301,8 @@ def test_vision_servo():
         my_vision_manager.visual_servo_control()
         if my_vision_manager.if_finish_servo == True:
             # my_order_manager.mode_target()
-            # my_plan.reset_navigate_angle()
-            # my_state.state = STOP
+            my_plan.reset_navigate_angle()
+            my_state.state = STOP
             counter += 1
             if counter >= 50:
                 counter = 0
@@ -377,6 +377,19 @@ def test_predict_pt():
             predict_pt = my_vision_manager.predict_point(target_point[0], target_point[1])
             my_uart3.write(f"predict_point: {predict_pt}\n")
 
+def test_main_slave_sync():
+    if my_state.state == READY_NAVIGATE:
+        if my_main_protocol.get_slave_state() == "finish":
+            my_uart3.write(f"M")
+            my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[35.0, 80.0]])
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            my_state.state = STOP
+    elif my_state.state == STOP:
+        my_plan.stop()
 
 # 小车姿态总控制函数
 def master_control():
@@ -493,7 +506,7 @@ def time_pit3_handler(time) -> None:
     # task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -509,7 +522,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-    
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -527,7 +540,9 @@ def time_pit3_handler(time) -> None:
 
     # 视觉预测点测试程序
     # test_predict_pt()
-
+    
+    # 测试主从车是否同步
+    test_main_slave_sync()
     pass
 
 

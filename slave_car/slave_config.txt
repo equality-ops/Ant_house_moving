@@ -1,4 +1,4 @@
-# 修改时间 6.22	  17:40
+# 修改时间 7.1	  00:26
 
 ###################【PID参数】####################
 # speed大于220时
@@ -55,34 +55,35 @@ speed_conversion_gamma = 3.0
 # 速度互补滤波系数（弱滤波）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数(不需要调试)
-gyro_z_supply = 1.0
+gyro_z_supply = 1.147386
 
 ###################【时间规划】####################
 motor_control_T = 4
 plan_calculate_T = 10
 uart_and_menu_T = 53
-
 ###################【路径规划】####################
+total_objects_num = 5
+
 final_threshold = 1.0
 branch_threshold = 5.0
 
 error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
-###################【风扇控制】####################
+###################【速度规划】####################
+# 负压风扇
 if_fan = 1
 fixed_high_level_us = 1350
 
-###################【速度规划】####################
-min_start_v = 25
-long_v_max = 220
+min_start_v = 30
+long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
-acc_move_coef = 0.01
+acc_move_coef = 0.04
 dec_coef = 0.08
 
-orbit_v_max = 100
-orbit_v_min = 20
+orbit_v_max = 120
+orbit_v_min = 30
 
 # 不同物体的搬运速度
 move_v_max_T = 180
@@ -91,29 +92,30 @@ move_v_max_B = 180
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_kp_normal_x = 8.0
+servo_kp_normal_x = 7.0
 servo_kd_normal_x = 10.0
-servo_kp_normal_y = 8.0
+servo_kp_normal_y = 7.0
 servo_kd_normal_y = 10.0
 
-servo_target_y_T = 2.0
-servo_target_y_S = 2.5
+servo_target_y_T = 2.5
+servo_target_y_S = 3.0
 servo_target_y_B = 6.0
-
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
 
+max_rational_dist = 55.0
+
 min_rel_speed = 25
-max_rel_speed = 150
-servo_pwmout_limitmax = 150
+max_rel_speed = 140
+servo_pwmout_limitmax = 140
 
 ###################【环绕控制】####################
-radius_T = 16.0
-radius_S = 18.5
-radius_B = 20.0
-angle_T = 134.0
-angle_S = 140.0
-angle_B = 142.0
+radius_T = 14.0
+radius_S = 16.0
+radius_B = 18.5
+angle_T = 136.5
+angle_S = 147.0
+angle_B = 147.0
 
-# 小车最高速度为290
+# 小车最高速度为180

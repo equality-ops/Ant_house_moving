@@ -73,9 +73,9 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.H_matrix = [[-1.91770577e+01, -3.33345955e-01,  1.42802747e+03],
-                            [ 2.31947497e-01, -1.52060135e+01,  1.98827669e+03],
-                            [-1.00738938e-02,  8.54771435e-01,  1.00000000e+00]]
+        self.H_matrix = [[ 3.08372788e+01, -2.29877897e-01, -2.65567281e+03],
+                        [ 1.70831047e-16, -2.47072012e+01,  3.30074756e+03],
+                        [ 4.95685273e-18,  1.33055071e+00,  1.00000000e+00]]
     
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
@@ -115,7 +115,7 @@ class VisionManager:
         self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
-        self.car_radius = 11.0   # 小车推杆到中心的距离
+        self.correct_dist = 5.85    # 经验修正
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -178,14 +178,14 @@ class VisionManager:
             if self.current_servo_object in ['T']:
                 object_H = 2.5
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 4.0
+                object_H = 6.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H = 2.0
 
         # 根据物体远近选择单应性矩阵H
         H_matrix = self.H_matrix
 
-        K = (22.0 - object_H) / 22.0
+        K = (19.0 - object_H) / 19.0
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -202,7 +202,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.6, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
+        scale = max(0.7, min(1.0, dist / 10.0)) # 6cm外全速，近处最少降70%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
@@ -210,7 +210,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
-        self.relative_raw_y = self.relative_raw_y - self.final_dist
+        self.relative_raw_y = self.relative_raw_y - self.final_dist - self.correct_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -240,7 +240,7 @@ class VisionManager:
 
     # 推测目标点位并进行视觉伺服控制
     def predict_point(self, x, y):
-        car_radius = 12.0
+        car_radius = 10.0
 
         raw_x, raw_y = self.pixel_to_real_world(x, y)
         raw_y += car_radius
@@ -267,25 +267,7 @@ class VisionManager:
         
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
-            # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
             self.calculate_dist(self.target_point[0], self.target_point[1])
-            '''
-            # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
-            jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
-            
-            if old_servo_point != [0, 0] and jump_dist > 10.0:  # 10cm以上的跳变认为是其他物体
-                self.real_servo_point = old_servo_point   # 判断为其他物体，还原回被锁定的旧目标坐标
-                self.servo_lost_count += 1                # 视作掉帧或丢失
-                
-                # 彻底丢失保护
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0.0
-                    self.target_rel_yaw = 0.0
-                    self.if_lost_object = True
-                    self.servo_lost_count = 0
-                    return
-            else:
-            '''
             # 当前物体验证通过，或是第一帧
             # 记录下小车当前的坐标点
             self.last_car_x = self.my_car.x_current
@@ -343,8 +325,8 @@ class VisionManager:
                 self.target_rel_yaw -= 360.0
             elif self.target_rel_yaw < -180.0:
                 self.target_rel_yaw += 360.0  
-            if self.target_rel_yaw > 60.0 or self.target_rel_yaw < -60.0:
-                self.target_rel_speed = self.target_rel_speed * 0.7
+            if self.target_rel_yaw > 70.0 or self.target_rel_yaw < -70.0:
+                self.target_rel_speed = self.target_rel_speed * 0.8
             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
 
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
@@ -429,23 +411,24 @@ class VisionManager:
             if diff > 180.0:
                 diff = 360.0 - diff
 
-            # 环绕速度规划：对称梯形速度曲线 —— 启动时线性加速，结束时线性减速
-            accel_range = min(10.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
-            decel_range = min(25.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            # 环绕速度规划：S形缓动速度曲线 —— ease-out启动（快起），ease-in停止（柔停）
+            accel_range = min(15.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
+            decel_range = min(40.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
             traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
 
             if traveled < accel_range:
-                # 启动阶段：线性从v_min加速到v_max
-                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * traveled / accel_range
+                # 启动阶段：三次 ease-out，起步快、过渡平滑
+                t = traveled / accel_range              # 0.0 → 1.0
+                ease = 1.0 - (1.0 - t) ** 3     # 三次 ease-out
+                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
             elif diff < decel_range:
-                # 减速阶段：线性从v_max减速到v_min
-                self.orbit_speed = self.orbit_v_max - (self.orbit_v_max - self.orbit_v_min) * (decel_range - diff) / decel_range
+                # 减速阶段：三次 ease-in，停止柔和、不突兀
+                t = diff / decel_range                  # 1.0 → 0.0
+                ease = t * t                            # 二次 ease-in
+                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
             else:
                 # 匀速阶段：保持最大速度
                 self.orbit_speed = self.orbit_v_max
-
-            # 速度限幅
-            self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
             # 判断是否完成环绕
             if diff <= 1.0:	
@@ -556,9 +539,6 @@ class VisionManager:
 
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point, state = "servo"):
-        # 选择合适的里程计系数（无负压）
-        self.my_car.alpha_x = 0.951256
-        self.my_car.alpha_y = 0.922584
         # 选择正常的视觉伺服pid参数
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y

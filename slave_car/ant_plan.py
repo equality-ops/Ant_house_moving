@@ -28,7 +28,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为从车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为从车返回点
-        self.fixed_point = [[0.0, 0.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
+        self.fixed_point = [[15.0, -14.0], [95.0, 55.0], [225.0, 185.0], [35.0, -25.0]]  # type: list
 
         gc.collect()
     
@@ -134,7 +134,7 @@ class NavigationPlan:
             
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
-            # 再缩放0.2系数，让速度更保守一些，增加过弯安全裕量
+            # 再缩放0.5系数，让速度更保守一些，增加过弯安全裕量
             self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.5
 
         # 【前向推演：固有加速距离限制】

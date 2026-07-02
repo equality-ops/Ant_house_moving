@@ -62,7 +62,7 @@ motor_control_T = 4
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
-total_objects_num = 5
+total_objects_num = 3
 
 final_threshold = 1.0
 branch_threshold = 5.0
@@ -82,8 +82,8 @@ acc_normal_coef = 0.03
 acc_move_coef = 0.04
 dec_coef = 0.08
 
-orbit_v_max = 100
-orbit_v_min = 20
+orbit_v_max = 120
+orbit_v_min = 30
 
 # 不同物体的搬运速度
 move_v_max_T = 180
@@ -92,13 +92,13 @@ move_v_max_B = 180
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_kp_normal_x = 8.0
-servo_kd_normal_x = 15.0
-servo_kp_normal_y = 8.0
-servo_kd_normal_y = 15.0
+servo_kp_normal_x = 7.0
+servo_kd_normal_x = 10.0
+servo_kp_normal_y = 7.0
+servo_kd_normal_y = 10.0
 
 servo_target_y_T = 2.5
-servo_target_y_S = 3.5
+servo_target_y_S = 3.0
 servo_target_y_B = 6.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
@@ -106,16 +106,16 @@ finish_threshold_y = 1.0
 
 max_rational_dist = 55.0
 
-min_rel_speed = 25
-max_rel_speed = 150
-servo_pwmout_limitmax = 150
+min_rel_speed = 30
+max_rel_speed = 140
+servo_pwmout_limitmax = 140
 
 ###################【环绕控制】####################
-radius_T = 15.0
-radius_S = 17.0
-radius_B = 19.0
-angle_T = 134.0
-angle_S = 140.0
-angle_B = 142.0
+radius_T = 14.0
+radius_S = 16.0
+radius_B = 18.5
+angle_T = 136.5
+angle_S = 147.0
+angle_B = 147.0
 
-# 小车最高速度为290
+# 小车最高速度为180

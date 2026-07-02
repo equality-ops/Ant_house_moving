@@ -680,6 +680,7 @@ class TaskController:
             # self.my_fan.fan_off()
             order = self.my_main_protocol.get_slave_state()
             if order == "finish":
+                self.my_uart3.write(f"M")
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
@@ -707,6 +708,9 @@ class TaskController:
                 self.my_plan.reset_navigate_angle()
                 # 若搬运完成物体继续处理下一个物体，则进入准备导航状态
                 self.my_state.state = ADJUST
+                # 测试
+                # self.my_state.state = STOP
+                # self.my_uart3.write(f"{self.my_car.x_current},{self.my_car.y_current}\n")
 
             # 重置导航标志位
             self.my_plan.reset_navigate()
