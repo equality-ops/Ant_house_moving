@@ -481,9 +481,9 @@ def time_pit3_handler(time) -> None:
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 90.0)
+        # my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 90.0)
         # my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
-        # my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
         # my_plan.navigate(path = [[0.0, 60.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
