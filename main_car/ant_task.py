@@ -21,8 +21,9 @@ object_to_line_dict = {
     'W': 'R',
     'B': 'R'
 }
+counter = 0 
 class TaskController:
-    def __init__(self,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, assist_protocol: AssistLinkProtocol):
+    def __init__(self,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol, assist_protocol):
         # 注入对象
         self.my_beep = beep
         self.my_path = path

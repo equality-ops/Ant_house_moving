@@ -46,7 +46,7 @@ class FanControl:
         self.my_fan = fan
         self.my_state = state
 
-        self.fan_signal_limit = 1350  # type: int  # 无刷风扇信号限幅
+        self.fan_signal_limit = 1500  # type: int  # 无刷风扇信号限幅
         self.if_fan = self.flash_sys.find_value("if_fan")  # type: bool  # 是否开启风扇控制
         self.fixed_high_level_us = self.flash_sys.find_value("fixed_high_level_us")  # type: int  # 高电平持续时间，单位微秒
         gc.collect()
@@ -127,7 +127,7 @@ class PoseData:
         self.encoder_data_md = 0    # type: int
         
         # 陀螺仪补偿系数
-        self.gyro_z_supply = self.flash_sys.find_value("gyro_y_supply")
+        self.gyro_z_supply = self.flash_sys.find_value("gyro_z_supply")
         # 加速度
         self.acc_x = 0              # type: float
         self.acc_y = 0              # type: float
@@ -151,7 +151,7 @@ class PoseData:
         self.last_update_time = time.ticks_us()
 
         # 算法参数 (根据你的 2ms 采样周期设置)
-        self.dt = 0.002 
+        self.dt = 0.004
         self.kp = 1.0  # 加速度计权重
         self.ki = 0.00001 # 零偏补偿权重
 
@@ -175,7 +175,7 @@ class PoseData:
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
 
-        G_REFERENCE = 4096.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+        G_REFERENCE = 4135.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
         
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
@@ -319,7 +319,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 1000
+        sample_count = 1500
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -327,7 +327,7 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(4)
+            time.sleep_ms(2)
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
@@ -345,18 +345,18 @@ class PoseData:
         # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
-            self.dt = 0.002
+            self.dt = 0.004
 
-        self.encoder_data_ul = self.encoder_ul.get() * 3
-        self.encoder_data_ur = self.encoder_ur.get() * 3
-        self.encoder_data_md = self.encoder_md.get() * 3
+        self.encoder_data_ul = self.encoder_ul.get()
+        self.encoder_data_ur = self.encoder_ur.get()
+        self.encoder_data_md = self.encoder_md.get()
 
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         # self.gkd用于角速度环控制
-        self.gyro_z_gkd = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
+        self.gyro_z_gkd = -(self.imu_data[5] - self.gyro_z_bias) / 16.4 * self.gyro_z_supply
         # gyro_z用于四元数解算
-        self.gyro_z = self.gyro_z_gkd * (PI / 180.0)
+        self.gyro_z = -self.gyro_z_gkd * (PI / 180.0)
 
         DEADBAND = 0.004 # 弧度每秒
         if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
@@ -370,8 +370,8 @@ class PoseData:
         # 基于你的物理方向，我们将其映射为：X向前，Y向左，Z向上 (这也是标准的 FLU 右手标系)
         # 加速度映射：原X向后->取负变向前；原Y向左->保留向左(+1)；原Z向下(静止负)->取负变向上
         # 角速度映射：原gx(绕向后)被翻转；原gy(绕向左)保留；原gz(顺时针)被翻转为逆时针
-        self.ahrs_update(-self.imu_data[0], self.imu_data[1], -self.imu_data[2], 
-                         -self.gyro_x, self.gyro_y, -self.gyro_z)
+        self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2], 
+                         self.gyro_x, self.gyro_y, self.gyro_z)
         
         # 4. 更新欧拉角输出
         self.update_euler_angles()

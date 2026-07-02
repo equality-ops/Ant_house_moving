@@ -74,15 +74,6 @@ class PlanData:
             (x_center + hw, y_center + hh),
             (x_center - hw, y_center + hh)
         ]
-
-# 推动规划类
-class MovePlan:
-    def __init__(self, plan_data: PlanData, car):
-        self.Data = plan_data
-        self.my_car = car
-        self.ready_path = []    # 规划好的路径
-        gc.collect()
-    
 # 路径规划类
 class PathPlan:
     def __init__(self, plan_data: PlanData, car):
@@ -490,8 +481,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 0.939524
-        self.my_car.alpha_y = 0.915747
+        self.my_car.alpha_x = 0.949102
+        self.my_car.alpha_y = 0.950803
         # 提取当前物体种类信息
         if  self.plan_data.if_rogue_plan and self.plan_data.current_index < self.plan_data.total_objects_num:
             self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
