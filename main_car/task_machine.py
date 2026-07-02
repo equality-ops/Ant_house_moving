@@ -689,4 +689,23 @@ def show_speed_PID_test():
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入伺服状�?
             return
-        '''
+        
+        def max_block():
+            gc.collect()
+            low = 0
+            high = gc.mem_free()
+            while low + 16 < high:
+                mid = (low + high) // 2
+                try:
+                    b = bytearray(mid)
+                    del b
+                    low = mid
+                except MemoryError:
+                    high = mid
+                gc.collect()
+            return low
+        def mem(tag):
+            print(tag,gc.mem_free(),gc.mem_alloc(),max_block())
+            #my_uart3.write(f"{tag},{gc.mem_free()}, {gc.mem_alloc()}, {max_block()}\n")
+            gc.collect()
+    '''

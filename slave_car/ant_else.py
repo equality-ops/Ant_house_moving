@@ -468,6 +468,30 @@ class flash_system:
 
         # 如果无法解析为数字，则返回原始字符串
         return s
+
+    def _parse_tuple_list(self, s: str):
+        items = []
+        current = []
+        token = ''
+        in_tuple = False
+        for ch in s:
+            if ch == '(':
+                in_tuple = True
+                current = []
+                token = ''
+            elif ch == ')':
+                if token.strip():
+                    current.append(float(token.strip()))
+                items.append(tuple(current))
+                in_tuple = False
+                token = ''
+            elif ch == ',':
+                if in_tuple and token.strip():
+                    current.append(float(token.strip()))
+                    token = ''
+            elif in_tuple:
+                token += ch
+        return items
     
     # 打开参数文件并进行解析，传入一个文件路径，返回一个字典
     def phase_config(self) -> None:
@@ -476,26 +500,37 @@ class flash_system:
         except FileNotFoundError as e:
             print(e)
             print(f"Error: File {self.file_path} not found.")
-        content = f.readlines()
-        for line in content:
+            return
+        line_count = 0
+        try:
+            line_iter = f
+        except:
+            line_iter = []
+        for line in line_iter:
             # 跳过空行和注释行
             if not line or line.startswith('#') or line.startswith('\r\n'):
                 continue
             line = line.strip()
+            if '=' not in line:
+                continue
             line = line.split('=', 1)
             var_name = line[0].strip()
             var_value = line[1].strip()
+            if not var_value:
+                continue
             # 解析变量值
             # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
-                var_value = "[" + var_value[1:-1] + "]"
                 try:
-                    self.config[var_name] = eval(var_value)
+                    self.config[var_name] = self._parse_tuple_list(var_value[1:-1])
                 except Exception as e:
-                    print(f"Error: Failed to evaluate {var_name} = {var_value}")
+                    print(f"Error: Failed to parse {var_name} = {var_value}")
                     self.beep.beep_warn()
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
+            line_count += 1
+            if line_count % 8 == 0:
+                gc.collect()
         f.close()
 
 

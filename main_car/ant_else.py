@@ -15,14 +15,6 @@ RETURN = const(8)		    # 返回状�?
 STOP = const(9)           # 停止状�?
 RETREAT = const(10)
 
-object_to_line_dict = {
-    'T': 'U',
-    'S': 'L',
-    'E': 'L',
-    'W': 'R',
-    'B': 'R'
-}
-
 # 计数�?
 counter = 0 
 ##############################【蜂鸣器�?#############################
@@ -30,11 +22,11 @@ BEEP_OFF = const(0)
 BEEP_ON = const(1)
 
 class beep:
+    __slots__ = ('beep', 'beep_state')
     def __init__(self, beep):
         # 注入蜂鸣器对�?
         self.beep = beep
         self.beep_state = BEEP_OFF
-
     # 蜂鸣器警告函�?�?声，�?00ms响一声，每次持续50ms)
     def beep_warn(self) -> None:
         if self.beep_state == BEEP_OFF:
@@ -446,6 +438,30 @@ class flash_system:
 
         # 如果无法解析为数字，则返回原始字符串
         return s
+
+    def _parse_tuple_list(self, s: str):
+        items = []
+        current = []
+        token = ''
+        in_tuple = False
+        for ch in s:
+            if ch == '(':
+                in_tuple = True
+                current = []
+                token = ''
+            elif ch == ')':
+                if token.strip():
+                    current.append(float(token.strip()))
+                items.append(tuple(current))
+                in_tuple = False
+                token = ''
+            elif ch == ',':
+                if in_tuple and token.strip():
+                    current.append(float(token.strip()))
+                    token = ''
+            elif in_tuple:
+                token += ch
+        return items
     
     # 打开参数文件并进行解析，传入一个文件路径，返回一个字�?
     def phase_config(self) -> None:
@@ -454,26 +470,44 @@ class flash_system:
         except FileNotFoundError as e:
             print(e)
             print(f"Error: File {self.file_path} not found.")
-        content = f.readlines()
-        for line in content:
+            return
+        line_count = 0
+        try:
+            line_iter = f
+        except:
+            line_iter = []
+        for line in line_iter:
             # 跳过空行和注释行
             if not line or line.startswith('#') or line.startswith('\r\n'):
                 continue
             line = line.strip()
+            if '=' not in line:
+                continue
             line = line.split('=', 1)
             var_name = line[0].strip()
             var_value = line[1].strip()
+            if not var_value:
+                continue
             # 解析变量�?
             # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列�?
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
-                var_value = "[" + var_value[1:-1] + "]"
-                try:
-                    self.config[var_name] = eval(var_value)
-                except Exception as e:
-                    print(f"Error: Failed to evaluate {var_name} = {var_value}")
-                    self.beep.beep_warn()
+                if var_name == "rogue_planning":
+                    try:
+                        self.config[var_name] = eval("[" + var_value[1:-1] + "]")
+                    except Exception as e:
+                        print(f"Error: Failed to evaluate {var_name} = {var_value}")
+                        self.beep.beep_warn()
+                else:
+                    try:
+                        self.config[var_name] = self._parse_tuple_list(var_value[1:-1])
+                    except Exception as e:
+                        print(f"Error: Failed to parse {var_name} = {var_value}")
+                        self.beep.beep_warn()
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
+            line_count += 1
+            if line_count % 8 == 0:
+                gc.collect()
         f.close()
 
 
@@ -644,10 +678,6 @@ class TaskController:
             pass
             # 测试
             # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
-        elif state == CALIBRATE:
-            # 进入校准状态，进行位置或传感器校准
-            # 记录小车在哪个边�?
-            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微�?
             pass

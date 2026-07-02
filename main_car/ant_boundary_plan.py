@@ -1,7 +1,5 @@
 import math
 import gc
-
-
 class BoundaryPathPlanner:
     def __init__(self, plan_data, car, my_plan):
         self.Data = plan_data
@@ -12,7 +10,7 @@ class BoundaryPathPlanner:
         gc.collect()
 
     def special_swell_barriers(self, objects_, swell_angle):
-        if swell_angle == 1 or swell_angle== -1:swell_size = 10.0
+        if swell_angle == 1 or swell_angle== -1:swell_size = 5.0
         else:swell_size = 20.0
         circle_r = float(self.Data.OBSTACLE_R)
         circles = self.Data.circle[:]
@@ -54,7 +52,7 @@ class BoundaryPathPlanner:
                 elif swell_angle == -1:
                     if x < rect[0][0] + 0.001:
                         x -= swell_size
-                    elif x > rect[0][0] + 0.001:
+                    elif x > rect[1][0] - 0.001:
                         x += swell_size
                 out.append((x, y))
             return out
@@ -76,7 +74,7 @@ class BoundaryPathPlanner:
                 rects.append(swell_rect(rect,swell_angle))
         return rects
 
-    def plan_move(self, direction, swell_dir, objects, x=None, y=None):
+    def plan_move(self, direction, swell_dir, objects,x=None,y=None):
         self.rects = self.special_swell_barriers(objects, swell_dir)
         self.ready_path = self.plan_one_turn(direction,x,y)
         return self.ready_path
@@ -271,7 +269,6 @@ class BoundaryPathPlanner:
             if self.my_plan._segment_hits_poly(a, b, rect):
                 return False
         return True
-    
 class objects_planner:
     def __init__(self, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.Data = plan_data
@@ -280,7 +277,6 @@ class objects_planner:
         self.objects = []
         self.objects_information = []
         self.objects_characters = []
-        self.barrier = []
         self.my_BoundaryPath = my_BoundaryPath
         self.near_therohold = 15
         self.objects_score = []
@@ -347,7 +343,7 @@ class objects_planner:
                 dir,sdir=self.judge_push_direction(keyi)
                 path = self.my_BoundaryPath.plan_move(dir,sdir,now_barrier,i[0],i[1])
                 push_distance,push_angle,has_push_path= 1000,90,True
-                if len(path) <= 2: has_push_path = False
+                if len(path) <= 1: has_push_path = False
                 else:
                     p_,p__=path[0],path[1]
                     push_distance = self.calculate_distance(i,p_)+self.calculate_distance(p_,p__)
@@ -409,9 +405,9 @@ class objects_planner:
     def judge_running_area(self,p,p_,barriar,sp):
         dx = p[0]-p_[0]
         dy = p[1]-p_[1]
-        if dy!=0 and (dx<5 or abs(dx-5)/abs(dy)<=0.5):
+        if dy!=0 and (dx<5 or abs(dx-5)/abs(dy)<=0.1):
             if dy>0:barriar['D'].append(sp)
             else:barriar['U'].append(sp)
-        if dx!=0 and (dy<5 or abs(dy-5)/abs(dx)<=0.5):
+        if dx!=0 and (dy<5 or abs(dy-5)/abs(dx)<=0.1):
             if dy>0:barriar['L'].append(sp)
             else:barriar['R'].append(sp)

@@ -1,7 +1,6 @@
 from micropython import const
 import math
 import gc
-
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
@@ -13,8 +12,6 @@ CALIBRATE = const(6)      # 校准状态
 ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
-InField = const(-1)
-OnLine = const(0)
 OutLine = const(1)
 # 多路复用器计数器
 counter = 0

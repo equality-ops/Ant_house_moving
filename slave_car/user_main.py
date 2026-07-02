@@ -184,7 +184,6 @@ plan_data = ant_plan.PlanData(my_flash_sys)
 
 # 创建路径规划对象
 my_path = ant_plan.PathPlan(plan_data, my_car)
-
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 

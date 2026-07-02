@@ -330,7 +330,7 @@ class Menu:
             elif current_enc < 0:
                 self.beep.key_test()
                 return "left"
-            
+        gc.collect()
         return None
 
     # ========== 读取编码器按键 ==========
@@ -341,6 +341,7 @@ class Menu:
             self.key_handler.clear(confirm_idx + 1)
             self.beep.key_test()  # 按键松开时触发蜂鸣
             return True
+        gc.collect()
         return False
     
 
@@ -363,7 +364,7 @@ class Menu:
             # 选中当前参数行
             self.is_param_selected = True
             self.selected_line = self.Current_line
-        
+        gc.collect()
         # 刷新箭头颜色
         self.refresh_current_page()
 
@@ -403,6 +404,7 @@ class Menu:
             self.is_param_selected = False
             self.selected_line = None
             self.need_refresh = False
+            gc.collect()
         except Exception as e:
             print(f"Destroy error: {e}")
         gc.collect()
@@ -427,6 +429,7 @@ class Menu:
                             f_out.write(line)
                     else:
                         f_out.write(line)
+            gc.collect()
             os.remove(file_path)
             os.rename(temp_file_path, file_path)
         except Exception as e:
@@ -442,7 +445,7 @@ class Menu:
         updates = {k: round(self.config[k], 3) for k in self.page_configs.get(self.change_page_to, [])}
         if updates:
             self.update_config_values(self.flash_sys.file_path, updates)
-        
+        gc.collect()
         self.Current_line = 2
         self.is_param_selected = False  # 保存后取消选中
         self.selected_line = None
@@ -472,7 +475,7 @@ class Menu:
             enc_rot_key = self.read_encoder_rotation()
             if enc_rot_key:
                 pressed_key = enc_rot_key
-
+        gc.collect()
         return pressed_key
         
     # 数据处理（增加选中状态判断）
@@ -485,7 +488,7 @@ class Menu:
                 self.current_step_index = (self.current_step_index - 1) % len(self.step_values)
             elif key == "right":
                 self.current_step_index = (self.current_step_index + 1) % len(self.step_values)
-            
+            gc.collect()
             if old_index != self.current_step_index:
                 self.lcd.str16(0, self.LineSpacing * 1, self.CLEAR_SPACES, 0x0000)
                 step_text = f"step : {self.step_values[self.current_step_index]:8.3f}"
@@ -520,17 +523,14 @@ class Menu:
         """移动箭头位置（移动时取消参数选中）"""
         # 清空当前箭头
         self.lcd.str16(self.ARROW_X, self.LineSpacing * self.Current_line, "   ", self.COLOR_WHITE)
-        
         # 移动箭头
         if key == "up":
             self.Current_line = self.End_line if self.Current_line <= self.Start_line else self.Current_line - 1
         elif key == "down":
             self.Current_line = self.Start_line if self.Current_line >= self.End_line else self.Current_line + 1
-        
         # 移动箭头时取消选中状态
         self.is_param_selected = False
         self.selected_line = None
-        
         # 绘制新箭头（白色）
         self._redraw_current_arrow()
         self.need_refresh = True

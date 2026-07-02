@@ -154,7 +154,6 @@ class PathPlan:
         prev = [-1] * n
         used = [False] * n
         dist[0] = 0.0
-
         # Dijkstra 算法实现
         for _ in range(n):
             u = -1

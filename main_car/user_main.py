@@ -1,35 +1,55 @@
-# 本示例程序演示如何通过 boot.py 文件进行 soft-boot 控制后执行自己的源文件
-# 使用 RT1021-MicroPython 核心板搭配对应拓展学习板的拨码开关控制
-
-# 示例程序运行效果为复位后执行本文件 通过 D8 电平状态决定是否跳转执行 user_main.py
-# 当成功执行 user_main.py 后 C4 LED 会以一秒周期进行闪烁
-# 当 D9 引脚电平出现变化时退出测试程序
-
 # 包含 gc 与 time 类
 import gc
 import time
-
 from micropython import const
 gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
+import os
+gc.collect()
 gc.collect()
 from display import *
 gc.collect()
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
 gc.collect()
 from smartcar import ticker, encoder
-gc.collect()
-import ant_vision
-gc.collect()
+my_uart3 = UART(2)
+my_uart3.init(115200)
 import ant_plan
 gc.collect()
+
 import ant_else
 gc.collect()
-import ant_motor
-gc.collect()
-import ant_boundary_plan
-gc.collect()
+
+
+# 与定时器2周期一致，都为53ms
+pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
+del(pin_obj)
+pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
+if_menu = False
+if not pin_obj.value():#进入调试模式
+    if_menu = True
+    import ant_menu
+    gc.collect()
+else:
+    import ant_vision
+    gc.collect()
+
+    import ant_boundary_plan
+    gc.collect()
+
+    import ant_motor
+    gc.collect()
+
+    import ant_move
+    gc.collect()
+
+    import ant_task
+    gc.collect()
+
+    import ant_pid
+    gc.collect()
+
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -69,6 +89,8 @@ pit3 = ticker(3)
 
 """蜂鸣器初始化"""
 beep = Pin('D24', Pin.OUT, value = False)
+# 创建蜂鸣器对象
+my_beep = ant_else.beep(beep)
 
 """光电管初始化"""
 photo = Pin('B4', Pin.IN, value = False)
@@ -102,24 +124,26 @@ imu = IMU660RX()
 
 # tof深度传感器初始化
 # tof = DL1X()
-
+# 与定时器2周期一致，都为53ms
+key = KEY_HANDLER(53)
+key_data = key.get()
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
-cs = Pin('B29' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-cs.high()
-cs.low()
-rst = Pin('B31' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-dc  = Pin('B5' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-blk = Pin('C21' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
+if if_menu:
+    cs = Pin('B29' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
+    cs.high()
+    cs.low()
+    rst = Pin('B31' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
+    dc  = Pin('B5' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
+    blk = Pin('C21' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
+'''
 drv = LCD_Drv(SPI_INDEX = 2, BAUDRATE = 60000000, DC_PIN = dc, RST_PIN = rst, LCD_TYPE = LCD_Drv.LCD200_TYPE)
 lcd = LCD(drv)
 lcd.color(0xFFFF, 0x0000)
 lcd.mode(2)
 lcd.clear(0x0000)
+'''
 
-# 与定时器2周期一致，都为53ms
-key = KEY_HANDLER(53)
-key_data = key.get()
 # 按键对应的数据接口
 """
 key_up:     key_data[1]
@@ -129,88 +153,85 @@ key_run:    key_data[3]
 """
 
 # 菜单编码器初始化
-enc_rotation = encoder("C0", "C1", True)
+if if_menu:
+    enc_rotation = encoder("C0", "C1", True)
+else:
+    """""""""创建对象"""""""""
+    # 创建状态机对象
+    my_state = ant_plan.StateMachine()
+    #【文件读取】
+    # 从main_config.txt中读取保存所有的参数并保存到config字典中
+    my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
+    my_flash_sys.phase_config()
+    my_flash_sys.check_list_format()
 
-"""""""""创建对象"""""""""
-# 创建状态机对象
-my_state = ant_plan.StateMachine()
+    # 创建无刷风扇控制对象
+    my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
 
-# 创建蜂鸣器对象
-my_beep = ant_else.beep(beep)
+    # 创建光电管控制对象
+    my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
 
-#【文件读取】
-# 从main_config.txt中读取保存所有的参数并保存到config字典中
-my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
-my_flash_sys.phase_config()
-my_flash_sys.check_list_format()
+    # 创建指令管理对象
+    my_order_manager = ant_else.order_manager(my_uart6)
 
-# 创建无刷风扇控制对象
-my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
+    # 创建openart串口解析对象
+    my_art_protocol = ant_else.UARTProtocol(my_uart6)
 
-# 创建光电管控制对象
-my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
+    # 创建主从车无线串口通信对象
+    my_main_protocol = ant_else.LinkProtocol(my_uart3)
 
-# 创建指令管理对象
-my_order_manager = ant_else.order_manager(my_uart6)
+    # 创建主辅车无线串口通信对象
+    my_assist_protocol = ant_else.AssistLinkProtocol(my_uart8)
 
-# 创建openart串口解析对象
-my_art_protocol = ant_else.UARTProtocol(my_uart6)
+    # 创建pid参数对象
+    pid_data = ant_pid.PID_data(my_flash_sys)
 
-# 创建主从车无线串口通信对象
-my_main_protocol = ant_else.LinkProtocol(my_uart3)
+    # 创建电机微分项的滑动平均滤波器对象
+    diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
+    diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
+    diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
+    diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
-# 创建主辅车无线串口通信对象
-my_assist_protocol = ant_else.AssistLinkProtocol(my_uart8)
+    # 创建小车自转角滤波器对象（已弃用）
+    car_yaw_fil = ant_motor.SlipAveragingFilter(1)
+    # 创建视觉伺服正余弦滤波对象
+    sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
+    cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
-# 创建pid参数对象
-pid_data = ant_motor.PID_data(my_flash_sys)
+    # 创建姿态数据对象
+    pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
-# 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
+    # 创建电机pid对象和角度pid对象
+    motor_ul_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
+    motor_ur_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
+    motor_md_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
+    angle_pid = ant_pid.AnglePositionPID(my_flash_sys)
+    servo_pid = ant_pid.ServoPID(my_flash_sys)
 
-# 创建小车自转角滤波器对象（已弃用）
-car_yaw_fil = ant_motor.SlipAveragingFilter(1)
-# 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
-cos_servo_fil = ant_motor.SlipAveragingFilter(5)
+    # 创建小车姿态对象
+    my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid, motor_ul_pid, motor_ur_pid, motor_md_pid,
+                            motor_ul, motor_ur, motor_md)
 
-# 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+    # 创建路径规划数据对象
+    plan_data = ant_plan.PlanData(my_flash_sys)
 
-# 创建电机pid对象和角度pid对象
-motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
-motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
-motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
-angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
-servo_pid = ant_motor.ServoPID(my_flash_sys)
+    # 创建路径规划对象
+    my_path = ant_plan.PathPlan(plan_data, my_car)
 
-# 创建小车姿态对象
-my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid, motor_ul_pid, motor_ur_pid, motor_md_pid,
-                        motor_ul, motor_ur, motor_md)
-
-# 创建路径规划数据对象
-plan_data = ant_plan.PlanData(my_flash_sys)
-
-# 创建路径规划对象
-my_path = ant_plan.PathPlan(plan_data, my_car)
-
-# 创建规划（路径和速度）对象
-my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
+    # 创建规划（路径和速度）对象
+    my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 
-move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path)
-gc.collect()
-# 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+    move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path)
+    gc.collect()
+    # 创建视觉伺服管理对象2
+    my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
-# 搬运控制类
-my_moving = ant_vision.MoveControl(my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
-my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
-# 任务及类
-my_task = ant_else.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+    # 搬运控制类
+    my_moving = ant_move.MoveControl(my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+    my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
+    # 任务及类
+    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -366,7 +387,6 @@ def master_control():
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
     
-# 测试
 # 设置pid参数
 def set_pid_params():
     if my_state.state == MOVE:
@@ -558,10 +578,14 @@ def pit3_start():
 voltage_detect(11.2)
 
 # 打开定时器
-pit2_start()
+if if_menu:
+    my_beep.test()
+    time.sleep_ms(100)
+    my_beep.test()
+else:
+    pit2_start()
 
 while True:
-
     # 如果拨码开关打开 对应引脚拉低 就退出循环
     # 这么做是为了防止写错代码导致异常 有一个退出的手段
     if switch2.value() != state2:
