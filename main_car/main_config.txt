@@ -1,4 +1,4 @@
-# 修改时间 6.28	  1:28
+# 修改时间 6.28	  00:43
 
 ###################【PID参数】####################
 # speed大于220时
@@ -75,20 +75,20 @@ error_x_B = 2.0
 if_fan = 1
 fixed_high_level_us = 1350
 
-min_start_v = 30
+min_start_v = 40
 long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
 acc_move_coef = 0.04
 dec_coef = 0.08
 
-orbit_v_max = 120
+orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 180
-move_v_max_S = 180
-move_v_max_B = 180
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -106,16 +106,16 @@ finish_threshold_y = 1.0
 
 max_rational_dist = 55.0
 
-min_rel_speed = 30
-max_rel_speed = 140
-servo_pwmout_limitmax = 140
+min_rel_speed = 40
+max_rel_speed = 130
+servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
 radius_T = 14.0
 radius_S = 16.0
 radius_B = 18.5
-angle_T = 136.5
+angle_T = 141.0
 angle_S = 147.0
-angle_B = 147.0
+angle_B = 150.0
 
 # 小车最高速度为180

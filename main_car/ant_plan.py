@@ -260,7 +260,9 @@ class NavigationPlan:
             else:
                 ratio = 1.0
                 
-            v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            # 在搬运模式下为保证加速阶段一致设置恒定速度
+            return v_target
         elif self.my_state.state == SCAN:
             # 在经过第二次视觉验证后减速预测目标点位
             if self.if_second_verify:
@@ -361,7 +363,7 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    if diff <= 0.9:
+                    if diff <= 1.5:
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True

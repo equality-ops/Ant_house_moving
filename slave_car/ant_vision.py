@@ -73,9 +73,9 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.H_matrix = [[ 2.63924593e+00,  1.71379606e-02, -2.07557841e+02],
-                        [-1.51362479e-16, -1.97709742e+00,  2.55115681e+02],
-                        [-4.74081780e-18,  1.14863286e-01,  1.00000000e+00]]
+        self.H_matrix = [[ 5.77677677e+00,  1.51455979e-02, -4.60912420e+02],
+                        [ 8.14176592e-02, -4.36672732e+00,  5.67967575e+02],
+                        [1.35696099e-03,  2.52841452e-01,  1.00000000e+00]]
 
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
@@ -116,7 +116,7 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.car_radius = 10.0   # 小车推杆到中心的距离
-        self.correct_dist = 4.49    # 经验修正值（物体在推杆正前方的值）
+        self.correct_dist = 4.85    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -174,7 +174,7 @@ class VisionManager:
             elif self.current_servo_object in ['W', 'B']:
                 object_H = 2.0
 
-        K = (19 - object_H) / 19
+        K = (20 - object_H) / 20
         # 计算缩放因子
         w_prime = self.H_matrix[2][0] * u + self.H_matrix[2][1] * v + self.H_matrix[2][2]
         # 计算真实的物理坐标
@@ -186,7 +186,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.7, min(1.0, dist / 10.0)) # 10cm外全速，近处最少降70%
+        scale = max(0.8, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降80%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
@@ -321,9 +321,6 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
         if self.if_orbit_ready == False:
-            # 选择合适的里程计系数（无负压）
-            self.my_car.alpha_x = 0.9093
-            self.my_car.alpha_y = 0.936709
             # 保持静止
             self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
@@ -424,7 +421,7 @@ class VisionManager:
             self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
             # 判断是否完成环绕
-            if diff <= 1.0:	
+            if diff <= 1.5:	
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
                 self.if_finish_orbit = True

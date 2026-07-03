@@ -332,9 +332,6 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
         if self.if_orbit_ready == False:
-            # 选择合适的里程计系数（无负压）
-            self.my_car.alpha_x = 0.951256
-            self.my_car.alpha_y = 0.922584
             # 保持静止
             self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
@@ -431,7 +428,7 @@ class VisionManager:
                 self.orbit_speed = self.orbit_v_max
 
             # 判断是否完成环绕
-            if diff <= 1.0:	
+            if diff <= 1.5:	
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
                 self.if_finish_orbit = True

@@ -637,9 +637,9 @@ class TaskController:
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
             if self.my_car.y_current < 120.0:
-                self.adjust_message = [self.my_car.x_current + 5.0, self.my_car.y_current]
+                self.adjust_message = [self.my_car.x_current + 10.0, self.my_car.y_current]
             else:
-                self.adjust_message = [self.my_car.x_current - 5.0, self.my_car.y_current]
+                self.adjust_message = [self.my_car.x_current - 10.0, self.my_car.y_current]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             pass
@@ -724,7 +724,6 @@ class TaskController:
                     counter = 0
                     if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
                         self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服
-                        self.my_uart8.write(f"S")
                         self.my_vision.if_finish_servo = False  # 重置伺服`完成标志
                         self.if_to_top = True  # 已经从下区域切换到上区域
                         self.my_plan.reset_navigate_angle()
@@ -749,16 +748,18 @@ class TaskController:
         elif state == ORBIT:
             # 搬运过程中停下负压防止起步不同步
             # self.my_fan.fan_off()
+            
             counter += 1
-            # 延时200ms
-            if counter > 20:
+            # 延时300ms
+            if counter > 30:
+                self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕
                 # 重置计数器
                 counter = 0
-                self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            
         elif state == MOVE:
             # 退出搬运状态，停止搬运动作
             # self.my_fan.set_fan_signal()  # 搬运结束，重新开启负压

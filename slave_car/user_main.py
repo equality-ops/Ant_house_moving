@@ -235,7 +235,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -484,10 +484,10 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
-
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -506,7 +506,7 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -538,10 +538,13 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
+    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
     # my_uart3.write(f"state: {my_state.state}, object_status: {my_task.object_status}\n")
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）

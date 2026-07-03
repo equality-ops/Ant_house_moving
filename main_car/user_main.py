@@ -503,7 +503,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
@@ -542,7 +542,7 @@ def time_pit3_handler(time) -> None:
     # test_predict_pt()
     
     # 测试主从车是否同步
-    test_main_slave_sync()
+    # test_main_slave_sync()
     pass
 
 

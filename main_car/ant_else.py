@@ -602,11 +602,12 @@ class TaskController:
                     
                     x_threshold = 25.0
                     y_threshold = 20.0
-                    x_slave_stop_threshold = 20.0
+                    x_slave_stop_threshold = 15.0
                     y_slave_stop_threshold = 5.0
+                    rich_angle = 2.5  # 角度裕量
                     if self.if_to_top == False:
-                        self.spin_angle_buf = -180 + self.my_vision.orbit_angle
-                        slave_angle = 180 - self.my_vision.orbit_angle
+                        self.spin_angle_buf = -180 + self.my_vision.orbit_angle + rich_angle
+                        slave_angle = 180 - self.my_vision.orbit_angle - rich_angle
                         
                         self.predict_message[0] += x_threshold
                         self.predict_message[1] -= y_threshold
@@ -614,8 +615,8 @@ class TaskController:
                         # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
                         self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold - x_slave_stop_threshold, self.predict_message[1] - y_slave_stop_threshold])   
                     elif self.the_last_one:
-                        self.spin_angle_buf = self.my_vision.orbit_angle
-                        slave_angle = -self.my_vision.orbit_angle
+                        self.spin_angle_buf = self.my_vision.orbit_angle + rich_angle
+                        slave_angle = -self.my_vision.orbit_angle - rich_angle
 
                         self.predict_message[0] -= x_threshold
                         self.predict_message[1] += y_threshold
@@ -680,7 +681,6 @@ class TaskController:
             # self.my_fan.fan_off()
             order = self.my_main_protocol.get_slave_state()
             if order == "finish":
-                self.my_uart3.write(f"M")
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
@@ -694,27 +694,32 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             # 退出搬运状态，停止搬运动作 
-            # 若从车丢失物体，则跳过当前物体      
-            self.data.finished_num += 1
-            if self.data.finished_num >= self.data.total_objects_num:
-                self.my_plan.reset_navigate_angle()
-                # 若搬运完成物体直接返回，则进入返回状态
-                self.my_state.state = RETURN 
-            else:
-                if self.data.finished_num == self.data.total_objects_num - 1:
-                    # 现在是最后一个物体
-                    self.the_last_one = True
-                
-                self.my_plan.reset_navigate_angle()
-                # 若搬运完成物体继续处理下一个物体，则进入准备导航状态
-                self.my_state.state = ADJUST
-                # 测试
-                # self.my_state.state = STOP
-                # self.my_uart3.write(f"{self.my_car.x_current},{self.my_car.y_current}\n")
+            # 若从车丢失物体，则跳过当前物体   
+            counter += 1
+            # 延时100ms
+            if counter >= 10:   
+                # 重置计数器
+                counter = 0
+                self.data.finished_num += 1
+                if self.data.finished_num >= self.data.total_objects_num:
+                    self.my_plan.reset_navigate_angle()
+                    # 若搬运完成物体直接返回，则进入返回状态
+                    self.my_state.state = RETURN 
+                else:
+                    if self.data.finished_num == self.data.total_objects_num - 1:
+                        # 现在是最后一个物体
+                        self.the_last_one = True
+                    
+                    self.my_plan.reset_navigate_angle()
+                    # 若搬运完成物体继续处理下一个物体，则进入准备导航状态
+                    self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态
+                    # 测试
+                    # self.my_state.state = STOP
+                    # self.my_uart3.write(f"{self.my_car.x_current},{self.my_car.y_current}\n")
 
-            # 重置导航标志位
-            self.my_plan.reset_navigate()
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                # 重置导航标志位
+                self.my_plan.reset_navigate()
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
             pass
