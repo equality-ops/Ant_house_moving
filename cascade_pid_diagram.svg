@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 500" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4A6CF7"/>
+    </marker>
+    <marker id="arrowFB" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#E8764A"/>
+    </marker>
+    <marker id="arrowFF" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2DA87A"/>
+    </marker>
+    <filter id="shadow">
+      <feDropShadow dx="1" dy="2" stdDeviation="2.5" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1100" height="500" rx="8" fill="#FAFBFC"/>
+
+  <!-- 标题 -->
+  <text x="550" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#2D3748">全向轮小车串级 PID 控制框图</text>
+
+  <!-- ====== 外环：角度环 ====== -->
+  <!-- 角度目标 -->
+  <rect x="30" y="70" width="130" height="60" rx="8" fill="#667EEA" filter="url(#shadow)"/>
+  <text x="95" y="97" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">目标转角</text>
+  <text x="95" y="116" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.85)">θ_ref</text>
+
+  <line x1="160" y1="100" x2="200" y2="100" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 角度环 PD -->
+  <rect x="205" y="65" width="175" height="70" rx="8" fill="#4A6CF7" filter="url(#shadow)"/>
+  <text x="292" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">角度环 PD</text>
+  <text x="292" y="113" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.85)">10ms · &#177;180&#176; 限幅</text>
+  <text x="292" y="128" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.7)">输出 = Kp&#183;e + Kd&#183;de/dt</text>
+
+  <line x1="380" y1="100" x2="420" y2="100" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 运动学分解 -->
+  <rect x="425" y="65" width="175" height="70" rx="8" fill="#F6AD55" filter="url(#shadow)"/>
+  <text x="512" y="93" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">运动学分解</text>
+  <text x="512" y="113" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">全向轮逆运动学</text>
+  <text x="512" y="128" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.75)">分解为三路轮速目标</text>
+
+  <!-- ====== 内环：速度环 ====== -->
+  <line x1="600" y1="80" x2="650" y2="80" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="105" x2="650" y2="105" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="125" x2="650" y2="125" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 速度环 UL -->
+  <rect x="655" y="54" width="185" height="52" rx="8" fill="#ED64A6" filter="url(#shadow)"/>
+  <text x="747" y="77" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">速度环 PID — UL 电机</text>
+  <text x="747" y="96" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">PID + 速度前馈 · 5ms</text>
+
+  <!-- 速度环 UR -->
+  <rect x="655" y="112" width="185" height="52" rx="8" fill="#ED64A6" filter="url(#shadow)"/>
+  <text x="747" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">速度环 PID — UR 电机</text>
+  <text x="747" y="154" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">PID + 速度前馈 · 5ms</text>
+
+  <!-- 速度环 MD -->
+  <rect x="655" y="170" width="185" height="52" rx="8" fill="#ED64A6" filter="url(#shadow)"/>
+  <text x="747" y="193" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">速度环 PID — MD 电机</text>
+  <text x="747" y="212" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">PID + 速度前馈 · 5ms</text>
+
+  <!-- 电机 -->
+  <line x1="840" y1="80" x2="880" y2="80" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="840" y1="138" x2="880" y2="138" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="840" y1="196" x2="880" y2="196" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="885" y="66" width="90" height="36" rx="6" fill="#48BB78" filter="url(#shadow)"/>
+  <text x="930" y="89" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">M_UL</text>
+  <rect x="885" y="124" width="90" height="36" rx="6" fill="#48BB78" filter="url(#shadow)"/>
+  <text x="930" y="147" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">M_UR</text>
+  <rect x="885" y="182" width="90" height="36" rx="6" fill="#48BB78" filter="url(#shadow)"/>
+  <text x="930" y="205" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">M_MD</text>
+
+  <!-- ====== 反馈路径 ====== -->
+
+  <!-- 编码器反馈 -->
+  <rect x="770" y="270" width="200" height="50" rx="8" fill="#FBD5CD" stroke="#E8764A" stroke-width="1.2"/>
+  <text x="870" y="293" text-anchor="middle" font-size="14" font-weight="700" fill="#C0563B">编码器速度反馈</text>
+  <text x="870" y="310" text-anchor="middle" font-size="11" fill="#C0563B">增量编码器脉冲 → 轮速</text>
+
+  <!-- 电机 → 编码器 -->
+  <line x1="930" y1="218" x2="930" y2="240" stroke="#E8764A" stroke-width="1.2" stroke-dasharray="5,3"/>
+  <line x1="930" y1="240" x2="870" y2="270" stroke="#E8764A" stroke-width="1.5" marker-end="url(#arrowFB)"/>
+
+  <!-- 编码器 → 速度环 -->
+  <line x1="770" y1="280" x2="640" y2="280" stroke="#E8764A" stroke-width="1.5"/>
+  <line x1="640" y1="280" x2="640" y2="138" stroke="#E8764A" stroke-width="1.5"/>
+  <line x1="640" y1="138" x2="655" y2="138" stroke="#E8764A" stroke-width="1.5" marker-end="url(#arrowFB)"/>
+  <line x1="640" y1="196" x2="655" y2="196" stroke="#E8764A" stroke-width="1.5" marker-end="url(#arrowFB)"/>
+  <line x1="640" y1="80" x2="655" y2="80" stroke="#E8764A" stroke-width="1.5" marker-end="url(#arrowFB)"/>
+
+  <!-- AHRS / IMU 反馈 -->
+  <rect x="180" y="270" width="200" height="50" rx="8" fill="#FBD5CD" stroke="#E8764A" stroke-width="1.2"/>
+  <text x="280" y="293" text-anchor="middle" font-size="14" font-weight="700" fill="#C0563B">IMU 姿态反馈</text>
+  <text x="280" y="310" text-anchor="middle" font-size="11" fill="#C0563B">AHRS → 偏航角 Yaw</text>
+
+  <!-- IMU → 角度环 -->
+  <line x1="180" y1="285" x2="155" y2="285" stroke="#E8764A" stroke-width="1.5"/>
+  <line x1="155" y1="285" x2="155" y2="115" stroke="#E8764A" stroke-width="1.5"/>
+  <line x1="155" y1="115" x2="205" y2="115" stroke="#E8764A" stroke-width="1.5" marker-end="url(#arrowFB)"/>
+
+  <!-- 陀螺仪角速度前馈 -->
+  <path d="M 380 300 L 380 330 L 490 330 L 490 135" fill="none" stroke="#2DA87A" stroke-width="2" marker-end="url(#arrowFF)"/>
+  <text x="435" y="322" text-anchor="middle" font-size="12" font-weight="600" fill="#2DA87A">陀螺仪角速度前馈</text>
+
+  <!-- ====== 底部区域标记 ====== -->
+  <!-- 外环框 -->
+  <rect x="20" y="55" width="585" height="175" rx="10" fill="none" stroke="#667EEA" stroke-width="2" stroke-dasharray="8,4" opacity="0.4"/>
+  <text x="312" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#667EEA">外环（角度环 · 10ms）</text>
+
+  <!-- 内环框 -->
+  <rect x="640" y="44" width="350" height="190" rx="10" fill="none" stroke="#ED64A6" stroke-width="2" stroke-dasharray="8,4" opacity="0.4"/>
+  <text x="815" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="#ED64A6">内环（速度环 · 5ms）</text>
+
+  <!-- ====== 图例 ====== -->
+  <rect x="30" y="370" width="280" height="110" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="170" y="395" text-anchor="middle" font-size="14" font-weight="700" fill="#4A5568">图例</text>
+  <line x1="50" y1="415" x2="100" y2="415" stroke="#4A6CF7" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="115" y="420" font-size="13" fill="#4A5568">前向控制信号</text>
+  <line x1="50" y1="440" x2="100" y2="440" stroke="#E8764A" stroke-width="2" marker-end="url(#arrowFB)"/>
+  <text x="115" y="445" font-size="13" fill="#4A5568">反馈信号</text>
+  <line x1="50" y1="465" x2="100" y2="465" stroke="#2DA87A" stroke-width="2" marker-end="url(#arrowFF)"/>
+  <text x="115" y="470" font-size="13" fill="#4A5568">角速度前馈</text>
+
+  <!-- 特性摘要 -->
+  <rect x="330" y="370" width="740" height="110" rx="8" fill="#fff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="700" y="395" text-anchor="middle" font-size="14" font-weight="700" fill="#4A5568">关键技术点</text>
+
+  <circle cx="360" cy="420" r="4" fill="#667EEA"/>
+  <text x="375" y="425" font-size="13" fill="#4A5568">外环：角度 PD 控制，角度误差 &#177;180&#176; 限幅，输出为旋转角速度目标</text>
+
+  <circle cx="360" cy="445" r="4" fill="#ED64A6"/>
+  <text x="375" y="450" font-size="13" fill="#4A5568">内环：速度 PID + 前馈 &#215; 3，含变速积分 / 抗饱和 / 微分滤波 / 制动增强</text>
+
+  <circle cx="360" cy="470" r="4" fill="#2DA87A"/>
+  <text x="375" y="475" font-size="13" fill="#4A5568">陀螺仪角速度直接前馈至内环输入端，提升自转响应速度</text>
+</svg>
