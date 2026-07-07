@@ -81,6 +81,7 @@ find_line_v_max = 60
 acc_normal_coef = 0.03
 acc_move_coef = 0.04
 dec_coef = 0.08
+scan_rate = 0.8
 
 orbit_v_max = 110
 orbit_v_min = 30

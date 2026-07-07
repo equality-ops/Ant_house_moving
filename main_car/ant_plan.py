@@ -31,9 +31,9 @@ class PlanData:
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.fixed_point = [[35.0, -14.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
-        # [0]为扫描点1，[1]为扫描点2，[2]为扫描点3，[3]为扫描点4，[4]为扫描点5，[5]为扫描点6
-        self.scan_point = [[130.0, 55.0], [200.0, 55.0], [200.0, 100.0], [130.0, 100.0], [130.0, 185.0], [200.0, 185.0]]
-
+        # 扫描路径
+        self.scan_path_1 = [[130.0, 55.0], [200.0, 55.0], [200.0, 100.0], [130.0, 100.0]]
+        self.scan_path_2 = [[130.0, 185.0], [200.0, 185.0]]
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  
@@ -70,6 +70,7 @@ class NavigationPlan:
         self.acc_normal_coef = self.flash_sys.find_value("acc_normal_coef")     # 正常导航的加速距离系数
         self.acc_move_coef = self.flash_sys.find_value("acc_move_coef")         # 搬运状态下的加速距离系数
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
+        self.scan_rate = self.flash_sys.find_value("scan_rate")      # type: int  # 扫描状态下的速度降低比例
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
         self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
@@ -199,7 +200,12 @@ class NavigationPlan:
             self.d_dec = 0.0
             return
 
-        v_cruise = float(self.long_v_max)
+        if self.my_state.state == MOVE:
+            v_cruise = self.move_v_max
+        elif self.my_state.state == SCAN:
+            v_cruise = self.long_v_max * self.scan_rate
+        else:
+            v_cruise = self.long_v_max
 
         # 基于绝对速度变化量反算理论需要的加减速物理距离
         d_acc_req = self.acc_coef * max(0.0, v_cruise - v_start)
@@ -268,7 +274,7 @@ class NavigationPlan:
             if self.if_second_verify:
                 v_cruise = self.find_line_v_max
             else:
-                v_cruise = self.long_v_max * 0.8  # 扫描状态下的巡航速度降低为长距离最大速度的80%
+                v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
         else:
             v_cruise = self.long_v_max
 
@@ -336,6 +342,7 @@ class NavigationPlan:
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
         elif is_last_segment and self.rest_dist <= self.final_threshold:
+            self.aimed_point_index += 1
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
             self.if_finish_navigate = True
