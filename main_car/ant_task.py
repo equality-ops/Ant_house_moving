@@ -100,6 +100,7 @@ class TaskController:
             self.my_vision.reset_analysed_objects()
             self.detected_num = 0
             self.my_order_manager.mode_detect()
+            self.object_plan.reset_judge()
             if self.if_rogue_plan:
                 self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类信�?
             self.my_vision.reset_analysed_objects()
@@ -351,31 +352,30 @@ class TaskController:
         if self.detected_num < 2:
             analyse_package(2)
             self.my_plan.if_finish_navigate = False
-        if self.detected_num < 4:
+        elif self.detected_num < 4:
             self.my_plan.navigate(path = self.scan_message)
             if self.my_plan.if_finish_navigate:
                 analyse_package(4)
-        if self.detected_num == 4:
-            self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side)
-            target = self.object_plan.find_target()
-            self.my_uart.write(f"score{self.object_plan.objects_score}\n")
-            self.my_uart.write(f"char{self.object_plan.objects_characters}\n")
-            self.my_uart.write(f"pt:{target[5]}\n")
-            if not target:
-                self.my_uart.write("False\n")
-                self.exit()
-            else:
-                #self.my_uart.write("rm ok\n")
-                self.object_plan.barrier.pop(target[0])
-                self.my_moving.now_barriar=self.object_plan.barrier[:]
-                self.current_object=target[4]
-                self.my_plan.current_object = self.current_object
-                self.my_vision.current_servo_object = self.current_object
-                if target[3]!=self.last_side:rm = self.my_moving.ready_move(target[5],new_side = target[3])
-                else:rm = self.my_moving.ready_move(target[5])
-                self.my_uart.write(f"nav:{self.my_moving.navigate_buffer}\n")
-                if rm:self.my_plan.if_finish_navigate = False
-                self.exit()
+        elif self.detected_num == 4:
+            if self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side):
+                target = self.object_plan.plan_target
+                self.my_uart.write(f"target{self.object_plan.target_objects}\n")
+                self.my_uart.write(f"path{self.object_plan.path}\n")
+                self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                if not target:
+                    self.my_uart.write("False\n")
+                    self.exit()
+                else:
+                    self.object_plan.barrier.pop(target[0])
+                    self.my_moving.now_barriar=self.object_plan.barrier[:]
+                    self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
+                    self.current_object=target[1]
+                    self.my_plan.current_object = self.current_object
+                    self.my_vision.current_servo_object = self.current_object
+                    rm = self.my_moving.ready_move([target[2],target[3]],new_side = self.last_side)
+                    self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
+                    if rm:self.my_plan.if_finish_navigate = False
+                    self.exit()
 
     def handle_servo(self):
         # if state == SERVO

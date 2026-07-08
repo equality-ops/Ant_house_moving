@@ -82,7 +82,7 @@ fixed_high_level_us = 1350
 min_start_v = 40
 long_v_max = 180
 find_line_v_max = 60
-acc_coef = 0.02
+acc_coef = 0.03
 dec_coef = 0.08
 max_yaw_rate = 4.0 
 
@@ -96,14 +96,14 @@ move_v_max_B = 210
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.0
-servo_normal_kd_x = 15.0
-servo_normal_kp_y = 8.0
-servo_normal_kd_y = 15.0
+servo_normal_kp_x = 7.0
+servo_normal_kd_x = 10.0
+servo_normal_kp_y = 7.0
+servo_normal_kd_y = 10.0
 
-servo_target_y_T = 2.0
-servo_target_y_S = 3.0
-servo_target_y_B = 6.0
+servo_target_y_T = 4.5
+servo_target_y_S = 5
+servo_target_y_B = 5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -111,17 +111,18 @@ finish_threshold_y = 1.0
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
-min_rel_speed = 25
-max_rel_speed = 150
-servo_pwmout_limitmax = 150
+min_rel_speed = 40
+max_rel_speed = 130
+servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
-radius_T = 16.0
-radius_S = 18.0
-radius_B = 20.0
-angle_T = 138.0
-angle_S = 143.0
-angle_B = 145.0
+radius_T = 14.0
+radius_S = 16.0
+radius_B = 18.5
+angle_T = 141.0
+angle_S = 147.0
+angle_B = 150.0
 
 acc_move_coef = 0.04
-# 小车最高速度为290
+# 小车最高速度为180
+

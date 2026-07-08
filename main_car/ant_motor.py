@@ -163,7 +163,6 @@ class PoseData:
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 更新四元数
-    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -181,8 +180,8 @@ class PoseData:
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
         # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.1g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.1
+        LOWER_THRESHOLD = 0.1
+        UPPER_THRESHOLD = 0.2
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -241,7 +240,6 @@ class PoseData:
         self.q[3] = q3_new/norm
     
     # 将四元数转化为欧拉角
-    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q

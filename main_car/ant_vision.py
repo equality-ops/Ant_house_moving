@@ -73,13 +73,13 @@ class VisionManager:
 
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix = [[ 4.26029056e+00, -6.84019370e-02, -3.08421308e+02],
-                            [ 4.43673677e-16, -4.32808717e+00,  4.32808717e+02],
-                            [ 1.97122056e-17,  1.60411622e-01,  1.00000000e+00]]
+        self.close_H_matrix =[[ 3.08372788e+01, -2.29877897e-01, -2.65567281e+03],
+                            [ 1.70831047e-16, -2.47072012e+01,  3.30074756e+03],
+                            [ 4.95685273e-18,  1.33055071e+00,  1.00000000e+00]]
         
-        self.far_H_matrix = [[ 4.26029056e+00, -6.84019370e-02, -3.08421308e+02],
-                            [ 4.43673677e-16, -4.32808717e+00,  4.32808717e+02],
-                            [ 1.97122056e-17,  1.60411622e-01,  1.00000000e+00]]
+        self.far_H_matrix = [[ 3.08372788e+01, -2.29877897e-01, -2.65567281e+03],
+                            [ 1.70831047e-16, -2.47072012e+01,  3.30074756e+03],
+                            [ 4.95685273e-18,  1.33055071e+00,  1.00000000e+00]]
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -116,7 +116,8 @@ class VisionManager:
         self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
-        self.car_radius = 11.0   # 小车推杆到中心的距离
+        self.car_radius = 4.5   # 小车推杆到中心的距离
+        self.adjust_length = 3.0   # 用于补偿0到摄像头的距离
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -156,7 +157,7 @@ class VisionManager:
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str):
+    def pixel_to_real_world(self, u, v, sign: str, object_kind = None):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -167,28 +168,27 @@ class VisionManager:
 
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H = 0.0
-        if self.my_state == CALIBRATE:
-            object_H = 1.75
-        else:
-            if self.current_servo_object in ['T']:
-                object_H = 2.5
-            elif self.current_servo_object in ['S', 'E']:
-                object_H = 7.0
-            elif self.current_servo_object in ['W', 'B']:
-                object_H = 2.0
-
+        if not object_kind:
+            object_kind = self.current_servo_object
+        if object_kind in ['T']:
+            object_H = 3.5
+        elif object_kind in ['S', 'E']:
+            object_H = 4.0
+        elif object_kind in ['W', 'B']:
+            object_H = 3
         # 根据物体远近选择单应性矩阵H
+        H_matrix = self.far_H_matrix
         if sign == 'close':
             H_matrix = self.close_H_matrix
         elif sign == 'far':
             H_matrix = self.far_H_matrix
-
-        K = (22.0 - object_H) / 22.0
+        K = (19.6 - object_H) / 19.6
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
+        
         # 计算真实的物理坐标
-        X_w = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime * K
-        Y_w = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime * K
+        X_w = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime* K
+        Y_w = ((H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime + self.adjust_length)* K
 
         return X_w, Y_w
 
@@ -224,7 +224,7 @@ class VisionManager:
             if object_kind not in self.analysed_objects:
                 continue
             self.current_servo_object = object_kind
-            new_p = self.calc_object_global_pos(i[1], i[2])
+            new_p = self.calc_object_global_pos(i[1], i[2],i[0])
             new_x = new_p[0]
             new_y = new_p[1]
             if not self.if_in_rect(new_x,new_y):continue
@@ -242,7 +242,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        self.relative_raw_y = self.relative_raw_y - self.final_dist
+        self.relative_raw_y = self.relative_raw_y - self.final_dist -3
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -269,12 +269,10 @@ class VisionManager:
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
-    def calc_object_global_pos(self, pixel_x, pixel_y, sign='far'):
-        car_radius = 13.0
-
+    def calc_object_global_pos(self, pixel_x, pixel_y, sign='far',object_kind=None):
         # 像素点 -> 车体坐标系下真实坐标
-        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y, sign)
-        rel_y += car_radius
+        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y,sign,object_kind)
+        rel_y += self.car_radius
         # 车体坐标系下，x 为车右侧，y 为车前方
         dist = math.sqrt(rel_x ** 2 + rel_y ** 2)
 

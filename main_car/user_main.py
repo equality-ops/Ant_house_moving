@@ -15,11 +15,8 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 import ant_plan
 gc.collect()
-
 import ant_else
 gc.collect()
-
-
 # 与定时器2周期一致，都为53ms
 pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
 del(pin_obj)
@@ -32,22 +29,16 @@ if not pin_obj.value():#进入调试模式
 else:
     import ant_vision
     gc.collect()
-
     import ant_boundary_plan
     gc.collect()
-
     import ant_motor
     gc.collect()
-
     import ant_move
     gc.collect()
-
     import ant_task
     gc.collect()
-
     import ant_pid
     gc.collect()
-
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -273,7 +264,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            #if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -475,7 +466,6 @@ def time_pit1_handler(time):
         my_car.pwm_stop()
     else:
         my_car.set_motor_pwm()
-
     # 更新负压风扇的高电平时间
     """
     if my_fan.if_fan:
@@ -487,28 +477,31 @@ def time_pit1_handler(time):
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
     angle_pid_compute()
-
     # 任务执行机
     task_machine()
-
     # 全向定位测试程序
-    """
+    '''
     if my_state.state == READY_NAVIGATE:
-        # my_path.plan_path(245.0, 56.0)
-        # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[-50.0, 20.0], [30.0, 40.0], [40.0, 0.0], [0.0, 120.0], [-20.0, 20.0],  [0.0, 50.0], [30.0, 50.0],  [0.0, 0.0]])
-        # my_plan.navigate(path = [[-160.0, 0.0], [-160.0, 240.0], [160.0, 240.0], [160.0, 0.0], [0.0, 0.0]])
-        my_plan.navigate(path = [[60.0, 0.0]])
-        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        if my_plan.if_finish_navigate == True:
-            my_plan.reset_navigate()
-            my_state.state = STOP
-            my_beep.test()
-    elif my_state.state == STOP:
-        my_plan.stop()
-    """
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
+        my_state.state = SCAN
+    elif my_state.state == SCAN:
+        def analyse_package(num):
+            if not my_task.if_send_detect_message:
+                my_task.if_send_detect_message = True
+                my_task.my_order_manager.mode_detect()
+            object_package=my_task.my_art_protocol.detect_objects_on_the_court()
+            if object_package:
+                my_task.my_vision.analyse_object_coordinate(object_package,if_cover = True)
+                my_task.detected_num+=1
+                if my_task.detected_num==num:
+                    my_task.my_order_manager.finish()
+                    my_task.if_send_detect_message = False
+                    my_task.my_uart.write(f"1{my_task.my_vision.analysed_objects}\n")
+        if my_task.detected_num < 2:
+            analyse_package(2)
+            my_task.my_plan.if_finish_navigate = False
+    '''
     # 视觉伺服测试程序
     # test_vision_servo()
 

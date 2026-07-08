@@ -256,7 +256,6 @@ class TaskController:
             left_x = x - 15.0 * math.cos(now_yaw)
             left_y = y + 15.0 * math.sin(now_yaw)
             self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y], self.pt_buffer[0]], target_turn_angle = self.pt_buffer[1])
-            
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:
                 self.my_vision.if_send_order = False
@@ -317,7 +316,6 @@ class TaskController:
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
-
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状态
 

@@ -9,15 +9,13 @@ class BoundaryPathPlanner:
         self.ready_path = []
         gc.collect()
 
-    def special_swell_barriers(self, objects_, swell_angle):
-        if swell_angle == 1 or swell_angle== -1:swell_size = 5.0
+    def special_swell_barriers(self, objects_, swell_angle, skip_idx=None):
+        if swell_angle == 1 or swell_angle== -1:swell_size = 10.0
         else:swell_size = 20.0
         circle_r = float(self.Data.OBSTACLE_R)
-        circles = self.Data.circle[:]
-        raw_rects = self.Data.rectangles[:]
-        if raw_rects:
-            raw_rects.pop(-1)
-        objects = objects_[:] if objects_ else []
+        circles = self.Data.circle
+        raw_rects = self.Data.rectangles
+        objects = objects_ if objects_ else []
         rects = []
 
         def make_rect(cx, cy, half_w, half_h):
@@ -57,84 +55,128 @@ class BoundaryPathPlanner:
                 out.append((x, y))
             return out
 
-        for obj in objects:
+        for obj_idx in range(len(objects)):
+            if skip_idx is not None and obj_idx == skip_idx:
+                continue
+            obj = objects[obj_idx]
             if len(obj) >= 4:
                 cx, cy = float(obj[0]), float(obj[1])
                 half_w = float(obj[2]) / 2.0
                 half_h = float(obj[3]) / 2.0
                 rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
-
         for circle in circles:
             if len(circle) >= 2:
                 cx, cy = float(circle[0]), float(circle[1])
                 rects.append(swell_rect(make_rect(cx, cy, circle_r, circle_r),swell_angle))
-
-        for rect in raw_rects:
+        rect_count = len(raw_rects)
+        for rect_idx in range(rect_count):
+            if rect_idx == rect_count - 1:
+                continue
+            rect = raw_rects[rect_idx]
             if len(rect) >= 4:
                 rects.append(swell_rect(rect,swell_angle))
+        gc.collect()
         return rects
 
-    def plan_move(self, direction, swell_dir, objects,x=None,y=None):
-        self.rects = self.special_swell_barriers(objects, swell_dir)
+    def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None):
+        self.rects = self.special_swell_barriers(objects, swell_dir, skip_idx)
         self.ready_path = self.plan_one_turn(direction,x,y)
         return self.ready_path
 
     def plan_one_turn(self, direction,x=None,y=None):
         if x is None or y is None:x,y=self.my_car.x_current,self.my_car.y_current
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
+        gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
+        gc.collect()
         return path_right
 
     def _plan_one_turn_with_avoid(self, direction, avoid_dir,x,y):
         direction = self._normalize_dir(direction)
         avoid_dir = 1 if avoid_dir >= 0 else -1
         start = (float(x), float(y))
-        rects = self.rects[:]
+        rects = self.rects
         start = self._nearest_valid(start, rects)
         direct_end = self._project_to_boundary(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
             return self.my_plan._path_to_list([start, direct_end])
-
-        raw_corner_nodes = []
-        for rect in rects:
-            raw_corner_nodes.extend(self._rect_corner_nodes(rect))
-
         aim_nodes = []
         ref_nodes = []
-        for p in raw_corner_nodes:
-            if self._ahead_or_level(start, p, direction):
-                ref_end = self._project_to_boundary(p, direction)
-                if self._move_allowed(p, ref_end, direction, avoid_dir):
-                    ref_nodes.append(p)
-                if self._same_avoid_side_or_level(start, p, direction, avoid_dir):
-                    aim_nodes.append(p)
-
-        candidates = aim_nodes[:]
-        candidates.extend(self._one_turn_intersections(start, aim_nodes, ref_nodes, direction))
-        candidates = self._unique_valid_nodes(candidates, rects)
-
+        for rect in rects:
+            self._append_rect_corner_nodes(rect, start, direction, avoid_dir, aim_nodes, ref_nodes)
         best_path = []
         best_cost = self.Data.INF
-        for p in candidates:
-            end = self._project_to_boundary(p, direction)
-            if not self._move_allowed(start, p, direction, avoid_dir):
-                continue
-            if not self._move_allowed(p, end, direction, avoid_dir):
-                continue
-            if not self._line_valid(start, p, rects):
-                continue
-            if not self._line_valid(p, end, rects):
-                continue
 
-            cost = self.my_plan._distance(start, p) + self.my_plan._distance(p, end)
+        for p in aim_nodes:
+            cost = self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects)
             if cost < best_cost:
                 best_cost = cost
-                best_path = [start, p, end]
+                best_path = [start, p, self._project_to_boundary(p, direction)]
 
+        _, right = self._forward_right(direction)
+        start_side = start[0] * right[0] + start[1] * right[1]
+        for aim in aim_nodes:
+            aim_side = aim[0] * right[0] + aim[1] * right[1]
+            den = aim_side - start_side
+            if abs(den) < 0.000001:
+                continue
+            for boundary_ref in ref_nodes:
+                ref_side = boundary_ref[0] * right[0] + boundary_ref[1] * right[1]
+                t = (ref_side - start_side) / den
+                if t < 0.0:
+                    continue
+                p = (start[0] + (aim[0] - start[0]) * t,
+                     start[1] + (aim[1] - start[1]) * t)
+                cost = self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects)
+                if cost < best_cost:
+                    best_cost = cost
+                    best_path = [start, p, self._project_to_boundary(p, direction)]
+        gc.collect()
         return self.my_plan._path_to_list(best_path)
+
+    def _append_rect_corner_nodes(self, rect, start, direction, avoid_dir, aim_nodes, ref_nodes):
+        d = 2.0
+        count = len(rect)
+        cx, cy = 0.0, 0.0
+        for p in rect:
+            cx += p[0]
+            cy += p[1]
+        cx /= count
+        cy /= count
+
+        for p in rect:
+            vx, vy = p[0] - cx, p[1] - cy
+            length = math.sqrt(vx * vx + vy * vy)
+            if length < 0.000001:
+                node = p
+            else:
+                node = (p[0] + vx / length * d,
+                        p[1] + vy / length * d)
+
+            if self._ahead_or_level(start, node, direction):
+                ref_end = self._project_to_boundary(node, direction)
+                if self._move_allowed(node, ref_end, direction, avoid_dir):
+                    ref_nodes.append(node)
+                if self._same_avoid_side_or_level(start, node, direction, avoid_dir):
+                    aim_nodes.append(node)
+
+    def _one_turn_candidate_cost(self, start, p, direction, avoid_dir, rects):
+        if not self._point_valid(p, rects):
+            return self.Data.INF
+        end = self._project_to_boundary(p, direction)
+        if not self._move_allowed(start, p, direction, avoid_dir):
+            return self.Data.INF
+        if not self._move_allowed(p, end, direction, avoid_dir):
+            return self.Data.INF
+        if not self._line_valid(start, p, rects):
+            return self.Data.INF
+        if not self._line_valid(p, end, rects):
+            return self.Data.INF
+
+        return self.my_plan._distance(start, p) + self.my_plan._distance(p, end)
 
     def _path_cost(self, path):
         if not path:
@@ -157,44 +199,6 @@ class BoundaryPathPlanner:
         if direction == 180:
             return (0.0, -1.0), (-1.0, 0.0)
         return (-1.0, 0.0), (0.0, 1.0)
-
-    def _rect_corner_nodes(self, rect):
-        d = 2.0
-        out = []
-        cx = sum(p[0] for p in rect) / len(rect)
-        cy = sum(p[1] for p in rect) / len(rect)
-        for p in rect:
-            vx, vy = p[0] - cx, p[1] - cy
-            length = math.sqrt(vx * vx + vy * vy)
-            if length < 1e-6:
-                out.append(p)
-            else:
-                out.append((p[0] + vx / length * d,
-                            p[1] + vy / length * d))
-        return out
-
-    def _one_turn_intersections(self, start, aim_nodes, ref_nodes, direction):
-        _, right = self._forward_right(direction)
-        out = []
-        start_side = start[0] * right[0] + start[1] * right[1]
-
-        for aim in aim_nodes:
-            aim_side = aim[0] * right[0] + aim[1] * right[1]
-            den = aim_side - start_side
-            if abs(den) < 0.000001:
-                continue
-
-            for boundary_ref in ref_nodes:
-                ref_side = boundary_ref[0] * right[0] + boundary_ref[1] * right[1]
-                t = (ref_side - start_side) / den
-                if t < 0.0:
-                    continue
-                px = start[0] + (aim[0] - start[0]) * t
-                py = start[1] + (aim[1] - start[1]) * t
-                p = (px, py)
-                if self.my_plan._inside_field(p):
-                    out.append(p)
-        return out
 
     def _project_to_boundary(self, p, direction):
         if direction == 0:
@@ -223,21 +227,6 @@ class BoundaryPathPlanner:
                     return q
             radius += 2.0
         return p
-
-    def _unique_valid_nodes(self, nodes, rects):
-        out = []
-        for p in nodes:
-            p = (float(p[0]), float(p[1]))
-            if not self._point_valid(p, rects):
-                continue
-            duplicated = False
-            for q in out:
-                if abs(p[0] - q[0]) < 0.001 and abs(p[1] - q[1]) < 0.001:
-                    duplicated = True
-                    break
-            if not duplicated:
-                out.append(p)
-        return out
 
     def _point_valid(self, p, rects):
         if not self.my_plan._inside_field(p):
@@ -274,35 +263,49 @@ class objects_planner:
         self.Data = plan_data
         self.my_car = car
         self.my_plan = my_plan
-        self.objects = []
         self.objects_information = []
         self.objects_characters = []
         self.my_BoundaryPath = my_BoundaryPath
         self.near_therohold = 15
         self.objects_score = []
+        self.barrier = []
+        self.now_objects = []
+        self.target_score = []
+        self.plan_target = []
+        self.path = []
+        self.judge_state = 0#0:未开始，1:正在进行，2:已结束
+        self.now_idx = 0
         gc.collect()
-    def set_barriers(self):
-        barriers=[]
+    def set_barriers(self,barriers):
         wideness={'T':4,'S':3,'E':3,'B':2,'W':2,}
         height={'T':4,'S':3,'E':3,'B':2,'W':2,}
-        for keyi in self.objects:
-            w,h=wideness[keyi],height[keyi]
-            for i in self.objects[keyi]:
-                    barriers.append([i[0],i[1],w,h])
-        return barriers
-    def calculate_score(self,_characters,car_side):
+        for i in self.now_objects:
+            w,h=wideness[i[0]],height[i[0]]
+            barriers.append([i[1],i[2],w,h])
+    def reset_judge(self):
+        self.path = []
+        self.objects_score = []
+        self.target_objects = []
+        self.now_objects = []
+        self.judge_state = 0
+        self.barrier = []
+        self.target_score = []
+        self.plan_target = []
+        self.now_idx = 0
+        gc.collect()
+    def calculate_score(self, needed_area_barriers, run_area_barriers, has_push_path, push_distance, push_angle, distance_from_car, car_side):
         danger,speed = 0,0
         side = {'D':[0,0],'L':[0,1],'U':[1,1],'R':[1,0]}
-        if not _characters['has_push_path']:danger += 1
+        if not has_push_path:danger += 1
         danger *=10
-        if _characters['push_angle']>60:danger += 1
+        if push_angle>60:danger += 1
         danger *=10
-        for i in _characters['needed_area_barriers']:
-            if len(_characters['needed_area_barriers'][i])>0:
+        for i in needed_area_barriers:
+            if len(needed_area_barriers[i])>0:
                 danger+=4
-                if 'T' in _characters['needed_area_barriers'][i]:
+                if 'T' in needed_area_barriers[i]:
                     danger+=2
-        R_Bs=_characters['run_area_barriers']
+        R_Bs=run_area_barriers
         min_dis = 10
         min_dis_T = 10
         Plan_side,Plan_side_T,target_side= car_side,car_side,car_side
@@ -326,22 +329,102 @@ class objects_planner:
                 speed+=dis*50
             target_side=Plan_side_T
         else:speed+=dis*50
-        speed += _characters['distance_from_car']*1+_characters['push_distance']*1
+        speed += distance_from_car*1+push_distance*1
         return danger,speed,target_side#危险性，速度性，目标�?    
+    def judge_side_in(self,side,now_object):
+        def _if_p_block_p(p,p_):
+            avoid_width = 20
+            near_area = 3
+            if side == 'D':
+                if p_[1]>p[1]-near_area:return False
+                if abs(p_[0]-p[0])>avoid_width:return False
+            elif side == 'U':
+                if p_[1]<p[1]+near_area:return False
+                if abs(p_[0]-p[0])>avoid_width:return False
+            elif side == 'L':
+                if p_[0]>p[0]-near_area:return False
+                if abs(p_[1]-p[1])>avoid_width:return False
+            elif side == 'R':
+                if p_[0]<p[0]+near_area:return False
+                if abs(p_[1]-p[1])>avoid_width:return False
+            return True
+        for j in self.now_objects:
+            i=now_object
+            if i == j:continue
+            if _if_p_block_p([i[1],i[2]],[j[1],j[2]]):
+                gc.collect()
+                return False
+        gc.collect()
+        return True
+        
+    def set_objects(self,objects,out):
+        for keyi in objects:
+            for i in objects[keyi]:
+                    out.append([keyi,i[0],i[1]])
+        gc.collect()
     def judge_object_character(self,objects,car_side):
-        self.objects = objects
-        self.barrier = self.set_barriers()
+        if self.judge_state == 0:
+            self.set_objects(objects,self.now_objects)#将物体转化为[物体类型，x，y]的形式,存在self.now_objects中
+            self.set_barriers(self.barrier)#将物体转化为障碍形式并存储在self.barrier中
+            self.judge_state = 1
+            return False
+        elif self.judge_state == 1:#筛选出能直接搬运的物体
+            idx=0
+            self.target_objects = []
+            for i in self.now_objects:
+                if self.judge_side_in(car_side,i):
+                    self.target_objects.append([idx,i[0],i[1],i[2]])
+                idx+=1
+            self.judge_state = 2
+            return False
+        elif self.judge_state == 2:#计算每个目标物体的评分
+            side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
+            if self.now_idx>=len(self.target_objects): self.judge_state = 3
+            else:
+                i = self.target_objects[self.now_idx]
+                score = 0
+                dir,sdir=self.judge_push_direction(i[1])
+                if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=1000
+                path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
+                push_distance,push_angle= 1000,90
+                if (not path) or len(path) <= 1: score+=10000
+                else:
+                    if len(path) == 2:
+                        p_,p__=path[0],path[1]
+                        push_distance = self.calculate_distance(p_,p__)
+                    else:
+                        p_,p__,p___=path[0],path[1],path[2]
+                        push_distance = self.calculate_distance(p_,p__)+self.calculate_distance(p__,p___)
+                    push_yaw = math.atan2(p__[0] - p_[0], p__[1] - p_[1]) * 180.0 / math.pi
+                    self.path.append(path[1])
+                    push_angle = abs(push_yaw - dir)
+                    if push_angle > 180:
+                        push_angle = 360 - push_angle
+                if abs(push_angle) > 45: score+=5000
+                dx_car = i[2] - self.my_car.x_current
+                dy_car = i[3] - self.my_car.y_current
+                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
+                score += push_distance + push_angle*10 +distance_from_car*10
+                self.target_score.append(score)
+                self.now_idx+=1
+            return False
+        elif self.judge_state == 3:#选择评分最低的物体作为目标
+            for i in range(len(self.target_score)):
+                if self.target_score[i] == min(self.target_score):
+                    self.plan_target = self.target_objects[i]
+                    return True
+            return True
+        gc.collect()
+        '''
         idx=0
         self.objects_characters = []
         self.objects_score = []
         for keyi in self.objects:
             for i in self.objects[keyi]:
-                now_barrier=self.barrier[:]
-                now_barrier.pop(idx)
                 needed_area_barrier = self.judge_need_area(keyi)
                 run_area_barriers = {'U':[],'D':[],'R':[],'L':[]}
-                dir,sdir=self.judge_push_direction(keyi)
-                path = self.my_BoundaryPath.plan_move(dir,sdir,now_barrier,i[0],i[1])
+                dir,sdir=self.judge_push_direction(i[1])
+                path = self.my_BoundaryPath.plan_move(dir,sdir,self.barrier,i[0],i[1],skip_idx=idx)
                 push_distance,push_angle,has_push_path= 1000,90,True
                 if len(path) <= 1: has_push_path = False
                 else:
@@ -359,20 +442,14 @@ class objects_planner:
                                 if judge_ in needed_area_barrier:
                                     needed_area_barrier[judge_].append(keyj)
                             self.judge_running_area(i,j,run_area_barriers,keyj)
-                distance_from_car = self.calculate_distance(i,[self.my_car.x_current,self.my_car.y_current])
-                _characters={
-                    'species':keyi,
-                    'needed_area_barriers': needed_area_barrier,
-                    'run_area_barriers': run_area_barriers,
-                    'has_push_path':has_push_path,
-                    'push_distance':push_distance,
-                    'push_angle':push_angle,
-                    'distance_from_car':distance_from_car,
-                }
-                _danger,_speed,_side=self.calculate_score(_characters,car_side)
+                dx_car = i[0] - self.my_car.x_current
+                dy_car = i[1] - self.my_car.y_current
+                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
+                _danger,_speed,_side=self.calculate_score(needed_area_barrier, run_area_barriers, has_push_path, push_distance, push_angle, distance_from_car, car_side)
                 self.objects_score.append([idx,_danger,_speed,_side,keyi,i])
-                self.objects_characters.append(_characters)
                 idx+=1
+                gc.collect()
+        '''
     def find_target(self):
         if self.objects_score:
             Target = self.objects_score[0]

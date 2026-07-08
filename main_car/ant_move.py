@@ -228,6 +228,8 @@ class MoveControl:
                             'ANGLE':ANGle,
                         })
         self.moving_point.pop(0)  # 移除起点
+        if not self.navigate_buffer:
+            return False
         if self.vision_manager.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T
             self.final_dist = self.vision_manager.servo_pid.target_y_T

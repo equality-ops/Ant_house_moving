@@ -152,7 +152,7 @@ class VisionManager:
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str):
+    def pixel_to_real_world(self, u, v, sign: str, object_kind = None):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -161,16 +161,14 @@ class VisionManager:
         :return: 真实的物理坐标 (X_w, Y_w)
         """
         object_H = 0.0  # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
-        if self.my_state == CALIBRATE:
-            object_H = 0.0
-        else:
-            if self.current_servo_object in ['T']:
-                object_H = 2.5
-            elif self.current_servo_object in ['S', 'E']:
-                object_H = 7.0
-            elif self.current_servo_object in ['W', 'B']:
-                object_H = 2.0
-
+        if not object_kind:
+            object_kind = self.current_servo_object
+        if object_kind == 'T': 
+            object_H = 3.5
+        elif object_kind in ['S', 'E']:
+            object_H = 6.0
+        elif object_kind in ['W', 'B']:
+            object_H = 4.0
         # 根据物体远近选择单应性矩阵H
         if sign == 'close':
             H_matrix = self.close_H_matrix

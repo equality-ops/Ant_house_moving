@@ -1,4 +1,20 @@
 import gc
+class SlipAveragingFilter:
+    # 构造对象时传入滤波窗口大小
+    def __init__(self, filter_size: int):
+        self.filter_size = filter_size
+        self.index = 0
+        self.last_value = 0.0
+        self.buffer = [0.0] * filter_size
+
+    def buffer_init(self, initial_value):
+        self.buffer = [initial_value] * self.filter_size
+
+    # 滤波时传入一个新的数据，返回滤波后的结果(float)
+    def filtering(self, data: float) -> float:
+        self.buffer[self.index] = data
+        self.index = (self.index + 1) % self.filter_size
+        return sum(self.buffer) / self.filter_size
 class PID_data:
     def __init__(self, flash_sys):
         # 注入flash系统对象
@@ -211,20 +227,5 @@ class ServoPID(ControlPID):
         self.pwm_output_y = max(-self.pwmout_limitmax, min(self.pwm_output_y, self.pwmout_limitmax))
         # 模型下的pid计算
 # 滑动平均滤波器
-class SlipAveragingFilter:
-    # 构造对象时传入滤波窗口大小
-    def __init__(self, filter_size: int):
-        self.filter_size = filter_size
-        self.index = 0
-        self.last_value = 0.0
-        self.buffer = [0.0] * filter_size
 
-    def buffer_init(self, initial_value):
-        self.buffer = [initial_value] * self.filter_size
-
-    # 滤波时传入一个新的数据，返回滤波后的结果(float)
-    def filtering(self, data: float) -> float:
-        self.buffer[self.index] = data
-        self.index = (self.index + 1) % self.filter_size
-        return sum(self.buffer) / self.filter_size
     
