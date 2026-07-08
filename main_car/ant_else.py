@@ -623,6 +623,7 @@ class TaskController:
                     self.data.scan_point[self.object_status][0] = self.my_car.x_current 
 
                 self.if_start_off = True  # 已经出发车区
+                self.if_change_status = False  # 重置物体状态切换标志位
                 self.my_plan.reset_navigate()
 
                 if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
