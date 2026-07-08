@@ -3,16 +3,17 @@ import math
 import gc
 
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
+SPIN = const(10)          # 旋转状态
 InField = const(-1)
 OnLine = const(0)
 OutLine = const(1)
@@ -56,7 +57,8 @@ class VisionManager:
         # 视觉伺服失败的次数
         self.failed_servo_count = 0 
         # 最终小车停在物体前的距离（随着物体种类改变）
-        self.final_dist = 0.0
+        self.final_dist_x = 0.0
+        self.final_dist_y = 0.0
         # 视觉伺服的两个阶段：第一阶段为快速接近阶段，第二阶段为精确调整阶段
         self.servo_stage = 1
         # PD控制相关变量
@@ -129,6 +131,8 @@ class VisionManager:
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 临时用于测试的角度变量
         self.angle_temp = 0.0
+        # 停在物体的左侧或者右侧
+        self.direction = ''  
 
         # 标志位
         self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位
@@ -194,7 +198,11 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
-        self.relative_raw_y = self.relative_raw_y - self.correct_dist - self.final_dist
+        if self.direction == 'R':
+            self.relative_raw_x = self.relative_raw_x + self.final_dist_x
+        elif self.direction == 'L':
+            self.relative_raw_x = self.relative_raw_x - self.final_dist_x
+        self.relative_raw_y = self.relative_raw_y - self.correct_dist - self.final_dist_y
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -229,25 +237,8 @@ class VisionManager:
         
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
-            # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
             self.calculate_dist(self.target_point[0], self.target_point[1])
-            '''
-            # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
-            jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
-            
-            if old_servo_point != [0, 0] and jump_dist > 10.0:  # 10cm以上的跳变认为是其他物体
-                self.real_servo_point = old_servo_point   # 判断为其他物体，还原回被锁定的旧目标坐标
-                self.servo_lost_count += 1                # 视作掉帧或丢失
-                
-                # 彻底丢失保护
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0.0
-                    self.target_rel_yaw = 0.0
-                    self.if_lost_object = True
-                    self.servo_lost_count = 0
-                    return
-            else:
-            '''
+
             # 当前物体验证通过，或是第一帧
             # 记录下小车当前的坐标点
             self.last_car_x = self.my_car.x_current
@@ -544,19 +535,22 @@ class VisionManager:
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T
-            self.final_dist = self.servo_pid.target_y_T
+            self.final_dist_y = self.servo_pid.target_y_T
+            self.final_dist_x = self.servo_pid.target_x_T
             self.object_radius = self.radius_T
             self.orbit_angle = self.angle_T
             self.my_plan.move_v_max = self.my_plan.move_v_max_T
-        elif self.current_servo_object == 'S' or self.current_servo_object == 'E':
+        elif self.current_servo_object in ['S', 'E']:
             self.my_plan.error_x = self.my_plan.error_x_S
-            self.final_dist = self.servo_pid.target_y_S
+            self.final_dist_y = self.servo_pid.target_y_S
+            self.final_dist_x = self.servo_pid.target_x_S
             self.object_radius = self.radius_S
             self.orbit_angle = self.angle_S
             self.my_plan.move_v_max = self.my_plan.move_v_max_S
-        elif self.current_servo_object == 'B' or self.current_servo_object == 'W':
+        elif self.current_servo_object in ['B', 'W']:
             self.my_plan.error_x = self.my_plan.error_x_B
-            self.final_dist = self.servo_pid.target_y_B
+            self.final_dist_y = self.servo_pid.target_y_B
+            self.final_dist_x = self.servo_pid.target_x_B
             self.object_radius = self.radius_B
             self.orbit_angle = self.angle_B
             self.my_plan.move_v_max = self.my_plan.move_v_max_B
@@ -565,7 +559,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.8
+            self.final_dist_y *= 0.8
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current

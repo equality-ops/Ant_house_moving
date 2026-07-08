@@ -3,17 +3,17 @@ import math
 import gc
 
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
-PREDICT = const(10)       # 预测状态
+SPIN = const(10)       # 旋转状态
 
 # 状态机
 class StateMachine:
@@ -33,7 +33,7 @@ class PlanData:
         self.fixed_point = [[35.0, -14.0], [95.0, 55.0], [225.0, 185.0], [15.0, -25.0], [35.0, -25.0]]  # type: list
         # 扫描路径
         self.scan_path_1 = [[130.0, 55.0], [200.0, 55.0], [200.0, 100.0], [130.0, 100.0]]
-        self.scan_path_2 = [[130.0, 185.0], [200.0, 185.0]]
+        self.scan_path_2 = [[130.0, 185.0], [200.0, 185.0], [200.0, 140.0], [130.0, 140.0]]
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  
