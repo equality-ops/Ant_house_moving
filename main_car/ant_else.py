@@ -809,28 +809,21 @@ class TaskController:
 
         target_point = self.my_art_protocol.coordinate_receive()
         if target_point and self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):  
-            if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                if not self.if_second_verify:
-                    self.my_plan.if_second_verify = True
-                    counter += 1
-                    # 只有连续扫到5帧目标体才认为是有效目标
-                    if counter >= 5:
-                        counter = 0
-                        # 清空串口缓冲区
-                        self.my_art_protocol.clear_buffer()
-                        self.if_second_verify = True
-                else:
-                    self.current_object = chr(target_point[2])
-                    self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
-                    self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
-                    self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
-                    self.exit()  # 退出当前状态
+            if not self.if_second_verify:
+                self.my_plan.if_second_verify = True
+                counter += 1
+                # 只有连续扫到5帧目标体才认为是有效目标
+                if counter >= 5:
+                    counter = 0
+                    # 清空串口缓冲区
+                    self.my_art_protocol.clear_buffer()
+                    self.if_second_verify = True
             else:
                 self.current_object = chr(target_point[2])
                 self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+                self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
                 self.exit()  # 退出当前状态
-            return
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入伺服状态

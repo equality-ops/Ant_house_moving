@@ -79,6 +79,9 @@ class NavigationPlan:
 
         self.waypoint_v = []  # type: list  # 目标速度列表
 
+        self.dec_counter = 0  # type: int  # 二次确认时的减速计数器
+        self.dec_start_v = 0.0  # type: float  # 减速起始时刻的初速度（固定值，用于高次减速基准）
+
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
         self.target_y = 0.0         # type: float
@@ -272,7 +275,17 @@ class NavigationPlan:
         elif self.my_state.state == SCAN:
             # 在经过第二次视觉验证后减速预测目标点位
             if self.if_second_verify:
-                v_cruise = self.find_line_v_max
+                step = 10.0  # 每次减速的步长
+                if self.target_v > self.find_line_v_max:
+                    if self.dec_counter == 0:
+                        self.dec_start_v = self.target_v  # 记录减速起始时刻的固定初速度
+                    self.dec_counter += 1
+                    # 高次减速（二次）：v = v0_fixed - k * t²
+                    # 减速度随时间线性增长，初始平缓、后期剧烈，避免急停冲击
+                    v_cruise = max(self.find_line_v_max, self.dec_start_v - step * self.dec_counter * self.dec_counter)
+                else:
+                    self.dec_counter = 0
+                    v_cruise = self.find_line_v_max
             else:
                 v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
         else:
@@ -405,6 +418,8 @@ class NavigationPlan:
         self.if_finish_navigate = False
         self.finished_dist = 0.0
         self.aimed_point_index = 0
+        self.dec_counter = 0
+        self.dec_start_v = 0.0
         self.path.clear()
 
     # 重置小车导航姿态角
