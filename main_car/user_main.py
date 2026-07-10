@@ -578,7 +578,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{my_task.current_object}, {my_state.state}, {my_vision_manager.real_servo_point}\n")
     # my_uart3.write(f"{my_plan.aimed_point_index}\r\n")
-    my_uart3.write(f"{my_task.scan_message}, {my_state.state}\r\n")
+    # my_uart3.write(f"{my_task.scan_message}, {my_state.state}\r\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

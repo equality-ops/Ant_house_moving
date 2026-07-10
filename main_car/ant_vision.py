@@ -95,6 +95,10 @@ class VisionManager:
         # ==================================================================
 
         # 环绕控制相关变量
+        self.center_x_offset = 0.0           # type: float   # 环绕圆心偏移量
+        self.center_offset_T = self.flash_sys.find_value("center_offset_T")             # type: float   # 网球环绕圆心偏移量
+        self.center_offset_S = self.flash_sys.find_value("center_offset_S")             # type: float   # 沙袋环绕圆心偏移量
+        self.center_offset_B = self.flash_sys.find_value("center_offset_B")             # type: float   # 玩具熊环绕圆心偏移量
         self.orbit_center_x = 0.0
         self.orbit_center_y = 0.0
         self.orbit_radius = 0.0            # type: float   # 环绕半径
@@ -367,7 +371,7 @@ class VisionManager:
 
             # ====== 新增：记录下当前的理想旋转圆心坐标 ======
             # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
-            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
+            self.orbit_center_x = self.my_car.x_current + self.center_x_offset + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
             self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * PI / 180.0)
             self.if_orbit_ready = True
         else:
@@ -387,7 +391,7 @@ class VisionManager:
             err_r = self.orbit_radius - actual_r
             
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
-            kr = 2.0
+            kr = 5.0
             
             if self.direct == 'CW':
                 # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
@@ -549,26 +553,29 @@ class VisionManager:
             self.final_dist = self.servo_pid.target_y_T
             self.object_radius = self.radius_T
             self.orbit_angle = self.angle_T
+            self.center_x_offset = self.center_offset_T
             self.my_plan.move_v_max = self.my_plan.move_v_max_T
         elif self.current_servo_object == 'S' or self.current_servo_object == 'E':
             self.my_plan.error_x = self.my_plan.error_x_S
             self.final_dist = self.servo_pid.target_y_S
             self.object_radius = self.radius_S
             self.orbit_angle = self.angle_S
+            self.center_x_offset = self.center_offset_S
             self.my_plan.move_v_max = self.my_plan.move_v_max_S
         elif self.current_servo_object == 'B' or self.current_servo_object == 'W':
             self.my_plan.error_x = self.my_plan.error_x_B
             self.final_dist = self.servo_pid.target_y_B
             self.object_radius = self.radius_B
             self.orbit_angle = self.angle_B
+            self.center_x_offset = self.center_offset_B
             self.my_plan.move_v_max = self.my_plan.move_v_max_B
 
         if state == 'servo':
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.6
-
+            self.final_dist *= 0.5
+            
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current

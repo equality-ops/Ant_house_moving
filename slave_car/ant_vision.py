@@ -377,7 +377,7 @@ class VisionManager:
             err_r = self.orbit_radius - actual_r
             
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
-            kr = 2.5
+            kr = 5.0
             
             if self.direct == 'CW':
                 # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
@@ -565,7 +565,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.8
+            self.final_dist *= 0.5
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current

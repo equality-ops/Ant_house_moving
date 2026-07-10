@@ -748,16 +748,17 @@ class TaskController:
         elif state == ORBIT:
             # 搬运过程中停下负压防止起步不同步
             # self.my_fan.fan_off()
-            
             counter += 1
-            # 延时300ms
-            if counter > 30:
+            # 延时200ms
+            if counter > 20:
                 self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕
+
                 # 重置计数器
                 counter = 0
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
+                # self.my_state.state = STOP  # 直接切换到搬运状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             
         elif state == MOVE:

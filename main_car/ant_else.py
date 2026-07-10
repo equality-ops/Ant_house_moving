@@ -548,6 +548,7 @@ class TaskController:
                         # 此时小车将过渡到上半区
                         self.if_to_top = True
                 else:
+                    self.my_vision.center_x_offset = -self.my_vision.center_x_offset
                     # 主车逆时针旋转
                     self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
 
