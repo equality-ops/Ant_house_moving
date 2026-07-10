@@ -9,10 +9,11 @@ class BoundaryPathPlanner:
         self.ready_path = []
         gc.collect()
 
-    def special_swell_barriers(self, objects_, swell_angle, skip_idx=None):
-        if swell_angle == 1 or swell_angle== -1:swell_size = 10.0
+    def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
+        if swell_angle == 1 or swell_angle== -1:swell_size = 5.0
         else:swell_size = 20.0
         circle_r = float(self.Data.OBSTACLE_R)
+        safe_margin = float(self.Data.SAFE_MARGIN)
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
@@ -28,6 +29,14 @@ class BoundaryPathPlanner:
 
         def swell_rect(rect,swell_angle):
             out = []
+            cx, cy = 0.0, 0.0
+            if swell_angle == 1 or swell_angle == -1:
+                for p in rect:
+                    cx += p[0]
+                    cy += p[1]
+                cx /= len(rect)
+                cy /= len(rect)
+                _, right = self._forward_right(self._normalize_dir(direction))
             for p in rect:
                 x, y = float(p[0]), float(p[1])
                 if swell_angle == -90:
@@ -43,15 +52,21 @@ class BoundaryPathPlanner:
                     if y < rect[2][1] - 0.001:
                         y -= swell_size
                 elif swell_angle == 1:
-                    if y < rect[2][1] - 0.001:
-                        y -= swell_size
-                    elif y > rect[0][1] + 0.001:
-                        y += swell_size
+                    side = (x - cx) * right[0] + (y - cy) * right[1]
+                    if side > 0.001:
+                        x += right[0] * swell_size
+                        y += right[1] * swell_size
+                    elif side < -0.001:
+                        x -= right[0] * swell_size
+                        y -= right[1] * swell_size
                 elif swell_angle == -1:
-                    if x < rect[0][0] + 0.001:
-                        x -= swell_size
-                    elif x > rect[1][0] - 0.001:
-                        x += swell_size
+                    side = (x - cx) * right[0] + (y - cy) * right[1]
+                    if side > 0.001:
+                        x += right[0] * swell_size
+                        y += right[1] * swell_size
+                    elif side < -0.001:
+                        x -= right[0] * swell_size
+                        y -= right[1] * swell_size
                 out.append((x, y))
             return out
 
@@ -61,13 +76,13 @@ class BoundaryPathPlanner:
             obj = objects[obj_idx]
             if len(obj) >= 4:
                 cx, cy = float(obj[0]), float(obj[1])
-                half_w = float(obj[2]) / 2.0
-                half_h = float(obj[3]) / 2.0
+                half_w = float(obj[2]) / 2.0 + safe_margin
+                half_h = float(obj[3]) / 2.0 + safe_margin
                 rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
         for circle in circles:
             if len(circle) >= 2:
                 cx, cy = float(circle[0]), float(circle[1])
-                rects.append(swell_rect(make_rect(cx, cy, circle_r, circle_r),swell_angle))
+                rects.append(swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle))
         rect_count = len(raw_rects)
         for rect_idx in range(rect_count):
             if rect_idx == rect_count - 1:
@@ -79,7 +94,7 @@ class BoundaryPathPlanner:
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None):
-        self.rects = self.special_swell_barriers(objects, swell_dir, skip_idx)
+        self.rects = self.special_swell_barriers(objects, swell_dir, skip_idx, direction)
         self.ready_path = self.plan_one_turn(direction,x,y)
         return self.ready_path
 
@@ -103,43 +118,50 @@ class BoundaryPathPlanner:
         direct_end = self._project_to_boundary(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
             return self.my_plan._path_to_list([start, direct_end])
-        aim_nodes = []
-        ref_nodes = []
+
+        nodes = []
+        fwd, right = self._forward_right(direction)
         for rect in rects:
-            self._append_rect_corner_nodes(rect, start, direction, avoid_dir, aim_nodes, ref_nodes)
-        best_path = []
-        best_cost = self.Data.INF
-
-        for p in aim_nodes:
-            cost = self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects)
-            if cost < best_cost:
-                best_cost = cost
-                best_path = [start, p, self._project_to_boundary(p, direction)]
-
-        _, right = self._forward_right(direction)
-        start_side = start[0] * right[0] + start[1] * right[1]
-        for aim in aim_nodes:
-            aim_side = aim[0] * right[0] + aim[1] * right[1]
-            den = aim_side - start_side
-            if abs(den) < 0.000001:
+            p = self._avoid_corner_node(rect, direction, avoid_dir)
+            if not self._ahead_or_level(start, p, direction):
                 continue
-            for boundary_ref in ref_nodes:
-                ref_side = boundary_ref[0] * right[0] + boundary_ref[1] * right[1]
+            if not self._same_avoid_side_or_level(start, p, direction, avoid_dir):
+                continue
+            side_dist = abs((p[0] - start[0]) * right[0] + (p[1] - start[1]) * right[1])
+            self._insert_sorted_node(nodes, side_dist, p)
+        start_side = start[0] * right[0] + start[1] * right[1]
+        for i in range(len(nodes)):
+            ref_node = nodes[i][1]
+            ref_side = ref_node[0] * right[0] + ref_node[1] * right[1]
+            for j in range(i + 1):
+                aim = nodes[j][1]
+                aim_side = aim[0] * right[0] + aim[1] * right[1]
+                den = aim_side - start_side
+                if abs(den) < 0.000001:
+                    continue
                 t = (ref_side - start_side) / den
                 if t < 0.0:
                     continue
                 p = (start[0] + (aim[0] - start[0]) * t,
                      start[1] + (aim[1] - start[1]) * t)
-                cost = self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects)
-                if cost < best_cost:
-                    best_cost = cost
-                    best_path = [start, p, self._project_to_boundary(p, direction)]
+                if not self.my_plan._inside_field(p):
+                    continue
+                if self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
+                    return self.my_plan._path_to_list([start, p, self._project_to_boundary(p, direction)])
         gc.collect()
-        return self.my_plan._path_to_list(best_path)
+        return []
 
-    def _append_rect_corner_nodes(self, rect, start, direction, avoid_dir, aim_nodes, ref_nodes):
+    def _insert_sorted_node(self, nodes, side_dist, p):
+        item = [side_dist, p]
+        idx = 0
+        while idx < len(nodes) and nodes[idx][0] <= side_dist:
+            idx += 1
+        nodes.insert(idx, item)
+
+    def _avoid_corner_node(self, rect, direction, avoid_dir):
         d = 2.0
         count = len(rect)
+        fwd, right = self._forward_right(direction)
         cx, cy = 0.0, 0.0
         for p in rect:
             cx += p[0]
@@ -147,21 +169,24 @@ class BoundaryPathPlanner:
         cx /= count
         cy /= count
 
+        best = rect[0]
+        best_side = -self.Data.INF
+        best_back = -self.Data.INF
         for p in rect:
             vx, vy = p[0] - cx, p[1] - cy
-            length = math.sqrt(vx * vx + vy * vy)
-            if length < 0.000001:
-                node = p
-            else:
-                node = (p[0] + vx / length * d,
-                        p[1] + vy / length * d)
+            side = (vx * right[0] + vy * right[1]) * avoid_dir
+            back = -(vx * fwd[0] + vy * fwd[1])
+            if side > best_side or (abs(side - best_side) < 0.000001 and back > best_back):
+                best = p
+                best_side = side
+                best_back = back
 
-            if self._ahead_or_level(start, node, direction):
-                ref_end = self._project_to_boundary(node, direction)
-                if self._move_allowed(node, ref_end, direction, avoid_dir):
-                    ref_nodes.append(node)
-                if self._same_avoid_side_or_level(start, node, direction, avoid_dir):
-                    aim_nodes.append(node)
+        vx, vy = best[0] - cx, best[1] - cy
+        length = math.sqrt(vx * vx + vy * vy)
+        if length < 0.000001:
+            return best
+        return (best[0] + vx / length * d,
+                best[1] + vy / length * d)
 
     def _one_turn_candidate_cost(self, start, p, direction, avoid_dir, rects):
         if not self._point_valid(p, rects):

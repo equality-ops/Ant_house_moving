@@ -368,12 +368,12 @@ class TaskController:
                 else:
                     self.object_plan.barrier.pop(target[0])
                     self.my_moving.now_barriar=self.object_plan.barrier[:]
-                    self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
+                    #self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
                     self.current_object=target[1]
                     self.my_plan.current_object = self.current_object
                     self.my_vision.current_servo_object = self.current_object
                     rm = self.my_moving.ready_move([target[2],target[3]],new_side = self.last_side)
-                    self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
+                    #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                     if rm:self.my_plan.if_finish_navigate = False
                     self.exit()
 
