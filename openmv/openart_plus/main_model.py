@@ -34,6 +34,9 @@ KALMAN_MAX_LOST_FRAMES = 3
 MAX_SPEED = 80
 JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 
+# 去噪配置
+MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
+
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
 PROTOCOL_HEADER2_COORD = 0xA6
@@ -75,7 +78,7 @@ DRAW_COLORS = {
 }
 
 # YOLO模型路径（基于OpenMV官方YOLO模型训练，支持5类物体检测）
-face_detect = 'yolo3_iou_smartcar_final_with_post_processing.tflite'
+face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
 # 载入模型
 net = tf.load(face_detect)
 
@@ -408,7 +411,7 @@ MODE_CORRECTION = 0      # 坐标校正：检测Apriltag并发送角度
 MODE_MODEL = 1           # 模型模式：检测物体→卡尔曼跟踪→发送单个目标
 MODE_PREVIEW = 2         # 预览模式：检测所有物体→打包发送（上位机完整展示）
 MODE_WAITING = 3         # 等待模式：空闲，仅维持摄像头画面显示
-current_mode = MODE_MODEL
+current_mode = MODE_WAITING
 
 # 各颜色对应的卡尔曼预测坐标（供TargetLocker使用），默认值为屏幕中心
 kalman_coords = {
@@ -499,6 +502,10 @@ def detect_all_objects(img, Ts):
     """
     center = []
     objects = model_detector.detect(img)
+    objects = [
+    obj for obj in objects
+    if (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height() >= MIN_DETECT_AREA
+]
 
     # 按颜色分类过滤（不同颜色置信度阈值不同）
     brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
@@ -587,7 +594,12 @@ while True:
     elif current_mode == MODE_MODEL:
         center, objects = detect_all_objects(img, Ts)
         is_sent = False
-
+        """
+        if current_obj == 'red':
+            LED(4).on()  # 红色沙包时点亮LED4
+        else:
+            LED(4).off()  # 非红色沙包时关闭LED4
+        """
         # 目标选择策略：优先匹配已选类型的物体（取最下方），否则取所有物体中最下方的
         if center:
             matched = [c for c in center if c[2] == current_obj]

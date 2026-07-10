@@ -455,6 +455,7 @@ class TaskController:
         }
 
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
+        self.scan_message = []  # 扫描路径信息
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝向
         self.move_message = []  # 搬运目标点
         self.adjust_message = []  # 微调目标点
@@ -500,12 +501,8 @@ class TaskController:
         if self.if_change_status:
             return
 
-        if not self.if_start_off:
-            if self.my_plan.aimed_point_index >= 3:
-                change()
-        else:
-            if self.my_plan.aimed_point_index >= 2:
-                change()
+        if self.my_plan.aimed_point_index >= 1:
+            change()
 
 
     # 不同模式下的执行函数
@@ -602,27 +599,25 @@ class TaskController:
                 # 发送路径信息给从车
                 self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
                 self.if_send_path = True  # 设置路径发送标志位，避免重复发送
-
+            
             if not self.if_start_off:
-                if self.my_plan.aimed_point_index >= 2:
-                    # 退出导航状态，停止路径跟随
-                    self.if_send_path = False  # 重置路径发送标志位
-                    self.my_state.state = SCAN  # 直接切换到扫描状态
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-            else:
-                # 退出导航状态，停止路径跟随
-                self.if_send_path = False  # 重置路径发送标志位
-                self.my_state.state = SCAN  # 直接切换到扫描状态
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                self.if_start_off = True  # 已经出发车区
 
+            self.my_plan.reset_navigate()  # 重置导航状态
+            self.my_plan.reset_navigate_angle()  # 重置导航角度
+            # 退出导航状态，停止路径跟随
+            self.if_send_path = False  # 重置路径发送标志位
+            self.my_state.state = SCAN  # 直接切换到扫描状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
                 # 更新扫描起始点横坐标（缩短用时）
-                if self.object_status == ALL_IN_BOTTOM or (self.object_status == OVER_ONE_IN_TOP and self.if_to_top):
-                    self.data.scan_point[self.object_status][0] = self.my_car.x_current 
+                if self.object_status == ALL_IN_BOTTOM:
+                    self.data.scan_point[0][0] = self.my_car.x_current 
+                elif self.object_status == OVER_ONE_IN_TOP and self.if_to_top:
+                    self.data.scan_point[0][0] = self.my_car.x_current 
 
-                self.if_start_off = True  # 已经出发车区
                 self.if_change_status = False  # 重置物体状态切换标志位
                 self.my_plan.reset_navigate()
 
@@ -631,30 +626,28 @@ class TaskController:
                     self.if_second_verify = False
                     self.my_plan.if_second_verify = False
                     
-                    x_threshold = 25.0
+                    x_threshold = 20.0
                     y_threshold = 20.0
-                    x_slave_stop_threshold = 15.0
-                    y_slave_stop_threshold = 5.0
-                    rich_angle = 2.5  # 角度裕量
+                    rich_angle = 3.0  # 角度裕量
                     if self.if_to_top == False:
                         self.spin_angle_buf = -180 + self.my_vision.orbit_angle + rich_angle
                         slave_angle = 180 - self.my_vision.orbit_angle - rich_angle
                         
+                        # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运
+                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold, self.predict_message[1] - y_threshold])   
+                        
                         self.predict_message[0] += x_threshold
                         self.predict_message[1] -= y_threshold
-                        
-                        # 让从车停靠在主车左侧伺服后不环绕直接往上边界搬运（留多10cm裕量） 
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] - x_threshold - x_slave_stop_threshold, self.predict_message[1] - y_slave_stop_threshold])   
                     elif self.the_last_one:
                         self.spin_angle_buf = self.my_vision.orbit_angle + rich_angle
                         slave_angle = -self.my_vision.orbit_angle - rich_angle
 
+                        # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
+                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] + x_threshold, self.predict_message[1] + y_threshold])
+                        
                         self.predict_message[0] -= x_threshold
                         self.predict_message[1] += y_threshold
-                        
-                        # 让从车停靠在主车左侧伺服后不环绕直接往下边界搬运    
-                        self.my_main_protocol.send_path(self.current_object, slave_angle, [self.predict_message[0] + x_threshold + x_slave_stop_threshold, self.predict_message[1] + y_slave_stop_threshold]) 
-                    
+
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = PREDICT
                 else:
@@ -768,17 +761,20 @@ class TaskController:
             self.my_beep.test()  # 任务完成，发出提示音
     
     def handle_ready_navigate(self):
-        target_path, target_angle = [], 0.0
+        target_point, target_angle = [], 0.0
         stop_threshold = 25.0  # 从车停止点与主车的距离阈值
         if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP] or (self.object_status == OVER_ONE_IN_TOP and not self.if_to_top):
-            target_path = self.data.scan_path_1
-            self.slave_navigate_message = [[160.0, target_path[0][1] - stop_threshold], target_angle]
+            target_angle = 0.0
+            target_point = self.data.scan_point[0]
+            self.scan_message = self.data.scan_path_1
+            self.slave_navigate_message = [[160.0, target_point[1] - stop_threshold], target_angle]
         else:
-            target_path = self.data.scan_path_2
             target_angle = 180.0
-            self.slave_navigate_message = [[160.0, target_path[0][1] + stop_threshold], target_angle]
+            target_point = self.data.scan_point[1]
+            self.scan_message = self.data.scan_path_2
+            self.slave_navigate_message = [[160.0, target_point[1] + stop_threshold], target_angle]
 
-        self.navigate_message = [target_path, target_angle]  # 准备导航信息
+        self.navigate_message = [[target_point], target_angle]  # 准备导航信息
 
         if self.if_start_off == False:
             # 先让小车走到y=10的位置保证顺利发车
@@ -797,13 +793,13 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息
 
         # 当小车经过第一个目标点后切换到扫描模式开始扫描
-        if self.my_plan.self.aimed_point_index > 0:
+        if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状态
    
     def handle_scan(self):
         global counter
         # if state == SCAN
-        self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])  # 导航到扫描终点
+        self.my_plan.navigate(path = self.scan_message, target_turn_angle = self.navigate_message[1])  # 导航到扫描终点
         
         # 根据当前位于的扫描途径点修改任务状态
         self.change_object_status()
@@ -814,8 +810,8 @@ class TaskController:
                 if not self.if_second_verify:
                     self.my_plan.if_second_verify = True
                     counter += 1
-                    # 只有连续扫到5帧目标体才认为是有效目标
-                    if counter >= 5:
+                    # 只有连续扫到3帧目标体才认为是有效目标
+                    if counter >= 3:
                         counter = 0
                         # 清空串口缓冲区
                         self.my_art_protocol.clear_buffer()

@@ -567,7 +567,7 @@ class VisionManager:
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.8
+            self.final_dist *= 0.6
 
         # 第一帧图像预测伺服点位
         self.last_car_x = self.my_car.x_current
