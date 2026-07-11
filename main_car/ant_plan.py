@@ -40,9 +40,7 @@ class PlanData:
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.fixed_point = [[35.0, -40.2], [95.0, 55.0], [225.0, 185.0], [15.0, -50.0], [35.0, -50.0]]  # type: list
         # 扫描路径
-        self.scan_point = [[130.0, 55.0], [130.0, 185.0]]
-        self.scan_path_1 = [[210.0, 55.0], [210.0, 100.0], [130.0, 100.0]]
-        self.scan_path_2 = [[210.0, 185.0]]
+        self.scan_point = [[130.0, 55.0], [190.0, 55.0]]
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  
@@ -65,11 +63,9 @@ class Object:
 
 class PathPlanner:
     """九宫格物体搬运路径规划器"""
-    
     # 常量定义
     UP = 'U'
     DOWN = 'D'
-
     def __init__(self, 
                  box_left: float = 110.0, 
                  box_bottom: float = 70.0, 
@@ -95,6 +91,9 @@ class PathPlanner:
         # 搬运目标边界
         self.push_down_y = push_down_y
         self.push_up_y = push_up_y
+
+        self.total_ob_info = []  # 所有目标物体信息
+        self.status = STATUS_OK  # 当前规划状态码
 
     def _get_grid_pos(self, x: float, y: float) -> Tuple[int, int, float, float]:
         """O(1) 复杂度通过数学映射直接计算格子索引和中心点"""
@@ -143,7 +142,7 @@ class PathPlanner:
                     best = (row, col, cx, cy)
         return best
 
-    def plan_path(self, objects_input: List[Tuple[float, float, str]]) -> Tuple[List[Tuple[float, float, str, str]], int]:
+    def plan_path(self, objects_input: List[Tuple[float, float, str]]):
         """核心规划算法（含越界归类、同格冲突消解、满格保护）
 
         返回 (plan, status):
@@ -246,7 +245,8 @@ class PathPlanner:
             if last[3] != self.DOWN:
                 plan[-1] = (last[0], last[1], last[2], self.DOWN)
 
-        return plan, status
+        self.total_ob_info = plan
+        self.status = status
     
 # 导航规划类
 class NavigationPlan:

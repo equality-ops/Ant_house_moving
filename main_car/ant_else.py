@@ -21,16 +21,25 @@ InField = const(-1)
 OnLine = const(0)
 OutLine = const(1)
 
-# 根据物体位置列举的三种情形
-ALL_IN_BOTTOM = const(0)  # 物体完全在下区域内
-ONE_IN_TOP = const(2)     # 物体有一个在上区域内
-OVER_ONE_IN_TOP = const(4)  # 物体有两个或以上在上区域内
+# 小车位置
+DOWN = const(0)  # 小车在下半区
+UP = const(1)    # 小车在上半区
+
+# 搬运方向
+DOWN_TO_UP = const(0)  # 搬运方向：下半区 → 上半区
+DOWN_TO_DOWN = const(1)  # 搬运方向：下半区 → 下半区
+UP_TO_UP = const(2)  # 搬运方向：上半区 → 上半区
+UP_TO_DOWN = const(3)  # 搬运方向：上半区 → 下半区
 
 # ── 路径规划状态标志位 ──
 STATUS_OK            = const(0)   # 正常
 STATUS_OUT_OF_BOUNDS = const(1)   # 检测到越界物体，已归类到最近格子
 STATUS_CONFLICT      = const(2)   # 检测到同格冲突，已消解重分配
 STATUS_GRID_FULL     = const(3)   # 格子全满，无法规划，plan 为空
+
+FIRST_STEP = const(0)  # 第一步
+SECOND_STEP = const(1) # 第二步
+FINISH_STEP = const(2)  # 完成扫描
 
 # 计数器
 counter = 0 
@@ -95,17 +104,13 @@ class order_manager:
     def mode_target(self):
         self.my_uart.write("M")
 
-    # 切换到上下边界识别模式
-    def mode_boundary_ud(self):
-        self.my_uart.write("U")
-
-    # 切换到左右边界识别模式
-    def mode_boundary_lf(self):
-        self.my_uart.write("L")
-
-    # 切换到apriltag识别模式
-    def mode_apriltag(self):
+    # 切换到目标识别模式（色块）
+    def mode_color_detect(self):
         self.my_uart.write("C")
+
+    # 切换到全局预览模式（多目标识别）
+    def mode_preview(self):
+        self.my_uart.write("A")
 
     # 当前模式结束
     def finish(self):
@@ -114,6 +119,15 @@ class order_manager:
         
 # 状态机解析串口数据类
 class UARTProtocol:
+    # type_char → 颜色名 反向映射表（与 OpenArt COLOR_TYPE_MAP 对应）
+    TYPE_CHAR_TO_COLOR = {
+        ord('S'): 'red',
+        ord('E'): 'blue',
+        ord('T'): 'green',
+        ord('B'): 'brown',
+        ord('W'): 'white',
+    }
+
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
@@ -122,6 +136,13 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
+
+        # 预览模式多目标解析状态机
+        # 状态: 0=等待帧头(0x77), 1=读取物体数量, 2=读取物体数据, 3=等待帧尾(0x78)
+        self.state_preview = 0
+        self.preview_count = 0       # 本帧物体总数
+        self.preview_index = 0       # 当前已读取的物体字节数 (每个物体3字节: x, y, type_char)
+        self.preview_objects = []    # 临时存储当前帧解析中的物体 [(x, y, type_char), ...]
 
         gc.collect()
     
@@ -206,6 +227,66 @@ class UARTProtocol:
                 else:
                     self.state_apriltag = 0
                 
+        # 循环结束后，返回缓冲区里最新的一帧
+        return last_valid_frame
+
+    # 非阻塞接收并解析预览模式多目标数据包
+    # 协议格式: 0x77 + count(1B) + (x(1B) + y(1B) + type_char(1B)) * N + 0x78
+    # 返回格式: [(x, y, 'color_name'), ...] 或 None
+    def preview_receive(self):
+        last_valid_frame = None
+        # 持续读取直到处理完当前缓冲区的所有数据
+        while self.my_uart.any():
+            byte = self.my_uart.read(1)[0]
+
+            if self.state_preview == 0:
+                # 等待帧头 0x77
+                if byte == 0x77:
+                    self.state_preview = 1
+
+            elif self.state_preview == 1:
+                # 读取物体数量
+                self.preview_count = byte
+                if self.preview_count == 0:
+                    # 空帧，直接等帧尾
+                    self.state_preview = 3
+                else:
+                    self.preview_objects = []
+                    self.preview_index = 0
+                    self.state_preview = 2
+
+            elif self.state_preview == 2:
+                # 逐字节读取物体数据 (每个物体 3 字节: x, y, type_char)
+                obj_byte_idx = self.preview_index % 3
+                obj_idx = self.preview_index // 3
+
+                if obj_byte_idx == 0:
+                    # 新物体的 x 坐标：先占位
+                    self.preview_objects.append([byte, 0, 0])
+                elif obj_byte_idx == 1:
+                    # y 坐标
+                    self.preview_objects[obj_idx][1] = byte
+                else:
+                    # type_char
+                    self.preview_objects[obj_idx][2] = byte
+
+                self.preview_index += 1
+                if self.preview_index >= self.preview_count * 3:
+                    self.state_preview = 3
+
+            elif self.state_preview == 3:
+                # 等待帧尾 0x78
+                if byte == 0x78:
+                    # 解析成功：将 type_char 转为颜色名，组装最终列表
+                    result = []
+                    for obj in self.preview_objects:
+                        x, y, type_char = obj[0], obj[1], obj[2]
+                        color_name = self.TYPE_CHAR_TO_COLOR.get(type_char, '?')
+                        result.append((float(x), float(y), color_name))
+                    last_valid_frame = result
+                # 无论帧尾是否正确，都重置状态准备下一帧
+                self.state_preview = 0
+
         # 循环结束后，返回缓冲区里最新的一帧
         return last_valid_frame
 
@@ -462,56 +543,139 @@ class TaskController:
         }
 
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
-        self.scan_message = []  # 扫描路径信息
+        self.scan_message = []  # 扫描路径
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝向
         self.move_message = []  # 搬运目标点
         self.adjust_message = []  # 微调目标点
         self.predict_message = []  # 预测目标点(根据第一帧图像预测的)
+        self.ob_info_1 = []  # 当前目标物体信息
+        self.ob_info_2 = []  # 当前目标物体信息
+        self.ob_info = []  # 当前目标物体信息
+        self.move_direction = DOWN_TO_DOWN  # 搬运方向标志位
         self.orbit_angle_buf = 0.0  # 环绕角度缓冲区
         self.scan_angle_buf = 0.0  # 自转角度缓冲区
         self.current_object = ''  # 当前目标物体种类
-        self.object_status = ALL_IN_BOTTOM  # 当前物体位置状态
+        self.car_pos = DOWN  # 小车位置标志位，起始默认在下半区
+        self.scan_status = FIRST_STEP  # 扫描状态标志位
         # 标志位
         self.if_start_off = False  # 是否出发车区
         self.if_transitioning = True  # 是否正在进行状态转换
         self.if_send_path = False  # 是否已经发送路径规划信息
-        self.if_to_top = False  # 是否前往上区域
-        self.the_last_one = False  # 是否是最后一个物体
-        self.if_second_verify = False  # 是否进行第二次验证视觉
-        self.if_change_status = False  # 是否完成任务状态切换
         self.if_skip_orbit = False  # 是否跳过环绕模式
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
 
-    
     # 重置小车里程计
     def reset_car_pos(self):
         # 经验修正值
         correction = 2.0
-        if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+        if self.move_direction in [DOWN_TO_DOWN, UP_TO_DOWN]:
             self.my_car.y_current = 0.0 + correction
-        elif self.object_status == OVER_ONE_IN_TOP:
-            if self.the_last_one:
-                self.my_car.y_current = 0.0 + correction
-            else:
-                self.my_car.y_current = 240.0 - correction
+        else:
+            self.my_car.y_current = 240.0 - correction
 
-    # 修改物体状态
-    def change_object_status(self):
-        def change():
-            self.if_change_status = True
-            if self.object_status == ALL_IN_BOTTOM:
-                if self.data.finished_num == self.data.total_objects_num - 1:
-                    self.object_status = ONE_IN_TOP  # 最后一个物体在上区域内
-                else:
-                    self.object_status = OVER_ONE_IN_TOP  # 还有一个或以上物体在上区域内
-        
-        if self.if_change_status:
+    # 处理物体信息（将像素坐标转换为世界坐标）
+    def handle_object_info(self, ob_info):
+        """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
+        real_ob_info = []
+        for ob in ob_info:
+            x, y, kind = ob
+            real_point = self.my_vision.predict_point(x, y)
+            real_ob_info.append((real_point[0], real_point[1], kind))
+        return real_ob_info
+
+    # 合并物体信息（双目视觉融合）
+    def integrate_object_info(self):
+        """
+        将两个扫描位置（相距约60cm）采集的物体信息进行融合，模拟双眼视觉。
+
+        算法流程：
+          1. 坐标转换：将两个列表的像素坐标转为世界坐标
+          2. 按种类分组：同种类物体间才进行匹配，避免不同物体被错误合并
+          3. 贪心最近邻匹配：对每种物体，按距离升序排列候选配对，
+             每个物体最多匹配一次（双向唯一匹配），距离超过阈值的视为不同物体
+          4. 融合输出：匹配成功的配对取坐标平均值（降低单次测量噪声）；
+             仅在单侧出现的物体直接保留（可能是遮挡或视野边缘的物体）
+
+        融合结果直接写入 self.ob_info。
+        """
+        # 同一物体在两个扫描中的最大世界坐标偏差（cm）
+        # 包含：测量噪声 ~5cm + 60cm 基线的视差效应 ~30cm + 安全裕量
+        MATCH_DIST_THRESHOLD = 10.0
+
+        # ── 1. 坐标转换：像素 → 世界 ──
+        world_1 = self.handle_object_info(self.ob_info_1)
+        world_2 = self.handle_object_info(self.ob_info_2)
+
+        # ── 2. 边界情况：任一侧为空则直接返回另一侧 ──
+        if not world_1 and not world_2:
+            self.ob_info = []
+            return
+        if not world_1:
+            self.ob_info = world_2
+            return
+        if not world_2:
+            self.ob_info = world_1
             return
 
-        if self.my_plan.aimed_point_index >= 1:
-            change()
+        # ── 3. 按物体种类分组（不同种类不参与彼此匹配） ──
+        groups_1 = {}
+        groups_2 = {}
+        for i, (x, y, kind) in enumerate(world_1):
+            groups_1.setdefault(kind, []).append((i, x, y))
+        for i, (x, y, kind) in enumerate(world_2):
+            groups_2.setdefault(kind, []).append((i, x, y))
 
+        matched_pairs = []  # [(idx_in_world_1, idx_in_world_2), ...]
+        used_1 = set()
+        used_2 = set()
+
+        # ── 4. 逐种类进行贪心最近邻匹配 ──
+        all_kinds = set(groups_1.keys()) | set(groups_2.keys())
+
+        for kind in all_kinds:
+            objs_1 = groups_1.get(kind, [])
+            objs_2 = groups_2.get(kind, [])
+
+            if not objs_1 or not objs_2:
+                # 该种类仅在一侧出现，全部保留为独立物体
+                continue
+
+            # 构建距离矩阵中所有满足阈值的候选配对
+            candidates = []
+            for i1, x1, y1 in objs_1:
+                for i2, x2, y2 in objs_2:
+                    d = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+                    if d <= MATCH_DIST_THRESHOLD:
+                        candidates.append((d, i1, i2))
+
+            # 按距离升序：距离最近的优先配对，保证全局最优的贪心匹配
+            candidates.sort(key=lambda t: t[0])
+
+            for d, i1, i2 in candidates:
+                if i1 not in used_1 and i2 not in used_2:
+                    matched_pairs.append((i1, i2))
+                    used_1.add(i1)
+                    used_2.add(i2)
+
+        # ── 5. 组装最终物体列表 ──
+        self.ob_info = []
+
+        # 5a. 匹配成功的物体 → 坐标取均值（降低单侧测量噪声）
+        for i1, i2 in matched_pairs:
+            x1, y1, kind = world_1[i1]
+            x2, y2, _ = world_2[i2]
+            self.ob_info.append(((x1 + x2) / 2.0, (y1 + y2) / 2.0, kind))
+
+        # 5b. 仅在扫描1中出现的物体
+        for i in range(len(world_1)):
+            if i not in used_1:
+                self.ob_info.append(world_1[i])
+
+        # 5c. 仅在扫描2中出现的物体
+        for i in range(len(world_2)):
+            if i not in used_2:
+                self.ob_info.append(world_2[i])  
 
     # 不同模式下的执行函数
     def run(self):
@@ -540,37 +704,29 @@ class TaskController:
             self.my_art_protocol.clear_buffer()
             # 打开目标识别模式
             self.my_order_manager.mode_target() 
+            # 发送目标物体种类openart
+            self.my_art_protocol.send_object_kind(self.current_object)  
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物体
             # 清空视觉串口缓冲区，准备接收新数据
             self.my_art_protocol.clear_buffer()
         elif state == ORBIT:
             # 进入环绕状态，开始环绕目标物体
-            if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+            if self.move_direction == DOWN_TO_DOWN:
                 # 主车顺时针旋转
                 self.orbit_angle_buf = self.my_vision.orbit_angle
-            elif self.object_status == OVER_ONE_IN_TOP:
-                if self.the_last_one or self.if_to_top == False:
-                    self.if_skip_orbit = True
-                    self.my_vision.skip_orbit()  # 跳过环绕模式
-                    if self.if_to_top == False:
-                        # 此时小车将过渡到上半区
-                        self.if_to_top = True
-                else:
-                    # 主车逆时针旋转
-                    self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
-
+            elif self.move_direction == UP_TO_UP:
+                self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
+            else:
+                self.if_skip_orbit = True
+                self.my_vision.skip_orbit()  # 跳过环绕模式
         elif state == MOVE: 
-            if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+            if self.move_direction in [DOWN_TO_DOWN, UP_TO_DOWN]:
                 # 搬运到-20的点保证光电管能检测到边界
                 self.move_message = [self.my_car.x_current + self.my_plan.error_x, -20.0]
-            elif self.object_status == OVER_ONE_IN_TOP:
-                if self.the_last_one:
-                    # 搬运到-20的点保证光电管能检测到边界
-                    self.move_message = [self.my_car.x_current + self.my_plan.error_x, -20.0]
-                else:
-                    # 搬运到260的点保证光电管能检测到边界
-                    self.move_message = [self.my_car.x_current - self.my_plan.error_x, 260.0]
+            else:
+                # 搬运到260的点保证光电管能检测到边界
+                self.move_message = [self.my_car.x_current - self.my_plan.error_x, 260.0]
 
             # 测试
             # self.my_uart.write(f"{self.move_message}\n")
@@ -604,7 +760,7 @@ class TaskController:
             self.my_state.state = NAVIGATE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
-            if not self.if_send_path:
+            if not self.if_send_path and self.scan_status != SECOND_STEP:
                 # 发送路径信息给从车
                 self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
                 self.if_send_path = True  # 设置路径发送标志位，避免重复发送
@@ -612,33 +768,53 @@ class TaskController:
             if not self.if_start_off:
                 self.if_start_off = True  # 已经出发车区
 
-            self.my_plan.reset_navigate()  # 重置导航状态
-            self.my_plan.reset_navigate_angle()  # 重置导航角度
-            # 退出导航状态，停止路径跟随
-            self.if_send_path = False  # 重置路径发送标志位
-            self.my_state.state = SCAN  # 直接切换到扫描状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            if self.scan_status in [FIRST_STEP, SECOND_STEP]:
+                if self.my_vision.if_send_order:
+                    # 清空视觉串口缓冲区，准备接收新数据
+                    self.my_art_protocol.clear_buffer()
+                    # 打开目标识别模式
+                    self.my_order_manager.mode_preview()
+                    self.my_vision.if_send_order = False  # 重置视觉发送指令标志位
+
+                object_info = self.my_art_protocol.preview_receive()  # 接收多目标信息
+                if object_info:
+                    if self.scan_status == FIRST_STEP:
+                        self.ob_info_1 = object_info  # 保存第一帧物体信息
+                    elif self.scan_status == SECOND_STEP:
+                        self.ob_info_2 = object_info  # 保存第二帧物体信息
+                        self.integrate_object_info()  # 融合两帧物体信息，得到最终物体列表
+                        self.my_path.plan_path(self.ob_info)  # 进行路径规划
+                        self.scan_message = [[self.my_car.x_current + 10.0, self.my_car.y_current], [self.my_car.x_current - 10.0, self.my_car.y_current]]  # 设置扫描路径点
+                    
+                    self.if_send_path = False  # 重置路径发送标志位
+                    self.my_vision.if_send_order = False  # 重置视觉发送指令标志位
+                    self.my_order_manager.finish()  # 关闭预览模式
+                    self.scan_status += 1  # 切换到下一步扫描状态
+                    self.my_plan.reset_navigate()  # 重置导航状态
+                    self.my_plan.reset_navigate_angle()  # 重置导航角度
+                    self.my_state.state = READY_NAVIGATE
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            else:
+                self.if_send_path = False  # 重置路径发送标志位
+                self.my_vision.if_send_order = False  # 重置视觉发送指令标志位  
+                self.my_plan.reset_navigate()  # 重置导航状态
+                self.my_plan.reset_navigate_angle()  # 重置导航角度
+                self.my_state.state = SCAN  # 直接切换到扫描状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
             # 退出扫描状态，停止寻找目标物体
-            if not self.my_plan.if_finish_navigate:
-                # 更新扫描起始点横坐标（缩短用时）
-                if self.object_status == ALL_IN_BOTTOM:
-                    self.data.scan_point[0][0] = self.my_car.x_current 
-                elif self.object_status == OVER_ONE_IN_TOP and self.if_to_top:
-                    self.data.scan_point[0][0] = self.my_car.x_current 
-
-                self.if_change_status = False  # 重置物体状态切换标志位
+            if not self.my_plan.if_finish_navigate: 
                 self.my_plan.reset_navigate()
 
-                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
+                if self.move_direction in [DOWN_TO_UP, UP_TO_DOWN]:
                     # 重置二次验证标志位
                     self.if_second_verify = False
                     self.my_plan.if_second_verify = False
                     
                     x_threshold = 20.0
-                    y_threshold = 20.0
+                    y_threshold = 15.0
                     rich_angle = 6.0  # 角度裕量
-                    if self.if_to_top == False:
+                    if self.move_direction == DOWN_TO_UP:
                         self.spin_angle_buf = -180 + self.my_vision.orbit_angle + rich_angle
                         slave_angle = 180 - self.my_vision.orbit_angle - rich_angle
                         
@@ -647,7 +823,7 @@ class TaskController:
                         
                         self.predict_message[0] += x_threshold
                         self.predict_message[1] -= y_threshold
-                    elif self.the_last_one:
+                    else:  # UP_TO_DOWN
                         self.spin_angle_buf = self.my_vision.orbit_angle + rich_angle
                         slave_angle = -self.my_vision.orbit_angle - rich_angle
 
@@ -678,12 +854,11 @@ class TaskController:
                     return
 
                 stop_threshold = 25.0
-                if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
+                if self.move_direction == DOWN_TO_DOWN:
                     # 发送路径信息给从车
                     self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current - stop_threshold])   
-                else:   # OVER_ONE_IN_TOP的情况
-                    if self.if_to_top and not self.the_last_one:
-                        self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
+                elif self.move_direction == UP_TO_UP:   
+                    self.my_main_protocol.send_path(self.current_object, self.slave_navigate_message[1], [self.my_car.x_current, self.my_car.y_current + stop_threshold])
 
                 # 重置计数器
                 counter = 0
@@ -729,25 +904,24 @@ class TaskController:
             if counter >= 10:   
                 # 重置计数器
                 counter = 0
+
+                # 更新小车位置
+                if self.my_car.y_current > 120.0:
+                    self.car_pos = UP
+                else:
+                    self.car_pos = DOWN
+
                 self.data.finished_num += 1
                 if self.data.finished_num >= self.data.total_objects_num:
-                    self.my_plan.reset_navigate_angle()
                     # 若搬运完成物体直接返回，则进入返回状态
                     self.my_state.state = RETURN 
                 else:
-                    if self.data.finished_num == self.data.total_objects_num - 1:
-                        # 现在是最后一个物体
-                        self.the_last_one = True
-                    
-                    self.my_plan.reset_navigate_angle()
                     # 若搬运完成物体继续处理下一个物体，则进入准备导航状态
                     self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态
-                    # 测试
-                    # self.my_state.state = STOP
-                    # self.my_uart3.write(f"{self.my_car.x_current},{self.my_car.y_current}\n")
 
                 # 重置导航标志位
                 self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
@@ -774,17 +948,38 @@ class TaskController:
     
     def handle_ready_navigate(self):
         target_point, target_angle = [], 0.0
-        stop_threshold = 25.0  # 从车停止点与主车的距离阈值
-        if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP] or (self.object_status == OVER_ONE_IN_TOP and not self.if_to_top):
+        M_stop_threshold = 30.0  # 主车停止点与物体的距离阈值
+        S_stop_threshold = 25.0  # 从车停止点与主车的距离阈值
+        if self.scan_status == FIRST_STEP:
             target_angle = 0.0
             target_point = self.data.scan_point[0]
-            self.scan_message = self.data.scan_path_1
-            self.slave_navigate_message = [[160.0, target_point[1] - stop_threshold], target_angle]
-        else:
-            target_angle = 180.0
+            self.slave_navigate_message = [[160.0, target_point[1] - S_stop_threshold], target_angle]
+        elif self.scan_status == SECOND_STEP:
+            target_angle = 0.0
             target_point = self.data.scan_point[1]
-            self.scan_message = self.data.scan_path_2
-            self.slave_navigate_message = [[160.0, target_point[1] + stop_threshold], target_angle]
+        else:
+            ob_info = self.my_path.total_ob_info[self.data.finished_num]
+            self.current_object = ob_info[2]
+            aim_direction = ob_info[3]
+
+            if self.car_pos == DOWN:
+                target_angle = 0.0
+                target_point = [ob_info[0], ob_info[1] - M_stop_threshold]
+                self.slave_navigate_message = [[target_point[0], target_point[1] - S_stop_threshold], target_angle]
+                
+                if aim_direction == 'U':
+                    self.move_direction = DOWN_TO_UP
+                elif aim_direction == 'D':
+                    self.move_direction = DOWN_TO_DOWN
+            elif self.car_pos == UP:
+                target_angle = 180.0
+                target_point = [ob_info[0], ob_info[1] + M_stop_threshold]
+                self.slave_navigate_message = [[target_point[0], target_point[1] + S_stop_threshold], target_angle]
+
+                if aim_direction == 'U':
+                    self.move_direction = UP_TO_UP
+                elif aim_direction == 'D':
+                    self.move_direction = UP_TO_DOWN
 
         self.navigate_message = [[target_point], target_angle]  # 准备导航信息
 
@@ -800,7 +995,7 @@ class TaskController:
         
         # 主车行驶多远后给从车发送路径信息
         dist_threshold = 15.0
-        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
+        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path and self.scan_status != SECOND_STEP:
             self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信息
 
@@ -811,35 +1006,18 @@ class TaskController:
     def handle_scan(self):
         global counter
         # if state == SCAN
-        self.my_plan.navigate(path = self.scan_message, target_turn_angle = self.navigate_message[1])  # 导航到扫描终点
-        
-        # 根据当前位于的扫描途径点修改任务状态
-        self.change_object_status()
+        self.my_plan.navigate(path = self.scan_message)  # 扫描路径
 
         target_point = self.my_art_protocol.coordinate_receive()
-        if target_point and self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):  
-            if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                if not self.if_second_verify:
-                    self.my_plan.if_second_verify = True
-                    counter += 1
-                    # 只有连续扫到3帧目标体才认为是有效目标
-                    if counter >= 3:
-                        counter = 0
-                        # 清空串口缓冲区
-                        self.my_art_protocol.clear_buffer()
-                        self.if_second_verify = True
-                else:
-                    self.current_object = chr(target_point[2])
-                    self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
+        if target_point and chr(target_point[2]) == self.current_object:  
+                if self.move_direction in [DOWN_TO_UP, UP_TO_DOWN]:
                     self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
                     self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
-                    self.exit()  # 退出当前状态
-            else:
-                self.current_object = chr(target_point[2])
-                self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                else: 
+                    self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+
                 self.exit()  # 退出当前状态
-            return
+                return
 
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入伺服状态
@@ -864,7 +1042,7 @@ class TaskController:
             
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
-                if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
+                if self.move_direction in [DOWN_TO_UP, UP_TO_DOWN]:
                     self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
                 else:
                     self.my_vision.ready_servo_and_orbit(target_point, 'servo')
@@ -935,4 +1113,4 @@ class TaskController:
 
     def handle_stop(self):
         # if state == STOP
-        self.my_plan.stop()             
+        self.my_plan.stop()        
