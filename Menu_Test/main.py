@@ -22,6 +22,8 @@ from smartcar import ticker, encoder
 gc.collect()
 import ant_menu
 gc.collect()
+import ant_else
+gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -117,6 +119,13 @@ enc_key:    key_data[2]
 key_run:    key_data[3] 
 """
 
+my_beep = ant_else.beep(beep)
+
+#【文件读取】
+# 从main_config.txt中读取保存所有的参数并保存到config字典中
+my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
+my_flash_sys.phase_config()
+my_flash_sys.check_list_format()
 
 # 创建菜单对象
 my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
