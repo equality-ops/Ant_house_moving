@@ -571,6 +571,7 @@ class TaskController:
         self.the_last_one = False   # 是否为最后一个物体（此时从车已在上半区）
         self.if_start_off = False # 是否离开发车区
         self.if_transitioning = True  # 是否正在进行状态转换
+        self.if_send_finish = False  # 是否已经发送完成信号给主车
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
     
@@ -717,24 +718,30 @@ class TaskController:
         elif state == SERVO:
             # 退出伺服状态，停止精确对准动作
             if self.my_vision.if_finish_servo:
-                counter += 1
-                # 延时200ms
-                if counter > 20:
-                     # 重置计数器
-                    counter = 0
+                # 延时100ms
+                if counter < 10:
+                    counter += 1
+                else:
                     if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
-                        self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服
-                        self.my_vision.if_finish_servo = False  # 重置伺服`完成标志
-                        self.if_to_top = True  # 已经从下区域切换到上区域
-                        self.my_plan.reset_navigate_angle()
-                        self.my_state.state = MOVE  # 直接切换到搬运状态
+                        if not self.if_send_finish:
+                            self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成视觉伺服
+                            self.if_send_finish = True  # 设置标志位，避免重复发送完成信号
+                        
+                        if self.my_slave_protocol.get_start_signal():   
+                            counter = 0  # 重置计数器
+                            self.if_send_finish = False  # 重置标志位，准备下一次发送完成信号
+                            self.my_vision.if_finish_servo = False  # 重置伺服完成标志
+                            self.if_to_top = True  # 已经从下区域切换到上区域
+                            self.my_plan.reset_navigate_angle()
+                            self.my_state.state = MOVE  # 直接切换到搬运状态
+                            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                     else:
+                        counter = 0  # 重置计数器
                         self.my_vision.if_finish_servo = False  # 重置伺服完成标志
                         # 重置环绕角度
                         self.my_vision.reset_orbit_angle()
                         self.my_state.state = ORBIT  # 直接切换到环绕状态
-
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                        self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.my_plan.if_finish_navigate:
                 self.my_vision.if_lost_object = False
                 # 将openart置为等待模式
@@ -749,8 +756,8 @@ class TaskController:
             # 搬运过程中停下负压防止起步不同步
             # self.my_fan.fan_off()
             counter += 1
-            # 延时200ms
-            if counter > 20:
+            # 延时100ms
+            if counter > 10:
                 self.my_slave_protocol.send_slave_state("finish")  # 通知主车完成环绕
 
                 # 重置计数器
@@ -798,7 +805,7 @@ class TaskController:
         # if state == NAVIGATE
         if self.if_start_off == False:
             # 先让小车走到y=10的位置保证顺利发车
-            self.navigate_message[0].insert(0, [self.my_car.x_current, 10.0]) 
+            self.navigate_message[0].insert(0, [self.my_car.x_current, self.my_car.y_current + 30.0]) 
             self.if_start_off = True
 
         self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])

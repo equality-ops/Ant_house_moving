@@ -1,4 +1,4 @@
-# 修改时间 7.10	  22:33
+# 修改时间 7.11	  15:27
 
 ###################【PID参数】####################
 # speed大于220时
@@ -62,18 +62,18 @@ motor_control_T = 4
 plan_calculate_T = 10
 uart_and_menu_T = 53
 ###################【路径规划】####################
-total_objects_num = 3
+total_objects_num = 5
 
 final_threshold = 1.0
 branch_threshold = 5.0
 
-error_x_T = 2.0
-error_x_S = 2.0
-error_x_B = 2.0
+error_x_T = 3.0
+error_x_S = 3.0
+error_x_B = 3.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1350
+fixed_high_level_us = 1400
 
 min_start_v = 40
 long_v_max = 180
@@ -87,9 +87,9 @@ orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 160
-move_v_max_B = 160
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -98,25 +98,27 @@ servo_kd_normal_x = 10.0
 servo_kp_normal_y = 7.0
 servo_kd_normal_y = 10.0
 
-servo_target_y_T = 2.5
-servo_target_y_S = 3.0
-servo_target_y_B = 6.0
+servo_target_y_T = 2.0
+servo_target_y_S = 2.5
+servo_target_y_B = 5.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
 
 max_rational_dist = 55.0
 
-min_rel_speed = 40
+min_rel_speed = 35
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
-radius_T = 14.0
-radius_S = 16.0
-radius_B = 18.5
-angle_T = 141.0
-angle_S = 147.0
-angle_B = 150.0
-
+radius_T = 17.0
+radius_S = 19.0
+radius_B = 21.5
+angle_T = 130.0
+angle_S = 142.0
+angle_B = 134.0
+center_offset_T = 3.5
+center_offset_S = 2.0
+center_offset_B = 5.0
 # 小车最高速度为180

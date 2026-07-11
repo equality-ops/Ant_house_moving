@@ -472,6 +472,7 @@ class TaskController:
         self.the_last_one = False  # 是否是最后一个物体
         self.if_second_verify = False  # 是否进行第二次验证视觉
         self.if_change_status = False  # 是否完成任务状态切换
+        self.if_skip_orbit = False  # 是否跳过环绕模式
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
 
@@ -543,16 +544,16 @@ class TaskController:
                 self.orbit_angle_buf = self.my_vision.orbit_angle
             elif self.object_status == OVER_ONE_IN_TOP:
                 if self.the_last_one or self.if_to_top == False:
+                    self.if_skip_orbit = True
                     self.my_vision.skip_orbit()  # 跳过环绕模式
                     if self.if_to_top == False:
                         # 此时小车将过渡到上半区
                         self.if_to_top = True
                 else:
-                    self.my_vision.center_x_offset = -self.my_vision.center_x_offset
                     # 主车逆时针旋转
                     self.orbit_angle_buf = -180 + self.my_vision.orbit_angle
 
-        elif state == MOVE:
+        elif state == MOVE: 
             if self.object_status in [ALL_IN_BOTTOM, ONE_IN_TOP]:
                 # 搬运到-20的点保证光电管能检测到边界
                 self.move_message = [self.my_car.x_current + self.my_plan.error_x, -20.0]
@@ -629,7 +630,7 @@ class TaskController:
                     
                     x_threshold = 20.0
                     y_threshold = 20.0
-                    rich_angle = 3.0  # 角度裕量
+                    rich_angle = 6.0  # 角度裕量
                     if self.if_to_top == False:
                         self.spin_angle_buf = -180 + self.my_vision.orbit_angle + rich_angle
                         slave_angle = 180 - self.my_vision.orbit_angle - rich_angle
@@ -699,6 +700,9 @@ class TaskController:
             # self.my_fan.fan_off()
             order = self.my_main_protocol.get_slave_state()
             if order == "finish":
+                if self.if_skip_orbit:
+                    self.my_main_protocol.send_start()  # 让从车开始搬运
+                    self.if_skip_orbit = False
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
@@ -779,7 +783,7 @@ class TaskController:
 
         if self.if_start_off == False:
             # 先让小车走到y=10的位置保证顺利发车
-            self.navigate_message[0].insert(0, [self.my_car.x_current, 10.0]) 
+            self.navigate_message[0].insert(0, [self.my_car.x_current, self.my_car.y_current + 30.0]) 
 
         self.exit()  # 退出当前状态，进入导航状态
 

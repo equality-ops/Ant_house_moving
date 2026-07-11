@@ -371,8 +371,10 @@ class VisionManager:
 
             # ====== 新增：记录下当前的理想旋转圆心坐标 ======
             # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
-            self.orbit_center_x = self.my_car.x_current + self.center_x_offset + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
-            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * PI / 180.0)
+            # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
+            yaw_rad = self.record_angle * PI / 180.0
+            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(yaw_rad) + self.center_x_offset * math.cos(yaw_rad)
+            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(yaw_rad) - self.center_x_offset * math.sin(yaw_rad)
             self.if_orbit_ready = True
         else:
             if self.if_finish_orbit == True:
