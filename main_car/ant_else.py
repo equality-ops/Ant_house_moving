@@ -428,7 +428,7 @@ class flash_system:
 
 # 状态机类
 class TaskController:
-    def __init__(self, beep: beep, fan, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol):
+    def __init__(self, beep: beep, fan, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol, path_planner):
         # 注入对象
         self.my_beep = beep
         self.my_fan = fan
@@ -443,6 +443,7 @@ class TaskController:
         self.my_order_manager = order_manager
         self.my_art_protocol = art_protocal
         self.my_main_protocol = main_protocol
+        self.my_path = path_planner
 
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
