@@ -16,6 +16,7 @@ RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
 
+# ── 光电管状态标志位 ──
 InField = const(-1)
 OnLine = const(0)
 OutLine = const(1)
@@ -25,6 +26,11 @@ ALL_IN_BOTTOM = const(0)  # 物体完全在下区域内
 ONE_IN_TOP = const(2)     # 物体有一个在上区域内
 OVER_ONE_IN_TOP = const(4)  # 物体有两个或以上在上区域内
 
+# ── 路径规划状态标志位 ──
+STATUS_OK            = const(0)   # 正常
+STATUS_OUT_OF_BOUNDS = const(1)   # 检测到越界物体，已归类到最近格子
+STATUS_CONFLICT      = const(2)   # 检测到同格冲突，已消解重分配
+STATUS_GRID_FULL     = const(3)   # 格子全满，无法规划，plan 为空
 
 # 计数器
 counter = 0 
