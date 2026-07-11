@@ -35,16 +35,10 @@ JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 # 去噪配置
 MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
 
-# 锁定逻辑配置
-LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
-LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
-
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
 PROTOCOL_HEADER2_COORD = 0xA6
 PROTOCOL_FOOTER = 0x5B
-PROTOCOL_PREVIEW_HEADER = 0x77
-PROTOCOL_PREVIEW_FOOTER = 0x78
 
 # 颜色标签映射（label → 名称）
 LABEL_TO_COLOR = {
@@ -73,7 +67,6 @@ DRAW_COLORS = {
     'blue': (0, 0, 255),     # 蓝色沙包
     'white': (255, 255, 255),# 白色玩具熊
     'grey': (100, 100, 100), # 卡尔曼框
-    'black': (0, 0, 0),      # 锁定标识
     'brown': (150, 75, 0)    # 棕色玩具熊
 }
 
@@ -123,37 +116,6 @@ class Communicator:
             PROTOCOL_FOOTER
         )
         self.uart.write(data)
-
-    def pack_center_data(self, center_list):
-        """将多目标检测结果打包为变长协议包并发送
-
-        协议格式: 帧头(0x77) + 物体数量(1B) + (类型+x+y)*N + 尾帧(0x78)
-        坐标自动限幅至屏幕分辨率范围内（SCREEN_WIDTH x SCREEN_HEIGHT）
-
-        Args:
-            center_list: 检测目标列表，每项为 (cx, cy, color_name) 三元组
-        """
-        count = len(center_list)
-        if count == 0:
-            return None
-        buf = bytearray(1 + 1 + count * 3 + 1)
-        idx = 0
-
-        buf[idx] = PROTOCOL_PREVIEW_HEADER
-        idx += 1
-        buf[idx] = count
-        idx += 1
-
-        for cx, cy, color in center_list:
-            buf[idx] = max(0, min(SCREEN_WIDTH, int(cx)))
-            idx += 1
-            buf[idx] = max(0, min(SCREEN_HEIGHT, int(cy)))
-            idx += 1
-            buf[idx] = COLOR_TYPE_MAP.get(color, 0x00)
-            idx += 1
-
-        buf[idx] = PROTOCOL_PREVIEW_FOOTER
-        self.uart.write(buf)
 
 # ======================== 卡尔曼跟踪模块 ========================
 class KalmanTracker:
@@ -502,134 +464,15 @@ class ColorDetector:
             center_list.append((blob.cx(), blob.cy(), color_name))
 
 
-# ======================== 锁定逻辑模块 ========================
-class TargetLocker:
-    def __init__(self, jump_threshold, max_lost_frames):
-        self.is_locked = False        # 是否锁定目标
-        self.locked_color = ''        # 锁定的目标颜色
-        self.locked_cx = SCREEN_CENTER_X  # 锁定目标的初始x坐标
-        self.locked_cy = SCREEN_CENTER_Y  # 锁定目标的初始y坐标
-        self.last_cx = SCREEN_CENTER_X    # 上一帧锁定目标的x坐标
-        self.last_cy = SCREEN_CENTER_Y    # 上一帧锁定目标的y坐标
-        self.lost_count = 0           # 锁定目标丢失帧数
-        self.JUMP_THRESHOLD = jump_threshold
-        self.MAX_LOST_FRAMES = max_lost_frames
-
-    def reset(self):
-        """重置锁定状态"""
-        self.is_locked = False
-        self.locked_color = ''
-        self.locked_cx = SCREEN_CENTER_X
-        self.locked_cy = SCREEN_CENTER_Y
-        self.last_cx = SCREEN_CENTER_X
-        self.last_cy = SCREEN_CENTER_Y
-        self.lost_count = 0
-
-    def is_jump_too_large(self, cx, cy):
-        """判断坐标跳变是否过大（同色干扰）"""
-        squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
-        return squared_distance > (self.JUMP_THRESHOLD**2)
-
-    def process_lock(self, filtered_blobs, kalman_coords):
-        """处理锁定逻辑，返回目标位置、目标颜色、锁定的色块"""
-        target_pos = None
-        target_color = ''
-        locked_blob = None
-
-        if filtered_blobs:
-            # 未锁定：选择y最大的目标作为锁定对象
-            if not self.is_locked:
-                max_y_blob, max_y_color = max(
-                    filtered_blobs,
-                    key=lambda item: item[0].cy()
-                )
-                self.locked_color = max_y_color
-                if self.locked_color in kalman_coords:
-                    self.locked_cx, self.locked_cy = kalman_coords[self.locked_color]
-                else:
-                    self.locked_cx = max_y_blob.cx()
-                    self.locked_cy = max_y_blob.cy()
-                self.last_cx = self.locked_cx
-                self.last_cy = self.locked_cy
-                self.is_locked = True
-                self.lost_count = 0
-                target_pos = (self.locked_cx, self.locked_cy)
-                target_color = max_y_color
-                locked_blob = max_y_blob
-            # 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
-            else:
-                # 筛选同色目标
-                same_color_blobs = [
-                    item for item in filtered_blobs
-                    if item[1] == self.locked_color
-                ]
-                valid_blobs = []
-                for blob, color in same_color_blobs:
-                    cx, cy = blob.cx(), blob.cy()
-                    # 跳变不超过阈值才视为有效目标
-                    if not self.is_jump_too_large(cx, cy):
-                        valid_blobs.append((blob, cx, cy))
-
-                if valid_blobs:
-                    # 选同色目标中最接近上一帧锁定位置的
-                    best_blob, best_cx, best_cy = min(
-                        valid_blobs,
-                        key=lambda item:(item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2
-                    )
-                    if self.locked_color in kalman_coords:
-                        target_pos = kalman_coords[self.locked_color]
-                    else:
-                        target_pos = (best_cx, best_cy)
-                    self.last_cx = best_cx
-                    self.last_cy = best_cy
-                    self.lost_count = 0
-                    target_color = self.locked_color
-                    locked_blob = best_blob
-                else:
-                    # 无有效同色目标，计数+1
-                    self.lost_count += 1
-                    if self.locked_color in kalman_coords and self.is_locked:
-                        target_pos = kalman_coords[self.locked_color]
-                    else:
-                        target_pos = None
-        else:
-            # 无任何色块，锁定计数+1
-            if self.is_locked:
-                self.lost_count += 1
-                if self.locked_color in kalman_coords:
-                    target_pos = kalman_coords[self.locked_color]
-                else:
-                    target_pos = None
-            else:
-                target_pos = None
-
-        # 超过最大丢失帧数，解除锁定
-        if self.is_locked and self.lost_count >= self.MAX_LOST_FRAMES:
-            self.reset()
-            target_color = ''
-
-        return target_pos, target_color, locked_blob
-
-    def draw_lock_mark(self, img, locked_blob, kalman_coords):
-        """绘制锁定标识（黑色圆）"""
-        if self.is_locked and locked_blob is not None:
-            if self.locked_color in kalman_coords:
-                lock_cx, lock_cy = kalman_coords[self.locked_color]
-            else:
-                lock_cx = locked_blob.cx()
-                lock_cy = locked_blob.cy()
-            img.draw_circle(lock_cx, lock_cy, 5, color=DRAW_COLORS['black'], thickness=2)
-
 # ======================== 全局状态变量 ========================
 
 # 运行模式定义（通过UART命令切换）
-MODE_COLOR = 0           # 颜色模式：检测色块→锁定目标→发送单个目标
-MODE_MODEL = 1           # 模型模式：检测物体→卡尔曼跟踪→发送单个目标
-MODE_PREVIEW = 2         # 预览模式：检测所有物体→打包发送（上位机完整展示）
-MODE_WAITING = 3         # 等待模式：空闲，仅维持摄像头画面显示
+MODE_COLOR = 0           # 色块模式：检测色块→卡尔曼跟踪→发送单个目标
+MODE_MODEL = 1           # 模型模式：YOLO检测→卡尔曼跟踪→发送单个目标
+MODE_WAITING = 2         # 等待模式：空闲，仅维持摄像头画面显示
 current_mode = MODE_WAITING
 
-# 各颜色对应的卡尔曼预测坐标（供TargetLocker使用），默认值为屏幕中心
+# 各颜色对应的卡尔曼预测坐标，默认值为屏幕中心
 kalman_coords = {
     'brown': (SCREEN_CENTER_X, SCREEN_CENTER_Y),
     'white': (SCREEN_CENTER_X, SCREEN_CENTER_Y),
@@ -656,7 +499,6 @@ def handle_uart_commands(uart):
     模式切换命令:
         C → MODE_COLOR (色块模式)
         M → MODE_MODEL (目标检测与跟踪)
-        A → MODE_PREVIEW (全量数据预览)
         F → MODE_WAITING (空闲等待)
 
     物体类型命令:
@@ -682,9 +524,6 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            reset_all()
-        elif cmd == b'A':
-            current_mode = MODE_PREVIEW
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
@@ -788,7 +627,6 @@ white_tracker = KalmanTracker()
 blue_tracker = KalmanTracker()
 model_detector = ModelDetector(net)
 color_detector = ColorDetector()
-target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
 # ======================== 主循环 ========================
 while True:
@@ -809,14 +647,12 @@ while True:
     if current_mode == MODE_WAITING:
         continue
 
-    # 色块模式：检测色块→锁定目标→发送单个目标
+    # 色块模式：检测色块→选最下方目标→发送
     elif current_mode == MODE_COLOR:
         all_blobs_with_color = color_detector.detect_colors(img, current_obj)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
         center = []
-        target_pos = None
-        locked_blob = None
 
         # 分离棕/白/蓝色块（卡尔曼跟踪）与其他色块（直接绘制）
         brown_blobs = []
@@ -840,13 +676,8 @@ while True:
         color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
-        target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords)
-        target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
-
-        # 发送目标坐标
-        if target_locker.is_locked and target_pos is not None:
-            communicator.send_coordinate(target_pos[0], target_pos[1], target_locker.locked_color)
-        elif not target_locker.is_locked and center:
+        # 发送最下方目标的坐标
+        if center:
             target = max(center, key=lambda coordinate: coordinate[1])
             communicator.send_coordinate(target[0], target[1], target[2])
 
@@ -868,37 +699,6 @@ while True:
         displayed_text = 'YES' if is_sent else 'NO'
         displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
         img.draw_string(5, 5, displayed_text, color=displayed_text_color, scale=2)
-
-    # 预览模式：色块检测全量打包发送（供上位机展示）
-    elif current_mode == MODE_PREVIEW:
-        all_blobs_with_color = color_detector.detect_colors(img, current_obj)
-        filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
-
-        center = []
-
-        # 分离棕/白/蓝色块（卡尔曼跟踪）与其他色块
-        brown_blobs = []
-        white_blobs = []
-        blue_blobs = []
-        other_blobs = []
-        for item in filtered_blobs_with_color:
-            blob = item[0]
-            color = item[1]
-            if color == 'brown':
-                brown_blobs.append(blob)
-            elif color == 'white':
-                white_blobs.append(blob)
-            elif color == 'blue':
-                blue_blobs.append(blob)
-            else:
-                other_blobs.append((blob, color))
-
-        color_detector.process_kalman_color(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
-        color_detector.draw_other_blobs(img, other_blobs, center)
-
-        communicator.pack_center_data(center)
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)

@@ -35,6 +35,10 @@ JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 # 去噪配置
 MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
 
+# 多目标跟踪配置
+MULTI_MATCH_DISTANCE = 30  # 同一颜色两个物体的匹配距离阈值（像素）
+MAX_TRACKERS_PER_COLOR = 3  # 每色最大跟踪器数量，超过按面积舍去最小的
+
 # 锁定逻辑配置
 LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
 LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
@@ -81,7 +85,7 @@ DRAW_COLORS = {
 THRESHOLD = {
     'brown':[(11, 60, -9, 14, 6, 69)],
     'red':[(18, 55, 20, 76, -12, 59)],
-    'green':[(54, 98, -60, -20, 39, 109)], 
+    'green':[(54, 98, -60, -20, 39, 109)],
     'blue':[(36, 80, -30, -6, -49, -29)],
     'white':[(59, 100, -32, -10, 5, 43)]
 }
@@ -231,7 +235,7 @@ class KalmanTracker:
             S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
             try:
                 S_inv = np.linalg.inv(S_reg)
-            except np.linalg.LinAlgError:
+            except Exception:
                 # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
                 diag_vals = []
                 for i in range(S_reg.shape[0]):
@@ -246,13 +250,206 @@ class KalmanTracker:
             self.x_hat = x_hat_minus
             self.p = p_minus
 
+        # 数值稳定性保护：限幅状态向量，防止NaN传播
+        self.x_hat[0] = max(0, min(SCREEN_WIDTH, self.x_hat[0]))
+        self.x_hat[1] = max(0, min(SCREEN_HEIGHT, self.x_hat[1]))
+        self.x_hat[2] = max(1, min(SCREEN_WIDTH, self.x_hat[2]))
+        self.x_hat[3] = max(1, min(SCREEN_HEIGHT, self.x_hat[3]))
+        self.x_hat[4] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[4]))
+        self.x_hat[5] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[5]))
+
         return self.x_hat
+
+# ======================== 多目标跟踪模块 ========================
+class TrackedObject:
+    """单个被跟踪物体的实例，包裹一个卡尔曼滤波器"""
+    # 类默认值（防止MicroPython长时间运行后内存碎片导致属性丢失）
+    kalman = None
+    last_cx = SCREEN_CENTER_X
+    last_cy = SCREEN_CENTER_Y
+    last_area = 0
+    lost_count = 0
+    age = 0
+    id = 0
+
+    def __init__(self, kalman, cx, cy, area):
+        self.kalman = kalman       # 专属 KalmanTracker
+        self.last_cx = cx          # 上次匹配的原始检测 x（用于帧间匹配）
+        self.last_cy = cy          # 上次匹配的原始检测 y
+        self.last_area = area      # 上次匹配的物体面积（用于限制时舍去）
+        self.lost_count = 0        # 连续丢失帧数
+        self.age = 0               # 存活帧数
+        self.id = 0                # 唯一编号
+
+
+class MultiTracker:
+    """管理单个颜色的多个卡尔曼跟踪器——支持同色多物体跟踪
+
+    每帧调用 update() 传入当前检测到的所有该颜色色块坐标，
+    内部通过最近邻匹配将检测分配给已有跟踪器，未匹配的检测新建跟踪器。
+    """
+
+    def __init__(self, match_distance=MULTI_MATCH_DISTANCE, max_lost=KALMAN_MAX_LOST_FRAMES, max_trackers=MAX_TRACKERS_PER_COLOR):
+        self.objects = []               # list[TrackedObject]
+        self.match_distance = match_distance  # 匹配距离阈值（像素）
+        self.max_lost = max_lost         # 最大丢失帧数
+        self.max_trackers = max_trackers # 每色最大跟踪器数量
+        self.next_id = 0                 # 下一个跟踪器编号
+
+    def reset(self):
+        """重置所有跟踪器"""
+        self.objects = []
+        self.next_id = 0
+
+    def _repair_kalman(self, obj, cx=SCREEN_CENTER_X, cy=SCREEN_CENTER_Y, w=30, h=30):
+        """检查并修复损坏的卡尔曼跟踪器（防止内存问题导致对象丢失）"""
+        if not isinstance(getattr(obj, 'kalman', None), KalmanTracker):
+            obj.kalman = KalmanTracker()
+            obj.kalman.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
+            obj.kalman.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+            obj.kalman.first_detected = True
+            obj.lost_count = 0
+
+    def update(self, detections, Ts, kalman_on):
+        """执行一帧的多目标跟踪
+
+        Args:
+            detections: [(cx, cy, w, h), ...]  当前帧检测到的所有该颜色目标坐标
+            Ts: 帧间隔时间（秒）
+            kalman_on: 当前颜色的卡尔曼开关
+
+        Returns:
+            [(kcx, kcy, kw, kh, raw_cx, raw_cy), ...]
+            每个活跃跟踪器的输出坐标（kcx/kcy 是卡尔曼预测/原始坐标，
+            raw_cx/raw_cy 是原始检测坐标）
+        """
+        results = []
+
+        # 情况1：没有检测也没有跟踪器 → 空
+        if not detections and not self.objects:
+            return results
+
+        # 情况2：没有检测 → 所有跟踪器做预测（或标记丢失）
+        if not detections:
+            for obj in self.objects:
+                self._repair_kalman(obj)
+                if kalman_on and obj.lost_count < self.max_lost:
+                    obj.kalman.kalman_filter(None, Ts, is_detected=False)
+                    obj.lost_count += 1
+                    kcx, kcy, kw, kh = self._get_kalman_output(obj)
+                    results.append((kcx, kcy, kw, kh, kcx, kcy))
+                else:
+                    obj.lost_count += 1
+            self._cleanup()
+            return results
+
+        # 情况3：有检测 → 最近邻匹配
+        used = set()  # 已匹配的检测索引
+
+        # 第1步：每个已有跟踪器找最近的未匹配检测
+        for obj in self.objects:
+            best_di = None
+            best_dist = self.match_distance ** 2
+
+            for di, (dcx, dcy, _, _) in enumerate(detections):
+                if di in used:
+                    continue
+                dist = (dcx - obj.last_cx)**2 + (dcy - obj.last_cy)**2
+                if dist < best_dist:
+                    best_dist = dist
+                    best_di = di
+
+            if best_di is not None:
+                # 匹配成功 → 卡尔曼更新
+                dcx, dcy, dw, dh = detections[best_di]
+                used.add(best_di)
+                self._repair_kalman(obj, dcx, dcy, dw, dh)
+
+                if kalman_on:
+                    dx = max(-MAX_SPEED, min(MAX_SPEED, (dcx - obj.last_cx) / Ts))
+                    dy = max(-MAX_SPEED, min(MAX_SPEED, (dcy - obj.last_cy) / Ts))
+                    Z = np.array([dcx, dcy, dw, dh, dx, dy], dtype=np.float)
+                    if not obj.kalman.first_detected:
+                        obj.kalman.x_hat = np.array([dcx, dcy, dw, dh, 0, 0], dtype=np.float)
+                        obj.kalman.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+                        obj.kalman.first_detected = True
+                    obj.kalman.kalman_filter(Z, Ts, True)
+                    kcx, kcy = int(obj.kalman.x_hat[0]), int(obj.kalman.x_hat[1])
+                    kw = max(1, int(obj.kalman.x_hat[2]))
+                    kh = max(1, int(obj.kalman.x_hat[3]))
+                    results.append((kcx, kcy, kw, kh, dcx, dcy))
+                else:
+                    results.append((dcx, dcy, dw, dh, dcx, dcy))
+
+                obj.last_cx, obj.last_cy = dcx, dcy
+                obj.last_area = dw * dh
+                obj.lost_count = 0
+                obj.age += 1
+            else:
+                # 未匹配到检测 → 丢失帧
+                self._repair_kalman(obj)
+                if kalman_on and obj.lost_count < self.max_lost:
+                    obj.kalman.kalman_filter(None, Ts, is_detected=False)
+                    obj.lost_count += 1
+                    kcx, kcy, kw, kh = self._get_kalman_output(obj)
+                    results.append((kcx, kcy, kw, kh, kcx, kcy))
+                else:
+                    obj.lost_count += 1
+
+        # 第2步：未匹配的检测 → 新建跟踪器
+        for di, (dcx, dcy, dw, dh) in enumerate(detections):
+            if di not in used:
+                kalman = KalmanTracker()
+                kalman.x_hat = np.array([dcx, dcy, dw, dh, 0, 0], dtype=np.float)
+                kalman.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
+                kalman.first_detected = True
+
+                new_obj = TrackedObject(kalman, dcx, dcy, dw * dh)
+                new_obj.age = 1
+                new_obj.id = self.next_id
+                self.next_id += 1
+                self.objects.append(new_obj)
+
+                results.append((dcx, dcy, dw, dh, dcx, dcy))
+
+        # 第3步：清理超时跟踪器
+        self._cleanup()
+
+        # 第4步：限制跟踪器数量，超过上限按面积舍去最小的
+        while len(self.objects) > self.max_trackers:
+            smallest = min(self.objects, key=lambda o: o.last_area)
+            self.objects.remove(smallest)
+
+        return results
+
+    def _get_kalman_output(self, obj):
+        """从卡尔曼状态中提取预测框（含NaN保护）"""
+        try:
+            kcx = int(obj.kalman.x_hat[0])
+            kcy = int(obj.kalman.x_hat[1])
+            kw = max(1, int(obj.kalman.x_hat[2]))
+            kh = max(1, int(obj.kalman.x_hat[3]))
+        except (ValueError, OverflowError, AttributeError):
+            # 卡尔曼状态异常（如NaN或对象损坏），回退到原始坐标并重置
+            kcx, kcy = obj.last_cx, obj.last_cy
+            kw = kh = 30
+            obj.kalman = KalmanTracker()
+        return kcx, kcy, kw, kh
+
+    def _cleanup(self):
+        """移除超时的跟踪器"""
+        self.objects = [o for o in self.objects if o.lost_count < self.max_lost]
+
+    @property
+    def count(self):
+        return len(self.objects)
+
 
 # ======================== 模型检测模块  ========================
 class ModelDetector:
-    """YOLO模型检测器，封装模型推理、卡尔曼跟踪和结果绘制
+    """YOLO模型检测器，封装模型推理、多目标卡尔曼跟踪和结果绘制
 
-    负责调用TFLite模型进行推理，管理brown/white/blue物体的卡尔曼跟踪，
+    负责调用TFLite模型进行推理，管理brown/white/blue物体的多目标卡尔曼跟踪，
     并绘制所有检测结果到图像上。
     """
 
@@ -271,81 +468,65 @@ class ModelDetector:
         img1 = img.copy(0.75, 1)
         return tf.detect(self.net, img1)
 
-    def process_kalman_color(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
-        """模型检测结果的卡尔曼处理（棕/白/蓝）"""
-        detected = False
-        target_object = None
+    def process_kalman_multi(self, img, objects, multi_tracker, color, Ts, center_list, kalman_coords_dict):
+        """模型检测结果的多目标卡尔曼处理（替换原来的 process_kalman_color）
 
-        if objects:
-            target_object = max(objects, key=lambda obj: (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height())
-            x1,y1,x2,y2,label,scores = target_object
-            x1 = int(x1 * img.width())
-            y1 = int(y1 * img.height())
-            x2 = int(x2 * img.width())
-            y2 = int(y2 * img.height())
+        对所有检测到的物体执行多目标跟踪，绘制所有原始框，
+        然后对每个跟踪器绘制灰色预测框并输出坐标。
+        """
+        width, height = img.width(), img.height()
+        kalman_on = kalman_enabled[color]
+
+        # 1. 提取检测坐标并绘制原始检测框
+        detections = []
+        for obj in objects:
+            x1_n, y1_n, x2_n, y2_n, label, scores = obj
+            x1 = int(x1_n * width)
+            y1 = int(y1_n * height)
+            x2 = int(x2_n * width)
+            y2 = int(y2_n * height)
             cx = (x1 + x2) // 2
             cy = (y1 + y2) // 2
+            w = x2 - x1
+            h = y2 - y1
 
-            # 绘制原始检测框（不论卡尔曼开关）
-            img.draw_rectangle((x1, y1, x2 - x1, y2 - y1), color=DRAW_COLORS[color])
+            img.draw_rectangle((x1, y1, w, h), color=DRAW_COLORS[color])
             img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+            detections.append((cx, cy, w, h))
 
-            if kalman_enabled[color]:
-                jump_too_large = False
-                if tracker.first_detected:
-                    distance_squared = (cx - tracker.last_cx)**2 + (cy - tracker.last_cy)**2
-                    if distance_squared > (JUMP_KALMAN_THRESHOLD**2):
-                        jump_too_large = True
+        # 2. 多目标跟踪
+        results = multi_tracker.update(detections, Ts, kalman_on)
 
-                if not jump_too_large:
-                    w, h = x2 - x1, y2 - y1
-                    dx_raw = (cx - tracker.last_cx) / Ts
-                    dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
-                    dy_raw = (cy - tracker.last_cy) / Ts
-                    dy = max(-MAX_SPEED, min(MAX_SPEED, dy_raw))
-                    Z = np.array([cx, cy, w, h, dx, dy], dtype=np.float)
-                    if not tracker.first_detected:
-                        tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
-                        tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
-                        tracker.first_detected = True
-                    tracker.kalman_filter(Z, Ts, True)
-                    tracker.last_cx = cx
-                    tracker.last_cy = cy
-
-            detected = True
-
-        # 卡尔曼开启时的丢失预测
-        if kalman_enabled[color] and not detected and tracker.first_detected:
-            if tracker.lost_count < tracker.MAX_LOST_FRAMES:
-                tracker.kalman_filter(None, Ts, is_detected=False)
+        # 3. 绘制预测框并输出坐标
+        for kcx, kcy, kw, kh, raw_cx, raw_cy in results:
+            if kalman_on and (kcx != raw_cx or kcy != raw_cy):
+                # 卡尔曼预测与原始坐标不同 → 画灰色预测框
+                img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=DRAW_COLORS['grey'])
+                img.draw_cross(kcx, kcy, color=DRAW_COLORS['grey'])
+                center_list.append((kcx, kcy, color))
             else:
-                tracker.reset()
+                # 卡尔曼关闭或跟踪器刚初始化 → 直接用原始坐标
+                center_list.append((raw_cx, raw_cy, color))
 
-        # 输出坐标
-        if kalman_enabled[color] and tracker.first_detected:
-            kcx, kcy = int(tracker.x_hat[0]), int(tracker.x_hat[1])
-            kw, kh = max(1, int(tracker.x_hat[2])), max(1, int(tracker.x_hat[3]))
-            img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=DRAW_COLORS['grey'])
-            img.draw_cross(kcx, kcy, color=DRAW_COLORS['grey'])
-            center_list.append((kcx, kcy, color))
-            kalman_coords_dict[color] = (kcx, kcy)
-        elif detected:
-            center_list.append((cx, cy, color))
-            kalman_coords_dict[color] = (cx, cy)
+        # 4. 更新 kalman_coords_dict（取该色最下方目标，供锁定逻辑使用）
+        if results:
+            if kalman_on:
+                lowest = max([(r[0], r[1]) for r in results], key=lambda p: p[1])
+            else:
+                lowest = max([(r[4], r[5]) for r in results], key=lambda p: p[1])
+            kalman_coords_dict[color] = lowest
         else:
             kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
-
-        return target_object
 
     def draw_other_objects(self, img, objects, center_list):
         """绘制非卡尔曼跟踪的模型检测结果"""
         for item in objects:
             obj, color_name = item
-            x1,y1,x2,y2,label,scores = obj
-            x1 = int(x1 * img.width())
-            y1 = int(y1 * img.height())
-            x2 = int(x2 * img.width())
-            y2 = int(y2 * img.height())
+            x1_n, y1_n, x2_n, y2_n, label, scores = obj
+            x1 = int(x1_n * img.width())
+            y1 = int(y1_n * img.height())
+            x2 = int(x2_n * img.width())
+            y2 = int(y2_n * img.height())
             w = x2 - x1
             h = y2 - y1
             cx = (x1 + x2) // 2
@@ -436,59 +617,45 @@ class ColorDetector:
                 filtered.append((blob, color))
         return filtered
 
-    def process_kalman_color(self, img, blobs, tracker, color, Ts, center_list, kalman_coords_dict):
-        """色块检测结果的卡尔曼处理（棕/白/蓝）"""
-        detected = False
-        target_blob = None
+    def process_kalman_multi(self, img, blobs, multi_tracker, color, Ts, center_list, kalman_coords_dict):
+        """色块检测结果的多目标卡尔曼处理（替换原来的 process_kalman_color）
 
-        if blobs:
-            target_blob = max(blobs, key=lambda b: b.area())
-            cx, cy = target_blob.cx(), target_blob.cy()
+        对所有检测到的色块执行多目标跟踪，绘制所有原始框，
+        然后对每个跟踪器绘制灰色预测框并输出坐标。
+        """
+        kalman_on = kalman_enabled[color]
 
-            # 绘制原始检测框（不论卡尔曼开关）
-            img.draw_rectangle(target_blob.rect(), color=DRAW_COLORS[color])
-            img.draw_cross(cx, cy, color=DRAW_COLORS[color])
+        # 1. 绘制所有原始检测框
+        for blob in blobs:
+            img.draw_rectangle(blob.rect(), color=DRAW_COLORS[color])
+            img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[color])
 
-            if kalman_enabled[color]:
-                # 卡尔曼滤波跟踪
-                w, h = target_blob.w(), target_blob.h()
-                dx_raw = (cx - tracker.last_cx) / Ts
-                dx = max(-MAX_SPEED, min(MAX_SPEED, dx_raw))
-                dy_raw = (cy - tracker.last_cy) / Ts
-                dy = max(-MAX_SPEED, min(MAX_SPEED, dy_raw))
-                Z = np.array([cx, cy, w, h, dx, dy], dtype=np.float)
-                if not tracker.first_detected:
-                    tracker.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
-                    tracker.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
-                    tracker.first_detected = True
-                tracker.kalman_filter(Z, Ts, True)
-                tracker.last_cx = cx
-                tracker.last_cy = cy
+        # 2. 提取检测坐标
+        detections = [(b.cx(), b.cy(), b.w(), b.h()) for b in blobs] if blobs else []
 
-            detected = True
+        # 3. 多目标跟踪
+        results = multi_tracker.update(detections, Ts, kalman_on)
 
-        # 卡尔曼开启时的丢失预测
-        if kalman_enabled[color] and not detected and tracker.first_detected:
-            if tracker.lost_count < tracker.MAX_LOST_FRAMES:
-                tracker.kalman_filter(None, Ts, is_detected=False)
+        # 4. 绘制预测框并输出坐标
+        for kcx, kcy, kw, kh, raw_cx, raw_cy in results:
+            if kalman_on and (kcx != raw_cx or kcy != raw_cy):
+                # 卡尔曼预测与原始坐标不同 → 画灰色预测框
+                img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=DRAW_COLORS['grey'])
+                img.draw_cross(kcx, kcy, color=DRAW_COLORS['grey'])
+                center_list.append((kcx, kcy, color))
             else:
-                tracker.reset()
+                # 卡尔曼关闭或跟踪器刚初始化 → 直接用原始坐标
+                center_list.append((raw_cx, raw_cy, color))
 
-        # 输出坐标
-        if kalman_enabled[color] and tracker.first_detected:
-            kcx, kcy = int(tracker.x_hat[0]), int(tracker.x_hat[1])
-            kw, kh = max(1, int(tracker.x_hat[2])), max(1, int(tracker.x_hat[3]))
-            img.draw_rectangle(kcx - kw//2, kcy - kh//2, kw, kh, color=DRAW_COLORS['grey'])
-            img.draw_cross(kcx, kcy, color=DRAW_COLORS['grey'])
-            center_list.append((kcx, kcy, color))
-            kalman_coords_dict[color] = (kcx, kcy)
-        elif detected:
-            center_list.append((cx, cy, color))
-            kalman_coords_dict[color] = (cx, cy)
+        # 5. 更新 kalman_coords_dict（取该色最下方目标，供锁定逻辑使用）
+        if results:
+            if kalman_on:
+                lowest = max([(r[0], r[1]) for r in results], key=lambda p: p[1])
+            else:
+                lowest = max([(r[4], r[5]) for r in results], key=lambda p: p[1])
+            kalman_coords_dict[color] = lowest
         else:
             kalman_coords_dict[color] = (SCREEN_CENTER_X, SCREEN_CENTER_Y)
-
-        return target_blob
 
     def draw_other_blobs(self, img, blobs, center_list):
         """封装绘制其他颜色色块逻辑"""
@@ -713,12 +880,12 @@ def detect_all_objects(img, Ts):
 
     处理流程:
         1. YOLO模型推理，获取所有检测框
-        2. brown/white/blue物体 → 卡尔曼滤波跟踪（置信度阈值0.3）
+        2. brown/white/blue物体 → 多目标卡尔曼跟踪（置信度阈值0.3）
         3. red/green物体 → 直接绘制检测框（置信度阈值0.5，不做卡尔曼跟踪）
         4. 所有检测到的目标坐标（含卡尔曼预测值）汇总到center列表
 
     Args:
-        img: 当前帧图像（会被process_kalman_color和draw_other_objects修改）
+        img: 当前帧图像（会被process_kalman_multi和draw_other_objects修改）
         Ts: 帧间隔时间（秒）
 
     Returns:
@@ -744,10 +911,10 @@ def detect_all_objects(img, Ts):
         if color in ['red', 'green'] and confidence > 0.5:
             other_objects.append((obj, color))
 
-    # brown/white/blue使用卡尔曼跟踪（含丢失预测），其他颜色直接绘制
-    model_detector.process_kalman_color(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
-    model_detector.process_kalman_color(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
-    model_detector.process_kalman_color(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
+    # brown/white/blue使用多目标卡尔曼跟踪（含丢失预测），其他颜色直接绘制
+    model_detector.process_kalman_multi(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+    model_detector.process_kalman_multi(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+    model_detector.process_kalman_multi(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
     model_detector.draw_other_objects(img, other_objects, center)
 
     return center, objects
@@ -781,11 +948,11 @@ clock = time.clock()
 lcd = seekfree.IPS200(3)
 lcd.full()
 
-# 创建各模块实例
+# 创建各模块实例（多目标跟踪器替换原来的单卡尔曼跟踪器）
 communicator = Communicator(uart)
-brown_tracker = KalmanTracker()
-white_tracker = KalmanTracker()
-blue_tracker = KalmanTracker()
+brown_tracker = MultiTracker()
+white_tracker = MultiTracker()
+blue_tracker = MultiTracker()
 model_detector = ModelDetector(net)
 color_detector = ColorDetector()
 target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
@@ -818,7 +985,7 @@ while True:
         target_pos = None
         locked_blob = None
 
-        # 分离棕/白/蓝色块（卡尔曼跟踪）与其他色块（直接绘制）
+        # 分离棕/白/蓝色块（多目标卡尔曼跟踪）与其他色块（直接绘制）
         brown_blobs = []
         white_blobs = []
         blue_blobs = []
@@ -835,9 +1002,10 @@ while True:
             else:
                 other_blobs.append((blob, color))
 
-        color_detector.process_kalman_color(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
+        # 多目标跟踪（每个颜色可能有多个物体）
+        color_detector.process_kalman_multi(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
+        color_detector.process_kalman_multi(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
+        color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
         target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords)
@@ -850,7 +1018,7 @@ while True:
             target = max(center, key=lambda coordinate: coordinate[1])
             communicator.send_coordinate(target[0], target[1], target[2])
 
-    # 模型模式：YOLO检测→卡尔曼跟踪→发送单个目标
+    # 模型模式：YOLO检测→多目标卡尔曼跟踪→发送单个目标
     elif current_mode == MODE_MODEL:
         center, _ = detect_all_objects(img, Ts)
         is_sent = False
@@ -876,7 +1044,7 @@ while True:
 
         center = []
 
-        # 分离棕/白/蓝色块（卡尔曼跟踪）与其他色块
+        # 分离棕/白/蓝色块（多目标卡尔曼跟踪）与其他色块
         brown_blobs = []
         white_blobs = []
         blue_blobs = []
@@ -893,9 +1061,9 @@ while True:
             else:
                 other_blobs.append((blob, color))
 
-        color_detector.process_kalman_color(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_color(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
+        color_detector.process_kalman_multi(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
+        color_detector.process_kalman_multi(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
+        color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
         communicator.pack_center_data(center)
