@@ -344,6 +344,7 @@ class MoveControl:
             if self.vision_manager.if_send_order == False:#若还未打开摄像头
                 # 打开摄像头
                 self.my_order_manager.mode_target()
+                self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.vision_manager.if_send_order = True
             if self.if_to_the_top:
                 if self.if_send_orbit_command == False:
@@ -408,6 +409,7 @@ class MoveControl:
             self.my_plan.move_state = NAVIGATE
             return
         elif self.current_state == SERVO:
+            self.my_order_manager.clear_knock()
             if not self.if_send_orbit_command:#若还未发消息
                 self.if_send_orbit_command = True
                 NAV_T=self.navigate_buffer[self.moving_idx]

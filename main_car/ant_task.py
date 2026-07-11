@@ -102,6 +102,7 @@ class TaskController:
             '''
             self.my_vision.reset_analysed_objects()
             self.detected_num = 0
+            self.if_send_detect_message = False
             self.my_order_manager.mode_detect()
             self.object_plan.reset_judge()
             if self.if_rogue_plan:
@@ -360,6 +361,8 @@ class TaskController:
             if not self.if_send_detect_message:
                 self.scan_empty_counter=0
                 self.if_send_detect_message = True
+                self.my_art_protocol.clear_uart_buffer()
+                self.my_order_manager.clear_knock()
                 self.my_order_manager.mode_detect()
             object_package=self.my_art_protocol.detect_objects_on_the_court()
             if object_package:
@@ -368,8 +371,8 @@ class TaskController:
                 if self.detected_num==num:
                     self.my_order_manager.finish()
                     self.if_send_detect_message = False
-                    #self.uart_debug.write('1')
-                    #self.uart_debug.write(f"1{self.my_vision.analysed_objects}\n")
+                    self.my_uart.write(f"1{self.my_vision.analysed_objects}\n")
+                    self.my_art_protocol.clear_uart_buffer()
             else:
                 self.scan_empty_counter+=1
                 if self.scan_empty_counter>40:
@@ -391,9 +394,9 @@ class TaskController:
             if self.my_vision.analysed_objects:
                 if self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side):
                     target = self.object_plan.plan_target
-                    #self.uart_debug.write(f"target{self.object_plan.target_objects}\n")
-                    #self.uart_debug.write(f"path{self.object_plan.path}\n")
-                    #self.uart_debug.write(f"score{self.object_plan.target_score}\n")
+                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
+                    self.my_uart.write(f"path{self.object_plan.path}\n")
+                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -405,7 +408,7 @@ class TaskController:
                         self.my_plan.current_object = self.current_object
                         self.my_vision.current_servo_object = self.current_object
                         rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side)
-                        #self.uart_debug.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
+                        self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:self.my_plan.if_finish_navigate = False
                         self.exit()
             else:
