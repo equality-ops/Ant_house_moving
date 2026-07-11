@@ -14,9 +14,7 @@ gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
 gc.collect()
-from display import *
-gc.collect()
-from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
+from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER, IPS200PRO
 gc.collect()
 from smartcar import ticker, encoder
 gc.collect()
@@ -94,31 +92,12 @@ fan = BLDC_CONTROLLER(BLDC_CONTROLLER.PWM_C25, freq=300, highlevel_us = 1000)
 # IMU初始化
 imu = IMU660RX()
 
-"""菜单与显示屏初始化"""
-# 新建LCD实例并初始化
-cs = Pin('B29' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-cs.high()
-cs.low()
-rst = Pin('B31' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-dc  = Pin('B5' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-blk = Pin('C21' , Pin.OUT, pull = Pin.PULL_UP_47K, value = 1)
-drv = LCD_Drv(SPI_INDEX = 2, BAUDRATE = 60000000, DC_PIN = dc, RST_PIN = rst, LCD_TYPE = LCD_Drv.LCD200_TYPE)
-lcd = LCD(drv)
-lcd.color(0xFFFF, 0x0000)
-lcd.mode(2)
-lcd.clear(0x0000)
+"""菜单与显示屏初始化（IPS200PRO 库自动管理引脚）"""
+time.sleep_ms(100)
+ips200pro = IPS200PRO(IPS200PRO.TITLE_TOP, 30)
+ips200pro.set_backlight(255)
 
-# 与定时器2周期一致，都为53ms
 key = KEY_HANDLER(53)
-key_data = key.get()
-# 按键对应的数据接口
-"""
-key_up:     key_data[1]
-key_down:   key_data[0]
-enc_key:    key_data[2]
-key_run:    key_data[3] 
-"""
-
 my_beep = ant_else.beep(beep)
 
 #【文件读取】
@@ -128,7 +107,7 @@ my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
 
 # 创建菜单对象
-my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
+my_menu = ant_menu.Menu(my_flash_sys, my_beep, ips200pro)
 
 gc.collect()
 ###################################【函数定义】###################################

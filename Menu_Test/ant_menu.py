@@ -563,3 +563,4 @@ class Menu:
                 self.data_processing(key)
         if self.need_refresh:
             self.refresh_current_page()
+
