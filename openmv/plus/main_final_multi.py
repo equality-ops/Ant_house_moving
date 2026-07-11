@@ -554,26 +554,26 @@ class ColorDetector:
         if target_color:
             blobs = []
             if target_color == 'brown':
-                target_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=100, area_threshold=100, merge=True)
+                target_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=10, area_threshold=10, merge=True)
             elif target_color == 'white':
-                target_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=100, area_threshold=100, merge=True)
+                target_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=10, area_threshold=10, merge=True)
             elif target_color == 'red':
-                target_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
+                target_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=10,  area_threshold=10,  merge=True)
             elif target_color == 'green':
-                target_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
+                target_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=10,  area_threshold=10,  merge=True)
             elif target_color == 'blue':
-                target_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=40,  area_threshold=40,  merge=True)
+                target_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=10,  area_threshold=10,  merge=True)
             else:
                 target_blobs = []
 
             for blob in target_blobs:blobs.append((blob, target_color))
             return blobs
         else:
-            brown_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=100, area_threshold=100, merge=True)
-            white_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=100, area_threshold=100, merge=True)
-            red_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
-            green_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
-            blue_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=40,  area_threshold=40,  merge=True)
+            brown_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=10, area_threshold=10, merge=True)
+            white_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=10, area_threshold=10, merge=True)
+            red_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=10,  area_threshold=10,  merge=True)
+            green_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=10,  area_threshold=10,  merge=True)
+            blue_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=10,  area_threshold=10,  merge=True)
 
             # 整合所有色块并添加颜色标签
             all_blobs = []
