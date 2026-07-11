@@ -431,7 +431,9 @@ class CarPose:
         # 计算小车当前位置，根据运动方向选择补偿系数
         self.x_current += real_speed_x * self.alpha_x
         self.y_current += real_speed_y * self.alpha_y
-
+    def clear_last_car_speed(self):
+        self.last_car_speed_x = 0.0
+        self.last_car_speed_y = 0.0
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
     def move_ctrl(self, move_speed_target: float, move_angle_target: float, turn_angle_target: float):

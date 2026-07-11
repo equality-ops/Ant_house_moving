@@ -66,33 +66,38 @@ uart_and_menu_T = 53
 final_threshold = 1.0
 branch_threshold = 5.0
 blend_radius = 20.0
+
 IF_rogue_plan = 0
-total_objects_num = 3
+total_objects_num = 7
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 cube_obstacles = "(145, 25, 23.8, 10.6), (70.0, 92.0,10.6, 23.8)"
 circle = "(262.5, 88.8)"
-error_x_T = 0.0
+
+
+error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1350
+fixed_high_level_us = 1400
 
 min_start_v = 40
 long_v_max = 180
 find_line_v_max = 60
-acc_coef = 0.03
+acc_normal_coef = 0.03
+acc_move_coef = 0.04
 dec_coef = 0.08
 max_yaw_rate = 4.0 
+scan_rate = 0.8
 
-orbit_v_max = 90
-orbit_v_min = 25
+orbit_v_max = 110
+orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 210
-move_v_max_S = 210
-move_v_max_B = 210
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -101,9 +106,13 @@ servo_normal_kd_x = 10.0
 servo_normal_kp_y = 7.0
 servo_normal_kd_y = 10.0
 
-servo_target_y_T = 4.5
-servo_target_y_S = 5
-servo_target_y_B = 5
+servo_target_y_T = 9
+servo_target_y_S = 8
+servo_target_y_B = 9
+
+servo_target_x_T = 0
+servo_target_x_S = 0
+servo_target_x_B = 0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -116,12 +125,12 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
-radius_T = 14.0
+radius_T = 16.0
 radius_S = 16.0
-radius_B = 18.5
-angle_T = 141.0
-angle_S = 147.0
-angle_B = 150.0
+radius_B = 17.5
+angle_T = 25
+angle_S = 30
+angle_B = 30
 
 acc_move_coef = 0.04
 # 小车最高速度为180

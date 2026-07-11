@@ -23,7 +23,7 @@ object_to_line_dict = {
 }
 counter = 0 
 class TaskController:
-    def __init__(self,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol, assist_protocol):
+    def __init__(self,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol, assist_protocol,uart_debug):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -39,6 +39,7 @@ class TaskController:
         self.my_main_protocol = main_protocol
         self.my_assist_protocol = assist_protocol
         self.object_plan = object_plan
+        self.uart_debug = uart_debug
         # 状态映射表：将状态常量映射到对应的处理函�?
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -53,11 +54,13 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状�?
         }
+        self.scan_empty_counter = 0
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝�?
         self.scan_message = []  # 扫描信息：目标物体位�?
         self.current_object = ''  # 当前目标物体种类
+        self.if_plan_scan =False
         # 标志�?
         self.if_transitioning = True  # 是否正在进行状态转�?
         self.if_send_path = False  # 是否已经发送路径规划信�?
@@ -65,7 +68,7 @@ class TaskController:
         self.if_send_detect_message = False
         self.last_side = 'D'
         self.retreat_message= (0,0)
-        
+        self.if_first_round = True
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -125,9 +128,11 @@ class TaskController:
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路�?
+            p1 = [min(max(15,self.my_car.x_current),320-15),min(max(15,self.my_car.y_current),240-15)]
             self.my_path.ready_path[-1] = self.data.fixed_point[3]
             # 最后插入一个途径点便于计�?
             self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
+            self.my_path.ready_path.insert(0, p1)
             # self.my_uart.write(f"Path: {self.my_path.ready_path}")  # 测试：打印路径点
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
@@ -153,6 +158,7 @@ class TaskController:
             self.my_state.state = SCAN  # 直接切换到扫描状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
+            self.if_plan_scan = False
             # 退出扫描状态，停止寻找目标物体
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
@@ -212,7 +218,10 @@ class TaskController:
             self.data.current_index += 1
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.my_state.state = RETREAT  # 直接切换到校准状�?
+            self.my_state.state = READY_NAVIGATE
+            if self.data.current_index >= self.data.total_objects_num:
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
             # 此时从车丢失物体
             if self.my_moving.current_state == ADJUST:
                 self.my_plan.reset_navigate_angle()
@@ -285,7 +294,7 @@ class TaskController:
             # 小车导航到物体前的距�?
             stop_threshold = 20.0
             # 根据小车进入的边界信息选择合适的角度和扫描点信息
-        
+        insert_point = []
         if self.last_side == "L":
             target_angle = 90.0
             self.slave_navigate_message = [[self.data.fixed_point[1][0] - slave_stop_threshold, target_y+scan_threshold], target_angle]
@@ -294,6 +303,8 @@ class TaskController:
                 self.scan_message = [[target_x - stop_threshold, target_y]]
             else:
                 self.scan_message = [[self.data.fixed_point[1][0], target_y-scan_threshold]]
+            if self.if_first_round:self.if_first_round = False
+            else:insert_point = [self.my_car.x_current+15,self.my_car.y_current]
         elif self.last_side == "R":
             target_angle = -90.0
             self.slave_navigate_message = [[self.data.fixed_point[2][0] + slave_stop_threshold, target_y-scan_threshold], target_angle]
@@ -302,6 +313,8 @@ class TaskController:
                 self.scan_message = [[target_x + stop_threshold, target_y]]
             else:
                 self.scan_message = [[self.data.fixed_point[2][0], target_y+scan_threshold]]
+            if self.if_first_round:self.if_first_round = False
+            else:insert_point = [self.my_car.x_current-15,self.my_car.y_current]
         elif self.last_side == "U":
             target_angle = 180.0
             self.slave_navigate_message = [[target_x+scan_threshold, self.data.fixed_point[2][1] + slave_stop_threshold], target_angle]
@@ -310,6 +323,8 @@ class TaskController:
                 self.scan_message = [[target_x, target_y + stop_threshold]]
             else:
                 self.scan_message = [[target_x-scan_threshold,self.data.fixed_point[2][1]]]
+            if self.if_first_round:self.if_first_round = False
+            else:insert_point = [self.my_car.x_current,self.my_car.y_current-15]
         else:
             target_angle = 0.0
             self.slave_navigate_message = [[target_x-scan_threshold, self.data.fixed_point[1][1] - slave_stop_threshold], target_angle]
@@ -319,9 +334,13 @@ class TaskController:
                 self.scan_message = [[target_x, target_y - stop_threshold]]
             else:
                 self.scan_message = [[target_x+scan_threshold,self.data.fixed_point[1][1]-5]]
+            if self.if_first_round:self.if_first_round = False
+            else:insert_point = [self.my_car.x_current,self.my_car.y_current+15]
          # 进行路径规划
         self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
-        self.navigate_message = [self.my_path.ready_path, target_angle]  # 准备导航信息
+        if insert_point:pathh = [insert_point] + self.my_path.ready_path
+        else:pathh = self.my_path.ready_path
+        self.navigate_message = [pathh, target_angle]  # 准备导航信息
         self.exit()  # 退出当前状态，进入导航状�?
 
     def handle_navigate(self):
@@ -339,6 +358,7 @@ class TaskController:
     def handle_scan(self):
         def analyse_package(num):
             if not self.if_send_detect_message:
+                self.scan_empty_counter=0
                 self.if_send_detect_message = True
                 self.my_order_manager.mode_detect()
             object_package=self.my_art_protocol.detect_objects_on_the_court()
@@ -348,35 +368,48 @@ class TaskController:
                 if self.detected_num==num:
                     self.my_order_manager.finish()
                     self.if_send_detect_message = False
-                    self.my_uart.write(f"1{self.my_vision.analysed_objects}\n")
+                    #self.uart_debug.write('1')
+                    #self.uart_debug.write(f"1{self.my_vision.analysed_objects}\n")
+            else:
+                self.scan_empty_counter+=1
+                if self.scan_empty_counter>40:
+                    self.scan_empty_counter = 0
+                    self.my_order_manager.finish()
+                    self.if_send_detect_message = False
+                    self.detected_num=num#直接退出
         if self.detected_num < 2:
             analyse_package(2)
             self.my_plan.if_finish_navigate = False
         elif self.detected_num < 4:
+            if not self.if_plan_scan:
+                self.if_plan_scan = True
+                self.my_path.plan_path(self.scan_message[0][0], self.scan_message[0][1]) 
+                self.scan_message = self.my_path.ready_path
             self.my_plan.navigate(path = self.scan_message)
-            if self.my_plan.if_finish_navigate:
-                analyse_package(4)
+            if self.my_plan.if_finish_navigate:analyse_package(4)
         elif self.detected_num == 4:
-            if self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side):
-                target = self.object_plan.plan_target
-                self.my_uart.write(f"target{self.object_plan.target_objects}\n")
-                self.my_uart.write(f"path{self.object_plan.path}\n")
-                self.my_uart.write(f"score{self.object_plan.target_score}\n")
-                if not target:
-                    self.my_uart.write("False\n")
-                    self.exit()
-                else:
-                    self.object_plan.barrier.pop(target[0])
-                    self.my_moving.now_barriar=self.object_plan.barrier[:]
-                    #self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
-                    self.current_object=target[1]
-                    self.my_plan.current_object = self.current_object
-                    self.my_vision.current_servo_object = self.current_object
-                    rm = self.my_moving.ready_move([target[2],target[3]],new_side = self.last_side)
-                    #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
-                    if rm:self.my_plan.if_finish_navigate = False
-                    self.exit()
-
+            if self.my_vision.analysed_objects:
+                if self.object_plan.judge_object_character(self.my_vision.analysed_objects,self.last_side):
+                    target = self.object_plan.plan_target
+                    #self.uart_debug.write(f"target{self.object_plan.target_objects}\n")
+                    #self.uart_debug.write(f"path{self.object_plan.path}\n")
+                    #self.uart_debug.write(f"score{self.object_plan.target_score}\n")
+                    if not target:
+                        #self.my_uart.write("False\n")
+                        self.exit()
+                    else:
+                        self.object_plan.barrier.pop(target[0])
+                        self.my_moving.now_barriar=self.object_plan.barrier[:]
+                        #self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
+                        self.current_object=target[1]
+                        self.my_plan.current_object = self.current_object
+                        self.my_vision.current_servo_object = self.current_object
+                        rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side)
+                        #self.uart_debug.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
+                        if rm:self.my_plan.if_finish_navigate = False
+                        self.exit()
+            else:
+                self.exit()
     def handle_servo(self):
         # if state == SERVO
         if self.my_vision.if_lost_object == False:
@@ -444,7 +477,6 @@ class TaskController:
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
-                
         # 主车行驶多远后给从车发送路径信�?
         dist_threshold = 50.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:

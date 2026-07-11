@@ -1,6 +1,7 @@
 # 包含 gc 与 time 类
 import gc
 import time
+import os
 from micropython import const
 gc.collect()
 # 从 machine 库包含所有内容 
@@ -13,6 +14,7 @@ gc.collect()
 from smartcar import ticker, encoder
 my_uart3 = UART(2)
 my_uart3.init(115200)
+os.dupterm(my_uart3)
 import ant_plan
 gc.collect()
 import ant_else
@@ -74,7 +76,7 @@ power_adc = ADC('B27')
 beep = Pin('D24', Pin.OUT, value = False)
 
 """异步串口通信初始化"""
-my_uart6 = UART(0)
+my_uart6 = UART(5)
 my_uart6.init(115200)
 
 """无线串口通信初始化"""
@@ -201,7 +203,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_sta
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_move.MoveControl(my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
+my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
 # 任务及类
 my_task = ant_task.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 
@@ -246,7 +248,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            #if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -296,10 +298,10 @@ def master_control():
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
         elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state == MOVE:
+        elif my_moving.current_state in [NAVIGATE,MOVE]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -404,11 +406,11 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    #task_machine()
+    task_machine()
 
     # 全向定位测试程序
 
-
+    '''
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -429,6 +431,7 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+    '''
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序

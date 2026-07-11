@@ -1,6 +1,7 @@
 # 包含 gc 与 time 类
 import gc
 import time
+import os
 from micropython import const
 gc.collect()
 # 从 machine 库包含所有内容 
@@ -13,6 +14,10 @@ gc.collect()
 from smartcar import ticker, encoder
 my_uart3 = UART(2)
 my_uart3.init(115200)
+gc.collect()
+my_uart_debug = UART(7)
+my_uart_debug.init(115200)
+gc.collect()
 import ant_plan
 gc.collect()
 import ant_else
@@ -217,10 +222,11 @@ else:
     my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
     # 搬运控制类
-    my_moving = ant_move.MoveControl(my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+    my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+    
     my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
     # 任务及类
-    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol)
+    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol,my_uart_debug)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -264,7 +270,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            #if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -362,10 +368,10 @@ def master_control():
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
         elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state == MOVE:
+        elif my_moving.current_state in [NAVIGATE,MOVE]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
@@ -461,11 +467,7 @@ def time_pit1_handler(time):
     master_control()
 
     # 设置电机pwm输出
-    if_stop_pwm = (my_state.state == CALIBRATE and my_vision_manager.if_finish_calibrate == False and my_vision_manager.if_ready_calibrate == True)
-    if if_stop_pwm:
-        my_car.pwm_stop()
-    else:
-        my_car.set_motor_pwm()
+    my_car.set_motor_pwm()
     # 更新负压风扇的高电平时间
     """
     if my_fan.if_fan:

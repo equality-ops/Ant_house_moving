@@ -81,7 +81,9 @@ class order_manager:
     # 切换到上下边界识别模�?
     def mode_boundary_ud(self):
         self.my_uart.write("U")
-
+        
+    def send_object_kind(self, object_kind):
+        self.my_uart.write(object_kind.lower())
     # 切换到左右边界识别模�?
     def mode_boundary_lf(self):
         self.my_uart.write("L")

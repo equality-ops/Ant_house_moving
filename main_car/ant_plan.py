@@ -378,10 +378,11 @@ class NavigationPlan:
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int  # 最小制动速度
         self.long_v_max = self.flash_sys.find_value("long_v_max")    # type: int  # 长距离时的最大速度
-        self.acc_coef = self.flash_sys.find_value("acc_coef")          # 加速距离系数
+        self.acc_coef = 0.0          # 加速距离系数
+        self.acc_normal_coef = self.flash_sys.find_value("acc_normal_coef")     # 正常导航的加速距离系数
+        self.acc_move_coef = self.flash_sys.find_value("acc_move_coef")         # 搬运状态下的加速距离系数
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
-        self.max_yaw_rate = self.flash_sys.find_value("max_yaw_rate")# 最大航向角变化率 (度/tick)
-        self.blend_radius = self.flash_sys.find_value("blend_radius")# 拐点融合区半径：进入该范围开始向下一目标切角
+        self.scan_rate = self.flash_sys.find_value("scan_rate")      # type: int  # 扫描状态下的速度降低比例
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
         self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
@@ -389,7 +390,9 @@ class NavigationPlan:
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
 
         self.waypoint_v = []  # type: list  # 目标速度列表
-        self.current_object = 'P'  # 当前搬运物体类型 (T/S/E/W/B)
+
+        self.dec_counter = 0  # type: int  # 二次确认时的减速计数器
+        self.dec_start_v = 0.0  # type: float  # 减速起始时刻的初速度（固定值，用于高次减速基准）
 
         # 路径规划相关变量
         self.target_x = 0.0         # type: float
@@ -422,7 +425,8 @@ class NavigationPlan:
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False              # type: bool  # 判断是否完成导航标志位
-    
+        self.if_second_verify = False              # type: bool  # 判断是否进行第二次验证视觉
+        self.move_state = NAVIGATE
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         # 打开无刷负压风扇
@@ -435,7 +439,12 @@ class NavigationPlan:
         self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
-        
+        # 根据当前状态选择合适的加速距离系数
+        if self.move_state == MOVE:
+            self.acc_coef = self.acc_move_coef
+        else:
+            self.acc_coef = self.acc_normal_coef
+            
         n = len(self.path)
         self.waypoint_v = [self.min_start_v] * n
 
@@ -449,7 +458,7 @@ class NavigationPlan:
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
             # 我加负压了，给我拉满过弯速度
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.7
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.5
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -483,9 +492,6 @@ class NavigationPlan:
         # 固定系数（负压状态下）
         self.my_car.alpha_x = 0.949102
         self.my_car.alpha_y = 0.950803
-        # 提取当前物体种类信息
-        if  self.plan_data.if_rogue_plan and self.plan_data.current_index < self.plan_data.total_objects_num:
-            self.current_object = self.plan_data.rogue_planning[self.plan_data.current_index][1]   
         
 
     # 根据当前过渡距离计算加减速距离
@@ -508,7 +514,12 @@ class NavigationPlan:
             self.d_dec = 0.0
             return
 
-        v_cruise = float(self.long_v_max)
+        if self.move_state == MOVE:
+            v_cruise = self.move_v_max
+        elif self.my_state.state == SCAN:
+            v_cruise = self.long_v_max * self.scan_rate
+        else:
+            v_cruise = self.long_v_max
 
         # 基于绝对速度变化量反算理论需要的加减速物理距离
         d_acc_req = self.acc_coef * max(0.0, v_cruise - v_start)
@@ -551,26 +562,43 @@ class NavigationPlan:
 
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
-        if self.my_state.state == MOVE:
-            near_line_threshold = 30.0  # 距离边界的阈值，单位：cm
-            if_sandbag = (self.current_object in ['S', 'E'] and self.my_car.x_current <= near_line_threshold)
-            if_bear = (self.current_object in ['B', 'W'] and self.my_car.x_current >= 320.0 - near_line_threshold)
-            if_tennis = (self.current_object == 'T' and self.my_car.y_current >= 240.0 - near_line_threshold)
-            if if_sandbag or if_bear or if_tennis:
-                if if_sandbag:
-                    ratio = self.my_car.x_current / near_line_threshold
-                elif if_bear:
-                    ratio = (320.0 - self.my_car.x_current) / near_line_threshold
-                else: # if_tennis
-                    ratio = (240.0 - self.my_car.y_current) / near_line_threshold
-
-                # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速
-                ratio = max(0.0, min(1.0, ratio))
-                ratio = ratio * ratio * ratio
-                
-                v_cruise = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+        if self.move_state == MOVE:
+            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
+            if self.my_car.y_current >= 240.0 - near_line_threshold:
+                ratio = (240.0 - self.my_car.y_current) / near_line_threshold
+            elif self.my_car.y_current <= near_line_threshold:
+                ratio = self.my_car.y_current / near_line_threshold
+            elif self.my_car.x_current <= near_line_threshold:
+                ratio = self.my_car.x_current / near_line_threshold
+            elif self.my_car.x_current >= 320.0 - near_line_threshold:
+                ratio = (320.0 - self.my_car.x_current) / near_line_threshold
             else:
-                v_cruise = self.move_v_max
+                ratio = 1.0
+            # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速
+            ratio = max(0.0, min(1.0, ratio))
+            ratio = ratio * ratio * ratio
+            v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            # 在搬运模式下为保证加速阶段一致设置恒定速度
+            return v_target
+        elif self.my_state.state == SCAN:
+            # 在经过第二次视觉验证后减速预测目标点位
+            if self.if_second_verify:
+                step = 10.0  # 每次减速的步长
+                if self.target_v > self.find_line_v_max:
+                    if self.dec_counter == 0:
+                        self.dec_start_v = self.target_v  # 记录减速起始时刻的固定初速度
+                    self.dec_counter += 1
+                    # 高次减速（二次）：v = v0_fixed - k * t²
+                    # 减速度随时间线性增长，初始平缓、后期剧烈，避免急停冲击
+                    v_cruise = max(self.find_line_v_max, self.dec_start_v - step * self.dec_counter * self.dec_counter)
+                else:
+                    self.dec_counter = 0
+                    v_cruise = self.find_line_v_max
+            else:
+                v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
+        else:
+            v_cruise = self.long_v_max
+
         # 调试输出当前巡航速度
         # self.my_uart3.write(f"v: {v_cruise}, object: {self.current_object}, type: {type(self.current_object)}\n")  
 
@@ -635,10 +663,9 @@ class NavigationPlan:
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
         elif is_last_segment and self.rest_dist <= self.final_threshold:
-            # 到达目标点关闭负压风扇
-            # self.my_fan.fan_off()
-            # 测试打印
-            # self.my_uart3.write("{:<f},{:<f}\n".format(self.my_car.x_current, self.my_car.y_current))
+            self.aimed_point_index += 1
+            # 清空上一次小车速度
+            self.my_car.clear_last_car_speed()
             self.if_finish_navigate = True
             self.stop()
 
@@ -664,7 +691,7 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    if diff <= 0.9:
+                    if diff <= 1.5:
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True
@@ -694,10 +721,13 @@ class NavigationPlan:
                 
     # 重置导航及速度规划相关标志位
     def reset_navigate(self):
+        self.target_v = 0.0
         self.if_finish_turn = False
         self.if_finish_navigate = False
         self.finished_dist = 0.0
         self.aimed_point_index = 0
+        self.dec_counter = 0
+        self.dec_start_v = 0.0
         self.path.clear()
 
     # 重置小车导航姿态角

@@ -17,6 +17,7 @@ OutLine = const(1)
 counter = 0
 
 # 视觉伺服控制类(PD控制器)
+# 视觉伺服控制类(PD控制器)
 class VisionManager:
     def __init__(self, flash_sys, beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
@@ -53,14 +54,13 @@ class VisionManager:
         # 视觉伺服失败的次数
         self.failed_servo_count = 0 
         # 最终小车停在物体前的距离（随着物体种类改变）
-        self.final_dist = 0.0
+        self.final_dist_x = 0.0
+        self.final_dist_y = 0.0
         # 视觉伺服的两个阶段：第一阶段为快速接近阶段，第二阶段为精确调整阶段
         self.servo_stage = 1
         # PD控制相关变量
         self.finish_threshold_x = self.flash_sys.find_value("finish_threshold_x")  # type: float  # 视觉伺服控制距离阈值
         self.finish_threshold_y = self.flash_sys.find_value("finish_threshold_y")  # type: float  # 视觉伺服控制距离阈值
-        self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")  # type: float  # 视觉伺服控制距离阈值
-        self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")  # type: float  # 视觉伺服控制距离阈值
         self.target_rel_speed_x = 0.0          # type: float   # 伺服控制目标x速度
         self.target_rel_speed_y = 0.0          # type: float   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: float   # 视觉伺服控制最大速度
@@ -69,16 +69,6 @@ class VisionManager:
         self.target_rel_speed = 0.0                 # type: float     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
         self.target_rel_turn_angle = 0.0            # type: float   # 目标转角
-
-        # ================= 视觉伺服矫正相关变量 =================
-        # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix =[[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
-                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
-                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
-                        
-        self.far_H_matrix = [[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
-                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
-                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
@@ -117,8 +107,8 @@ class VisionManager:
         self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
-        self.car_radius = 13.0   # 小车推杆到中心的距离
-        self.correct_dist = 5.90    # 经验修正值（物体在推杆正前方的值）
+        self.car_radius = 10.0   # 小车推杆到中心的距离
+        self.correct_dist = 4.85    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -131,6 +121,8 @@ class VisionManager:
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 临时用于测试的角度变量
         self.angle_temp = 0.0
+        # 停在物体的左侧或者右侧
+        self.direction = ''  
 
         # 标志位
         self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位
@@ -138,9 +130,17 @@ class VisionManager:
         self.if_finish_servo = False      # 是否完成视觉伺服控制标志位
         self.if_orbit_ready = False       # type: bool   # 是否获取目标距离标志位
         self.if_finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
-        self.if_ready_calibrate = False       # type: bool  # 判断是否准备好进行校准标志位
-        self.if_finish_calibrate = False       # type: bool  # 判断是否完成校准标志位
-
+        # ================= 视觉伺服矫正相关变量 =================
+        # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
+        self.car_radius = 13.0   # 小车推杆到中心的距离
+        self.correct_dist = 5.90    # 经验修正值（物体在推杆正前方的值）
+        self.close_H_matrix =[[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
+                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
+                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
+                        
+        self.far_H_matrix = [[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
+                            [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
+                            [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
         gc.collect()
         
     # 重置视觉伺服角度
@@ -150,7 +150,10 @@ class VisionManager:
     # 重置环绕角度
     def reset_orbit_angle(self):
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
-
+    # 重置环绕控制标志位
+    def reset_orbit(self):
+        self.if_orbit_ready = False
+        self.if_finish_orbit = False
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world(self, u, v, sign: str, object_kind = None):
         """
@@ -175,7 +178,7 @@ class VisionManager:
         elif sign == 'far':
             H_matrix = self.far_H_matrix
 
-        K = (22.2 - object_H) / 22.2
+        K = (19.7- object_H) / 19.7
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -187,7 +190,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.6, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
+        scale = max(0.8, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
 
@@ -195,7 +198,8 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        self.relative_raw_y = self.relative_raw_y - self.correct_dist - self.final_dist
+        self.relative_raw_y -= self.correct_dist + self.final_dist_y
+        self.relative_raw_x -= self.final_dist_x
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -232,23 +236,6 @@ class VisionManager:
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
             self.calculate_dist(self.target_point[0], self.target_point[1], 'close')
-            '''
-            # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
-            jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
-            
-            if old_servo_point != [0, 0] and jump_dist > 10.0:  # 10cm以上的跳变认为是其他物体
-                self.real_servo_point = old_servo_point   # 判断为其他物体，还原回被锁定的旧目标坐标
-                self.servo_lost_count += 1                # 视作掉帧或丢失
-                
-                # 彻底丢失保护
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0.0
-                    self.target_rel_yaw = 0.0
-                    self.if_lost_object = True
-                    self.servo_lost_count = 0
-                    return
-            else:
-            '''
             # 当前物体验证通过，或是第一帧
             # 记录下小车当前的坐标点
             self.last_car_x = self.my_car.x_current
@@ -263,7 +250,7 @@ class VisionManager:
                 self.target_rel_speed = 0.0
                 self.target_rel_yaw = 0.0
                 # 测试，先不重置丢失物体标志位
-                # self.if_lost_object = True
+                self.if_lost_object = True
                 self.servo_lost_count = 0
                 return # 彻底丢失，跳出伺服逻辑
             
@@ -317,152 +304,163 @@ class VisionManager:
         actual_dist = math.sqrt(raw_x**2 + raw_y**2)
         self.orbit_center_x = self.my_car.x_current + actual_dist * math.sin(real_yaw)
         self.orbit_center_y = self.my_car.y_current + actual_dist * math.cos(real_yaw)
+    # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
+    def orbit_control(self, target_angle: float, direct = None):
+        if self.if_orbit_ready == False:
+            # 保持静止
+            self.orbit_speed = 0.0
+            self.orbit_radius = self.object_radius
+            self.record_angle = self.my_car.now_yaw * 180 / PI
+            self.target_angle = target_angle
+            # 限制目标角度在-180到180度之间
+            if self.target_angle > 180.0:
+                self.target_angle -= 360.0
+            elif self.target_angle < -180.0:
+                self.target_angle += 360.0
+                
+            # 计算需要旋转的相对角度来确定方向
+            diff_angle = self.target_angle - self.record_angle
+            if diff_angle > 180.0:
+                diff_angle -= 360.0
+            elif diff_angle < -180.0:
+                diff_angle += 360.0
+            
+            self.reset_orbit_angle()
+            # 确定旋转方向（顺时针还是逆时针）
+            if direct is not None:
+                self.direct = direct
+            elif diff_angle >= 0.0:
+                self.direct = 'CW'
+            else:
+                self.direct = 'CCW'
+            self.current_dis = 0.0
 
-    # apriltag辅助校准校准控制函数
-    def apriltag_calibrate_control(self):
-        """'L'代表左边线, 'R'代表右边线, 'U'代表上边线, 'D'代表下边线"""
-        if self.if_ready_calibrate == False:
-            # 准备阶段：调整小车位置和角度，面向apriltag
-            if self.car_position == 'L':
-                self.record_angle = -90.0
-            elif self.car_position == 'U':
-                self.record_angle = 0.0
-            elif self.car_position == 'R':
-                self.record_angle = 90.0
-            elif self.car_position == 'D':
-                self.record_angle = 180.0
-            
-            self.my_plan.navigate(target_turn_angle = self.record_angle)
-            
-            if self.my_plan.if_finish_navigate == True:
-                self.my_plan.reset_navigate()
-                # 清空目标角度缓冲区
-                self.angle_buffer.clear()
-                # 清空目标坐标缓冲区
-                self.point_buffer.clear()
-                # 重置阶段标志
-                self.if_ready_calibrate = True
-                self.my_order_manager.mode_apriltag()
-                # 测试，直接完成矫正跳到下一个物体
-                self.if_finish_calibrate = True 
+            # 计算总的环绕角度（考虑选择的环绕方向，CW为顺时针，CCW为逆时针）
+            natural_cw = (diff_angle >= 0.0)
+            actual_cw = (self.direct == 'CW')
+            self.total_orbit_angle = abs(diff_angle) if natural_cw == actual_cw else 360.0 - abs(diff_angle)
+
+            # ====== 新增：记录下当前的理想旋转圆心坐标 ======
+            # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
+            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
+            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * PI / 180.0)
+
+            self.if_orbit_ready = True
         else:
-            if self.if_finish_calibrate == True:
-                return # 已经完成校准，直接返回
-
-            target_point = self.my_art_protocol.apriltag_receive()
-            if target_point:
-                # 重置掉帧计数
-                self.servo_lost_count = 0
-                # self.angle_temp = target_point[2]
-                corrected_x, corrected_y = self.pixel_to_real_world(target_point[0], target_point[1], 'close')
-                # 测试
-                self.my_uart3.write(f"Corrected X: {corrected_x:.2f} cm, Corrected Y: {corrected_y:.2f} cm, angle: {target_point[2]:.2f}\r\n")
-                
-                self.point_buffer.append((corrected_x, corrected_y))
-                self.angle_buffer.append(self.record_angle + target_point[2])
-            else:       
-                self.servo_lost_count += 1
-                # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0
-                    self.target_rel_yaw = 0.0
-                    self.servo_lost_count = 0
-                    self.if_lost_object = True
-
-            if len(self.point_buffer) >= 10 and len(self.angle_buffer) >= 10:
-                # 取中值作为当前的目标坐标和目标角度，抵抗偶然的极大解算异常
-                sorted_x = sorted([p[0] for p in self.point_buffer])
-                sorted_y = sorted([p[1] for p in self.point_buffer])
-                sorted_angle = sorted(self.angle_buffer[2:])
-                
-                avg_x = sum(sorted_x[1:-1]) / len(sorted_x[1:-1]) if len(sorted_x) > 2 else sorted_x[len(sorted_x)//2]
-                avg_y = sum(sorted_y[1:-1]) / len(sorted_y[1:-1]) if len(sorted_y) > 2 else sorted_y[len(sorted_y)//2]
-                avg_angle = sum(sorted_angle[1:-1]) / len(sorted_angle[1:-1]) if len(sorted_angle) > 2 else sorted_angle[len(sorted_angle)//2]
+            if self.if_finish_orbit == True:
+                return
             
-                relative_angle = -math.atan2(-avg_x, avg_y) * 180.0 / PI
-                # 世界坐标系下的真实角度 = 车体坐标系下的目标角度 + 小车当前的角度
-                real_angle = avg_angle + relative_angle
-                real_angle = (90.0 - real_angle + 180.0) % 360.0 - 180.0
-                real_dist = math.sqrt(avg_x ** 2 + avg_y ** 2)
-                real_x = real_dist * math.cos(real_angle * PI / 180.0)
-                real_y = real_dist * math.sin(real_angle * PI / 180.0)
-
-                # 里程计和姿态角硬复位  
-                # 测试不矫正
-                self.pose_data.reset_yaw(avg_angle)
+            # ====== 修改：基于当前X/Y坐标的闭环位置控制 ======
+            # 计算当前小车与圆心的实际向量
+            dx = self.orbit_center_x - self.my_car.x_current
+            dy = self.orbit_center_y - self.my_car.y_current
+            actual_r = math.sqrt(dx**2 + dy**2)
+            
+            # 计算当前处于圆上的相位角 (从小车指向圆心)
+            theta = -math.atan2(-dx, dy) * 180.0 / PI
+            
+            # 半径误差（大于0代表实际比指定半径近，需要向外扩）
+            err_r = self.orbit_radius - actual_r
+            
+            # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
+            kr = 2.5
+            
+            if self.direct == 'CW':
+                # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
+                self.orbit_yaw = theta - 90.0 - kr * err_r
+            elif self.direct == 'CCW':
+                # 逆时针切线为 theta + 90。若太近(err_r>0)，需向外偏，增加转角
+                self.orbit_yaw = theta + 90.0 + kr * err_r
                 
-                if self.car_position == 'L':
-                    self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    self.my_car.y_current = self.assist_car_pos[1] - real_y
-                elif self.car_position == 'U':
-                    self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    self.my_car.y_current = self.assist_car_pos[1] - real_y
-                elif self.car_position == 'R':
-                    self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    self.my_car.y_current = self.assist_car_pos[1] - real_y
-                elif self.car_position == 'D':
-                    self.my_car.x_current = self.assist_car_pos[0] - real_x
-                    self.my_car.y_current = self.assist_car_pos[1] + real_y
+            self.orbit_yaw = (self.orbit_yaw + 180.0) % 360.0 - 180.0
+            
+            # ====== 新增：实时闭环车体姿态角 ======
+            # theta 是从圆心指向小车的角度，小车要面向圆心，所以车头朝向应为 theta + 180 度
+            self.orbit_turn_angle = theta
+            self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
+            
+            # 更新当前小车的速度（保留原有逻辑判断）
+            diff = abs(self.target_angle - self.my_car.now_yaw * 180 / PI)
+            if diff > 180.0:
+                diff = 360.0 - diff
 
-                # 测试
-                self.my_uart3.write(f"Real X: {self.my_car.x_current:.2f} cm, Real Y: {self.my_car.y_current:.2f} cm, angle:{avg_angle:.2f}\r\n")
+            # 环绕速度规划：S形缓动速度曲线 —— ease-out启动（快起），ease-in停止（柔停）
+            accel_range = min(15.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
+            decel_range = min(40.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
 
-                self.angle_buffer.clear()
-                self.point_buffer.clear()
-                # 重置速度和转角
-                self.target_rel_speed = 0
-                self.target_rel_yaw = 0.0
-                self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / PI
-                self.my_order_manager.finish()
-                self.if_finish_calibrate = True 
+            if traveled < accel_range:
+                # 启动阶段：三次 ease-out，起步快、过渡平滑
+                t = traveled / accel_range              # 0.0 → 1.0
+                ease = 1.0 - (1.0 - t) ** 3     # 三次 ease-out
+                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
+            elif diff < decel_range:
+                # 减速阶段：三次 ease-in，停止柔和、不突兀
+                t = diff / decel_range                  # 1.0 → 0.0
+                ease = t * t                            # 二次 ease-in
+                self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
+            else:
+                # 匀速阶段：保持最大速度
+                self.orbit_speed = self.orbit_v_max
 
-    # 重置apriltag矫正相关变量
-    def reset_apriltag_calibrate(self):
-        self.if_ready_calibrate = False
-        self.if_finish_calibrate = False
-        self.servo_lost_count = 0
-        self.point_buffer.clear()
-        self.angle_buffer.clear()
+            # 速度限幅
+            self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
+
+            # 判断是否完成环绕
+            if diff <= 1.5:	
+                self.orbit_speed = 0.0
+                self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
+                self.if_finish_orbit = True
 
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, object, state = 'servo',point=[]):
-        # 选择合适的里程计系数
-        self.my_car.alpha_x = 0.9093
-        self.my_car.alpha_y = 0.936709
-        # 选择正常伺服状态下的pid参数
+        # 用于准备视觉伺服和环绕
+        self.if_finish_servo = False
+        self.if_finish_servo = False
+        self.if_lost_object = False
+        self.servo_lost_count = 0
+        self.target_rel_speed = 0.0
+        self.target_rel_speed_x = 0.0
+        self.target_rel_speed_y = 0.0
+        self.target_rel_yaw = 0.0
+        self.last_car_x = self.my_car.x_current
+        self.last_car_y = self.my_car.y_current
+        # 选择正常的视觉伺服pid参数
         self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
         self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
         # 控制小车面向物体进行视觉伺服控制
         self.current_servo_object = object
-        # 更新视觉伺服pid中的pwm限幅
-        self.servo_pid.pwmout_limitmax = self.servo_pid.pwmout_normal_limit
         # 根据物品种类选择伺服距离、环绕半径和搬运速度
         if self.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T
-            self.final_dist = self.servo_pid.target_y_T
+            self.final_dist_y = self.servo_pid.target_y_T
+            self.final_dist_x = self.servo_pid.target_x_T
             self.object_radius = self.radius_T
             self.orbit_angle = self.angle_T
             self.my_plan.move_v_max = self.my_plan.move_v_max_T
-        elif self.current_servo_object == 'S' or self.current_servo_object == 'E':
+        elif self.current_servo_object in ['S', 'E']:
             self.my_plan.error_x = self.my_plan.error_x_S
-            self.final_dist = self.servo_pid.target_y_S
+            self.final_dist_y = self.servo_pid.target_y_S
+            self.final_dist_x = self.servo_pid.target_x_S
             self.object_radius = self.radius_S
             self.orbit_angle = self.angle_S
             self.my_plan.move_v_max = self.my_plan.move_v_max_S
-        elif self.current_servo_object == 'B' or self.current_servo_object == 'W':
+        elif self.current_servo_object in ['B', 'W']:
             self.my_plan.error_x = self.my_plan.error_x_B
-            self.final_dist = self.servo_pid.target_y_B
+            self.final_dist_y = self.servo_pid.target_y_B
+            self.final_dist_x = self.servo_pid.target_x_B
             self.object_radius = self.radius_B
             self.orbit_angle = self.angle_B
             self.my_plan.move_v_max = self.my_plan.move_v_max_B
-        if point:
-            self.calculate_dist(point[0], point[1], 'far')
+        
         if state == 'servo':
             pass
         # 微调模式下伺服距离减少
         else:
-            self.final_dist *= 0.4
-
+            self.final_dist_y *= 0.8
+            self.final_dist_x *= 0.8
+        if point:
+            self.calculate_dist(point[0], point[1], 'far')
 

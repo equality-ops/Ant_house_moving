@@ -227,12 +227,12 @@ class BoundaryPathPlanner:
 
     def _project_to_boundary(self, p, direction):
         if direction == 0:
-            return (p[0], self.Data.FIELD_H)
+            return (p[0], self.Data.FIELD_H+20)
         if direction == 180:
-            return (p[0], 0.0)
+            return (p[0], -20)
         if direction == 90:
-            return (self.Data.FIELD_W, p[1])
-        return (0.0, p[1])
+            return (self.Data.FIELD_W+20, p[1])
+        return (-20, p[1])
 
     def _nearest_valid(self, p, rects):
         px = max(0.0, min(float(p[0]), self.Data.FIELD_W))

@@ -56,7 +56,7 @@ speed_conversion_gamma = 3.0
 # 速度互补滤波系数（弱滤波）
 speed_fuse_ratio = 0.1
 # 陀螺仪补偿系数(不需要调试)
-gyro_z_supply = 1.0
+gyro_z_supply = 1.147386
 
 ###################【时间规划】####################
 motor_control_T = 4
@@ -70,7 +70,8 @@ blend_radius = 20.0
 
 cube_obstacles = "(147, 27, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
 circle = "(262.5, 88.8)"
-error_x_T = 0.0
+
+error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
 ###################【风扇控制】####################
@@ -78,26 +79,26 @@ if_fan = 1
 fixed_high_level_us = 1350
 
 ###################【速度规划】####################
-min_start_v = 25
-long_v_max = 220
-find_line_v_max = 40
-acc_coef = 0.1025
-dec_coef = 0.1282
-max_yaw_rate = 4.0 
+min_start_v = 40
+long_v_max = 180
+find_line_v_max = 60
+acc_normal_coef = 0.03
+acc_move_coef = 0.04
+dec_coef = 0.08
 
-orbit_v_max = 90
-orbit_v_min = 25
+orbit_v_max = 110
+orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 210
-move_v_max_S = 210
-move_v_max_B = 210
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 8.0
+servo_normal_kp_x = 7.0
 servo_normal_kd_x = 10.0
-servo_normal_kp_y = 8.0
+servo_normal_kp_y = 7.0
 servo_normal_kd_y = 10.0
 
 #红外控制参数
@@ -109,9 +110,12 @@ servo_target_y_RY = -10
 pwmout_RY_limit = 70
 
 servo_target_y_A = 11.0
-servo_target_y_T = 2.0
+servo_target_y_T = 2.5
 servo_target_y_S = 3.0
 servo_target_y_B = 6.0
+servo_target_x_T = 0
+servo_target_x_S = 0
+servo_target_x_B = 0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -119,17 +123,17 @@ finish_threshold_y = 1.0
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 
-min_rel_speed = 25
-max_rel_speed = 150
-pwmout_normal_limit = 150
+min_rel_speed = 40
+max_rel_speed = 130
+pwmout_normal_limit = 130
 
 
 ###################【环绕控制】####################
-radius_T = 17.0
-radius_S = 18.0
-radius_B = 20.0
-angle_T = 138.0
-angle_S = 143.0
-angle_B = 145.0
+radius_T = 16.0
+radius_S = 16.0
+radius_B = 17.5
+angle_T = 25
+angle_S = 30
+angle_B = 30
 
 # 小车最高速度为290

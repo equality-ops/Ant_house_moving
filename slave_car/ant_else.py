@@ -65,7 +65,8 @@ class order_manager:
     # 切换到目标识别模式（模型）
     def mode_target(self):
         self.my_uart.write("M")
-
+    def send_object_kind(self, object_kind):
+        self.my_uart.write(object_kind.lower())
     # 切换到apriltag识别模式
     def mode_apriltag(self):
         self.my_uart.write("C")

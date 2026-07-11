@@ -89,7 +89,6 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
-            self.my_art_protocol.send_object_kind(self.current_object)
             self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
             pass
         elif state == CALIBRATE:
@@ -132,13 +131,11 @@ class TaskController:
                 #target_point = self.my_art_protocol.coordinate_receive()
                 #if target_point and chr(target_point[2]) == self.current_object:
                 # 计数器清零
-                self.my_plan.reset_navigate()
                 self.counter = 0
                 self.my_vision.if_send_order = False  # 重置发送指令标志位
                 self.my_vision.ready_servo_and_orbit(self.current_object, 'servo')
                 self.my_vision.reset_servo_angle()
                 self.my_plan.reset_navigate()  # 重置导航相关变量
-
                 self.my_state.state = MOVE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == SCAN:
@@ -164,8 +161,11 @@ class TaskController:
                 self.my_moving.if_finish_move = False  # 重置搬运完成标志
                 self.my_plan.reset_navigate_angle()
                 self.my_plan.reset_navigate()
-                self.my_state.state = RETREAT  # 直接切换到校准状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                if self.my_moving.current_state != NAVIGATE:
+                    self.my_state.state = RETURN  # 直接切换到校准状态
+                    return
+                self.my_state.state = RETREAT  # 直接切换到校准状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
             self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
@@ -219,7 +219,6 @@ class TaskController:
                     ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
                 self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
                 self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
-            
             self.current_object = path[0]  # 当前物体种类
             self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
             # 测试
@@ -259,7 +258,7 @@ class TaskController:
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.current_object:
                 self.my_vision.if_send_order = False
-                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_vision.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
                 self.my_plan.reset_navigate()
                 self.my_vision.if_lost_object = False
                 self.my_order_manager.mode_target() # 打开目标识别模式
@@ -269,10 +268,10 @@ class TaskController:
     def handle_move(self):
         # if state == MOVE
         self.my_moving.moving()
-
         if self.my_moving.if_finish_move:
             current_object = self.current_object
             retreat_threhold = 5
+            self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
             if current_object == 'T':
                 if self.my_car.now_yaw<0:
                     self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
@@ -293,7 +292,6 @@ class TaskController:
     def handle_retreat(self):
         # if state == ADJUST
         self.my_plan.navigate(path = [self.retreat_message])
-
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入下一个状态
     
@@ -315,6 +313,7 @@ class TaskController:
 
     def handle_return(self):
         # if state == RETURN
+        print("\nreturn\n")
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状态
