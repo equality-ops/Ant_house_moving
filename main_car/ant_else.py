@@ -576,6 +576,11 @@ class TaskController:
         real_ob_info = []
         for ob in ob_info:
             x, y, kind = ob
+
+            # 忽略边缘像素点，避免误差过大
+            THRESHOLD = 20  # 边缘阈值
+            if x <= THRESHOLD or x >= 160 - THRESHOLD:
+                continue  
             # 将物体种类映射为单字符表示
             if kind == 'green':
                 kind = 'T'
@@ -782,8 +787,8 @@ class TaskController:
 
             if self.scan_status in [FIRST_STEP, SECOND_STEP]:
                 counter += 1
-                # 延时100ms
-                if counter <= 10:
+                # 延时200ms
+                if counter <= 20:
                     return
                 
                 if not self.my_vision.if_send_order:
@@ -801,10 +806,10 @@ class TaskController:
                         self.ob_info_2 = self.handle_object_info(object_info)  # 保存第二帧物体信息
                         self.integrate_object_info()  # 融合两帧物体信息，得到最终物体列表
                         self.my_path.plan_path(self.ob_info)  # 进行路径规划
-                    
+                        self.my_beep.test()
                         # 测试
-                        self.my_uart3.write(f"obj1: {self.ob_info_1}\r\n")
-                        self.my_uart3.write(f"obj2: {self.ob_info_2}\r\n")
+                        # self.my_uart3.write(f"obj1: {self.ob_info_1}\r\n")
+                        # self.my_uart3.write(f"obj2: {self.ob_info_2}\r\n")
                         self.my_uart3.write(f"obj: {self.ob_info}\r\n")
                         self.my_uart3.write(f"path: {self.my_path.total_ob_info}\r\n")
                         self.my_state.state = STOP

@@ -119,7 +119,7 @@ class PathPlanner:
             for col in range(self.cols):
                 cx = self.box_left + (col + 0.5) * self.cell_width
                 cy = self.box_bottom + (row + 0.5) * self.cell_height
-                d = math.hypot(x - cx, y - cy)
+                d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
                 if d < best_dist:
                     best_dist = d
                     best = (row, col, cx, cy)
@@ -139,7 +139,7 @@ class PathPlanner:
                     continue
                 cx = self.box_left + (col + 0.5) * self.cell_width
                 cy = self.box_bottom + (row + 0.5) * self.cell_height
-                d = math.hypot(x - cx, y - cy)
+                d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
                 if d < best_dist:
                     best_dist = d
                     best = (row, col, cx, cy)
@@ -183,7 +183,7 @@ class PathPlanner:
             # 按距离格子中心排序，最近的保留
             cx = self.box_left + (col + 0.5) * self.cell_width
             cy = self.box_bottom + (row + 0.5) * self.cell_height
-            objs.sort(key=lambda o: math.hypot(o.x - cx, o.y - cy))
+            objs.sort(key=lambda o: math.sqrt((o.x - cx) ** 2 + (o.y - cy) ** 2))
 
             displaced = objs[1:]
 
