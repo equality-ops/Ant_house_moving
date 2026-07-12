@@ -318,11 +318,11 @@ class VisionManager:
         # ================= 高频控制解耦 =================
         # if self.servo_lost_count <= 80:
         if self.servo_lost_count <= 80:
-            self.last_real_servo_point = None
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
         else:
+            self.last_real_servo_point = None
             # 连续丢失超过一定帧数后，降低小车速度
             self.target_rel_speed = 40.0
             return 
