@@ -174,9 +174,9 @@ class VisionManager:
             if self.current_servo_object in ['T']:
                 object_H = 2.5
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 6.0
+                object_H = 4.0
             elif self.current_servo_object in ['W', 'B']:
-                object_H = 2.0
+                object_H = 3.0
 
         K = (20 - object_H) / 20
         # 计算缩放因子
@@ -325,6 +325,8 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
         if self.if_orbit_ready == False:
+            # 降低角度环kp，防止环绕初期过快旋转
+            self.angle_pid.kp = self.angle_pid.orbit_kp
             # 保持静止
             self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
@@ -429,6 +431,8 @@ class VisionManager:
             if diff <= 1.5:	
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
+                # 恢复原角度环kp 
+                self.angle_pid.kp = self.angle_pid.angle_normal_kp
                 self.if_finish_orbit = True
 
     # apriltag辅助校准校准控制函数

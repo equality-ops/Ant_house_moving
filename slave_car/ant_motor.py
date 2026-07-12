@@ -505,6 +505,8 @@ class AnglePositionPID(ControlPID):
         self.flash_sys = flash_sys
         self.kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
         self.kd = self.flash_sys.find_value("angle_normal_kd")        # type: float
+        self.angle_normal_kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
+        self.orbit_kp = self.flash_sys.find_value("orbit_kp")        # type: float
         self.target = 0     # type: float
         self.actual = 0     # type: float
         self.nowError = 0   # type: float

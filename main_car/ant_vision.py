@@ -19,7 +19,7 @@ counter = 0
 
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
-    def __init__(self, flash_sys, beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
+    def __init__(self, flash_sys, beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_uart8, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入传感器数据对象
@@ -36,6 +36,7 @@ class VisionManager:
         self.cos_servo_fil = cos_servo_fil
         # 注入无线串口对象，用于调试
         self.my_uart3 = my_uart3
+        self.my_uart8 = my_uart8
         # 注入小车姿态控制对象
         self.my_car = car
         # 注入通信协议对象
@@ -88,6 +89,8 @@ class VisionManager:
         self.absolute_actual_y = 0.0
         # 视觉伺服完成的预测点位
         self.real_servo_point = [0, 0]
+        # 上一帧的伺服点位（用于突变检测）
+        self.last_real_servo_point = None
 
         # 小车上一帧记录的坐标
         self.last_car_x = 0.0
@@ -173,7 +176,6 @@ class VisionManager:
         :param sign: 远近标志
         :return: 真实的物理坐标 (X_w, Y_w)
         """
-
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H = 0.0
         if self.my_state == CALIBRATE:
@@ -182,9 +184,9 @@ class VisionManager:
             if self.current_servo_object in ['T']:
                 object_H = 2.5
             elif self.current_servo_object in ['S', 'E']:
-                object_H = 6.0
+                object_H = 4.0
             elif self.current_servo_object in ['W', 'B']:
-                object_H = 2.0
+                object_H = 3.0
 
         # 根据物体远近选择单应性矩阵H
         H_matrix = self.H_matrix
@@ -201,6 +203,9 @@ class VisionManager:
     # 判断物体实际坐标是否合理（过远则舍弃）
     def judge_if_object_rational(self, x, y):
         x_w, y_w = self.pixel_to_real_world(x, y)
+        # 测试
+        # if y_w <= self.max_rational_dist:
+            # self.my_uart3.write(f"object rational: x: {x_w}, y: {y_w}, kind: {self.current_servo_object}\n")
         return y_w <= self.max_rational_dist # 合理距离阈值（cm）
 
     # 动态调整视觉伺服pid参数
@@ -231,6 +236,7 @@ class VisionManager:
         # 计算物体相对于小车的绝对偏差
         now_yaw = self.my_car.now_yaw * 180 / PI
         rel_yaw = -math.atan2(-self.relative_actual_x, self.relative_actual_y) * 180.0 / PI
+
         actual_yaw = now_yaw + rel_yaw
         if actual_yaw > 180.0:
             actual_yaw -= 360.0
@@ -272,24 +278,37 @@ class VisionManager:
         # 2. 判断是否收到有效的新视觉帧
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             self.calculate_dist(self.target_point[0], self.target_point[1])
-            # 当前物体验证通过，或是第一帧
-            # 记录下小车当前的坐标点
-            self.last_car_x = self.my_car.x_current
-            self.last_car_y = self.my_car.y_current
 
-            # 重置掉帧计数
-            self.servo_lost_count = 0
+            # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡
+            MAX_POINT_CHANGE = 10.0  # 最大坐标变化阈值（单位：cm）
+            if self.last_real_servo_point is not None:
+                dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
+                dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
+                if dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE:
+                    # 变化过大，丢弃本帧，还原为上一帧有效坐标
+                    self.real_servo_point = self.last_real_servo_point.copy()
+                    self.servo_lost_count += 1
+                else:
+                    # 帧有效，更新记录
+                    self.last_real_servo_point = self.real_servo_point.copy()
+                    self.last_car_x = self.my_car.x_current
+                    self.last_car_y = self.my_car.y_current
+                    self.servo_lost_count = 0
+            else:
+                # 首帧，直接接受
+                self.last_real_servo_point = self.real_servo_point.copy()
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
+                self.servo_lost_count = 0
         else:
             self.servo_lost_count += 1
-            # 彻底丢失保护
-            # if self.servo_lost_count >= 150:
-            # 测试
-            if self.servo_lost_count >= 150:
-                self.target_rel_speed = 0.0
-                self.target_rel_yaw = 0.0
-                self.if_lost_object = True
-                self.servo_lost_count = 0
-                return # 彻底丢失，跳出伺服逻辑
+
+        if self.servo_lost_count >= 150:
+            self.target_rel_speed = 0.0
+            self.target_rel_yaw = 0.0
+            self.if_lost_object = True
+            self.servo_lost_count = 0
+            return # 彻底丢失，跳出伺服逻辑
             
         # 用预测的点位，依赖惯导，进行pid控制
         now_error_x = self.real_servo_point[0] - self.my_car.x_current
@@ -299,18 +318,20 @@ class VisionManager:
         # ================= 高频控制解耦 =================
         # if self.servo_lost_count <= 80:
         if self.servo_lost_count <= 80:
+            self.last_real_servo_point = None
             self.servo_pid.model_compute_pid(now_error_x, now_error_y)
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
         else:
             # 连续丢失超过一定帧数后，降低小车速度
-            self.target_rel_speed = 50.0
+            self.target_rel_speed = 40.0
             return 
 
         # 4. 判断是否完成视觉伺服控制（离物体的距离和自身转角都需要达到目标）
         if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
+            self.last_real_servo_point = None  # 重置上一帧伺服点位
             # 切换回正常的视觉伺服pid参数
             self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
             self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
@@ -336,6 +357,8 @@ class VisionManager:
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
         if self.if_orbit_ready == False:
+            # 降低角度环kp，防止环绕初期过快旋转
+            self.angle_pid.kp = self.angle_pid.orbit_kp
             # 保持静止
             self.orbit_speed = 0.0
             self.orbit_radius = self.object_radius
@@ -437,6 +460,8 @@ class VisionManager:
             if diff <= 1.5:	
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
+                # 恢复原角度环kp 
+                self.angle_pid.kp = self.angle_pid.angle_normal_kp
                 self.if_finish_orbit = True
 
     # apriltag辅助校准校准控制函数
@@ -582,3 +607,4 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1])
+        self.last_real_servo_point = None

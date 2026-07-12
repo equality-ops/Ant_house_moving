@@ -641,9 +641,9 @@ class TaskController:
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
             if self.my_car.y_current < 120.0:
-                self.adjust_message = [self.my_car.x_current + 10.0, self.my_car.y_current]
+                self.adjust_message = [self.my_car.x_current + 15.0, self.my_car.y_current]
             else:
-                self.adjust_message = [self.my_car.x_current - 10.0, self.my_car.y_current]
+                self.adjust_message = [self.my_car.x_current - 15.0, self.my_car.y_current]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             pass
@@ -768,7 +768,6 @@ class TaskController:
                 self.my_vision.reset_orbit()  # 重置环绕标志
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = MOVE  # 直接切换到搬运状态
-                # self.my_state.state = STOP  # 直接切换到搬运状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             
         elif state == MOVE:
