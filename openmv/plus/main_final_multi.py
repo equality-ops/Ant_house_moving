@@ -7,6 +7,7 @@ from ulab import numpy as np
 import seekfree
 import ustruct
 from pyb import LED
+import gc
 
 # ======================== 常量定义 ========================
 white = LED(4)  # LED4 照明灯
@@ -37,11 +38,14 @@ MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
 
 # 多目标跟踪配置
 MULTI_MATCH_DISTANCE = 30  # 同一颜色两个物体的匹配距离阈值（像素）
-MAX_TRACKERS_PER_COLOR = 3  # 每色最大跟踪器数量，超过按面积舍去最小的
+MAX_TRACKERS_PER_COLOR = 2  # 每色最大跟踪器数量，超过按面积舍去最小的
 
 # 锁定逻辑配置
 LOCK_JUMP_THRESHOLD = 20  # 坐标跳变超过20像素视为同色干扰
 LOCK_MAX_LOST_FRAMES = 3  # 丢失3帧解除锁定
+
+# GC回收配置
+GC_INTERVAL = 30  # 色块/模型模式下每30帧回收一次
 
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
@@ -86,7 +90,7 @@ THRESHOLD = {
     'brown':[(11, 60, -9, 14, 6, 69)],
     'red':[(18, 55, 20, 76, -12, 59)],
     'green':[(54, 98, -60, -20, 39, 109)],
-    'blue':[(36, 80, -30, -6, -49, -29)],
+    'blue':[(36, 80, -30, -6, -49, -29), (38, 75, -36, -10, -37, -21)],
     'white':[(59, 100, -32, -10, 5, 43)]
 }
 
@@ -554,7 +558,7 @@ class ModelDetector:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 60
+    DISTANCE_THRESHOLD = 65
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
@@ -591,7 +595,7 @@ class ColorDetector:
             blobs = []
             if target_color in threshold_map:
                 pt, at = threshold_map[target_color]
-                target_blobs = img.find_blobs(THRESHOLD[target_color], pixels_threshold=pt, area_threshold=at, merge=not use_preview_threshold)
+                target_blobs = img.find_blobs(THRESHOLD[target_color], pixels_threshold=pt, area_threshold=at, merge=True)
             else:
                 target_blobs = []
 
@@ -601,7 +605,7 @@ class ColorDetector:
         else:
             all_blobs = []
             for color, (pt, at) in threshold_map.items():
-                found = img.find_blobs(THRESHOLD[color], pixels_threshold=pt, area_threshold=at, merge=not use_preview_threshold)
+                found = img.find_blobs(THRESHOLD[color], pixels_threshold=pt, area_threshold=at, merge=True)
                 for blob in found:
                     all_blobs.append((blob, color))
             return all_blobs
@@ -852,6 +856,9 @@ kalman_enabled = {
 # 上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
 
+# GC帧计数器（色块/模型模式下使用）
+frame_count = 0
+
 # ======================== 工具函数 ========================
 # 当前选中目标类型（由下位机通过UART指定）
 current_obj = ''
@@ -1022,6 +1029,7 @@ while True:
 
     # 等待模式：不做任何检测或发送，仅维持LCD显示
     if current_mode == MODE_WAITING:
+        gc.collect()
         continue
 
     # 色块模式：检测色块→锁定目标→发送单个目标
@@ -1118,3 +1126,13 @@ while True:
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
+
+    # 色块/模型模式下定期回收内存
+    if current_mode in (MODE_COLOR, MODE_MODEL):
+        frame_count += 1
+        if frame_count % GC_INTERVAL == 0:
+            gc.collect()
+
+    # 预览模式下每帧回收
+    elif current_mode == MODE_PREVIEW:
+        gc.collect()

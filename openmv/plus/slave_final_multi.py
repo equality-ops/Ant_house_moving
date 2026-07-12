@@ -7,6 +7,7 @@ from ulab import numpy as np
 import seekfree
 import ustruct
 from pyb import LED
+import gc
 
 # ======================== 常量定义 ========================
 white = LED(4)  # LED4 照明灯
@@ -40,7 +41,7 @@ DATUM_POINT = (80, 85)
 
 # 多目标跟踪配置
 MULTI_MATCH_DISTANCE = 30  # 同一颜色两个物体的匹配距离阈值（像素）
-MAX_TRACKERS_PER_COLOR = 3  # 每色最大跟踪器数量，超过按面积舍去最小的
+MAX_TRACKERS_PER_COLOR = 2  # 每色最大跟踪器数量，超过按面积舍去最小的
 
 # 通信协议常量
 PROTOCOL_HEADER1 = 0xA5
@@ -82,7 +83,7 @@ THRESHOLD = {
     'brown':[(11, 60, -9, 14, 6, 69)],
     'red':[(18, 55, 20, 76, -12, 59)],
     'green':[(54, 98, -60, -20, 39, 109)],
-    'blue':[(36, 80, -30, -6, -49, -29)],
+    'blue':[(36, 80, -30, -6, -49, -29), (38, 75, -36, -10, -37, -21)],
     'white':[(59, 100, -32, -10, 5, 43)]
 }
 
@@ -513,7 +514,7 @@ class ModelDetector:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 60
+    DISTANCE_THRESHOLD = 65
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
@@ -671,6 +672,12 @@ kalman_enabled = {
 # 上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
 
+# GC回收配置
+GC_INTERVAL = 30
+
+# GC帧计数器
+frame_count = 0
+
 # ======================== 工具函数 ========================
 # 当前选中目标类型（由下位机通过UART指定）
 current_obj = ''
@@ -823,6 +830,7 @@ while True:
 
     # 等待模式
     if current_mode == MODE_WAITING:
+        gc.collect()
         continue
 
     # 色块模式：检测色块→多目标卡尔曼→取最下方发送
@@ -881,3 +889,9 @@ while True:
 
     # 显示图像到LCD
     lcd.show_image(img, SCREEN_WIDTH, SCREEN_HEIGHT, zoom=0)
+
+    # 色块/模型模式下定期回收内存
+    if current_mode in (MODE_COLOR, MODE_MODEL):
+        frame_count += 1
+        if frame_count % GC_INTERVAL == 0:
+            gc.collect()
