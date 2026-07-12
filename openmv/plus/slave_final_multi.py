@@ -35,6 +35,9 @@ JUMP_KALMAN_THRESHOLD = 30  # 卡尔曼预测跳变超过30像素视为异常
 # 去噪配置
 MIN_DETECT_AREA = 10   # 最小检测面积（像素），低于此视为噪点
 
+# 发送目标基准点（取坐标离此点最近的目标发送）
+DATUM_POINT = (80, 85)
+
 # 多目标跟踪配置
 MULTI_MATCH_DISTANCE = 30  # 同一颜色两个物体的匹配距离阈值（像素）
 MAX_TRACKERS_PER_COLOR = 3  # 每色最大跟踪器数量，超过按面积舍去最小的
@@ -841,9 +844,10 @@ while True:
         color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
-        # 发送最下方目标的坐标
+        # 发送离基准点(80,85)最近的目标坐标
         if center:
-            target = max(center, key=lambda coordinate: coordinate[1])
+            dx, dy = DATUM_POINT
+            target = min(center, key=lambda c: (c[0] - dx) ** 2 + (c[1] - dy) ** 2)
             communicator.send_coordinate(target[0], target[1], target[2])
 
     # 模型模式：YOLO检测→多目标卡尔曼→发送单个目标
@@ -852,11 +856,12 @@ while True:
         is_sent = False
 
         if center:
+            dx, dy = DATUM_POINT
             matched = [c for c in center if c[2] == current_obj]
             if matched:
-                target = max(matched, key=lambda c: c[1])
+                target = min(matched, key=lambda c: (c[0] - dx) ** 2 + (c[1] - dy) ** 2)
             else:
-                target = max(center, key=lambda c: c[1])
+                target = min(center, key=lambda c: (c[0] - dx) ** 2 + (c[1] - dy) ** 2)
             communicator.send_coordinate(target[0], target[1], target[2])
             is_sent = True
 
