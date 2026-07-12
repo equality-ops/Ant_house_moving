@@ -144,7 +144,6 @@ class PoseData:
         gc.collect()  # 主动触发垃圾回收，释放内存
 
     # 更新四元数
-    @micropython.native
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -222,7 +221,6 @@ class PoseData:
         self.q[3] = q3_new/norm
     
     # 将四元数转化为欧拉角
-    @micropython.native
     def update_euler_angles(self):
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
