@@ -723,21 +723,39 @@ class TargetLocker:
         squared_distance = (cx - self.last_cx)**2 + (cy - self.last_cy)**2
         return squared_distance > (self.JUMP_THRESHOLD**2)
 
-    def process_lock(self, filtered_blobs, kalman_coords):
-        """处理锁定逻辑，返回目标位置、目标颜色、锁定的色块"""
+    def process_lock(self, filtered_blobs, kalman_coords, center=None):
+        """处理锁定逻辑，返回目标位置、目标颜色、锁定的色块
+
+        Args:
+            filtered_blobs: 过滤后的色块列表
+            kalman_coords: 各颜色卡尔曼坐标字典
+            center: 当前帧所有检测到的目标坐标列表（含卡尔曼预测值）
+        """
         target_pos = None
         target_color = ''
         locked_blob = None
 
+        # 辅助函数：从 center 列表中找离给定点最近的同色坐标（即卡尔曼坐标）
+        def _nearest_center(raw_cx, raw_cy, color):
+            if center is None:
+                return None
+            same = [(cx, cy) for cx, cy, col in center if col == color]
+            if not same:
+                return None
+            return min(same, key=lambda p: (p[0]-raw_cx)**2 + (p[1]-raw_cy)**2)
+
         if filtered_blobs:
-            # 未锁定：选择y最大的目标作为锁定对象
             if not self.is_locked:
                 max_y_blob, max_y_color = max(
                     filtered_blobs,
                     key=lambda item: item[0].cy()
                 )
                 self.locked_color = max_y_color
-                if self.locked_color in kalman_coords:
+                # 取该 blob 对应的卡尔曼坐标（若有），否则取原始坐标
+                kal = _nearest_center(max_y_blob.cx(), max_y_blob.cy(), max_y_color)
+                if kal is not None:
+                    self.locked_cx, self.locked_cy = kal
+                elif self.locked_color in kalman_coords:
                     self.locked_cx, self.locked_cy = kalman_coords[self.locked_color]
                 else:
                     self.locked_cx = max_y_blob.cx()
@@ -749,9 +767,7 @@ class TargetLocker:
                 target_pos = (self.locked_cx, self.locked_cy)
                 target_color = max_y_color
                 locked_blob = max_y_blob
-            # 已锁定：仅筛选同色目标，且坐标跳变不超过阈值
             else:
-                # 筛选同色目标
                 same_color_blobs = [
                     item for item in filtered_blobs
                     if item[1] == self.locked_color
@@ -759,20 +775,17 @@ class TargetLocker:
                 valid_blobs = []
                 for blob, color in same_color_blobs:
                     cx, cy = blob.cx(), blob.cy()
-                    # 跳变不超过阈值才视为有效目标
                     if not self.is_jump_too_large(cx, cy):
                         valid_blobs.append((blob, cx, cy))
 
                 if valid_blobs:
-                    # 选同色目标中最接近上一帧锁定位置的
                     best_blob, best_cx, best_cy = min(
                         valid_blobs,
                         key=lambda item:(item[1]-self.last_cx)**2 + (item[2]-self.last_cy)**2
                     )
-                    if self.locked_color in kalman_coords:
-                        target_pos = kalman_coords[self.locked_color]
-                    else:
-                        target_pos = (best_cx, best_cy)
+                    # 取该 blob 对应的卡尔曼坐标，让发送值更平滑
+                    kal = _nearest_center(best_cx, best_cy, self.locked_color)
+                    target_pos = kal if kal is not None else (best_cx, best_cy)
                     self.last_cx = best_cx
                     self.last_cy = best_cy
                     self.lost_count = 0
@@ -864,10 +877,11 @@ def handle_uart_commands(uart):
         cmd = uart.read(1)
 
         def reset_all():
-            """重置各跟踪器状态，确保模式切换时轨迹不混叠"""
+            """重置各跟踪器和锁定状态，确保模式切换时轨迹不混叠"""
             brown_tracker.reset()
             white_tracker.reset()
             blue_tracker.reset()
+            target_locker.reset()
 
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
@@ -1035,7 +1049,7 @@ while True:
         color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
-        target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords)
+        target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords, center)
         target_locker.draw_lock_mark(img, locked_blob, kalman_coords)
 
         # 发送目标坐标
