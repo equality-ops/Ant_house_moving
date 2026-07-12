@@ -575,7 +575,7 @@ class ColorDetector:
                 'red':   (10, 10),
                 'green': (10, 10),
                 'blue':  (15, 15),
-                'brown': (25, 25),
+                'brown': (20, 20),
                 'white': (25, 25),
             }
         else:
