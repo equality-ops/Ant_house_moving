@@ -87,7 +87,7 @@ class order_manager:
     
     # 切换到目标识别模式（模型）
     def mode_target(self):
-        self.my_uart.write("M")
+        self.my_uart.write("C")
 
     # 切换到上下边界识别模式
     def mode_boundary_ud(self):
@@ -126,8 +126,11 @@ class UARTProtocol:
             self.my_uart.read(lenth) 
         
     # 发送物体种类
-    def send_object_kind(self, object_kind):
-        self.my_uart.write(object_kind.lower())
+    def send_object_kind(self, object_kind = None):
+        if object_kind:
+            self.my_uart.write(object_kind.lower())
+        else:
+            self.my_uart.write('c') # 表示当前没有需要锁定的物体种类
 
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
@@ -531,6 +534,8 @@ class TaskController:
             # 进入扫描状态，开始寻找目标物体
             # 清空视觉串口缓冲区，准备接收新数据
             self.my_art_protocol.clear_buffer()
+            # 此时扫描模式不锁定物体
+            self.my_art_protocol.send_object_kind()
             # 打开目标识别模式
             self.my_order_manager.mode_target() 
         elif state == SERVO:

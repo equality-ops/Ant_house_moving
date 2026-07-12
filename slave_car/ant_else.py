@@ -116,8 +116,11 @@ class UARTProtocol:
         gc.collect()
 
     # 发送物体种类
-    def send_object_kind(self, object_kind):
-        self.my_uart.write(object_kind.lower())
+    def send_object_kind(self, object_kind = None):
+        if object_kind:
+            self.my_uart.write(object_kind.lower())
+        else:
+            self.my_uart.write('c') # 表示当前没有需要锁定的物体种类
 
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
