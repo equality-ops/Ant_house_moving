@@ -76,7 +76,7 @@ class order_manager:
     
     # 切换到目标识别模式（模型�?
     def mode_target(self):
-        self.my_uart.write("C")
+        self.my_uart.write("M")
 
     # 切换到上下边界识别模�?
     def mode_boundary_ud(self):
@@ -91,7 +91,7 @@ class order_manager:
         self.my_uart.write("L")
 
     # 切换到apriltag识别模式
-    def mode_apriltag(self):
+    def color_target(self):
         self.my_uart.write("C")
 
     def mode_detect(self):

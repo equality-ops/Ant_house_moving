@@ -90,9 +90,9 @@ orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 160
-move_v_max_B = 160
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -112,7 +112,7 @@ pwmout_RY_limit = 70
 servo_target_y_A = 11.0
 servo_target_y_T = 2.5
 servo_target_y_S = 3.0
-servo_target_y_B = 6.0
+servo_target_y_B = 7.0
 servo_target_x_T = 0
 servo_target_x_S = 0
 servo_target_x_B = 0
@@ -129,11 +129,26 @@ pwmout_normal_limit = 130
 
 
 ###################【环绕控制】####################
-radius_T = 16.0
-radius_S = 16.0
-radius_B = 17.5
-angle_T = 25
-angle_S = 30
-angle_B = 30
+radius_T_U = 13.0
+radius_T_R = 11.0
+radius_T_L = 11.0
+radius_T_D = 12.0
+
+radius_S_U = 11.0
+radius_S_R = 12.0
+radius_S_L = 14.0
+radius_S_D = 12.0
+
+radius_B_U = 15.5
+radius_B_R = 17.5
+radius_B_L = 16.5
+radius_B_D = 15.5
+angle_T = 40
+angle_S = 40
+angle_B = 35
 
 # 小车最高速度为290
+
+
+
+

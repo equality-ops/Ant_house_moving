@@ -321,7 +321,9 @@ class TaskController:
                 self.scan_message = [[target_x, target_y - stop_threshold]]
             else:
                 self.scan_message = [[target_x+scan_threshold,self.data.fixed_point[1][1]-5]]
-            if self.if_first_round:self.if_first_round = False
+            if self.if_first_round:
+                main_final_pt = self.fixed_scan_point[0]
+                self.if_first_round = False
             else:insert_point = [self.my_car.x_current,self.my_car.y_current+15]
         # 进行路径规划
         self.my_path.plan_path(main_final_pt[0], main_final_pt[1])  
@@ -428,7 +430,7 @@ class TaskController:
                     self.if_plan_scan = False
                     self.my_order_manager.finish()
                     self.if_send_detect_message = False
-                    self.my_uart.write(f"{num}{self.my_vision.analysed_objects}\n")
+                    #self.my_uart.write(f"{num}{self.my_vision.analysed_objects}\n")
                     self.my_art_protocol.clear_uart_buffer()
             else:
                 self.scan_empty_counter+=1
@@ -465,6 +467,7 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
+                    self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")
                     self.my_uart.write(f"score{self.object_plan.target_score}\n")

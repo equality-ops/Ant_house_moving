@@ -233,25 +233,38 @@ class MoveControl:
                 pl=[self.plan_data.FIELD_W+20,self.my_car.y_current+dy1]
             elif path[1] == -90:
                 pl=[-20,self.my_car.y_current+dy1]
-            if dx1==0 and dy1==0:
-                self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
-                return [pl]
-            p_m = [self.my_car.x_current+dx1,self.my_car.y_current+dy1]
-            if self.push_postion[1] == 0:
-                total_dx = abs(pl[0] - self.my_car.x_current)
-                if total_dx <= 1e-6:
-                    return []
-                ratio = abs(dx1) / total_dx
-                self.my_plan.keep_x_or_y_v = True
-            elif self.push_postion[1] == 0:
+            p2 = [
+            pl[0] + self.push_postion[0] * self.clamp_distance,
+            pl[1] + self.push_postion[1] * self.clamp_distance,
+            ]
+            p_m = [
+            self.my_car.x_current + dx1,
+            self.my_car.y_current + dy1,
+            ]
+            if self.push_postion[0] != 0:
+                # x 内收，保持 vy
                 total_dy = abs(pl[1] - self.my_car.y_current)
                 if total_dy <= 1e-6:
                     return []
                 ratio = abs(dy1) / total_dy
                 self.my_plan.keep_x_or_y_v = False
-            else: return []
-            p1 = [p_m[0] + ratio * self.push_postion[0] * self.clamp_distance,p_m[1] + ratio * self.push_postion[1] * self.clamp_distance,]
-            p2 = [pl[0]+self.push_postion[0]*self.clamp_distance,pl[1]+self.push_postion[1]*self.clamp_distance]
+            elif self.push_postion[1] != 0:
+                # y 内收，保持 vx
+                total_dx = abs(pl[0] - self.my_car.x_current)
+                if total_dx <= 1e-6:
+                    return []
+                ratio = abs(dx1) / total_dx
+                self.my_plan.keep_x_or_y_v = True
+            else:
+                return []
+            if dx1==0 and dy1==0:
+                self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
+                return [pl]
+            p1 = [
+            p_m[0] + ratio * self.push_postion[0] * self.clamp_distance,
+            p_m[1] + ratio * self.push_postion[1] * self.clamp_distance,
+            ]
+
             self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2]
             return [p_m,pl]
         except:

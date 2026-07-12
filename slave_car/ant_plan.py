@@ -653,7 +653,7 @@ class NavigationPlan:
     # 停止小车运动
     def stop(self):
         self.target_v = 0
-        self.target_yaw = 0.0
+        self.target_yaw = 0
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
