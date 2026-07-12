@@ -782,13 +782,10 @@ sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
 sensor.set_brightness(CAMERA_BRIGHTNESS)
 sensor.set_contrast(2)
-sensor.set_vflip(True)
-sensor.skip_frames(time=200)
-sensor.set_hmirror(True)
 sensor.skip_frames(time=200)
 clock = time.clock()
 
-lcd = seekfree.IPS200(3)
+lcd = seekfree.IPS200(2)
 lcd.full()
 
 # 创建各模块实例
