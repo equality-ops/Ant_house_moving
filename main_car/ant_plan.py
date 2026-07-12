@@ -1,6 +1,4 @@
 from micropython import const
-from typing import List, Tuple, Dict, Optional
-from dataclasses import dataclass
 import math
 import gc
 
@@ -40,24 +38,27 @@ class PlanData:
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.fixed_point = [[35.0, -40.2], [95.0, 55.0], [225.0, 185.0], [15.0, -50.0], [35.0, -50.0]]  # type: list
         # 扫描路径
-        self.scan_point = [[130.0, 55.0], [190.0, 55.0]]
+        self.scan_point = [[150.0, 55.0], [195.0, 55.0]]
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  
 
         gc.collect()
 
-@dataclass
 class Object:
-    index: int
-    x: float
-    y: float
-    kind: str
-    grid_row: int = -1
-    grid_col: int = -1
-    snapped_x: float = 0.0
-    snapped_y: float = 0.0
+    def __init__(self, index: int, x: float, y: float, kind: str,
+                 grid_row: int = -1, grid_col: int = -1,
+                 snapped_x: float = 0.0, snapped_y: float = 0.0):
+        self.index = index
+        self.x = x
+        self.y = y
+        self.kind = kind
+        self.grid_row = grid_row
+        self.grid_col = grid_col
+        self.snapped_x = snapped_x
+        self.snapped_y = snapped_y
 
+        gc.collect()
 # plan_path 返回类型: (plan列表, status状态码)
 # plan列表中每个元素为 (center_x, center_y, kind, direction)
 
@@ -95,7 +96,9 @@ class PathPlanner:
         self.total_ob_info = []  # 所有目标物体信息
         self.status = STATUS_OK  # 当前规划状态码
 
-    def _get_grid_pos(self, x: float, y: float) -> Tuple[int, int, float, float]:
+        gc.collect()
+
+    def _get_grid_pos(self, x: float, y: float):
         """O(1) 复杂度通过数学映射直接计算格子索引和中心点"""
         col = int((x - self.box_left) / self.cell_width)
         row = int((y - self.box_bottom) / self.cell_height)
@@ -108,7 +111,7 @@ class PathPlanner:
 
         return row, col, cx, cy
 
-    def _find_nearest_cell(self, x: float, y: float) -> Tuple[int, int, float, float]:
+    def _find_nearest_cell(self, x: float, y: float):
         """为越界物体查找距离最近的九宫格格子（按格子中心点欧氏距离）"""
         best = (0, 0, 0.0, 0.0)
         best_dist = float('inf')
@@ -126,7 +129,7 @@ class PathPlanner:
         """判断物体坐标是否在矩形框外"""
         return x < self.box_left or x > self.box_right or y < self.box_bottom or y > self.box_top
 
-    def _find_nearest_empty_cell(self, x: float, y: float, occupancy: set) -> Optional[Tuple[int, int, float, float]]:
+    def _find_nearest_empty_cell(self, x: float, y: float, occupancy: set):
         """为被挤出的物体查找最近的空余格子，若无空余则返回 None"""
         best = None
         best_dist = float('inf')
@@ -142,17 +145,15 @@ class PathPlanner:
                     best = (row, col, cx, cy)
         return best
 
-    def plan_path(self, objects_input: List[Tuple[float, float, str]]):
+    def plan_path(self, objects_input):
         """核心规划算法（含越界归类、同格冲突消解、满格保护）
-
-        返回 (plan, status):
             plan:   [(center_x, center_y, kind, direction), ...]  按搬运顺序排列
                     direction 为 'U'(上边界260) 或 'D'(下边界-20)
             status: STATUS_OK(0) / OUT_OF_BOUNDS(1) / CONFLICT(2) / GRID_FULL(3)
         """
         status = STATUS_OK
-        objects: List[Object] = []
-        grid_occupancy: Dict[Tuple[int, int], List[Object]] = {}
+        objects = []  # type: list
+        grid_occupancy = {}  # type: dict
 
         # ===== Phase 1: 初始吸附 + 越界检测 =====
         for i, (x, y, kind) in enumerate(objects_input):
@@ -208,11 +209,11 @@ class PathPlanner:
                 occupied_cells.add((new_row, new_col))
 
         # ===== Phase 3: 路径规划 =====
-        col_groups: Dict[int, List[Object]] = {c: [] for c in range(self.cols)}
+        col_groups = {c: [] for c in range(self.cols)}  # type: dict
         for obj in objects:
             col_groups[obj.grid_col].append(obj)
 
-        plan: List[Tuple[float, float, str, str]] = []
+        plan = []  # type: list
         near_boundary = self.DOWN
         far_boundary = self.UP
 
@@ -247,7 +248,7 @@ class PathPlanner:
 
         self.total_ob_info = plan
         self.status = status
-    
+
 # 导航规划类
 class NavigationPlan:
     def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):

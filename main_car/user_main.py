@@ -196,7 +196,7 @@ my_path_planner = ant_plan.PathPlanner()
 my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_uart8, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 任务及类
 my_task = ant_else.TaskController(my_beep, my_fan, my_photo, my_state, my_uart3, my_uart8, my_car, my_plan, my_vision_manager, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_path_planner)
@@ -243,7 +243,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -370,15 +370,16 @@ def test_spin():
                 spin_angle = (spin_angle + 180) % 360 - 180  
 
 # 检测根据视觉预测点位是否准确
-def test_predict_pt():
+def test_preview():
     if my_state.state == READY_NAVIGATE:
         my_state.state = PREDICT
-        my_order_manager.mode_target()
+        my_order_manager.mode_preview()
     elif my_state.state == PREDICT:
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            predict_pt = my_vision_manager.predict_point(target_point[0], target_point[1])
-            my_uart3.write(f"predict_point: {predict_pt}\n")
+        obj_message = my_art_protocol.preview_receive()
+        if obj_message :
+            # predict_pt = my_vision_manager.predict_point(target_point[0], target_point[1])
+            my_uart3.write(f"obk: {obj_message}\n")
+            my_state.state = STOP
 
 def test_main_slave_sync():
     if my_state.state == READY_NAVIGATE:
@@ -541,8 +542,8 @@ def time_pit3_handler(time) -> None:
     # 自转测试程序
     # test_spin()
 
-    # 视觉预测点测试程序
-    # test_predict_pt()
+    # 全局预览测试函数
+    # test_preview()
     
     # 测试主从车是否同步
     # test_main_slave_sync()
@@ -568,7 +569,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.gyro_z_gkd},{pose_data.gyro_z_gkd * my_car.gkd},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.turn_angle_target}\n")
-    my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # if pose_data.imu_data:
         # my_uart3.write(f"{pose_data.imu_data[0]},{pose_data.imu_data[1]},{pose_data.imu_data[2]},{pose_data.imu_data[3]},{pose_data.imu_data[4]},{pose_data.imu_data[5]}\n")
     # my_uart3.write(f"{pose_data.q}\r\n")

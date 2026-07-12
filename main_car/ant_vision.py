@@ -176,36 +176,50 @@ class VisionManager:
         :param sign: 远近标志
         :return: 真实的物理坐标 (X_w, Y_w)
         """
-        # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
-        object_H = 0.0
-        if self.my_state == CALIBRATE:
-            object_H = 1.75
-        else:
-            if self.current_servo_object in ['T']:
-                object_H = 2.5
-            elif self.current_servo_object in ['S', 'E']:
-                object_H = 4.0
-            elif self.current_servo_object in ['W', 'B']:
-                object_H = 3.0
-
         # 根据物体远近选择单应性矩阵H
         H_matrix = self.H_matrix
-
-        K = (19.0 - object_H) / 19.0
-        # 计算缩放因子
+        
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
-        # 计算真实的物理坐标
-        X_w = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime * K
-        Y_w = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime * K
+        # 计算原始坐标（未缩放）
+        X_raw = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime
+        Y_raw = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime
 
-        return X_w, Y_w
+        MIN_Y = 30.0
+        MAX_Y = 120.0
+        # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
+        object_H_min = 0.0
+        object_H_max = 0.0
+        if self.current_servo_object in ['T']:
+            object_H_min = 4.0
+            object_H_max = 5.0
+        elif self.current_servo_object in ['S', 'E']:
+            object_H_min = 5.5
+            object_H_max = 7.0
+        elif self.current_servo_object in ['W', 'B']:
+            object_H_min = 5.0
+            object_H_max = 6.0
+
+        # 根据物体的远近选择缩放因子K
+        if Y_raw < MIN_Y:
+            object_H = object_H_max
+        elif Y_raw > MAX_Y:
+            object_H = object_H_min
+        else:
+            # 线性插值计算物体的高度
+            object_H = object_H_max - (object_H_max - object_H_min) * (Y_raw - MIN_Y) / (MAX_Y - MIN_Y)
+
+        # 测试
+        # print(f"Y_raw: {Y_raw}, object_H: {object_H}")
+
+        # 计算缩放因子
+        K = (19.0 - object_H) / 19.0
+ 
+        # 返回真实的物理坐标
+        return X_raw * K, Y_raw * K
 
     # 判断物体实际坐标是否合理（过远则舍弃）
     def judge_if_object_rational(self, x, y):
         x_w, y_w = self.pixel_to_real_world(x, y)
-        # 测试
-        # if y_w <= self.max_rational_dist:
-            # self.my_uart3.write(f"object rational: x: {x_w}, y: {y_w}, kind: {self.current_servo_object}\n")
         return y_w <= self.max_rational_dist # 合理距离阈值（cm）
 
     # 动态调整视觉伺服pid参数
@@ -219,7 +233,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
-        self.relative_raw_y = self.relative_raw_y - self.final_dist - self.correct_dist
+        # self.relative_raw_y = self.relative_raw_y - self.final_dist - self.correct_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -246,7 +260,7 @@ class VisionManager:
         self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
-        # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
+        self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     # 推测目标点位并进行视觉伺服控制
     def predict_point(self, x, y):

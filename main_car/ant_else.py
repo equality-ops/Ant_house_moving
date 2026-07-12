@@ -100,13 +100,9 @@ class order_manager:
         # 注入串口对象
         self.my_uart = uart
     
-    # 切换到目标识别模式（模型）
     def mode_target(self):
-        self.my_uart.write("M")
-
-    # 切换到目标识别模式（色块）
-    def mode_color_detect(self):
-        self.my_uart.write("C")
+        # self.my_uart.write("M")   # 切换到目标识别模式（模型）
+        self.my_uart.write("C")     # 切换到目标识别模式（色块）
 
     # 切换到全局预览模式（多目标识别）
     def mode_preview(self):
@@ -580,8 +576,24 @@ class TaskController:
         real_ob_info = []
         for ob in ob_info:
             x, y, kind = ob
+            # 将物体种类映射为单字符表示
+            if kind == 'green':
+                kind = 'T'
+            elif kind == 'red':
+                kind = 'S' 
+            elif kind == 'blue':
+                kind = 'E'
+            elif kind == 'brown':
+                kind = 'B'
+            elif kind == 'white':
+                kind = 'W'
+
+            # 更新当前物体种类，便于选择物体高度
+            self.my_vision.current_servo_object = kind  
             real_point = self.my_vision.predict_point(x, y)
             real_ob_info.append((real_point[0], real_point[1], kind))
+
+        self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
 
     # 合并物体信息（双目视觉融合）
@@ -604,8 +616,8 @@ class TaskController:
         MATCH_DIST_THRESHOLD = 10.0
 
         # ── 1. 坐标转换：像素 → 世界 ──
-        world_1 = self.handle_object_info(self.ob_info_1)
-        world_2 = self.handle_object_info(self.ob_info_2)
+        world_1 = self.ob_info_1
+        world_2 = self.ob_info_2
 
         # ── 2. 边界情况：任一侧为空则直接返回另一侧 ──
         if not world_1 and not world_2:
@@ -769,23 +781,36 @@ class TaskController:
                 self.if_start_off = True  # 已经出发车区
 
             if self.scan_status in [FIRST_STEP, SECOND_STEP]:
-                if self.my_vision.if_send_order:
+                counter += 1
+                # 延时100ms
+                if counter <= 10:
+                    return
+                
+                if not self.my_vision.if_send_order:
                     # 清空视觉串口缓冲区，准备接收新数据
                     self.my_art_protocol.clear_buffer()
                     # 打开目标识别模式
                     self.my_order_manager.mode_preview()
-                    self.my_vision.if_send_order = False  # 重置视觉发送指令标志位
+                    self.my_vision.if_send_order = True
 
                 object_info = self.my_art_protocol.preview_receive()  # 接收多目标信息
                 if object_info:
                     if self.scan_status == FIRST_STEP:
-                        self.ob_info_1 = object_info  # 保存第一帧物体信息
+                        self.ob_info_1 = self.handle_object_info(object_info)  # 保存第一帧物体信息
                     elif self.scan_status == SECOND_STEP:
-                        self.ob_info_2 = object_info  # 保存第二帧物体信息
+                        self.ob_info_2 = self.handle_object_info(object_info)  # 保存第二帧物体信息
                         self.integrate_object_info()  # 融合两帧物体信息，得到最终物体列表
                         self.my_path.plan_path(self.ob_info)  # 进行路径规划
-                        self.scan_message = [[self.my_car.x_current + 10.0, self.my_car.y_current], [self.my_car.x_current - 10.0, self.my_car.y_current]]  # 设置扫描路径点
                     
+                        # 测试
+                        self.my_uart3.write(f"obj1: {self.ob_info_1}\r\n")
+                        self.my_uart3.write(f"obj2: {self.ob_info_2}\r\n")
+                        self.my_uart3.write(f"obj: {self.ob_info}\r\n")
+                        self.my_uart3.write(f"path: {self.my_path.total_ob_info}\r\n")
+                        self.my_state.state = STOP
+                        return
+                    
+                    counter = 0  # 重置计数器
                     self.if_send_path = False  # 重置路径发送标志位
                     self.my_vision.if_send_order = False  # 重置视觉发送指令标志位
                     self.my_order_manager.finish()  # 关闭预览模式
@@ -794,7 +819,18 @@ class TaskController:
                     self.my_plan.reset_navigate_angle()  # 重置导航角度
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                else:
+                    # 如果扫描时间大于1s，说明视觉没有检测到物体，直接进入返回状态
+                    if counter > 100:
+                        counter = 0  # 重置计数器
+                        self.my_plan.reset_navigate()  # 重置导航状态
+                        self.my_plan.reset_navigate_angle()  # 重置导航角度
+                        self.my_state.state = RETURN  # 直接进入返回状态
+                        self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
+                # 设置扫描路径点
+                self.scan_message = [[self.my_car.x_current + 10.0, self.my_car.y_current], [self.my_car.x_current - 10.0, self.my_car.y_current]] 
+                
                 self.if_send_path = False  # 重置路径发送标志位
                 self.my_vision.if_send_order = False  # 重置视觉发送指令标志位  
                 self.my_plan.reset_navigate()  # 重置导航状态
