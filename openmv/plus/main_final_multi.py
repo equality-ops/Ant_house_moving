@@ -180,6 +180,12 @@ class KalmanTracker:
                 [0,0,0,0,0,1]
             ], dtype=np.float)
             self.R = np.diag([0.5, 0.5, 1.5, 1.5, 2, 2])
+            # 预分配固定矩阵，避免每帧新建
+            self.I = np.eye(6)
+            self.Q_detected = np.diag([0.02, 0.02, 0.02, 0.02, 0.2, 0.2])
+            self.Q_lost = np.diag([1.0, 1.0, 0.5, 0.5, 2.0, 2.0])
+            self.A = np.eye(6)
+            self.Z_buf = np.zeros(6)
             self.reset()
         except Exception:
             self.x_hat = None
@@ -193,6 +199,13 @@ class KalmanTracker:
         self.x_hat = np.array([SCREEN_CENTER_X, SCREEN_CENTER_Y, 30, 30, 2, 2], dtype=np.float)
         self.p = np.diag([100.0, 100.0, 50.0, 50.0, 300.0, 300.0])
 
+    def _update_A(self, Ts, damping):
+        """只更新 A 矩阵中随时间变化的元素，避免重建整个矩阵"""
+        self.A[0, 4] = Ts
+        self.A[1, 5] = Ts
+        self.A[4, 4] = damping
+        self.A[5, 5] = damping
+
     def kalman_filter(self, Z, Ts, is_detected):
         """
         卡尔曼滤波核心逻辑
@@ -201,60 +214,43 @@ class KalmanTracker:
         is_detected: 是否检测到目标
         return: 更新后的状态 [x, y, w, h, vx, vy]
         """
-        # 修复可能丢失的内部属性
         if not hasattr(self, 'x_hat') or self.x_hat is None:
             self.reset()
         if not hasattr(self, 'p') or self.p is None:
             self.reset()
 
         try:
-            # 动态设置Q值和阻尼系数
             if is_detected:
-                Q_value = [0.02, 0.02, 0.02, 0.02, 0.2, 0.2]
                 damping = 0.98
                 self.lost_count = 0
             else:
-                Q_value = [1.0, 1.0, 0.5, 0.5, 2.0, 2.0]
                 damping = 0.9
                 self.lost_count += 1
-            Q = np.diag(Q_value)
 
-            # 状态转移矩阵A
-            A = np.array([
-                [1, 0, 0, 0, Ts, 0],
-                [0, 1, 0, 0, 0, Ts],
-                [0, 0, 1, 0, 0, 0],
-                [0, 0, 0, 1, 0, 0],
-                [0, 0, 0, 0, damping, 0],
-                [0, 0, 0, 0, 0, damping]
-            ], dtype=np.float)
+            Q = self.Q_detected if is_detected else self.Q_lost
+            self._update_A(Ts, damping)
 
-            # 预测阶段
-            x_hat_minus = np.dot(A, self.x_hat)
-            p_minus = np.dot(A, np.dot(self.p, A.T)) + Q
+            x_hat_minus = np.dot(self.A, self.x_hat)
+            p_minus = np.dot(self.A, np.dot(self.p, self.A.T)) + Q
 
-            # 更新阶段（仅检测到目标时）
             if is_detected:
                 S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
-                S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
+                S_reg = S + 1e-4 * self.I
                 try:
                     S_inv = np.linalg.inv(S_reg)
                 except Exception:
-                    # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
                     diag_vals = []
                     for i in range(S_reg.shape[0]):
-                        val = S_reg[i,i]
-                        # 若对角线元素为0/极小值，用1e-6替代，避免除0报错
+                        val = S_reg[i, i]
                         diag_vals.append(1.0 / val if abs(val) > 1e-6 else 1e6)
                     S_inv = np.diag(diag_vals)
                 K = np.dot(np.dot(p_minus, self.C.T), S_inv)
                 self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
-                self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
+                self.p = np.dot((self.I - np.dot(K, self.C)), p_minus)
             else:
                 self.x_hat = x_hat_minus
                 self.p = p_minus
 
-            # 数值稳定性保护：限幅状态向量，防止NaN传播
             self.x_hat[0] = max(0, min(SCREEN_WIDTH, self.x_hat[0]))
             self.x_hat[1] = max(0, min(SCREEN_HEIGHT, self.x_hat[1]))
             self.x_hat[2] = max(1, min(SCREEN_WIDTH, self.x_hat[2]))
@@ -264,7 +260,6 @@ class KalmanTracker:
 
             return self.x_hat
         except Exception:
-            # 任意数组形状损坏导致运算失败 → 重置并返回默认
             self.reset()
             return self.x_hat
 
@@ -380,7 +375,10 @@ class MultiTracker:
                 if kalman_on:
                     dx = max(-MAX_SPEED, min(MAX_SPEED, (dcx - obj.last_cx) / Ts))
                     dy = max(-MAX_SPEED, min(MAX_SPEED, (dcy - obj.last_cy) / Ts))
-                    Z = np.array([dcx, dcy, dw, dh, dx, dy], dtype=np.float)
+                    Z_buf = obj.kalman.Z_buf
+                    Z_buf[0] = dcx; Z_buf[1] = dcy; Z_buf[2] = dw; Z_buf[3] = dh
+                    Z_buf[4] = dx; Z_buf[5] = dy
+                    Z = Z_buf
                     if not obj.kalman.first_detected:
                         obj.kalman.x_hat = np.array([dcx, dcy, dw, dh, 0, 0], dtype=np.float)
                         obj.kalman.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
@@ -635,7 +633,9 @@ class ColorDetector:
             # 距离过滤（排除与已保存色块过近的色块）
             cx, cy = blob.cx(), blob.cy()
             keep = True
-            for saved_blob, _ in filtered:
+            for saved_blob, saved_color in filtered:
+                if saved_color != color:
+                    continue
                 if self.calculate_distance(cx, cy, saved_blob.cx(), saved_blob.cy()) < self.DISTANCE_THRESHOLD:
                     keep = False
                     break
@@ -998,6 +998,13 @@ model_detector = ModelDetector(net)
 color_detector = ColorDetector()
 target_locker = TargetLocker(LOCK_JUMP_THRESHOLD, LOCK_MAX_LOST_FRAMES)
 
+# 复用列表，避免每帧新建
+center = []
+brown_blobs = []
+white_blobs = []
+blue_blobs = []
+other_blobs = []
+
 # ======================== 主循环 ========================
 while True:
     clock.tick()
@@ -1022,15 +1029,15 @@ while True:
         all_blobs_with_color = color_detector.detect_colors(img, current_obj)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
-        center = []
+        center.clear()
         target_pos = None
         locked_blob = None
 
         # 分离棕/白/蓝色块（多目标卡尔曼跟踪）与其他色块（直接绘制）
-        brown_blobs = []
-        white_blobs = []
-        blue_blobs = []
-        other_blobs = []
+        brown_blobs.clear()
+        white_blobs.clear()
+        blue_blobs.clear()
+        other_blobs.clear()
         for item in filtered_blobs_with_color:
             blob = item[0]
             color = item[1]
@@ -1083,13 +1090,13 @@ while True:
         all_blobs_with_color = color_detector.detect_colors(img, '', use_preview_threshold=True)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
-        center = []
+        center.clear()
 
         # 分离棕/白/蓝色块（多目标卡尔曼跟踪）与其他色块
-        brown_blobs = []
-        white_blobs = []
-        blue_blobs = []
-        other_blobs = []
+        brown_blobs.clear()
+        white_blobs.clear()
+        blue_blobs.clear()
+        other_blobs.clear()
         for item in filtered_blobs_with_color:
             blob = item[0]
             color = item[1]
