@@ -553,11 +553,17 @@ class ColorDetector:
         Args:
             img: 输入图像
             target_color: 指定要检测的目标颜色（空字符串表示检测全部）
-            use_preview_threshold: True=预览模式(阈值全10)，False=色块模式(各颜色不同阈值)
+            use_preview_threshold: True=预览模式(红绿蓝=10，棕白=25)，False=色块模式(各颜色不同阈值)
         """
         # 根据模式选择阈值映射
         if use_preview_threshold:
-            threshold_map = {c: (10, 10) for c in THRESHOLD}
+            threshold_map = {
+                'red':   (10, 10),
+                'green': (10, 10),
+                'blue':  (10, 10),
+                'brown': (25, 25),
+                'white': (25, 25),
+            }
         else:
             threshold_map = {
                 'brown': (100, 100),
@@ -857,6 +863,7 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            current_obj = ''
             reset_all()
 
         # ---------- 物体类型命令（全局可用） ----------

@@ -506,39 +506,48 @@ class ColorDetector:
         """计算两点间欧氏距离"""
         return (x1 - x2)**2 + (y1 - y2)**2
 
-    def detect_colors(self, img, target_color = ''):
-        """检测所有颜色色块并返回（带颜色标签）"""
+    def detect_colors(self, img, target_color='', use_preview_threshold=False):
+        """检测所有颜色色块并返回（带颜色标签）
+
+        Args:
+            img: 输入图像
+            target_color: 指定要检测的目标颜色（空字符串表示检测全部）
+            use_preview_threshold: True=预览模式(红绿蓝=10，棕白=25)，False=色块模式
+        """
+        if use_preview_threshold:
+            threshold_map = {
+                'red':   (10, 10),
+                'green': (10, 10),
+                'blue':  (10, 10),
+                'brown': (25, 25),
+                'white': (25, 25),
+            }
+        else:
+            threshold_map = {
+                'brown': (100, 100),
+                'white': (100, 100),
+                'red':   (100, 100),
+                'green': (40, 40),
+                'blue':  (40, 40),
+            }
 
         if target_color:
             blobs = []
-            if target_color == 'brown':
-                target_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=100, area_threshold=100, merge=True)
-            elif target_color == 'white':
-                target_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=100, area_threshold=100, merge=True)
-            elif target_color == 'red':
-                target_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
-            elif target_color == 'green':
-                target_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
-            elif target_color == 'blue':
-                target_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=40,  area_threshold=40,  merge=True)
+            if target_color in threshold_map:
+                pt, at = threshold_map[target_color]
+                target_blobs = img.find_blobs(THRESHOLD[target_color], pixels_threshold=pt, area_threshold=at, merge=True)
             else:
                 target_blobs = []
 
-            for blob in target_blobs:blobs.append((blob, target_color))
+            for blob in target_blobs:
+                blobs.append((blob, target_color))
             return blobs
         else:
-            brown_blobs = img.find_blobs(THRESHOLD['brown'], pixels_threshold=100, area_threshold=100, merge=True)
-            white_blobs = img.find_blobs(THRESHOLD['white'], pixels_threshold=100, area_threshold=100, merge=True)
-            red_blobs   = img.find_blobs(THRESHOLD['red'],   pixels_threshold=110,  area_threshold=110,  merge=True)
-            green_blobs = img.find_blobs(THRESHOLD['green'], pixels_threshold=40,  area_threshold=40,  merge=True)
-            blue_blobs  = img.find_blobs(THRESHOLD['blue'],  pixels_threshold=40,  area_threshold=40,  merge=True)
-
             all_blobs = []
-            for blob in brown_blobs: all_blobs.append((blob, 'brown'))
-            for blob in white_blobs: all_blobs.append((blob, 'white'))
-            for blob in red_blobs:   all_blobs.append((blob, 'red'))
-            for blob in green_blobs: all_blobs.append((blob, 'green'))
-            for blob in blue_blobs:  all_blobs.append((blob, 'blue'))
+            for color, (pt, at) in threshold_map.items():
+                found = img.find_blobs(THRESHOLD[color], pixels_threshold=pt, area_threshold=at, merge=True)
+                for blob in found:
+                    all_blobs.append((blob, color))
             return all_blobs
 
     def filter_all_blobs(self, blobs):
@@ -682,6 +691,7 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            current_obj = ''
             reset_all()
 
         # ---------- 物体类型命令（全局可用） ----------
