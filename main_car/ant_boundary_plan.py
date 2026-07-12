@@ -383,13 +383,14 @@ class objects_planner:
         return True
         
     def set_objects(self,objects,out):
+        count = 0
         for keyi in objects:
             for i in objects[keyi]:
                     out.append([keyi,i[0],i[1]])
         gc.collect()
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
-            self.set_objects(objects,self.now_objects)#将物体转化为[物体类型，x，y]的形式,存在self.now_objects中
+            self.now_objects = objects[:]
             self.set_barriers(self.barrier)#将物体转化为障碍形式并存储在self.barrier中
             self.judge_state = 1
             return False
