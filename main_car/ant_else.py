@@ -70,13 +70,21 @@ class beep:
 ##############################【uart串口解析数据�?#############################
 # 指令管理�?
 class order_manager:
-    def __init__(self, uart):
+    def __init__(self, flash_sys, uart):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
         # 注入串口对象
         self.my_uart = uart
-    
-    # 切换到目标识别模式（模型�?
+
+        # 使用模型还是色块
+        self.if_model = self.flash_sys.find_value("if_model")
+
+    # 切换到目标识别模式（模型?
     def mode_target(self):
-        self.my_uart.write("M")
+        if self.if_model:
+            self.my_uart.write("M")
+        else:
+            self.my_uart.write("C")
 
     # 切换到上下边界识别模�?
     def mode_boundary_ud(self):
@@ -84,8 +92,10 @@ class order_manager:
 
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
+
     def clear_knock(self):
         self.my_uart.write("c")
+
     # 切换到左右边界识别模�?
     def mode_boundary_lf(self):
         self.my_uart.write("L")
