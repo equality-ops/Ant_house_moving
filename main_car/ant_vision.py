@@ -198,15 +198,6 @@ class VisionManager:
         scale = max(0.7, min(1.0, dist / 10.0)) # 8cm外全速，近处最少降60%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
-    
-    def reset_analysed_objects(self):
-        self.analysed_objects = {
-            'T':[],
-            'S':[],
-            'B':[],
-            'W':[],
-            'E':[],
-        }
 
     def if_in_rect(self,x,y):
         rect_x_min = self.my_plan.plan_data.center_rect[0][0] - 5
@@ -217,28 +208,6 @@ class VisionManager:
             y < rect_y_min or y > rect_y_max:
             return False
         return True
-    
-    def analyse_object_coordinate(self, package, if_cover=False):
-        for i in package[1]:
-            object_kind = chr(i[0]) if isinstance(i[0], int) else i[0]
-            if object_kind not in self.analysed_objects:
-                continue
-            self.current_servo_object = object_kind
-            if i[1]<5 or i[2]<5 or i[1]>155 or i[2] >115:
-                continue
-            new_p = self.calc_object_global_pos(i[1],i[2],object_kind=i[0])
-            new_x = new_p[0]
-            new_y = new_p[1]
-            if not self.if_in_rect(new_x,new_y):continue
-            if if_cover:
-                for j in range(len(self.analysed_objects[object_kind])):
-                    jj = self.analysed_objects[object_kind][j]
-                    if (new_x - jj[0])**2 + (new_y - jj[1])**2 < 100:
-                        new_x = (new_x + jj[0]) / 2
-                        new_y = (new_y + jj[1]) / 2
-                        self.analysed_objects[object_kind].pop(j)
-                        break
-            self.analysed_objects[object_kind].append((new_x, new_y))
         # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world_scan(self, u, v):
         """
@@ -268,7 +237,6 @@ class VisionManager:
         elif self.current_servo_object in ['W', 'B']:
             object_H_min = 5.0
             object_H_max = 6.0
-
         # 根据物体的远近选择缩放因子K
         if Y_raw < MIN_Y:
             object_H = object_H_max

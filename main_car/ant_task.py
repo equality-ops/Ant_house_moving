@@ -98,20 +98,12 @@ class TaskController:
             pass
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物�?
-            '''
-            if self.my_vision.if_send_order == False:
-                # 打开摄像�?
-                self.my_order_manager.mode_target()
-                self.my_vision.if_send_order = True
-            '''
-            self.my_vision.reset_analysed_objects()
             self.detected_num = 0
             self.if_send_detect_message = False
             self.my_order_manager.mode_detect()
             self.object_plan.reset_judge()
             if self.if_rogue_plan:
                 self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类信�?
-            self.my_vision.reset_analysed_objects()
             #self.scan_message.append([self.my_car.x_current, self.my_car.y_current])  # 记录扫描状态开始时小车的位置，作为后续判断是否迷路的参�?
         elif state == SERVO:
             # 进入伺服状态，开始精确对准目标物�?
@@ -165,6 +157,10 @@ class TaskController:
         elif state == SCAN:
             self.if_plan_scan = False
             # 退出扫描状态，停止寻找目标物体
+            if not self.if_end_first_scan:
+                self.my_plan.reset_navigate()
+                self.my_state.state = RETURN
+                self.if_transitioning = True  # 退出当前状态，直接回家
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
                 self.my_vision.reset_servo_angle()
@@ -176,17 +172,6 @@ class TaskController:
                 self.my_plan.reset_navigate()
                 self.my_state.state = RETURN
                 self.if_transitioning = True  # 退出当前状态，直接回家
-                '''
-                self.data.current_index += 1  # 跳过当前物体，进入下一个物体的准备导航状�?
-                if self.data.current_index >= self.data.total_objects_num:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-                else:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = READY_NAVIGATE
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-                '''
         elif state == SERVO:
             # 退出伺服状态，停止精确对准动作
             if self.my_vision.if_finish_servo:
@@ -359,8 +344,8 @@ class TaskController:
     def handle_object_info(self, ob_info):
         """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
         real_ob_info = []
-        for ob in ob_info:
-            sp , x, y  = ob
+        for ob in ob_info[1]:
+            sp, x, y  = ob
             if x<5 or y<5 or x>155 or y >115:
                 continue
             kind = chr(sp)
@@ -368,7 +353,7 @@ class TaskController:
             self.my_vision.current_servo_object = kind  
             real_point = self.my_vision.predict_point(x, y)
             if not self.my_vision.if_in_rect(real_point[0],real_point[1]):continue
-            real_ob_info.append((real_point[0], real_point[1], kind))
+            real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
     # 合并物体信息（双目视觉融合）
@@ -378,19 +363,16 @@ class TaskController:
         MATCH_DIST_THRESHOLD = 10.0
         # ── 2. 边界情况：任一侧为空则直接返回另一侧 ──
         if not world_1 and not world_2:
-            self.ob_info = []
-            return
+            return []
         if not world_1:
-            self.ob_info = world_2
-            return
+            return world_2[:]
         if not world_2:
-            self.ob_info = world_1
-            return
+            return world_1[:]
         groups_1 = {}
         groups_2 = {}
-        for i, (x, y, kind) in enumerate(world_1):
+        for i, (kind,x, y) in enumerate(world_1):
             groups_1.setdefault(kind, []).append((i, x, y))
-        for i, (x, y, kind) in enumerate(world_2):
+        for i, (kind,x, y) in enumerate(world_2):
             groups_2.setdefault(kind, []).append((i, x, y))
         matched_pairs = []
         used_1 = set()
@@ -415,9 +397,9 @@ class TaskController:
                     used_2.add(i2)
         ob_info = []
         for i1, i2 in matched_pairs:
-            x1, y1, kind = world_1[i1]
-            x2, y2, _ = world_2[i2]
-            ob_info.append(((x1 + x2) / 2.0, (y1 + y2) / 2.0, kind))
+            kind, x1, y1,  = world_1[i1]
+            _, x2, y2 = world_2[i2]
+            ob_info.append((kind,(x1 + x2) / 2.0, (y1 + y2) / 2.0))
         for i in range(len(world_1)):
             if i not in used_1:
                 ob_info.append(world_1[i])
@@ -473,8 +455,8 @@ class TaskController:
         #elif self.detected_num < 6:scan_point(6,180)
         #elif self.detected_num < 8:scan_point(8,180)
         elif self.detected_num == 4:
+            #if len(self.now_objects) != self.data.total_objects_num:self.exit()
             self.if_end_first_scan = True
-            if len(self.now_objects) != self.data.total_objects_num:self.exit()
     def handle_scan(self):
         if not self.if_end_first_scan:self.first_scan()
         else:
@@ -543,7 +525,6 @@ class TaskController:
                 else:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
             self.exit()  # 退出当前状态，进入下一个状�?
-
     def handle_retreat(self):
         # if state == ADJUST
         self.my_plan.navigate(path = [self.retreat_message])

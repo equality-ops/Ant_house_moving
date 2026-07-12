@@ -45,13 +45,29 @@ def parse_config(path):
 
 
 def parse_wire_text(text):
-    obj_match = re.search(r"1(\{.*?\})\s*(?:target|$)", text, re.S)
+    obj_match = re.search(r"(?:^|\n)\s*(1?\{.*?\}|\[.*?\])\s*(?:target|$)", text, re.S)
     target_match = re.search(r"target(\[.*?\])\s*(?:path|score|$)", text, re.S)
     path_match = re.search(r"path(\[.*?\])\s*(?:score|$)", text, re.S)
     score_match = re.search(r"score(\[.*?\])\s*$", text, re.S)
     if not obj_match:
         raise ValueError("没有找到 1{...} 物体数据")
-    objects = ast.literal_eval(obj_match.group(1))
+    object_text = obj_match.group(1)
+    if object_text.startswith("1{"):
+        object_text = object_text[1:]
+    raw_objects = ast.literal_eval(object_text)
+    if isinstance(raw_objects, dict):
+        objects = raw_objects
+    elif isinstance(raw_objects, list):
+        objects = {kind: [] for kind in OBJECT_SIZE}
+        for item in raw_objects:
+            if not isinstance(item, (list, tuple)) or len(item) != 3:
+                raise ValueError("each object must be (kind, x, y)")
+            kind, x, y = item
+            if kind not in objects:
+                raise ValueError(f"unsupported object kind: {kind}")
+            objects[kind].append((float(x), float(y)))
+    else:
+        raise ValueError("object data must be a dict or a list")
     targets = ast.literal_eval(target_match.group(1)) if target_match else []
     path = ast.literal_eval(path_match.group(1)) if path_match else []
     scores = ast.literal_eval(score_match.group(1)) if score_match else []
@@ -256,7 +272,7 @@ def read_multiline():
         if line.strip().startswith("Paste wireless serial data"):
             continue
         lines.append(line)
-        if line.strip().startswith("path"):
+        if line.strip().startswith("score"):
             try:
                 parse_wire_text("\n".join(lines))
                 break
