@@ -233,13 +233,27 @@ class MoveControl:
                 pl=[self.plan_data.FIELD_W+20,self.my_car.y_current+dy1]
             elif path[1] == -90:
                 pl=[-20,self.my_car.y_current+dy1]
-            p2=[pl[0]+self.push_postion[0]*self.clamp_distance,pl[1]+self.push_postion[1]*self.clamp_distance]
             if dx1==0 and dy1==0:
-                return [p2]
-            kdy = abs(dy1)/abs(pl[1]-self.my_car.y_current)
-            kdx = abs(dx1)/abs(pl[0]-self.my_car.x_current)
-            p1=[self.my_car.x_current+dx1+kdy*self.push_postion[0]*self.clamp_distance,self.my_car.y_current+dy1+kdx*self.push_postion[1]*self.clamp_distance]
-            return [p1,p2]
+                self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
+                return [pl]
+            p_m = [self.my_car.x_current+dx1,self.my_car.y_current+dy1]
+            if self.push_postion[1] == 0:
+                total_dx = abs(pl[0] - self.my_car.x_current)
+                if total_dx <= 1e-6:
+                    return []
+                ratio = abs(dx1) / total_dx
+                self.my_plan.keep_x_or_y_v = True
+            elif self.push_postion[1] == 0:
+                total_dy = abs(pl[1] - self.my_car.y_current)
+                if total_dy <= 1e-6:
+                    return []
+                ratio = abs(dy1) / total_dy
+                self.my_plan.keep_x_or_y_v = False
+            else: return []
+            p1 = [p_m[0] + ratio * self.push_postion[0] * self.clamp_distance,p_m[1] + ratio * self.push_postion[1] * self.clamp_distance,]
+            p2 = [pl[0]+self.push_postion[0]*self.clamp_distance,pl[1]+self.push_postion[1]*self.clamp_distance]
+            self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2]
+            return [p_m,pl]
         except:
             return []
         
@@ -264,6 +278,7 @@ class MoveControl:
                 # 通知主车已完成当前环绕
                 self.my_slave_protocol.send_slave_state("finish")
                 self.if_send_to_main = True
+                self.my_plan.fitting_path_ = []
             if self.vision_manager.if_send_order == True:
                 self.my_order_manager.finish() # 关闭目标识别模式
                 self.vision_manager.if_send_order = False
@@ -287,12 +302,13 @@ class MoveControl:
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False
                 self.if_finish_move = True
+                self.my_plan.fitting_path_ = []
                 self.my_plan.move_state = NAVIGATE
                 self.current_state = NAVIGATE
             else:
                 target_point = self.my_art_protocol.coordinate_receive()
                 if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and\
-                target_point[1] >= 40.0:
+                target_point[1] >= 30.0:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',target_point)
                     self.vision_manager.reset_servo_angle()
                     self.my_plan.reset_navigate()  # 重置导航相关变量

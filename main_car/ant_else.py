@@ -76,14 +76,16 @@ class order_manager:
     
     # 切换到目标识别模式（模型�?
     def mode_target(self):
-        self.my_uart.write("M")
+        self.my_uart.write("C")
 
     # 切换到上下边界识别模�?
     def mode_boundary_ud(self):
         self.my_uart.write("U")
-        
+
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
+    def clear_knock(self):
+        self.my_uart.write("c")
     # 切换到左右边界识别模�?
     def mode_boundary_lf(self):
         self.my_uart.write("L")
