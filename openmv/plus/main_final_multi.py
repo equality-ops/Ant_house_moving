@@ -170,30 +170,27 @@ class KalmanTracker:
     MAX_LOST_FRAMES = KALMAN_MAX_LOST_FRAMES
 
     def __init__(self):
-        # 观测矩阵C（6维单位阵，状态可直接观测）
-        self.C = np.array([
-            [1,0,0,0,0,0],
-            [0,1,0,0,0,0],
-            [0,0,1,0,0,0],
-            [0,0,0,1,0,0],
-            [0,0,0,0,1,0],
-            [0,0,0,0,0,1]
-        ], dtype=np.float)
-
-        # 测量噪声R
-        self.R = np.diag([0.5, 0.5, 1.5, 1.5, 2, 2])
-
-        # 初始化状态
-        self.reset()
+        try:
+            self.C = np.array([
+                [1,0,0,0,0,0],
+                [0,1,0,0,0,0],
+                [0,0,1,0,0,0],
+                [0,0,0,1,0,0],
+                [0,0,0,0,1,0],
+                [0,0,0,0,0,1]
+            ], dtype=np.float)
+            self.R = np.diag([0.5, 0.5, 1.5, 1.5, 2, 2])
+            self.reset()
+        except Exception:
+            self.x_hat = None
+            self.p = None
 
     def reset(self):
         """重置跟踪器状态"""
         self.first_detected = False
         self.lost_count = 0
-        self.last_cx, self.last_cy = SCREEN_CENTER_X, SCREEN_CENTER_Y  # 初始中心坐标
-        # 初始状态x_hat：[x, y, w, h, vx, vy]
+        self.last_cx, self.last_cy = SCREEN_CENTER_X, SCREEN_CENTER_Y
         self.x_hat = np.array([SCREEN_CENTER_X, SCREEN_CENTER_Y, 30, 30, 2, 2], dtype=np.float)
-        # 初始协方差矩阵p
         self.p = np.diag([100.0, 100.0, 50.0, 50.0, 300.0, 300.0])
 
     def kalman_filter(self, Z, Ts, is_detected):
@@ -204,61 +201,72 @@ class KalmanTracker:
         is_detected: 是否检测到目标
         return: 更新后的状态 [x, y, w, h, vx, vy]
         """
-        # 动态设置Q值和阻尼系数
-        if is_detected:
-            Q_value = [0.02, 0.02, 0.02, 0.02, 0.2, 0.2]
-            damping = 0.98
-            self.lost_count = 0
-        else:
-            Q_value = [1.0, 1.0, 0.5, 0.5, 2.0, 2.0]
-            damping = 0.9
-            self.lost_count += 1
-        Q = np.diag(Q_value)
+        # 修复可能丢失的内部属性
+        if not hasattr(self, 'x_hat') or self.x_hat is None:
+            self.reset()
+        if not hasattr(self, 'p') or self.p is None:
+            self.reset()
 
-        # 状态转移矩阵A
-        A = np.array([
-            [1, 0, 0, 0, Ts, 0],
-            [0, 1, 0, 0, 0, Ts],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, damping, 0],
-            [0, 0, 0, 0, 0, damping]
-        ], dtype=np.float)
+        try:
+            # 动态设置Q值和阻尼系数
+            if is_detected:
+                Q_value = [0.02, 0.02, 0.02, 0.02, 0.2, 0.2]
+                damping = 0.98
+                self.lost_count = 0
+            else:
+                Q_value = [1.0, 1.0, 0.5, 0.5, 2.0, 2.0]
+                damping = 0.9
+                self.lost_count += 1
+            Q = np.diag(Q_value)
 
-        # 预测阶段
-        x_hat_minus = np.dot(A, self.x_hat)
-        p_minus = np.dot(A, np.dot(self.p, A.T)) + Q
+            # 状态转移矩阵A
+            A = np.array([
+                [1, 0, 0, 0, Ts, 0],
+                [0, 1, 0, 0, 0, Ts],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, damping, 0],
+                [0, 0, 0, 0, 0, damping]
+            ], dtype=np.float)
 
-        # 更新阶段（仅检测到目标时）
-        if is_detected:
-            S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
-            S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
-            try:
-                S_inv = np.linalg.inv(S_reg)
-            except Exception:
-                # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
-                diag_vals = []
-                for i in range(S_reg.shape[0]):
-                    val = S_reg[i,i]
-                    # 若对角线元素为0/极小值，用1e-6替代，避免除0报错
-                    diag_vals.append(1.0 / val if abs(val) > 1e-6 else 1e6)
-                S_inv = np.diag(diag_vals)
-            K = np.dot(np.dot(p_minus, self.C.T), S_inv)
-            self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
-            self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
-        else:
-            self.x_hat = x_hat_minus
-            self.p = p_minus
+            # 预测阶段
+            x_hat_minus = np.dot(A, self.x_hat)
+            p_minus = np.dot(A, np.dot(self.p, A.T)) + Q
 
-        # 数值稳定性保护：限幅状态向量，防止NaN传播
-        self.x_hat[0] = max(0, min(SCREEN_WIDTH, self.x_hat[0]))
-        self.x_hat[1] = max(0, min(SCREEN_HEIGHT, self.x_hat[1]))
-        self.x_hat[2] = max(1, min(SCREEN_WIDTH, self.x_hat[2]))
-        self.x_hat[3] = max(1, min(SCREEN_HEIGHT, self.x_hat[3]))
-        self.x_hat[4] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[4]))
-        self.x_hat[5] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[5]))
+            # 更新阶段（仅检测到目标时）
+            if is_detected:
+                S = np.dot(np.dot(self.C, p_minus), self.C.T) + self.R
+                S_reg = S + 1e-4 * np.eye(S.shape[0])  # 防矩阵奇异
+                try:
+                    S_inv = np.linalg.inv(S_reg)
+                except Exception:
+                    # 矩阵奇异时，用对角逆替代（降级方案），新增极小值避免除0
+                    diag_vals = []
+                    for i in range(S_reg.shape[0]):
+                        val = S_reg[i,i]
+                        # 若对角线元素为0/极小值，用1e-6替代，避免除0报错
+                        diag_vals.append(1.0 / val if abs(val) > 1e-6 else 1e6)
+                    S_inv = np.diag(diag_vals)
+                K = np.dot(np.dot(p_minus, self.C.T), S_inv)
+                self.x_hat = x_hat_minus + np.dot(K, (Z - np.dot(self.C, x_hat_minus)))
+                self.p = np.dot((np.eye(6) - np.dot(K, self.C)), p_minus)
+            else:
+                self.x_hat = x_hat_minus
+                self.p = p_minus
 
-        return self.x_hat
+            # 数值稳定性保护：限幅状态向量，防止NaN传播
+            self.x_hat[0] = max(0, min(SCREEN_WIDTH, self.x_hat[0]))
+            self.x_hat[1] = max(0, min(SCREEN_HEIGHT, self.x_hat[1]))
+            self.x_hat[2] = max(1, min(SCREEN_WIDTH, self.x_hat[2]))
+            self.x_hat[3] = max(1, min(SCREEN_HEIGHT, self.x_hat[3]))
+            self.x_hat[4] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[4]))
+            self.x_hat[5] = max(-MAX_SPEED, min(MAX_SPEED, self.x_hat[5]))
+
+            return self.x_hat
+        except Exception:
+            # 任意数组形状损坏导致运算失败 → 重置并返回默认
+            self.reset()
+            return self.x_hat
 
 # ======================== 多目标跟踪模块 ========================
 class TrackedObject:
@@ -303,8 +311,12 @@ class MultiTracker:
 
     def _repair_kalman(self, obj, cx=SCREEN_CENTER_X, cy=SCREEN_CENTER_Y, w=30, h=30):
         """检查并修复损坏的卡尔曼跟踪器（防止内存问题导致对象丢失）"""
-        if not isinstance(getattr(obj, 'kalman', None), KalmanTracker):
+        kalman = getattr(obj, 'kalman', None)
+        if not isinstance(kalman, KalmanTracker) or not hasattr(kalman, 'x_hat') or kalman.x_hat is None:
             obj.kalman = KalmanTracker()
+            if not hasattr(obj.kalman, 'x_hat') or obj.kalman.x_hat is None:
+                # 构造函数也失败了，放弃修复
+                return
             obj.kalman.x_hat = np.array([cx, cy, w, h, 0, 0], dtype=np.float)
             obj.kalman.p = np.diag([10.0, 10.0, 5.0, 5.0, 100.0, 100.0])
             obj.kalman.first_detected = True
@@ -424,16 +436,20 @@ class MultiTracker:
 
     def _get_kalman_output(self, obj):
         """从卡尔曼状态中提取预测框（含NaN保护）"""
+        if obj is None or getattr(obj, 'kalman', None) is None:
+            return SCREEN_CENTER_X, SCREEN_CENTER_Y, 30, 30
         try:
             kcx = int(obj.kalman.x_hat[0])
             kcy = int(obj.kalman.x_hat[1])
             kw = max(1, int(obj.kalman.x_hat[2]))
             kh = max(1, int(obj.kalman.x_hat[3]))
-        except (ValueError, OverflowError, AttributeError):
-            # 卡尔曼状态异常（如NaN或对象损坏），回退到原始坐标并重置
+        except (ValueError, OverflowError, AttributeError, TypeError):
             kcx, kcy = obj.last_cx, obj.last_cy
             kw = kh = 30
-            obj.kalman = KalmanTracker()
+            try:
+                obj.kalman = KalmanTracker()
+            except Exception:
+                obj.kalman = None
         return kcx, kcy, kw, kh
 
     def _cleanup(self):
@@ -560,7 +576,7 @@ class ColorDetector:
             threshold_map = {
                 'red':   (10, 10),
                 'green': (10, 10),
-                'blue':  (10, 10),
+                'blue':  (15, 15),
                 'brown': (25, 25),
                 'white': (25, 25),
             }
@@ -610,6 +626,8 @@ class ColorDetector:
             elif color == 'white' and (blob.w() > 3.5 * blob.h() or blob.h() > 3.5 * blob.w()):
                 continue
             elif color == 'green' and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
+                continue
+            elif color == 'red' and (blob.w() > 2 * blob.h() or blob.h() > 2 * blob.w()):
                 continue
             elif color == 'blue' and (blob.w() > 1.5 * blob.h() or blob.h() > 1.5 * blob.w()):
                 continue
