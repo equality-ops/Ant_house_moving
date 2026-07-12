@@ -147,6 +147,7 @@ angle_T = 40
 angle_S = 40
 angle_B = 35
 
+if_model = 1
 # 小车最高速度为290
 
 

@@ -106,9 +106,10 @@ servo_normal_kd_x = 10.0
 servo_normal_kp_y = 7.0
 servo_normal_kd_y = 10.0
 
-servo_target_y_T = 9
-servo_target_y_S = 8
-servo_target_y_B = 9
+servo_target_y_A = 11.0
+servo_target_y_T = 2.3
+servo_target_y_S = 3
+servo_target_y_B = 5
 
 servo_target_x_T = 0
 servo_target_x_S = 0
@@ -125,24 +126,27 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
-radius_T_U = 13.0
-radius_T_R = 11.0
-radius_T_L = 11.0
+radius_T_U = 12.7
+radius_T_R = 12.7
+radius_T_L = 12.7
 radius_T_D = 12.0
 
-radius_S_U = 11.0
+radius_S_U = 14.0
 radius_S_R = 12.0
 radius_S_L = 14.0
-radius_S_D = 12.0
+radius_S_D = 14.0
 
-radius_B_U = 15.5
-radius_B_R = 17.5
+radius_B_U = 16
+radius_B_R = 17.7
 radius_B_L = 16.5
-radius_B_D = 15.5
+radius_B_D = 17.5
 angle_T = 40
 angle_S = 40
 angle_B = 35
 
 acc_move_coef = 0.04
+
+if_model = 1
 # 小车最高速度为180
+
 

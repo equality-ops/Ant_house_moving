@@ -247,7 +247,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            #if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -401,68 +401,13 @@ def time_pit1_handler(time):
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
-# 视觉伺服测试函数
-def test_vision_servo():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-        my_plan.if_finish_navigate=False
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle=180)
-        if my_plan.if_finish_navigate:
-            if my_vision_manager.if_send_order == False:
-                my_order_manager.mode_target()
-                my_vision_manager.if_send_order = True
-            target_point = my_art_protocol.coordinate_receive()
-            if target_point:
-                my_vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
-                # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
-                my_vision_manager.if_send_order = False
-                my_vision_manager.reset_servo_angle()
-                my_state.state = SERVO
-    elif my_state.state == SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            # my_order_manager.mode_target()
-            my_plan.reset_navigate_angle()
-
-            counter += 1
-            if counter >= 50:
-                counter = 0
-                # 测试
-                my_beep.test()
-                my_vision_manager.if_finish_servo = False
-                my_vision_manager.reset_orbit_angle()
-                my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(90-my_vision_manager.orbit_angle)
-        if my_vision_manager.if_finish_orbit == True:
-            if my_vision_manager.if_send_order == False:
-                my_order_manager.mode_target()
-                my_vision_manager.if_send_order = True
-
-            target_point = my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == my_vision_manager.current_servo_object and\
-            target_point[1] >= 40.0:
-                my_vision_manager.ready_servo_and_orbit(target_point, 'adjust')
-                my_vision_manager.if_send_order = False
-                my_plan.reset_navigate_angle()
-                my_state.state = STOP
-    elif my_state.state == ADJUST:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
     angle_pid_compute()
 
     # 任务执行机
-    #task_machine()
-    test_vision_servo()
+    task_machine()
     # 全向定位测试程序
 
     '''

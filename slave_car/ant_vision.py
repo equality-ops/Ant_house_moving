@@ -251,6 +251,8 @@ class VisionManager:
             if self.last_real_servo_point is not None:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
                 if dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE:
                     # 变化过大，丢弃本帧，还原为上一帧有效坐标
                     self.real_servo_point = self.last_real_servo_point.copy()
@@ -258,8 +260,6 @@ class VisionManager:
                 else:
                     # 帧有效，更新记录
                     self.last_real_servo_point = self.real_servo_point.copy()
-                    self.last_car_x = self.my_car.x_current
-                    self.last_car_y = self.my_car.y_current
                     self.servo_lost_count = 0
             else:
                 # 首帧，直接接受

@@ -271,7 +271,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            #if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -307,59 +307,6 @@ def show_speed_PID_test():
     else:
         motor_ur_pid.compute_pid(250, pose_data.encoder_data_ur)
     '''
-
-
-def test_vision_servo():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        if my_vision_manager.if_send_order == False:
-            my_order_manager.mode_target()
-            my_vision_manager.if_send_order = True
-
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
-            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
-            my_vision_manager.if_send_order = False
-            my_state.state = SERVO
-    elif my_state.state == SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            # my_order_manager.mode_target()
-            # my_plan.reset_navigate_angle()
-            # my_state.state = STOP
-            counter += 1
-            if counter >= 50:
-                counter = 0
-                # 测试
-                my_beep.test()
-                my_vision_manager.if_finish_servo = False
-                my_vision_manager.reset_orbit_angle()
-                my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(my_vision_manager.orbit_angle)
-        if my_vision_manager.if_finish_orbit == True:
-            if my_vision_manager.if_send_order == False:
-                my_order_manager.mode_target()
-                my_vision_manager.if_send_order = True
-
-            target_point = my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == my_vision_manager.current_servo_object and\
-            target_point[1] >= 40.0:
-                my_vision_manager.ready_servo_and_orbit(target_point, 'adjust')
-                my_vision_manager.if_send_order = False
-                my_vision_manager.reset_servo_angle()
-                my_state.state = ADJUST
-    elif my_state.state == ADJUST:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
-
 orbit_angle = 240.0
 spin_angle = 90.0
 
@@ -478,7 +425,6 @@ def time_pit1_handler(time):
         my_fan.test_fan(1200)
         my_fan.if_fan = False
     """
-
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
@@ -486,28 +432,6 @@ def time_pit3_handler(time) -> None:
     # 任务执行机
     task_machine()
     # 全向定位测试程序
-    '''
-    if my_state.state == READY_NAVIGATE:
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_state.state = SCAN
-    elif my_state.state == SCAN:
-        def analyse_package(num):
-            if not my_task.if_send_detect_message:
-                my_task.if_send_detect_message = True
-                my_task.my_order_manager.mode_detect()
-            object_package=my_task.my_art_protocol.detect_objects_on_the_court()
-            if object_package:
-                my_task.my_vision.analyse_object_coordinate(object_package,if_cover = True)
-                my_task.detected_num+=1
-                if my_task.detected_num==num:
-                    my_task.my_order_manager.finish()
-                    my_task.if_send_detect_message = False
-                    my_task.my_uart.write(f"1{my_task.my_vision.analysed_objects}\n")
-        if my_task.detected_num < 2:
-            analyse_package(2)
-            my_task.my_plan.if_finish_navigate = False
-    '''
     # 视觉伺服测试程序
     # test_vision_servo()
 

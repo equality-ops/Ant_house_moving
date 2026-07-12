@@ -281,7 +281,7 @@ class MoveControl:
             target_point = self.my_art_protocol.coordinate_receive()
             #self.my_uart.write(f"wait:{self.vision_manager.current_servo_object}, tp:{target_point}, send:{self.vision_manager.if_send_order}\n")
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
-                self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'adjust',target_point)
+                self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',target_point)
                 self.vision_manager.reset_servo_angle()
                 self.reset_orbit() # 重置环绕相关变量
                 self.plan_path = []
