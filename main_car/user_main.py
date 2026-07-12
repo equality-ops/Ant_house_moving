@@ -167,7 +167,7 @@ else:
     my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
 
     # 创建指令管理对象
-    my_order_manager = ant_else.order_manager(my_uart6)
+    my_order_manager = ant_else.order_manager(my_flash_sys, my_uart6)
 
     # 创建openart串口解析对象
     my_art_protocol = ant_else.UARTProtocol(my_uart6)
