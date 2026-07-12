@@ -513,7 +513,7 @@ class ModelDetector:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 100
+    DISTANCE_THRESHOLD = 60
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):

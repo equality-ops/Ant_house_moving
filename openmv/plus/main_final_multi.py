@@ -554,7 +554,7 @@ class ModelDetector:
 # ======================== 颜色检测模块 ========================
 class ColorDetector:
     # 距离阈值（过滤过近的色块）
-    DISTANCE_THRESHOLD = 100
+    DISTANCE_THRESHOLD = 60
 
     @staticmethod
     def calculate_distance(x1, y1, x2, y2):
@@ -591,7 +591,7 @@ class ColorDetector:
             blobs = []
             if target_color in threshold_map:
                 pt, at = threshold_map[target_color]
-                target_blobs = img.find_blobs(THRESHOLD[target_color], pixels_threshold=pt, area_threshold=at, merge=True)
+                target_blobs = img.find_blobs(THRESHOLD[target_color], pixels_threshold=pt, area_threshold=at, merge=not use_preview_threshold)
             else:
                 target_blobs = []
 
@@ -601,7 +601,7 @@ class ColorDetector:
         else:
             all_blobs = []
             for color, (pt, at) in threshold_map.items():
-                found = img.find_blobs(THRESHOLD[color], pixels_threshold=pt, area_threshold=at, merge=True)
+                found = img.find_blobs(THRESHOLD[color], pixels_threshold=pt, area_threshold=at, merge=not use_preview_threshold)
                 for blob in found:
                     all_blobs.append((blob, color))
             return all_blobs
