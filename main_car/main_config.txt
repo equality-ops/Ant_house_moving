@@ -1,4 +1,4 @@
-# 修改时间 7.11	  15:27
+# 修改时间 7.12	  18:01
 
 ###################【PID参数】####################
 # speed大于220时
@@ -37,6 +37,7 @@ integral_limitmax = 10000
 pwmout_limitmax = 9000
 
 angle_normal_kp = 30.0
+orbit_kp = 15.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
@@ -87,9 +88,9 @@ orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 140
-move_v_max_S = 140
-move_v_max_B = 140
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -98,25 +99,25 @@ servo_kd_normal_x = 10.0
 servo_kp_normal_y = 7.0
 servo_kd_normal_y = 10.0
 
-servo_target_y_T = 2.0
-servo_target_y_S = 2.5
+servo_target_y_T = 2.5
+servo_target_y_S = 3.0
 servo_target_y_B = 5.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
 
-max_rational_dist = 55.0
+max_rational_dist = 70.0
 
-min_rel_speed = 35
+min_rel_speed = 40
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【环绕控制】####################
 radius_T = 17.0
-radius_S = 19.0
+radius_S = 17.0
 radius_B = 21.5
-angle_T = 130.0
-angle_S = 142.0
+angle_T = 129.0
+angle_S = 137.0
 angle_B = 134.0
 center_offset_T = 3.5
 center_offset_S = 2.0
