@@ -46,14 +46,18 @@ def parse_config(path):
 
 def parse_wire_text(text):
     obj_match = re.search(r"1(\{.*?\})\s*(?:target|$)", text, re.S)
-    target_match = re.search(r"target(\[.*?\])\s*(?:path|$)", text, re.S)
-    path_match = re.search(r"path(\[.*?\])\s*$", text, re.S)
+    target_match = re.search(r"target(\[.*?\])\s*(?:path|score|$)", text, re.S)
+    path_match = re.search(r"path(\[.*?\])\s*(?:score|$)", text, re.S)
+    score_match = re.search(r"score(\[.*?\])\s*$", text, re.S)
     if not obj_match:
         raise ValueError("没有找到 1{...} 物体数据")
     objects = ast.literal_eval(obj_match.group(1))
     targets = ast.literal_eval(target_match.group(1)) if target_match else []
     path = ast.literal_eval(path_match.group(1)) if path_match else []
-    return objects, targets, path
+    scores = ast.literal_eval(score_match.group(1)) if score_match else []
+    if scores and len(scores) != len(targets):
+        raise ValueError("score count must match target count")
+    return objects, targets, path, scores
 
 
 def make_rect(cx, cy, half_w, half_h):
@@ -167,7 +171,7 @@ def target_push_path(target, path_point):
     return [start, mid, push_boundary_point(target[1], mid)]
 
 
-def draw_scene(objects, targets, path, config, output, swell_angle=None, direction=-90):
+def draw_scene(objects, targets, path, scores, config, output, swell_angle=None, direction=-90):
     fig, ax = plt.subplots(figsize=(9, 7))
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(-10, FIELD_W + 10)
@@ -196,14 +200,23 @@ def draw_scene(objects, targets, path, config, output, swell_angle=None, directi
             ax.scatter([x], [y], s=70, c=color, edgecolors=edge, zorder=4)
             ax.text(x + 2, y + 2, f"{kind}({x:.1f},{y:.1f})", fontsize=8, color="black")
 
-    for target in targets:
+    for idx, target in enumerate(targets):
         if len(target) >= 4:
             ax.scatter([target[2]], [target[3]], s=120, c="black", marker="x", linewidths=2.5, zorder=5)
-            ax.text(target[2] + 3, target[3] - 5, f"target {target[1]}#{target[0]}", fontsize=9, color="black")
+            label = f"target {target[1]}#{target[0]}"
+            if scores:
+                label += f" score={scores[idx]:.1f}"
+            ax.text(target[2] + 3, target[3] - 5, label, fontsize=9, color="black")
 
     if path:
-        if targets and len(path) == len(targets):
-            for idx, (target, path_point) in enumerate(zip(targets, path)):
+        if targets and scores:
+            # A score above 10000 means this target has no generated path point.
+            path_targets = [target for target, score in zip(targets, scores) if score <= 10000]
+        else:
+            path_targets = targets
+
+        if path_targets and len(path) == len(path_targets):
+            for idx, (target, path_point) in enumerate(zip(path_targets, path)):
                 route = target_push_path(target, path_point)
                 xs = [p[0] for p in route]
                 ys = [p[1] for p in route]
@@ -304,9 +317,9 @@ def run_swell_mode(config, out_dir):
     if command:
         return command
 
-    objects, targets, path = scene_data
+    objects, targets, path, scores = scene_data
     base_output = out_dir / "scene_base.png"
-    draw_scene(objects, targets, path, config, base_output)
+    draw_scene(objects, targets, path, scores, config, base_output)
     print(f"Base image generated: {base_output}")
 
     while True:
@@ -314,7 +327,7 @@ def run_swell_mode(config, out_dir):
         if command:
             return command
         output = out_dir / f"scene_swell_{swell_angle}_dir_{direction}.png"
-        draw_scene(objects, targets, path, config, output, swell_angle=swell_angle, direction=direction)
+        draw_scene(objects, targets, path, scores, config, output, swell_angle=swell_angle, direction=direction)
         print(f"Swell image generated: {output}")
 
 
@@ -324,9 +337,9 @@ def run_continuous_base_mode(config, out_dir):
         command, scene_data = read_scene_data()
         if command:
             return command
-        objects, targets, path = scene_data
+        objects, targets, path, scores = scene_data
         base_output = out_dir / "scene_base.png"
-        draw_scene(objects, targets, path, config, base_output)
+        draw_scene(objects, targets, path, scores, config, base_output)
         print(f"Base image generated: {base_output}")
 
 

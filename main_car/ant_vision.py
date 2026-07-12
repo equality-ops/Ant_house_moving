@@ -158,7 +158,7 @@ class VisionManager:
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str, object_kind = None):
+    def pixel_to_real_world(self, u, v, sign: str, object_kind = None,mode = 'M'):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -170,12 +170,14 @@ class VisionManager:
         object_H = 0.0
         if not object_kind:
             object_kind = self.current_servo_object
-        if object_kind in ['T']:
-            object_H = 3.5
-        elif object_kind in ['S', 'E']:
-            object_H = 4.0
-        elif object_kind in ['W', 'B']:
-            object_H = 3
+        if mode == 'M':
+            if object_kind in ['T']:object_H = 3.5
+            elif object_kind in ['S', 'E']:object_H = 4.0
+            elif object_kind in ['W', 'B']:object_H = 3
+        else:
+            if object_kind in ['T']:object_H = 3.5
+            elif object_kind in ['S', 'E']:object_H = 4.0
+            elif object_kind in ['W', 'B']:object_H = 3
         # 根据物体远近选择单应性矩阵H
         H_matrix = self.far_H_matrix
         if sign == 'close':
@@ -222,7 +224,9 @@ class VisionManager:
             if object_kind not in self.analysed_objects:
                 continue
             self.current_servo_object = object_kind
-            new_p = self.calc_object_global_pos(i[1], i[2],i[0])
+            if i[1]<5 or i[2]<5 or i[1]>155 or i[2] >115:
+                continue
+            new_p = self.calc_object_global_pos(i[1],i[2],object_kind=i[0])
             new_x = new_p[0]
             new_y = new_p[1]
             if not self.if_in_rect(new_x,new_y):continue
@@ -235,11 +239,72 @@ class VisionManager:
                         self.analysed_objects[object_kind].pop(j)
                         break
             self.analysed_objects[object_kind].append((new_x, new_y))
+        # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
+    def pixel_to_real_world_scan(self, u, v):
+        """
+        将像素坐标转换为实际物理坐标
+        :param u: 像素点的 x 坐标 (列)
+        :param v: 像素点的 y 坐标 (行)
+        :param sign: 远近标志
+        :return: 真实的物理坐标 (X_w, Y_w)
+        """
+        # 根据物体远近选择单应性矩阵H
+        H_matrix = self.far_H_matrix
+        w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
+        # 计算原始坐标（未缩放）
+        X_raw = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime
+        Y_raw = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime
+        MIN_Y = 30.0
+        MAX_Y = 120.0
+        # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
+        object_H_min = 0.0
+        object_H_max = 0.0
+        if self.current_servo_object in ['T']:
+            object_H_min = 4.0
+            object_H_max = 5.0
+        elif self.current_servo_object in ['S', 'E']:
+            object_H_min = 5.5
+            object_H_max = 7.0
+        elif self.current_servo_object in ['W', 'B']:
+            object_H_min = 5.0
+            object_H_max = 6.0
 
+        # 根据物体的远近选择缩放因子K
+        if Y_raw < MIN_Y:
+            object_H = object_H_max
+        elif Y_raw > MAX_Y:
+            object_H = object_H_min
+        else:
+            # 线性插值计算物体的高度
+            object_H = object_H_max - (object_H_max - object_H_min) * (Y_raw - MIN_Y) / (MAX_Y - MIN_Y)
+
+        # 测试
+        # print(f"Y_raw: {Y_raw}, object_H: {object_H}")
+
+        # 计算缩放因子
+        K = (19.0 - object_H) / 19.0
+ 
+        # 返回真实的物理坐标
+        return X_raw * K, Y_raw * K
+        # 推测目标点位并进行视觉伺服控制
+    def predict_point(self, x, y):
+        car_radius = 10.0
+        raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
+        raw_y += car_radius
+        relative_angle = -math.atan2(-raw_x, raw_y)
+        actual_angle = self.my_car.now_yaw + relative_angle
+        if actual_angle > PI:
+            actual_angle -= 2 * PI
+        elif actual_angle < -PI:
+            actual_angle += 2 * PI
+        actual_dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
+        absolute_x = actual_dist * math.sin(actual_angle) + self.my_car.x_current
+        absolute_y = actual_dist * math.cos(actual_angle) + self.my_car.y_current
+        return [absolute_x, absolute_y]
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
-        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
+        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world_scan(x, y)
         self.relative_raw_y -=self.final_dist_y+self.adjust_length
         self.relative_raw_x -=self.final_dist_x
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
@@ -268,22 +333,20 @@ class VisionManager:
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
-    def calc_object_global_pos(self, pixel_x, pixel_y, sign='far',object_kind=None):
+    def calc_object_global_pos(self, pixel_x, pixel_y, sign='far',object_kind=None,mode = 'C'):
         # 像素点 -> 车体坐标系下真实坐标
-        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y,sign,object_kind)
+        if object_kind:
+            self.current_servo_object = object_kind
+        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y,sign,object_kind,mode)
         rel_y += self.car_radius
         # 车体坐标系下，x 为车右侧，y 为车前方
         dist = math.sqrt(rel_x ** 2 + rel_y ** 2)
-
         now_yaw = self.my_car.now_yaw * 180.0 / PI
         rel_yaw = math.atan2(rel_x, rel_y) * 180.0 / PI
-
         actual_yaw = now_yaw + rel_yaw
         actual_yaw = (actual_yaw + 180.0) % 360.0 - 180.0
-
         abs_x = dist * math.sin(actual_yaw * PI / 180.0)
         abs_y = dist * math.cos(actual_yaw * PI / 180.0)
-
         return [
             self.my_car.x_current + abs_x,
             self.my_car.y_current + abs_y

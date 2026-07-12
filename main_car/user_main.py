@@ -17,6 +17,7 @@ my_uart3.init(115200)
 gc.collect()
 my_uart_debug = UART(7)
 my_uart_debug.init(115200)
+my_uart_debug.write('1')
 gc.collect()
 import ant_plan
 gc.collect()
@@ -270,7 +271,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            #if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -371,8 +372,11 @@ def master_control():
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
         elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state in [NAVIGATE,MOVE]:
+        elif my_moving.current_state == NAVIGATE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+        elif my_moving.current_state == MOVE:
+            if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
+            else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:

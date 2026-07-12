@@ -14,7 +14,6 @@ gc.collect()
 from smartcar import ticker, encoder
 my_uart3 = UART(2)
 my_uart3.init(115200)
-os.dupterm(my_uart3)
 import ant_plan
 gc.collect()
 import ant_else
@@ -301,8 +300,11 @@ def master_control():
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
         elif my_moving.current_state in [SERVO, ADJUST]:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-        elif my_moving.current_state in [NAVIGATE,MOVE]:
+        elif my_moving.current_state == NAVIGATE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+        elif my_moving.current_state == MOVE:
+            if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
+            else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state in [SERVO, ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:

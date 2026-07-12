@@ -1,6 +1,5 @@
 from micropython import const
-import time
-import gc
+import gc,math
 
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状�?
@@ -73,7 +72,7 @@ class TaskController:
         self.if_end_first_scan = False
         self.if_first_round = True
         self.skip_objects_list = []
-        self.fixed_scan_point = [[110,self.data.fixed_point[1][1]-5],[130,self.data.fixed_point[1][1]-5],[130,self.data.fixed_point[3][1]+5],[110,self.data.fixed_point[3][1]+5]]
+        self.fixed_scan_point = [[145+5,self.data.fixed_point[1][1]-5],[190+5,self.data.fixed_point[1][1]-5],[130,self.data.fixed_point[3][1]+5],[110,self.data.fixed_point[3][1]+5]]
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -229,7 +228,7 @@ class TaskController:
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
             # 此时从车丢失物体
-            if self.my_moving.current_state == ADJUST:
+            if self.my_moving.current_state != NAVIGATE:
                 self.my_plan.reset_navigate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
@@ -333,7 +332,6 @@ class TaskController:
             target_angle = 0.0
             self.slave_navigate_message = [[target_x-scan_threshold, self.data.fixed_point[1][1] - slave_stop_threshold], target_angle]
             main_final_pt = [target_x-scan_threshold, self.data.fixed_point[1][1]-5]
-            #main_final_pt = [target_x, self.data.fixed_point[1][1]-5]
             if self.if_rogue_plan:
                 self.scan_message = [[target_x, target_y - stop_threshold]]
             else:
@@ -357,6 +355,76 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状�?
+    # 处理物体信息（将像素坐标转换为世界坐标）
+    def handle_object_info(self, ob_info):
+        """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
+        real_ob_info = []
+        for ob in ob_info:
+            sp , x, y  = ob
+            if x<5 or y<5 or x>155 or y >115:
+                continue
+            kind = chr(sp)
+            # 更新当前物体种类，便于选择物体高度
+            self.my_vision.current_servo_object = kind  
+            real_point = self.my_vision.predict_point(x, y)
+            if not self.my_vision.if_in_rect(real_point[0],real_point[1]):continue
+            real_ob_info.append((real_point[0], real_point[1], kind))
+        self.my_vision.current_servo_object = ''  # 重置当前物体种类
+        return real_ob_info
+    # 合并物体信息（双目视觉融合）
+    def integrate_object_info(self,world_1,world_2):
+        # 同一物体在两个扫描中的最大世界坐标偏差（cm）
+        # 包含：测量噪声 ~5cm + 60cm 基线的视差效应 ~30cm + 安全裕量
+        MATCH_DIST_THRESHOLD = 10.0
+        # ── 2. 边界情况：任一侧为空则直接返回另一侧 ──
+        if not world_1 and not world_2:
+            self.ob_info = []
+            return
+        if not world_1:
+            self.ob_info = world_2
+            return
+        if not world_2:
+            self.ob_info = world_1
+            return
+        groups_1 = {}
+        groups_2 = {}
+        for i, (x, y, kind) in enumerate(world_1):
+            groups_1.setdefault(kind, []).append((i, x, y))
+        for i, (x, y, kind) in enumerate(world_2):
+            groups_2.setdefault(kind, []).append((i, x, y))
+        matched_pairs = []
+        used_1 = set()
+        used_2 = set()
+        all_kinds = set(groups_1.keys()) | set(groups_2.keys())
+        for kind in all_kinds:
+            objs_1 = groups_1.get(kind, [])
+            objs_2 = groups_2.get(kind, [])
+            if not objs_1 or not objs_2:
+                continue
+            candidates = []
+            for i1, x1, y1 in objs_1:
+                for i2, x2, y2 in objs_2:
+                    d = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+                    if d <= MATCH_DIST_THRESHOLD:
+                        candidates.append((d, i1, i2))
+            candidates.sort(key=lambda t: t[0])
+            for d, i1, i2 in candidates:
+                if i1 not in used_1 and i2 not in used_2:
+                    matched_pairs.append((i1, i2))
+                    used_1.add(i1)
+                    used_2.add(i2)
+        ob_info = []
+        for i1, i2 in matched_pairs:
+            x1, y1, kind = world_1[i1]
+            x2, y2, _ = world_2[i2]
+            ob_info.append(((x1 + x2) / 2.0, (y1 + y2) / 2.0, kind))
+        for i in range(len(world_1)):
+            if i not in used_1:
+                ob_info.append(world_1[i])
+        for i in range(len(world_2)):
+            if i not in used_2:
+                ob_info.append(world_2[i])  
+        return ob_info
     def first_scan(self):
         def analyse_package(num):
             if not self.if_send_detect_message:
@@ -365,9 +433,12 @@ class TaskController:
                 self.my_art_protocol.clear_uart_buffer()
                 self.my_order_manager.clear_knock()
                 self.my_order_manager.mode_detect()
-            object_package=self.my_art_protocol.detect_objects_on_the_court()
+            object_package=self.my_art_protocol.detect_objects_on_the_court()#[物体种类(ord),x,y]
             if object_package:
-                self.my_vision.analyse_object_coordinate(object_package,if_cover = True)
+                new_world = self.handle_object_info(object_package)
+                if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
+                else: self.now_objects = new_world
+                self.my_vision.analysed_objects = self.now_objects
                 self.detected_num+=1
                 if self.detected_num==num:
                     self.scan_waiting_count = 0
@@ -375,7 +446,7 @@ class TaskController:
                     self.if_plan_scan = False
                     self.my_order_manager.finish()
                     self.if_send_detect_message = False
-                    self.my_uart.write(f"1{self.my_vision.analysed_objects}\n")
+                    self.my_uart.write(f"{num}{self.my_vision.analysed_objects}\n")
                     self.my_art_protocol.clear_uart_buffer()
             else:
                 self.scan_empty_counter+=1
@@ -399,11 +470,10 @@ class TaskController:
                 else:analyse_package(num)
         if self.detected_num < 2:scan_point(2,0)
         elif self.detected_num < 4:scan_point(4,0)
-        elif self.detected_num < 6:scan_point(6,180)
-        elif self.detected_num < 8:scan_point(8,180)
-        elif self.detected_num == 8:
+        #elif self.detected_num < 6:scan_point(6,180)
+        #elif self.detected_num < 8:scan_point(8,180)
+        elif self.detected_num == 4:
             self.if_end_first_scan = True
-            self.object_plan.set_objects(self.my_vision.analysed_objects,self.now_objects)#将物体转化为[物体类型，x，y]的形式,存在self.now_objects中
             if len(self.now_objects) != self.data.total_objects_num:self.exit()
     def handle_scan(self):
         if not self.if_end_first_scan:self.first_scan()

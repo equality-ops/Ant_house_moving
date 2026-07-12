@@ -381,13 +381,6 @@ class objects_planner:
                 return False
         gc.collect()
         return True
-        
-    def set_objects(self,objects,out):
-        count = 0
-        for keyi in objects:
-            for i in objects[keyi]:
-                    out.append([keyi,i[0],i[1]])
-        gc.collect()
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
             self.now_objects = objects[:]

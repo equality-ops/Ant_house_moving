@@ -400,6 +400,7 @@ class NavigationPlan:
         self.target_v = 0.0           # type: float  # 目标速度
         self.v_peak = 0.0           # type: float  # 当前路径段的理论最高速度
         self.target_yaw = 0.0            # type: float
+        self.fit_target_yaw = 0.0
         self.turn_angle_target = 0.0     # type: float
         # 判断小车是否到达目标点的阈值
         self.final_threshold = self.flash_sys.find_value("final_threshold")  # type: float
@@ -420,6 +421,9 @@ class NavigationPlan:
         self.aimed_point_index = 0    # type: int
         # 目标路径
         self.path = []      # type: list
+        self.keep_x_or_y_v = True #True表示keepx速度，False表示keepx速度
+        self.fitting_path_ = []#如果需要内收，存放内收后的路径
+        self.fit_rest_dist = 0.0
         # 标志位
         self.arrive_flag = False            # type: bool  # 判断是否到达目标点标志位
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
@@ -513,7 +517,6 @@ class NavigationPlan:
             self.d_acc = 0.0
             self.d_dec = 0.0
             return
-
         if self.move_state == MOVE:
             v_cruise = self.move_v_max
         elif self.my_state.state == SCAN:
@@ -579,7 +582,16 @@ class NavigationPlan:
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
             # 在搬运模式下为保证加速阶段一致设置恒定速度
-            return v_target
+            if self.keep_x_or_y_v == True:
+                sin_fit = math.sin(self.fit_target_yaw*PI / 180.0)
+                sin_yaw = math.sin(self.target_yaw*PI / 180.0)
+                if abs(sin_fit) > 1e-3:return v_target*sin_yaw/sin_fit
+                else: return v_target
+            else:
+                cos_fit = math.cos(self.fit_target_yaw*PI / 180.0)
+                cos_yaw = math.cos(self.target_yaw*PI / 180.0)
+                if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
+                else: return v_target
         elif self.my_state.state == SCAN:
             # 在经过第二次视觉验证后减速预测目标点位
             if self.if_second_verify:
@@ -616,7 +628,6 @@ class NavigationPlan:
                 v_out = self.v_peak + (v_end - self.v_peak) * smoothstep(s_dec / self.d_dec)
         else:
             v_out = self.v_peak
-            
         # 这里改为输出 float，有助于你的底层PID或者跟随器能取得更平滑的参考速度
         return max(float(self.min_start_v), min(float(v_cruise), float(v_out)))
         
@@ -636,33 +647,34 @@ class NavigationPlan:
             self.target_v = 0
             return self.target_v, self.target_yaw
 
+        if self.move_state == MOVE and self.fitting_path_: 
+            target_pt = self.fitting_path_[self.aimed_point_index + 1]
+            self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
+            self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         target_pt = self.path[self.aimed_point_index + 1]
         self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-        
-        # =======================================================
-        # 1. 速度控制模块
-        # =======================================================
-        self.target_v = self._calculate_position_s_curve()
-
         # =======================================================
         # 2. 闭环航向角解算模块
         # =======================================================
         self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-
+        # 1. 速度控制模块
+        # =======================================================
+        self.target_v = self._calculate_position_s_curve()
         # 输出限幅在 [-180, 180] 内
         if self.target_yaw > 180: self.target_yaw -= 360
         elif self.target_yaw < -180: self.target_yaw += 360
-        
         # =======================================================
         # 4. 到达判断
         # =======================================================
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
-
-        if not is_last_segment and self.rest_dist <= self.branch_threshold:
+        rest_dist=self.rest_dist
+        if self.move_state == MOVE and self.fitting_path_: 
+            rest_dist=self.fit_rest_dist
+        if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
-        elif is_last_segment and self.rest_dist <= self.final_threshold:
+        elif is_last_segment and rest_dist <= self.final_threshold:
             self.aimed_point_index += 1
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()

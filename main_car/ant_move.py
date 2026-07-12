@@ -282,7 +282,7 @@ class MoveControl:
         self.adjust_point.clear()
         self.surrounding_points.clear()
         self.navigate_buffer.clear()
-        self.current_state = ORBIT
+        self.current_state = NAVIGATE
         self.reset_orbit()
         self.if_send_navigate_command = False 
         self.if_finish_move = False
@@ -320,16 +320,21 @@ class MoveControl:
             else:swell_dir=0
         else: return False
         plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects)
+        if self.push_postion[0] == 0:self.my_plan.keep_x_or_y_v = True
+        elif self.push_postion[1] == 0:self.my_plan.keep_x_or_y_v = False
+        else: return False
         if len(plan_path) == 2:
             self.send_point=[0,0]
-            self.plan_path = [[plan_path[1][0]+self.push_postion[0]*self.clamp_distance,plan_path[1][1]+self.push_postion[1]*self.clamp_distance]]
+            self.my_plan.fitting_path_ = [plan_path[0],[plan_path[1][0]+self.push_postion[0]*self.clamp_distance,plan_path[1][1]+self.push_postion[1]*self.clamp_distance]]
+            self.plan_path = plan_path[1:]
         elif len(plan_path) == 3:
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
             dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
             dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
             p1=[plan_path[1][0]+dy1/(dy1+dy2)*self.push_postion[0]*self.clamp_distance,plan_path[1][1]+dx1/(dx1+dx2)*self.push_postion[1]*self.clamp_distance]
             p2=[plan_path[2][0]+self.push_postion[0]*self.clamp_distance,plan_path[2][1]+self.push_postion[1]*self.clamp_distance]
-            self.plan_path = [p1,p2]
+            self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
+            self.plan_path = plan_path[1:]
             gc.collect
         else: return False
         return True 
@@ -356,6 +361,9 @@ class MoveControl:
             self.vision_manager.if_send_order = False
             if counter >= 5:
                 order = self.my_main_protocol.get_slave_state()
+                if not self.calculate_move_path():
+                    self.if_finish_move = True
+                    return #直接退出return
                 if order == "finish":
                     self.reset_orbit()  # 重置环绕相关变量
                     self.my_beep.test()
@@ -363,50 +371,24 @@ class MoveControl:
                     self.vision_manager.if_finish_servo = False
                     #self.handle_next_point()
                     self.my_plan.move_state = MOVE
+                    self.my_plan.fitting_path_ = []
                     self.current_state = MOVE
-                    if self.calculate_move_path():
-                        self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
-                        self.my_plan.reset_navigate_angle()
-                        self.my_plan.reset_navigate()
-                    else:
-                        self.if_finish_move = True#直接退出return
+                    self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
+                    self.my_plan.reset_navigate_angle()
+                    self.my_plan.reset_navigate()
                 elif order == "lost":
                     counter = 0
                     self.if_finish_move = True
+                    return #直接退出return
             else:
                 counter += 1
         elif self.current_state == ADJUST:
-            # 延时50ms再进行状态过渡，确保小车已经稳定在视觉伺服的起始位置，避免过早进入搬运状态导致丢失目标
-            if counter >= 5:
-                order = self.my_main_protocol.get_slave_state()
-                counter = 0
-                if order == "finish":
-                    self.my_beep.test()
-                    self.vision_manager.if_finish_servo = False
-                    #self.handle_next_point()
-                    if self.calculate_move_path():
-                        self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
-                        # 在最后一个搬运点前给辅助车发送具体坐标
-                        self.my_plan.reset_navigate_angle()
-                        self.my_plan.reset_navigate()
-                        self.current_state = MOVE
-                    else:
-                        self.my_beep.test()
-                        time.sleep(0.1)
-                        self.my_beep.test()
-                        return
-                        self.if_finish_move = True#直接退出return
-                elif order == "lost":
-                    self.my_beep.test()
-                    time.sleep(0.1)
-                    self.my_beep.test()
-                    return
-                    self.if_finish_move = True
-            else:
-                counter += 1
+            pass
         elif self.current_state == MOVE:
             self.if_finish_move = True
             self.my_plan.move_state = NAVIGATE
+            self.current_state = NAVIGATE
+            self.my_plan.fitting_path_ = []
             return
         elif self.current_state == SERVO:
             self.my_order_manager.clear_knock()
