@@ -298,7 +298,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 1500
+        sample_count = 250
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -306,7 +306,7 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(2)  # 延时2ms，确保采样间隔均匀
+            time.sleep_ms(4)
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
@@ -429,9 +429,11 @@ class CarPose:
         # 计算小车当前位置，根据运动方向选择补偿系数
         self.x_current += real_speed_x * self.alpha_x
         self.y_current += real_speed_y * self.alpha_y
+
     def clear_last_car_speed(self):
         self.last_car_speed_x = 0.0
         self.last_car_speed_y = 0.0
+
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
     def move_ctrl(self, move_speed_target: float, move_angle_target: float, turn_angle_target: float):

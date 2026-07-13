@@ -189,10 +189,7 @@ class ServoPID(ControlPID):
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float
         self.actual_y = 0.0     # type: float
-        
-        self.target_x_T = self.flash_sys.find_value("servo_target_x_T")     # type: float
-        self.target_x_S = self.flash_sys.find_value("servo_target_x_S")     # type: float
-        self.target_x_B = self.flash_sys.find_value("servo_target_x_B")     # type: float
+
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
