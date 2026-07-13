@@ -122,15 +122,21 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.correct_dist = 5.85    # 经验修正
-        # apriltag码矫正相关变量
-        # 延时计数器
-        self.counter = 0       # type: int     # 延时计数器
-        # 目标横或纵坐标缓冲区
-        self.point_buffer = []     # type: list    # 目标横或纵坐标缓冲区
-        # 目标角度缓冲区
-        self.angle_buffer = []     # type: list    # 目标角度缓冲区      
+        
+        # apriltag码矫正相关变量--------------------------------------------------------
+        self.apriltage_postion = {'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
+        self.apriltag_threshold_x = 2.0
+        self.apriltag_threshold_y = 2.0
+        self.calibrate_times = 0
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
+        # 延时计数器
+        self.if_waiting = True
+        self.counter = 0       # type: int     # 延时计数器
+        # 目标横或纵坐标缓冲区
+        self.calibrate_buffer = []     # type: list    # 目标横或纵坐标缓冲区
+        # 目标角度缓冲区
+        self.angle_buffer = []     # type: list    # 目标角度缓冲区      
         # 临时用于测试的角度变量
         self.angle_temp = 0.0
         # 停在物体的左侧或者右侧
@@ -142,6 +148,7 @@ class VisionManager:
         self.if_finish_servo = False      # 是否完成视觉伺服控制标志位
         self.if_orbit_ready = False       # type: bool   # 是否获取目标距离标志位
         self.if_finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
+
         self.car_radius = 4.5   # 小车推杆到中心的距离
         self.adjust_length = 3.0   # 用于补偿0到摄像头的距离
         # ================= 视觉伺服矫正相关变量 =================
@@ -574,5 +581,120 @@ class VisionManager:
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1], 'far')
         self.last_real_servo_point = None
-
-# 搬运控制类
+    
+    # apriltag辅助校准校准控制函数
+    def apriltag_calibrate_control(self):
+        """0代表下边线左侧,1代表下边线右侧, 2代表上边线左侧, 3代表上边线右侧"""
+        if self.if_ready_calibrate == False:
+            if self.if_waiting:
+                if self.counter >=40:
+                    self.counter = 0
+                    self.if_waiting = False
+                else:self.counter+=1
+            else:
+                self.my_plan.navigate(self.calibrate_buffer[0],self.calibrate_buffer[1])
+                if self.my_plan.finish_navigate == True:
+                    self.adjust_stage = 2
+                    self.my_plan.finish_navigate = False
+                    # 选择合适的里程计系数
+                    self.my_car.alpha_x = 1.0
+                    self.my_car.alpha_y = 1.0
+                    # 选择矫正状态下的pid参数
+                    self.servo_pid.servo_kp_x = self.servo_pid.servo_calibrate_kp_x
+                    self.servo_pid.servo_kd_x = self.servo_pid.servo_calibrate_kd_x
+                    self.servo_pid.servo_kp_y = self.servo_pid.servo_calibrate_kp_y
+                    self.servo_pid.servo_kd_y = self.servo_pid.servo_calibrate_kd_y
+                    # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
+                    self.servo_pid.target_y = self.servo_pid.target_y_A
+                    self.counter = 0
+                    self.calibrate_times = 0
+                    # 清空目标角度缓冲区
+                    self.angle_buffer.clear()
+                    # 重置阶段标志
+                    self.adjust_stage = 1
+                    self.if_ready_calibrate = True
+                    self.my_plan.finish_navigate = False
+                    self.target_rel_turn_angle = self.my_plan.turn_angle_target
+                    self.my_order_manager.mode_apriltag()
+        else:
+            target_point = self.my_art_protocol.apriltag_receive()
+            if target_point:
+                self.servo_lost_count = 0
+                self.angle_temp = target_point[2]
+                if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
+                    if self.calibrate_times == 1:
+                        # 计算目标转角(多次测量取平均值)
+                        if self.car_position == 0 or self.car_position == 2:
+                            self.angle_buffer.append(90.0 + target_point[2])
+                        elif self.car_position == 1 or self.car_position == 3:
+                            self.angle_buffer.append(-90.0 - target_point[2])
+                    else:
+                        now_yaw = self.my_car.now_yaw * 180.0 / PI
+                        # 计算目标转角
+                        if self.car_position == 0 or self.car_position == 2:
+                            self.target_rel_turn_angle = now_yaw - target_point[2]
+                        elif self.car_position == 1 or self.car_position == 3:
+                            self.target_rel_turn_angle = now_yaw + target_point[2]
+                        self.if_gain_calibrate_angle = True
+                self.servo_pid.color_compute_pid(target_point[0], target_point[1])
+                self.target_rel_speed_x = self.servo_pid.pwm_output_x
+                self.target_rel_speed_y = self.servo_pid.pwm_output_y
+                if self.if_finish_calibrate == False:
+                    # 判断是否完成视觉伺服控制
+                    diff = abs(self.target_rel_turn_angle - self.my_car.now_yaw * 180.0 / PI)
+                    if diff > 180.0:
+                        diff = 360.0 - diff
+                    if ((abs(self.servo_pid.nowError_x) <= self.apriltag_threshold_x and abs(self.servo_pid.nowError_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10:
+                        self.target_rel_speed = 0
+                        self.target_rel_yaw = 0.0
+                        self.calibrate_times += 1
+                        # 完成两次矫正才算结束
+                        if self.calibrate_times >= 2:
+                            self.calibrate_times = 0
+                            self.counter = 0
+                            # 里程计和姿态角硬复位
+                            self.pose_data.reset_yaw(sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]))
+                            self.angle_buffer.clear()
+                            if self.car_position == 0:
+                                self.my_car.x_current = 137.0
+                                self.my_car.y_current = 0.0
+                            elif self.car_position == 1:
+                                self.my_car.x_current = 183.0
+                                self.my_car.y_current = 0.0
+                            elif self.car_position == 2:
+                                self.my_car.x_current = 137.0
+                                self.my_car.y_current = 240.0
+                            elif self.car_position == 3:
+                                self.my_car.x_current = 183.0
+                                self.my_car.y_current = 240.0
+                            # 在切换模式前保持当前转角
+                            self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / PI
+                            self.my_order_manager.finish()
+                            self.if_finish_calibrate = True
+                    else:
+                        # 计算综合目标速度和航向角
+                        # 滤波
+                        self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
+                        self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
+                        # 计算目标角度，单位：度（注意避免除以0）
+                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI + self.target_rel_turn_angle
+                        if self.target_rel_yaw > 180.0:
+                            self.target_rel_yaw -= 360.0
+                        elif self.target_rel_yaw < -180.0:
+                            self.target_rel_yaw += 360.0  
+                        if self.calibrate_times == 1:self.target_rel_speed = 0
+                        else:
+                            # 计算伺服速度
+                            self.target_rel_speed = int(math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2))
+                            # 当横移角度过大时，速度折半
+                            if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
+                                self.target_rel_speed = int(self.target_rel_speed * 0.8)
+                            self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+            else:
+                self.servo_lost_count += 1
+                # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
+                if self.servo_lost_count >= 150:
+                    self.target_rel_speed = 0
+                    self.target_rel_yaw = 0.0
+                    self.servo_lost_count = 0
+                    self.if_lost_object = True

@@ -43,8 +43,8 @@ else:
     gc.collect()
     import ant_task
     gc.collect()
-    import ant_pid
-    gc.collect()
+    #import ant_pid
+    #gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -179,7 +179,7 @@ else:
     my_assist_protocol = ant_else.AssistLinkProtocol(my_uart8)
 
     # 创建pid参数对象
-    pid_data = ant_pid.PID_data(my_flash_sys)
+    pid_data = ant_motor.PID_data(my_flash_sys)
 
     # 创建电机微分项的滑动平均滤波器对象
     diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
@@ -197,11 +197,11 @@ else:
     pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
     # 创建电机pid对象和角度pid对象
-    motor_ul_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
-    motor_ur_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
-    motor_md_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
-    angle_pid = ant_pid.AnglePositionPID(my_flash_sys)
-    servo_pid = ant_pid.ServoPID(my_flash_sys)
+    motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
+    motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
+    motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
+    angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
+    servo_pid = ant_motor.ServoPID(my_flash_sys)
 
     # 创建小车姿态对象
     my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid, motor_ul_pid, motor_ur_pid, motor_md_pid,
