@@ -633,7 +633,7 @@ class TaskController:
                     self.if_second_verify = False
                     self.my_plan.if_second_verify = False
                     
-                    x_threshold = 25.0
+                    x_threshold = 20.0
                     y_threshold = 20.0
                     rich_angle = 8.0  # 角度裕量
                     if self.if_to_top == False:
@@ -698,6 +698,8 @@ class TaskController:
         elif state == PREDICT:
             self.my_plan.reset_navigate()
             self.my_vision.reset_servo_angle()
+            # 更新小车的上一帧位置便于预测
+            self.my_vision.reset_last_car_pos()
             self.my_state.state = SERVO  # 直接切换到伺服状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == ORBIT:
@@ -837,6 +839,8 @@ class TaskController:
                         self.current_object = chr(target_point[2])
                         self.my_art_protocol.send_object_kind(self.current_object)  # 发送目标物体种类openart
                         self.predict_message = self.my_vision.predict_point(target_point[0], target_point[1])
+                        # 清空串口缓冲区
+                        self.my_art_protocol.clear_buffer()
                         self.my_vision.ready_servo_and_orbit(target_point, 'adjust')
                         self.exit()  # 退出当前状态
                 else:

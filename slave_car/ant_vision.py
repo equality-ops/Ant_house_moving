@@ -192,7 +192,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.8, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降80%
+        scale = max(0.7, min(1.0, dist / 10.0)) # 8cm外全速，近处最少降80%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
@@ -239,7 +239,7 @@ class VisionManager:
             self.calculate_dist(self.target_point[0], self.target_point[1])
             
             # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡
-            MAX_POINT_CHANGE = 10.0  # 最大坐标变化阈值（单位：cm）
+            MAX_POINT_CHANGE = 15.0  # 最大坐标变化阈值（单位：cm）
             if self.last_real_servo_point is not None:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
@@ -247,14 +247,15 @@ class VisionManager:
                 self.last_car_x = self.my_car.x_current
                 self.last_car_y = self.my_car.y_current
                 
-                if dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE:
-                    # 变化过大，丢弃本帧，还原为上一帧有效坐标
-                    self.real_servo_point = self.last_real_servo_point.copy()
-                    self.servo_lost_count += 1
-                else:
-                    # 帧有效，更新记录
-                    self.last_real_servo_point = self.real_servo_point.copy()
-                    self.servo_lost_count = 0
+                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE) and (self.real_servo_point[1] - self.last_real_servo_point[1] >= 0):
+                    if self.real_servo_point[1] - self.last_real_servo_point[1] < 0:
+                        # 帧有效，更新记录
+                        self.last_real_servo_point = self.real_servo_point.copy()
+                        self.servo_lost_count = 0
+                    else:
+                        # 变化过大，丢弃本帧，还原为上一帧有效坐标
+                        self.real_servo_point = self.last_real_servo_point.copy()
+                        self.servo_lost_count += 1
             else:
                 # 首帧，直接接受
                 self.last_real_servo_point = self.real_servo_point.copy()

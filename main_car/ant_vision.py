@@ -285,13 +285,17 @@ class VisionManager:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
                 
-                self.last_car_x = self.my_car.x_current
-                self.last_car_y = self.my_car.y_current
+                self.reset_last_car_pos()  # 更新上一帧小车位置，便于下一帧计算
                 
-                if dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE:
-                    # 变化过大，丢弃本帧，还原为上一帧有效坐标
-                    self.real_servo_point = self.last_real_servo_point.copy()
-                    self.servo_lost_count += 1
+                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE) and (self.real_servo_point[1] - self.last_real_servo_point[1] >= 0):
+                    if self.real_servo_point[1] - self.last_real_servo_point[1] < 0:
+                        # 帧有效，更新记录
+                        self.last_real_servo_point = self.real_servo_point.copy()
+                        self.servo_lost_count = 0
+                    else:
+                        # 变化过大，丢弃本帧，还原为上一帧有效坐标
+                        self.real_servo_point = self.last_real_servo_point.copy()
+                        self.servo_lost_count += 1
                 else:
                     # 帧有效，更新记录
                     self.last_real_servo_point = self.real_servo_point.copy()
@@ -299,8 +303,7 @@ class VisionManager:
             else:
                 # 首帧，直接接受
                 self.last_real_servo_point = self.real_servo_point.copy()
-                self.last_car_x = self.my_car.x_current
-                self.last_car_y = self.my_car.y_current
+                self.reset_last_car_pos()  # 更新上一帧小车位置，便于下一帧计算
                 self.servo_lost_count = 0
             
         else:
@@ -467,6 +470,10 @@ class VisionManager:
                 self.angle_pid.kp = self.angle_pid.angle_normal_kp
                 self.if_finish_orbit = True
 
+    def reset_last_car_pos(self):
+        self.last_car_x = self.my_car.x_current
+        self.last_car_y = self.my_car.y_current
+
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point, state = "servo"):
         # 选择正常的视觉伺服pid参数
@@ -504,9 +511,8 @@ class VisionManager:
         # 微调模式下伺服距离减少
         else:
             self.final_dist *= 0.5
-            
+
         # 第一帧图像预测伺服点位
-        self.last_car_x = self.my_car.x_current
-        self.last_car_y = self.my_car.y_current
+        self.reset_last_car_pos()
         self.calculate_dist(target_point[0], target_point[1])
         self.last_real_servo_point = None
