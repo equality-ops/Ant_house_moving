@@ -28,10 +28,9 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为从车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为从车返回点
-        self.fixed_point = [[0.0, -0.0], [95.0, 55.0], [225.0, 185.0], [35.0, -50.0]]  # type: list
+        self.fixed_point = [[15.0, -40.2], [95.0, 55.0], [225.0, 185.0], [35.0, -50.0]]  # type: list
 
         gc.collect()
-    
 
 # 导航规划类
 class NavigationPlan:
@@ -167,9 +166,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 0.934898
-        self.my_car.alpha_y = 0.943381
-
+        self.my_car.alpha_x = 0.922656
+        self.my_car.alpha_y = 0.927964
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):

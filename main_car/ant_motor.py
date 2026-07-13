@@ -222,9 +222,9 @@ class PoseData:
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.1
-        UPPER_THRESHOLD = 0.2
+        # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.15g 完全不信任)
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.15
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -360,7 +360,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 1500
+        sample_count = 500
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -368,7 +368,7 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(2)  # 延时2ms，确保采样间隔均匀
+            time.sleep_ms(4)  # 延时2ms，确保采样间隔均匀
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
@@ -482,7 +482,6 @@ class SpeedPositionPID(ControlPID):
 
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
-        
         
         # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:

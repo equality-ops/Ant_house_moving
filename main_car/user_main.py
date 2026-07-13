@@ -244,9 +244,6 @@ def main_start():
             if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
                 my_state.state = READY_NAVIGATE
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
@@ -256,6 +253,10 @@ def main_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                # 初始化小车坐标及姿态角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -422,7 +423,7 @@ def set_pid_params():
         target_limit = 1.0
         # 初始化pid参数（线性回归）
         if abs(motor_ul_pid.target) <= target_limit and abs(motor_ul_pid.nowError) >= brake_threshold:
-            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
+            motor_ul_pid.set_pid_params(pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd)
         elif abs(motor_ul_pid.target) >= 180:
             motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
         elif abs(motor_ul_pid.target) >= 120:
@@ -519,14 +520,13 @@ def time_pit3_handler(time) -> None:
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 80.0], [60.0, 40.0], [-30.0, 0.0], [0.0, 50.0], [40.0, 20.0], [0.0, 0.0]])
         # my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [160.0, 0.0], [0.0, 0.0]])
-        # my_plan.navigate(path = [[35.0, 10.0], [155.0, 10.0]])
+        # my_plan.navigate(path = [[10.0, 0.0], [100.0, 0.0], [90.0, 0.0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_state.state = STOP
-            my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
     """
@@ -572,7 +572,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.gyro_z_gkd},{pose_data.gyro_z_gkd * my_car.gkd},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_plan.turn_angle_target}\n")
-    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # if pose_data.imu_data:
         # my_uart3.write(f"{pose_data.imu_data[0]},{pose_data.imu_data[1]},{pose_data.imu_data[2]},{pose_data.imu_data[3]},{pose_data.imu_data[4]},{pose_data.imu_data[5]}\n")
     # my_uart3.write(f"{pose_data.q}\r\n")

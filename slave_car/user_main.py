@@ -78,7 +78,7 @@ photo = Pin('B4', Pin.IN, value = False)
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty=0, invert=True)
 
 """传感器初始化"""
@@ -240,9 +240,6 @@ def slave_start():
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
@@ -253,6 +250,10 @@ def slave_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                # 初始化小车坐标及姿态角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -484,19 +485,19 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
-    
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
     elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[0.0, 80.0], [160.0, 120.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 90.0)
+        # my_plan.navigate(path = [[0.0, 80.0], [16.0, -12.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 0.0)
         # my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
-        my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
-        # my_plan.navigate(path = [[0.0, 60.0]])
+        # my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 20.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -505,8 +506,7 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
+    """
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -538,6 +538,8 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
+
+    # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
