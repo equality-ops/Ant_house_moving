@@ -271,7 +271,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始化小车坐标
@@ -279,13 +279,28 @@ def main_start():
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_state.state = READY_NAVIGATE
                 start_flag = True
-                # 延时1.5秒避免零漂校准不准确
-                time.sleep_ms(1500)
+                # 延时2秒避免零漂校准不准确
+                time.sleep_ms(2000)
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180  
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -425,12 +440,15 @@ def time_pit1_handler(time):
         my_fan.test_fan(1200)
         my_fan.if_fan = False
     """
+
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
     angle_pid_compute()
+
     # 任务执行机
-    task_machine()
+    # task_machine()
+
     # 全向定位测试程序
     # 视觉伺服测试程序
     # test_vision_servo()
@@ -445,7 +463,7 @@ def time_pit3_handler(time) -> None:
     # test_orbit()
 
     # 自转测试程序
-    # test_spin()
+    test_spin()
 
     pass
 
@@ -463,6 +481,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")

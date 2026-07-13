@@ -366,6 +366,7 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状�?
+            
     # 处理物体信息（将像素坐标转换为世界坐标）
     def handle_object_info(self, ob_info):
         """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""

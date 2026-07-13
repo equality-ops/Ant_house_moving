@@ -143,7 +143,7 @@ my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
 
 # 创建指令管理对象
-my_order_manager = ant_else.order_manager(my_flash_sys,my_uart6)
+my_order_manager = ant_else.order_manager(my_flash_sys, my_uart6)
 
 # 创建openart串口解析对象
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
@@ -187,8 +187,8 @@ servo_pid = ant_pid.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
-                           motor_ul_pid, motor_ur_pid, motor_md_pid,
-                           motor_ul, motor_ur, motor_md)
+                        motor_ul_pid, motor_ur_pid, motor_md_pid,
+                        motor_ul, motor_ur, motor_md)
 
 # 创建路径规划数据对象
 plan_data = ant_plan.PlanData(my_flash_sys)
@@ -247,7 +247,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -258,8 +258,9 @@ def slave_start():
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
-                # 延时1.5秒避免零漂校准不准确
-                time.sleep_ms(1500)
+                # 延时2秒避免零漂校准不准确
+                time.sleep_ms(2000)
+                my_beep.test()
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
@@ -369,6 +370,21 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180  
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -401,16 +417,16 @@ def time_pit1_handler(time):
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
+
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(time) -> None:
     # 角度环计算（10ms）
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
     # 全向定位测试程序
 
-    '''
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -418,11 +434,12 @@ def time_pit3_handler(time) -> None:
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
-        my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
+        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0]])
+        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        my_plan.navigate(path = [[0.0, 60.0]])
+        # my_plan.navigate(path = [[0.0, 120.0]])
+        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [10.0, 40.0], [50.0, 80.0], [60.0, 30.0], [-40.0, 2.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -430,8 +447,8 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    '''
+        # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+    
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -463,6 +480,9 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
+    # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+    # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
     # my_uart3.write(f"state: {my_state.state}\n")
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
@@ -489,8 +509,6 @@ def pit2_start():
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     pit3 = ticker(3)
-    # pit3.capture_list(tof)
-    # tof_init()
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
@@ -508,12 +526,12 @@ while True:
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0xF800)
     # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x07E0)
+    # ant_menu.lcd.clear(0x07E0)s
     # time.sleep_ms(500)
     # ant_menu.lcd.clear(0x001F)
     
     # 如果拨码开关打开 对应引脚拉低 就退出循环
-    # 这么做是为了防止写错代码导致异常 有一个退出的手段
+    # 这么做是为了防止写错代码导致异常 有一个退出的手段 
     if switch2.value() != state2:
         print("Test program stop.")
         gc.collect()

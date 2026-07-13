@@ -493,9 +493,8 @@ class NavigationPlan:
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 0.949102
-        self.my_car.alpha_y = 0.950803
-        
+        self.my_car.alpha_x = 1.0
+        self.my_car.alpha_y = 1.0
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -592,26 +591,9 @@ class NavigationPlan:
                 if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
                 else: return v_target
         elif self.my_state.state == SCAN:
-            # 在经过第二次视觉验证后减速预测目标点位
-            if self.if_second_verify:
-                step = 10.0  # 每次减速的步长
-                if self.target_v > self.find_line_v_max:
-                    if self.dec_counter == 0:
-                        self.dec_start_v = self.target_v  # 记录减速起始时刻的固定初速度
-                    self.dec_counter += 1
-                    # 高次减速（二次）：v = v0_fixed - k * t²
-                    # 减速度随时间线性增长，初始平缓、后期剧烈，避免急停冲击
-                    v_cruise = max(self.find_line_v_max, self.dec_start_v - step * self.dec_counter * self.dec_counter)
-                else:
-                    self.dec_counter = 0
-                    v_cruise = self.find_line_v_max
-            else:
-                v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
+            v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
         else:
             v_cruise = self.long_v_max
-
-        # 调试输出当前巡航速度
-        # self.my_uart3.write(f"v: {v_cruise}, object: {self.current_object}, type: {type(self.current_object)}\n")  
 
         # s 直接基于我们之前算出的 usable_len 限制
         s = self.segment_start_dist - self.rest_dist
@@ -656,6 +638,7 @@ class NavigationPlan:
         # 2. 闭环航向角解算模块
         # =======================================================
         self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+        
         # 1. 速度控制模块
         # =======================================================
         self.target_v = self._calculate_position_s_curve()
@@ -667,8 +650,10 @@ class NavigationPlan:
         # =======================================================
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         rest_dist=self.rest_dist
+
         if self.move_state == MOVE and self.fitting_path_: 
             rest_dist=self.fit_rest_dist
+
         if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数

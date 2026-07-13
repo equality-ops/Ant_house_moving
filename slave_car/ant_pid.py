@@ -122,7 +122,7 @@ class SpeedPositionPID(ControlPID):
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
         
-        # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
+        # 当目标速度很小且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:
             if self.nowError < 5 and self.nowError > 0:
                 self.pwm_output += self.pwm_output + 500
@@ -189,10 +189,7 @@ class ServoPID(ControlPID):
         self.actual_x = 0.0
         self.target_y = 0.0   # type: float
         self.actual_y = 0.0     # type: float
-        
-        self.target_x_T = self.flash_sys.find_value("servo_target_x_T")     # type: float
-        self.target_x_S = self.flash_sys.find_value("servo_target_x_S")     # type: float
-        self.target_x_B = self.flash_sys.find_value("servo_target_x_B")     # type: float
+
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
