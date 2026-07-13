@@ -438,7 +438,8 @@ def time_pit3_handler(time) -> None:
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        my_plan.navigate(path = [[0.0, 120.0]])
+        # my_plan.navigate(path = [[0.0, 120.0]])
+        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [10.0, 40.0], [50.0, 80.0], [60.0, 30.0], [-40.0, 2.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
