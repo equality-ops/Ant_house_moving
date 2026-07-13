@@ -146,7 +146,7 @@ class TaskController:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
         elif state == RETREAT:
-            self.my_art_protocol.send_path('A',,[0,0])
+            # self.my_art_protocol.send_path('A',,[0,0])
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
             pass
