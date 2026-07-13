@@ -83,7 +83,7 @@ class PathPlan:
         gc.collect()
 
     # 路径规划主函数
-    def plan_path(self, x1, y1, ignore_center_rect=False):
+    def plan_path(self, x1, y1, ignore_center_rect=False,start_point = []):
         # 【关键】：必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
         circles = self.Data.circle[:]
         rects = self.Data.rectangles[:]
@@ -92,10 +92,9 @@ class PathPlan:
         # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
         if ignore_center_rect and len(rects) > 0:
             rects.pop(-1)  
-
-        start = (float(self.my_car.x_current), float(self.my_car.y_current))
+        if not start_point:start = (float(self.my_car.x_current), float(self.my_car.y_current))
+        else:start = (float(start_point[0]), float(start_point[1]))
         end = (float(x1), float(y1))
-        
         # 物理障碍物加安全裕量的总膨胀半径
         block_r = float(self.Data.OBSTACLE_R) + float(self.Data.SAFE_MARGIN)
 

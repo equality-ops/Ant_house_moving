@@ -329,10 +329,14 @@ class MoveControl:
         elif self.current_state == ADJUST:
             pass
         elif self.current_state == SERVO:
+            if self.vision_manager.if_lost_object:
+                self.if_finish_move = True
+                return
             self.vision_manager.if_finish_servo = False
             self.vision_manager.if_finish_orbit = False
             self.vision_manager.if_orbit_ready = False
             self.vision_manager.reset_orbit_angle()
+            
             if self.if_to_the_top:
                 self.vision_manager.if_finish_orbit = True#直接跳过旋转
             self.current_state = ORBIT
@@ -372,5 +376,24 @@ class MoveControl:
                 self.state_transition()
         elif self.current_state == SERVO:
             self.vision_manager.visual_servo_control()
-            if self.vision_manager.if_finish_servo == True:
-                self.state_transition()
+            if self.vision_manager.if_lost_object == False:
+                self.vision_manager.visual_servo_control()
+            else:
+                # 若丢失物体则四处移动寻找物体
+                x = self.my_car.x_current
+                y = self.my_car.y_current
+                now_yaw = self.my_car.now_yaw  # 弧度，0=北(+Y)，90°=东(+X)
+                # 车身右方(+X): (cos(now_yaw), -sin(now_yaw))
+                # 车身左方(-X): (-cos(now_yaw), sin(now_yaw))
+                right_x = x + 15.0 * math.cos(now_yaw)
+                right_y = y - 15.0 * math.sin(now_yaw)
+                left_x = x - 15.0 * math.cos(now_yaw)
+                left_y = y + 15.0 * math.sin(now_yaw)
+                self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
+                target_point = self.my_art_protocol.coordinate_receive()
+                if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+                    self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
+                    self.my_plan.reset_navigate()
+                    self.vision_manager.if_lost_object = False
+                if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
+                    self.state_transition()  # 退出当前状态

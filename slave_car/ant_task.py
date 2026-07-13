@@ -229,7 +229,10 @@ class TaskController:
     def handle_navigate(self):
         # if state == NAVIGATE
         if self.navigate_message:
-            self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
+            if self.navigate_message[0][0] == -1 and self.navigate_message[0][1] == -1:
+                self.my_plan.navigate(target_turn_angle = self.navigate_message[1])
+            else:
+                self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
         else:
             self.my_plan.if_finish_navigate=True#直接退出
         if self.my_plan.if_finish_navigate:

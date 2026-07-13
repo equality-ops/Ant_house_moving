@@ -36,7 +36,11 @@ class MoveControl:
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
         self.flash_sys = flash_sys
-        self.navigate_buffer = []
+        self.navigate_buffer=({
+                        'MAIN_P':[],
+                        'SLA_P':[],
+                        'ANGLE':0,
+                    })
         self.navigate_distance=20
         self.__angle=30
         self.angle_T = self.flash_sys.find_value("angle_T")
@@ -68,6 +72,11 @@ class MoveControl:
         self.push_postion = [0,0] #用于判断推动时所需的xy补偿
         self.plan_path = []
         self.send_point = []
+        self.saved_best_path = []
+        self.slave_massage ={
+            'path':[],
+            'angle':0,
+        }
         gc.collect()
 
     # 更新物体当前坐标，已知物体在小车正前方的距离 dist
@@ -190,57 +199,56 @@ class MoveControl:
         self.get_object_square_points(current_turn_deg,20)
         # 初始参考偏航角就是当前小车所在方向（度数）
         current_ref_yaw_deg = current_turn_deg
-        for i in range(len(self.moving_point) - 1):
-            # 获取基于 current_ref_yaw_deg 作为参照方向时的相对转向角度
-            # turn_angle 可能是返回 0.0 (前方), 90.0 (右), -90.0 (左), 180.0 (后)
-            turn_angle = self.judge_next_turn(self.moving_point[i], self.moving_point[i + 1], ref_yaw=current_ref_yaw_deg)
-            # 世界坐标系下小车在下一步运动期望到达的实际偏航角
-            target_turn = current_ref_yaw_deg + turn_angle
-            # 角度限幅到 [-180, 180)
-            target_turn = (target_turn + 180.0) % 360.0 - 180.0
-            car_postion = target_turn
-            angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
-            angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
-            M_PAth = []
-            NAT = self.surrounding_points
-            forward_point = [(NAT['LD'][0]+NAT['RD'][0])/2, (NAT['LD'][1]+ NAT['RD'][1])/2]#主车目标点设置在物体前方
-            slave_point = [(NAT['LDD'][0]+NAT['RDD'][0])/2, (NAT['LDD'][1]+ NAT['RDD'][1])/2]#从车目标点设置在物体前方
-            if turn_angle == 0.0:
-                self.if_to_the_top =True
-                m_PAth = [self.surrounding_points['RD']]
-                S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
-                ANGle = [angle_r,current_ref_yaw_deg]
-                car_postion -= 90
-            elif turn_angle == 90.0:
-                m_PAth = [forward_point]
-                S_PAth = [self.vision_manager.current_servo_object,slave_point]
-                ANGle = [angle_l,current_ref_yaw_deg]
-                car_postion += 90
-            elif turn_angle == 180.0:
-                m_PAth = [forward_point]
-                S_PAth = [self.vision_manager.current_servo_object,slave_point]
-                ANGle = [angle_l,current_ref_yaw_deg]
-                car_postion += 90
-            elif turn_angle == -90.0:
-                m_PAth = [forward_point]
-                S_PAth = [self.vision_manager.current_servo_object,slave_point]
-                ANGle = [angle_r,current_ref_yaw_deg]
-                car_postion -= 90
-            car_postion = 180 - (180 - car_postion) % 360
-            if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
-            elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
-            elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
-            else :self.push_postion = [0,-1]
-            if now_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
-            elif now_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
-            elif now_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
-            else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
-            M_PAth = self.my_path.ready_path + m_PAth
-            self.navigate_buffer.append({
-                            'MAIN_P':M_PAth,
-                            'SLA_P':S_PAth,
-                            'ANGLE':ANGle,
-                        })
+        # 获取基于 current_ref_yaw_deg 作为参照方向时的相对转向角度
+        # turn_angle 可能是返回 0.0 (前方), 90.0 (右), -90.0 (左), 180.0 (后)
+        turn_angle = self.judge_next_turn(self.moving_point[0], self.moving_point[1], ref_yaw=current_ref_yaw_deg)
+        # 世界坐标系下小车在下一步运动期望到达的实际偏航角
+        target_turn = current_ref_yaw_deg + turn_angle
+        # 角度限幅到 [-180, 180)
+        target_turn = (target_turn + 180.0) % 360.0 - 180.0
+        car_postion = target_turn
+        angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
+        angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
+        M_PAth = []
+        NAT = self.surrounding_points
+        forward_point = [(NAT['LD'][0]+NAT['RD'][0])/2, (NAT['LD'][1]+ NAT['RD'][1])/2]#主车目标点设置在物体前方
+        slave_point = [(NAT['LDD'][0]+NAT['RDD'][0])/2, (NAT['LDD'][1]+ NAT['RDD'][1])/2]#从车目标点设置在物体前方
+        if turn_angle == 0.0:
+            self.if_to_the_top =True
+            m_PAth = [self.surrounding_points['RD']]
+            S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
+            ANGle = [angle_r,current_ref_yaw_deg]
+            car_postion -= 90
+        elif turn_angle == 90.0:
+            m_PAth = [forward_point]
+            S_PAth = [self.vision_manager.current_servo_object,slave_point]
+            ANGle = [angle_l,current_ref_yaw_deg]
+            car_postion += 90
+        elif turn_angle == 180.0:
+            m_PAth = [forward_point]
+            S_PAth = [self.vision_manager.current_servo_object,slave_point]
+            ANGle = [angle_l,current_ref_yaw_deg]
+            car_postion += 90
+        elif turn_angle == -90.0:
+            m_PAth = [forward_point]
+            S_PAth = [self.vision_manager.current_servo_object,slave_point]
+            ANGle = [angle_r,current_ref_yaw_deg]
+            car_postion -= 90
+        car_postion = 180 - (180 - car_postion) % 360
+        if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
+        elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
+        elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
+        else :self.push_postion = [0,-1]
+        if now_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
+        elif now_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
+        elif now_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
+        else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
+        M_PAth = self.my_path.ready_path + m_PAth
+        self.navigate_buffer=({
+                        'MAIN_P':M_PAth,
+                        'SLA_P':S_PAth,
+                        'ANGLE':ANGle,
+                    })
         self.moving_point.pop(0)  # 移除起点
         if not self.navigate_buffer:
             return False
@@ -253,11 +261,15 @@ class MoveControl:
         self.vision_manager.if_finish_orbit = False
         self.num_send_orbit_point=0
         self.my_plan.reset_navigate()
-        
-
+    
     # 重置搬运控制相关变量
     def reset_move(self):
+        self.saved_best_path = []
         self.moving_idx = 0
+        self.slave_massage ={
+            'path':[],
+            'angle':0,
+        }
         self.moving_point.clear()
         self.angle_buffer.clear()
         self.next_point.clear()
@@ -301,7 +313,20 @@ class MoveControl:
             if self.my_car.now_yaw>-PI/2 and self.my_car.now_yaw<PI/2:swell_dir=180
             else:swell_dir=0
         else: return False
-        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects)
+        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 45)
+        if not plan_path or len(plan_path)<=1:
+            try:
+                dx,dy = self.saved_best_path
+                p0 = [self.my_car.x_current,self.my_car.y_current]
+                p1 = [self.my_car.x_current+dx,self.my_car.y_current+dy]
+                if self.move_dir==0:p2 = [self.my_car.x_current+dx,260]
+                elif self.move_dir==180:p2 = [self.my_car.x_current+dx,-20]
+                elif self.move_dir==-90:p2 = [-20,self.my_car.y_current+dy]
+                else :p2 = [340,self.my_car.y_current+dy]
+                if abs(dx)<1e3 or abs(dy)<1e3:
+                    plan_path = [p0,p2]
+                else:plan_path = [p0,p1,p2]
+            except:return False
         if self.push_postion[0] == 0:self.my_plan.keep_x_or_y_v = True
         elif self.push_postion[1] == 0:self.my_plan.keep_x_or_y_v = False
         else: return False
@@ -317,15 +342,13 @@ class MoveControl:
             p2=[plan_path[2][0]+self.push_postion[0]*self.clamp_distance,plan_path[2][1]+self.push_postion[1]*self.clamp_distance]
             self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
             self.plan_path = plan_path[1:]
-            gc.collect
-        else: return False
         return True 
     # 状态过渡函数
     def state_transition(self):
         global counter
         if self.current_state == NAVIGATE:
             self.my_art_protocol.clear_uart_buffer()
-            NAV_T=self.navigate_buffer[self.moving_idx]
+            NAV_T=self.navigate_buffer
             self.vision_manager.reset_servo_angle()
             self.vision_manager.ready_servo_and_orbit([self.now_object_pt[0],self.now_object_pt[1],ord(NAV_T['SLA_P'][0])])
             if self.vision_manager.if_send_order == False:#若还未打开摄像头
@@ -333,6 +356,10 @@ class MoveControl:
                 self.my_order_manager.mode_target()
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.vision_manager.if_send_order = True
+            if self.if_send_navigate_command == False:
+                self.if_send_navigate_command = True
+                if self.if_to_the_top:self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])
+                else:self.my_main_protocol.send_path('P',self.slave_massage['angle'],self.slave_massage['path'])
             if self.if_to_the_top:
                 if self.if_send_orbit_command == False:
                     self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
@@ -375,9 +402,12 @@ class MoveControl:
             return
         elif self.current_state == SERVO:
             self.my_order_manager.clear_knock()
+            if self.vision_manager.if_lost_object:
+                self.if_finish_move = True
+                return
             if not self.if_send_orbit_command:#若还未发消息
                 self.if_send_orbit_command = True
-                NAV_T=self.navigate_buffer[self.moving_idx]
+                NAV_T=self.navigate_buffer
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],[self.my_car.x_current - 18*math.sin(self.my_car.now_yaw), self.my_car.y_current - 18*math.cos(self.my_car.now_yaw)])
             self.vision_manager.if_finish_servo = False
             self.vision_manager.reset_orbit_angle()
@@ -388,13 +418,15 @@ class MoveControl:
         if self.if_finish_move:
             return
         if self.current_state == NAVIGATE:
-            NAV_T=self.navigate_buffer[self.moving_idx]
+            NAV_T=self.navigate_buffer
             if self.if_to_the_top:self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
             else:self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][1])#保持现在角度
-            if self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15 and self.if_to_the_top:
-                NAV_T=self.navigate_buffer[self.moving_idx]
-                self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
-                self.if_send_orbit_command = True
+            if self.if_send_navigate_command == False and self.my_plan.finished_dist >= 15:
+                self.if_send_navigate_command = True
+                if self.if_to_the_top:
+                    self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])
+                else:
+                    self.my_main_protocol.send_path('P',self.slave_massage['angle'],self.slave_massage['path'])
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
                 return
@@ -402,7 +434,7 @@ class MoveControl:
             if self.vision_manager.if_finish_orbit:
                 self.state_transition() # 退出当前状态，进入搬运状态
                 return
-            NAV_T=self.navigate_buffer[self.moving_idx]
+            NAV_T=self.navigate_buffer
             self.vision_manager.orbit_control(NAV_T['ANGLE'][0])
         elif self.current_state == ADJUST:
             self.vision_manager.visual_servo_control()
@@ -421,5 +453,25 @@ class MoveControl:
                 self.state_transition()
         elif self.current_state == SERVO:
             self.vision_manager.visual_servo_control()
-            if self.vision_manager.if_finish_servo == True:
-                self.state_transition()
+            if self.vision_manager.if_lost_object == False:
+                self.vision_manager.visual_servo_control()
+            else:
+                # 若丢失物体则四处移动寻找物体
+                x = self.my_car.x_current
+                y = self.my_car.y_current
+                now_yaw = self.my_car.now_yaw  # 弧度，0=北(+Y)，90°=东(+X)
+                # 车身右方(+X): (cos(now_yaw), -sin(now_yaw))
+                # 车身左方(-X): (-cos(now_yaw), sin(now_yaw))
+                right_x = x + 15.0 * math.cos(now_yaw)
+                right_y = y - 15.0 * math.sin(now_yaw)
+                left_x = x - 15.0 * math.cos(now_yaw)
+                left_y = y + 15.0 * math.sin(now_yaw)
+                self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
+                target_point = self.my_art_protocol.coordinate_receive()
+                if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+                    self.vision_manager.ready_servo_and_orbit(target_point, 'servo')
+                    self.my_plan.reset_navigate()
+                    self.vision_manager.if_lost_object = False
+                if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
+                    self.state_transition()  # 退出当前状态
+                

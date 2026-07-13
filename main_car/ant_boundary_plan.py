@@ -93,16 +93,26 @@ class BoundaryPathPlanner:
         gc.collect()
         return rects
 
-    def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None):
-        self.rects = self.special_swell_barriers(objects, swell_dir, skip_idx, direction)
-        self.ready_path = self.plan_one_turn(direction,x,y)
+    def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
+        self.rects = self.special_swell_barriers(objects, swell_dir,skip_idx, direction)
+        self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
         return self.ready_path
-
-    def plan_one_turn(self, direction,x=None,y=None):
+    def plan_one_turn(self, direction,limit_angle,x=None,y=None):
         if x is None or y is None:x,y=self.my_car.x_current,self.my_car.y_current
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
         gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
+        if limit_angle:
+            def calculate_angle(path,angle):
+                if not path:return []
+                push_yaw = math.atan2(path[1][0] - path[0][0], path[1][1] - path[0][1]) * 180.0 / math.pi
+                push_angle = abs(push_yaw - direction)
+                if push_angle > 180:
+                    push_angle = 360 - push_angle
+                if abs(push_angle)>angle:return []
+                return path
+            path_left = calculate_angle(path_left,limit_angle)
+            path_right = calculate_angle(path_right,limit_angle)
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
@@ -298,6 +308,7 @@ class objects_planner:
         self.target_score = []
         self.plan_target = []
         self.path = []
+        self.best_path = [0,0]
         self.judge_state = 0#0:未开始，1:正在进行，2:已结束
         self.now_idx = 0
         gc.collect()
@@ -314,6 +325,7 @@ class objects_planner:
         self.now_objects = []
         self.judge_state = 0
         self.barrier = []
+        self.best_path = [0,0]
         self.target_score = []
         self.plan_target = []
         self.now_idx = 0
@@ -392,7 +404,7 @@ class objects_planner:
             self.target_objects = []
             for i in self.now_objects:
                 if self.judge_side_in(car_side,i):
-                    self.target_objects.append([idx,i[0],i[1],i[2]])
+                    self.target_objects.append([idx,i[0],i[1],i[2]])#序号，物体种类，x,y
                 idx+=1
             self.judge_state = 2
             return False
@@ -406,7 +418,9 @@ class objects_planner:
                 if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=1000
                 path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
-                if (not path) or len(path) <= 1: score+=10000
+                if (not path) or len(path) <= 1: 
+                    self.path.append([])
+                    score+=10000
                 else:
                     if len(path) == 2:
                         p_,p__=path[0],path[1]
@@ -428,47 +442,19 @@ class objects_planner:
                 self.now_idx+=1
             return False
         elif self.judge_state == 3:#选择评分最低的物体作为目标
+            new_path = []
             for i in range(len(self.target_score)):
                 if self.target_score[i] == min(self.target_score):
                     self.plan_target = self.target_objects[i]
-                    return True
+                    if self.path[i]:
+                        dx = self.path[i][0] - self.plan_target[2]
+                        dy = self.path[i][1] - self.plan_target[3]
+                        self.best_path = [dx,dy]
+                if self.path[i]:
+                    new_path.append(self.path[i])
+            self.path = new_path
             return True
         gc.collect()
-        '''
-        idx=0
-        self.objects_characters = []
-        self.objects_score = []
-        for keyi in self.objects:
-            for i in self.objects[keyi]:
-                needed_area_barrier = self.judge_need_area(keyi)
-                run_area_barriers = {'U':[],'D':[],'R':[],'L':[]}
-                dir,sdir=self.judge_push_direction(i[1])
-                path = self.my_BoundaryPath.plan_move(dir,sdir,self.barrier,i[0],i[1],skip_idx=idx)
-                push_distance,push_angle,has_push_path= 1000,90,True
-                if len(path) <= 1: has_push_path = False
-                else:
-                    p_,p__=path[0],path[1]
-                    push_distance = self.calculate_distance(i,p_)+self.calculate_distance(p_,p__)
-                    push_yaw = math.atan2(p_[0] - i[0], p_[1] - i[1]) * 180.0 / math.pi
-                    push_angle = abs(push_yaw - dir)
-                    if push_angle > 180:
-                        push_angle = 360 - push_angle
-                for keyj in self.objects:
-                    for j in self.objects[keyj]:
-                        if i!=j:
-                            if self.calculate_distance(i,j)<=self.near_therohold:
-                                judge_ = self.judge_UDRL_area(i,j)
-                                if judge_ in needed_area_barrier:
-                                    needed_area_barrier[judge_].append(keyj)
-                            self.judge_running_area(i,j,run_area_barriers,keyj)
-                dx_car = i[0] - self.my_car.x_current
-                dy_car = i[1] - self.my_car.y_current
-                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
-                _danger,_speed,_side=self.calculate_score(needed_area_barrier, run_area_barriers, has_push_path, push_distance, push_angle, distance_from_car, car_side)
-                self.objects_score.append([idx,_danger,_speed,_side,keyi,i])
-                idx+=1
-                gc.collect()
-        '''
     def find_target(self):
         if self.objects_score:
             Target = self.objects_score[0]
