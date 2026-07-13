@@ -118,3 +118,146 @@ center_offset_T = -3.5
 center_offset_S = -2.0
 center_offset_B = -5.0
 # 小车最高速度为180
+
+
+
+# 修改时间 7.2 17:36
+
+###################【PID参数】####################
+# speed大于220时
+ul_high_kp = 45.0
+ul_high_ki = 0.5
+ul_high_kd = 30.0
+ur_high_kp = 45.0
+ur_high_ki = 0.5
+ur_high_kd = 30.0
+md_high_kp = 45.0
+md_high_ki = 0.5
+md_high_kd = 30.0
+# speed大于70，小于170时
+ul_mid_kp = 40.0
+ul_mid_ki = 0.4
+ul_mid_kd = 20.0
+ur_mid_kp = 40.0
+ur_mid_ki = 0.4
+ur_mid_kd = 20.0
+md_mid_kp = 40.0
+md_mid_ki = 0.4
+md_mid_kd = 20.0
+
+# speed小于70时
+ul_low_kp = 30.0
+ul_low_ki = 0.36
+ul_low_kd = 20.0
+ur_low_kp = 30.0
+ur_low_ki = 0.36
+ur_low_kd = 20.0
+md_low_kp = 30.0
+md_low_ki = 0.36
+md_low_kd = 20.0
+# 速度前馈系数
+kv = 20.0
+integral_limitmax = 10000
+pwmout_limitmax = 9000
+
+angle_normal_kp = 30.0
+# 已弃用
+angle_normal_ki = 0.0
+angle_normal_kd = 0.0
+# 角速度负反馈系数（gkd应为负）
+gkd = -0.15
+high_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 360
+# A设置为B的2倍左右
+A = 200
+# B大致为最大静差的1.5倍
+B = 100
+
+###################【系数】####################
+# 速度转换系数(不需要调试)
+speed_conversion_gamma = 3.0
+# 速度互补滤波系数（不滤波）
+speed_fuse_ratio = 0.1
+# 陀螺仪补偿系数(不需要调试)
+gyro_z_supply = 1.147386
+
+###################【时间规划】####################
+motor_control_T = 4
+plan_calculate_T = 10
+uart_and_menu_T = 53
+
+###################【路径规划】####################
+final_threshold = 1.0
+branch_threshold = 4.0
+
+cube_obstacles = "(147, 27, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
+circle = "(262.5, 88.8)"
+
+error_x_T = 2.0
+error_x_S = 2.0
+error_x_B = 2.0
+###################【风扇控制】####################
+if_fan = 1
+fixed_high_level_us = 1350
+
+###################【速度规划】####################
+min_start_v = 30
+long_v_max = 160
+find_line_v_max = 60
+acc_normal_coef = 0.03
+acc_move_coef = 0.06
+dec_coef = 0.09
+
+orbit_v_max = 90
+orbit_v_min = 30
+
+# 不同物体的搬运速度
+move_v_max_T = 130
+move_v_max_S = 130
+move_v_max_B = 130
+
+###################【视觉伺服】####################
+# 普通的视觉伺服pid参数
+servo_normal_kp_x = 7.0
+servo_normal_kd_x = 10.0
+servo_normal_kp_y = 7.0
+servo_normal_kd_y = 10.0
+
+servo_target_y_A = 11.0
+servo_target_y_T = 2.5
+servo_target_y_S = 3.0
+servo_target_y_B = 7.0
+
+# 普通的视觉伺服阈值
+finish_threshold_x = 1.0
+finish_threshold_y = 1.0
+
+min_rel_speed = 40
+max_rel_speed = 130
+pwmout_normal_limit = 130
+###################【环绕控制】####################
+radius_T_U = 13.0
+radius_T_R = 11.0
+radius_T_L = 11.0
+radius_T_D = 12.0
+
+radius_S_U = 11.0
+radius_S_R = 12.0
+radius_S_L = 14.0
+radius_S_D = 12.0
+
+radius_B_U = 15.5
+radius_B_R = 17.5
+radius_B_L = 16.5
+radius_B_D = 15.5
+angle_T = 40
+angle_S = 40
+angle_B = 35
+
+if_model = 1
+# 小车最高速度为290
+
+
+
+
+
