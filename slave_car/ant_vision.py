@@ -49,6 +49,8 @@ class VisionManager:
         # 注入状态机对象
         self.my_state = state
 
+        # 上一帧有效的绝对目标点坐标
+        self.last_real_servo_point = None
         # 当前伺服的物品种类
         self.current_servo_object = ''
         # 当前伺服连续丢失物体的帧数
@@ -235,30 +237,30 @@ class VisionManager:
         if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
             # old_servo_point = list(self.real_servo_point)  # 暂存上一次算出的绝对目标点
             self.calculate_dist(self.target_point[0], self.target_point[1])
-            '''
-            # 判断两帧世界坐标偏差，如果大跳变则认为是另外一个同类干扰物体
-            jump_dist = math.sqrt((self.real_servo_point[0] - old_servo_point[0])**2 + (self.real_servo_point[1] - old_servo_point[1])**2)
             
-            if old_servo_point != [0, 0] and jump_dist > 10.0:  # 10cm以上的跳变认为是其他物体
-                self.real_servo_point = old_servo_point   # 判断为其他物体，还原回被锁定的旧目标坐标
-                self.servo_lost_count += 1                # 视作掉帧或丢失
+            # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡
+            MAX_POINT_CHANGE = 10.0  # 最大坐标变化阈值（单位：cm）
+            if self.last_real_servo_point is not None:
+                dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
+                dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
                 
-                # 彻底丢失保护
-                if self.servo_lost_count >= 150:
-                    self.target_rel_speed = 0.0
-                    self.target_rel_yaw = 0.0
-                    self.if_lost_object = True
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
+                
+                if dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE:
+                    # 变化过大，丢弃本帧，还原为上一帧有效坐标
+                    self.real_servo_point = self.last_real_servo_point.copy()
+                    self.servo_lost_count += 1
+                else:
+                    # 帧有效，更新记录
+                    self.last_real_servo_point = self.real_servo_point.copy()
                     self.servo_lost_count = 0
-                    return
             else:
-            '''
-            # 当前物体验证通过，或是第一帧
-            # 记录下小车当前的坐标点
-            self.last_car_x = self.my_car.x_current
-            self.last_car_y = self.my_car.y_current
-
-            # 重置掉帧计数
-            self.servo_lost_count = 0
+                # 首帧，直接接受
+                self.last_real_servo_point = self.real_servo_point.copy()
+                self.last_car_x = self.my_car.x_current
+                self.last_car_y = self.my_car.y_current
+                self.servo_lost_count = 0
         else:
             self.servo_lost_count += 1
             # 彻底丢失保护
@@ -281,6 +283,7 @@ class VisionManager:
             self.target_rel_speed_x = self.servo_pid.pwm_output_x
             self.target_rel_speed_y = self.servo_pid.pwm_output_y
         else:
+            self.last_real_servo_point = None
             # 连续丢失超过一定帧数后，降低小车速度
             self.target_rel_speed = 50.0
             return 
@@ -289,11 +292,13 @@ class VisionManager:
         if abs(self.absolute_actual_x) <= self.finish_threshold_x and abs(self.absolute_actual_y) <= self.finish_threshold_y:
             self.target_rel_speed = 0.0
             self.target_rel_yaw = 0.0
+            self.last_real_servo_point = None
             # 选择正常伺服状态下的pid参数
             self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
             self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
             self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
             self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
+            self.my_order_manager.finish()
             self.if_finish_servo = True
         else:
             # 原有的滤波和速度限制逻辑保持不变
@@ -583,3 +588,4 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1])
+        self.last_real_servo_point = None 

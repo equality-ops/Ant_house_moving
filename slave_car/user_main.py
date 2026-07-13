@@ -157,6 +157,11 @@ diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
 
+# 加速度计滤波器
+acc_x_filter = ant_motor.SlipAveragingFilter(5)
+acc_y_filter = ant_motor.SlipAveragingFilter(5)
+acc_z_filter = ant_motor.SlipAveragingFilter(5)
+
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -167,7 +172,7 @@ sin_servo_fil = ant_motor.SlipAveragingFilter(4)
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)

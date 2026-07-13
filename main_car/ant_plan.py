@@ -33,8 +33,8 @@ class PlanData:
         self.fixed_point = [[35.0, -40.2], [95.0, 55.0], [225.0, 185.0], [15.0, -50.0], [35.0, -50.0]]  # type: list
         # 扫描路径
         self.scan_point = [[130.0, 55.0], [130.0, 185.0]]
-        self.scan_path_1 = [[210.0, 55.0], [210.0, 100.0], [130.0, 100.0]]
-        self.scan_path_2 = [[210.0, 185.0]]
+        self.scan_path_1 = [[200.0, 55.0], [200.0, 100.0], [130.0, 100.0]]
+        self.scan_path_2 = [[200.0, 185.0]]
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  

@@ -43,8 +43,8 @@ angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.2
-high_angle_pwmout_limitmax = 450
-low_angle_pwmout_limitmax = 400
+high_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
 A = 200
 # B大致为最大静差的1.5倍
@@ -109,9 +109,9 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【环绕控制】##################
-radius_T = 17.0
-radius_S = 17.0
-radius_B = 21.5
+radius_T = 15.5
+radius_S = 16.0
+radius_B = 20.5
 angle_T = 129.0
 angle_S = 137.0
 angle_B = 134.0
@@ -119,4 +119,3 @@ center_offset_T = -3.5
 center_offset_S = -2.0
 center_offset_B = -5.0
 # 小车最高速度为180
-

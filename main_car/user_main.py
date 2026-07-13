@@ -167,6 +167,11 @@ diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
+# 加速度计滤波器
+acc_x_filter = ant_motor.SlipAveragingFilter(5)
+acc_y_filter = ant_motor.SlipAveragingFilter(5)
+acc_z_filter = ant_motor.SlipAveragingFilter(5)
+
 # 创建小车自转角滤波器对象（已弃用）
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
@@ -174,7 +179,7 @@ sin_servo_fil = ant_motor.SlipAveragingFilter(5)
 cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)

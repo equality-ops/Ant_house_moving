@@ -149,7 +149,7 @@ class KalmanFilter:
         return self.Output    
     
 class PoseData:
-    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
+    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入串口对象
@@ -159,6 +159,10 @@ class PoseData:
         self.encoder_ul = encoder_ul
         self.encoder_ur = encoder_ur
         self.encoder_md = encoder_md
+        # 加速度计滤波器
+        self.acc_x_filter = acc_x_filter
+        self.acc_y_filter = acc_y_filter
+        self.acc_z_filter = acc_z_filter
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
         # IMU数据列表
@@ -195,8 +199,8 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 1.0  # 加速度计权重
-        self.ki = 0.00001 # 零偏补偿权重
+        self.kp = 2.0  # 加速度计权重
+        self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -211,6 +215,11 @@ class PoseData:
         核心四元数更新算法
         输入单位：ax-az (g), gx-gz (rad/s)
         """
+        # 进行软件低通滤波，干掉电机震动带来的高频毛刺
+        ax = self.acc_x_filter.filtering(ax)
+        ay = self.acc_y_filter.filtering(ay)
+        az = self.acc_z_filter.filtering(az)
+
         q0, q1, q2, q3 = self.q
         
         # 1. 当前加速度计的原始数据模长
@@ -222,9 +231,11 @@ class PoseData:
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
+        # self.my_uart3.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
+
         # 设定信任阈值 (偏差在 0.05g 以内完全信任，偏差大于 0.15g 完全不信任)
-        LOWER_THRESHOLD = 0.05
-        UPPER_THRESHOLD = 0.15
+        LOWER_THRESHOLD = 0.15
+        UPPER_THRESHOLD = 0.35
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -377,6 +388,7 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
+        """
         # 1. 计算真实的动态 dt
         current_time = time.ticks_us()
         # 计算时间差并转换为秒 (MicroPython 下推荐用 ticks_diff 防溢出)
@@ -387,6 +399,7 @@ class PoseData:
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
             self.dt = 0.004
+        """
             
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()

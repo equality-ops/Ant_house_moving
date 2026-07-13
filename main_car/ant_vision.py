@@ -280,7 +280,7 @@ class VisionManager:
             self.calculate_dist(self.target_point[0], self.target_point[1])
 
             # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡
-            MAX_POINT_CHANGE = 10.0  # 最大坐标变化阈值（单位：cm）
+            MAX_POINT_CHANGE = 15.0  # 最大坐标变化阈值（单位：cm）
             if self.last_real_servo_point is not None:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
@@ -302,6 +302,7 @@ class VisionManager:
                 self.last_car_x = self.my_car.x_current
                 self.last_car_y = self.my_car.y_current
                 self.servo_lost_count = 0
+            
         else:
             self.servo_lost_count += 1
 
