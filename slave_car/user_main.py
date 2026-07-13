@@ -143,7 +143,7 @@ my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
 
 # 创建指令管理对象
-my_order_manager = ant_else.order_manager(my_uart6)
+my_order_manager = ant_else.order_manager(my_flash_sys,my_uart6)
 
 # 创建openart串口解析对象
 my_art_protocol = ant_else.UARTProtocol(my_uart6)

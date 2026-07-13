@@ -161,6 +161,7 @@ class TaskController:
                 self.my_plan.reset_navigate()
                 self.my_state.state = RETURN
                 self.if_transitioning = True  # 退出当前状态，直接回家
+                return
             if not self.my_plan.if_finish_navigate:
                 self.my_plan.reset_navigate()
                 self.my_vision.reset_servo_angle()
@@ -193,33 +194,38 @@ class TaskController:
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == MOVE:
-            # 退出搬运状态，停止搬运动作 
-            if self.current_object == 'T':
-                self.last_side = 'U'
-            elif self.current_object == 'S' or self.current_object == 'E':
-                self.last_side = 'L'
-            elif self.current_object == 'W' or self.current_object == 'B':
-                self.last_side = 'R'
+            global counter
+            if counter >=40:
+                counter=0
+                # 退出搬运状态，停止搬运动作 
+                if self.current_object == 'T':
+                    self.last_side = 'U'
+                elif self.current_object == 'S' or self.current_object == 'E':
+                    self.last_side = 'L'
+                elif self.current_object == 'W' or self.current_object == 'B':
+                    self.last_side = 'R'
+                else:
+                    self.my_plan.reset_navigate_angle()
+                    # 如果从车丢失物体直接返回发车区避免浪费时�?
+                    self.my_state.state = RETURN 
+                # 若从车丢失物体，则跳过当前物�?     
+                self.data.current_index += 1
+                self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = READY_NAVIGATE
+                if self.data.current_index >= self.data.total_objects_num:
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
+                # 此时从车丢失物体
+                if self.my_moving.current_state != NAVIGATE:
+                    self.my_plan.reset_navigate_angle()
+                    # 如果从车丢失物体直接返回发车区避免浪费时�?
+                    self.my_state.state = RETURN 
+                # 跳过当前物体
+                self.my_moving.reset_move()  # 重置搬运标志
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                self.my_plan.reset_navigate_angle()
-                # 如果从车丢失物体直接返回发车区避免浪费时�?
-                self.my_state.state = RETURN 
-            # 若从车丢失物体，则跳过当前物�?     
-            self.data.current_index += 1
-            self.my_plan.reset_navigate()
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE
-            if self.data.current_index >= self.data.total_objects_num:
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-            # 此时从车丢失物体
-            if self.my_moving.current_state != NAVIGATE:
-                self.my_plan.reset_navigate_angle()
-                # 如果从车丢失物体直接返回发车区避免浪费时�?
-                self.my_state.state = RETURN 
-            # 跳过当前物体
-            self.my_moving.reset_move()  # 重置搬运标志
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                counter +=1
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更�?
             self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
@@ -348,7 +354,7 @@ class TaskController:
         real_ob_info = []
         for ob in ob_info[1]:
             sp, x, y  = ob
-            if x<5 or y<5 or x>155 or y >115:
+            if x<10 or y<10 or x>150 or y >110:
                 continue
             kind = chr(sp)
             # 更新当前物体种类，便于选择物体高度
@@ -358,6 +364,28 @@ class TaskController:
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
+    def merge_nearby_same_kind(self,objects, threshold=10.0):
+        merged = []
+        for kind, x, y in objects:
+            match_idx = -1
+            for idx, (old_kind, old_x, old_y) in enumerate(merged):
+                if old_kind != kind:
+                    continue
+                dist2 = (x - old_x) ** 2 + (y - old_y) ** 2
+                if dist2 <= threshold ** 2:
+                    match_idx = idx
+                    break
+
+            if match_idx < 0:
+                merged.append((kind, x, y))
+            else:
+                old_kind, old_x, old_y = merged[match_idx]
+                merged[match_idx] = (
+                    old_kind,
+                    (old_x + x) / 2.0,
+                    (old_y + y) / 2.0,
+                )
+        return merged
     # 合并物体信息（双目视觉融合）
     def integrate_object_info(self,world_1,world_2):
         # 同一物体在两个扫描中的最大世界坐标偏差（cm）
@@ -457,7 +485,14 @@ class TaskController:
         #elif self.detected_num < 6:scan_point(6,180)
         #elif self.detected_num < 8:scan_point(8,180)
         elif self.detected_num == 4:
-            #if len(self.now_objects) != self.data.total_objects_num:self.exit()
+            self.now_objects = self.merge_nearby_same_kind(self.now_objects)
+            if len(self.now_objects) != self.data.total_objects_num:
+                self.my_uart.write(f"{self.now_objects}\n")
+                self.my_uart.write(f"target{self.object_plan.target_objects}\n")
+                self.my_uart.write(f"path{self.object_plan.path}\n")
+                self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                self.exit()
+
             self.if_end_first_scan = True
     def handle_scan(self):
         if not self.if_end_first_scan:self.first_scan()
@@ -467,10 +502,12 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
+                    '''
                     self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")
                     self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                    '''
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -483,7 +520,7 @@ class TaskController:
                         self.my_plan.current_object = self.current_object
                         self.my_vision.current_servo_object = self.current_object
                         rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side)
-                        self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
+                        #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:self.my_plan.if_finish_navigate = False
                         self.exit()
 

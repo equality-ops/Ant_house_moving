@@ -270,7 +270,7 @@ class TaskController:
         self.my_moving.moving()
         if self.my_moving.if_finish_move:
             current_object = self.current_object
-            retreat_threhold = 5
+            retreat_threhold = 10
             self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
             if current_object == 'T':
                 if self.my_car.now_yaw<0:

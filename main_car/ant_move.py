@@ -244,24 +244,6 @@ class MoveControl:
         self.moving_point.pop(0)  # 移除起点
         if not self.navigate_buffer:
             return False
-        if self.vision_manager.current_servo_object == 'T':
-            self.my_plan.error_x = self.my_plan.error_x_T
-            self.final_dist = self.vision_manager.servo_pid.target_y_T
-            self.object_radius = self.vision_manager.radius_T
-            self.orbit_angle = self.vision_manager.angle_T
-            self.my_plan.move_v_max = self.my_plan.move_v_max_T
-        elif self.vision_manager.current_servo_object == 'S' or self.vision_manager.current_servo_object == 'E':
-            self.my_plan.error_x = self.my_plan.error_x_S
-            self.final_dist = self.vision_manager.servo_pid.target_y_S
-            self.object_radius = self.vision_manager.radius_S
-            self.orbit_angle = self.vision_manager.angle_S
-            self.my_plan.move_v_max = self.my_plan.move_v_max_S
-        elif self.vision_manager.current_servo_object == 'B' or self.vision_manager.current_servo_object == 'W':
-            self.my_plan.error_x = self.my_plan.error_x_B
-            self.final_dist = self.vision_manager.servo_pid.target_y_B
-            self.object_radius = self.vision_manager.radius_B
-            self.orbit_angle = self.vision_manager.angle_B
-            self.my_plan.move_v_max = self.my_plan.move_v_max_B
         return True
     # 重置环绕控制标志位
     def reset_orbit(self):
@@ -361,13 +343,14 @@ class MoveControl:
             self.vision_manager.if_send_order = False
             if counter >= 5:
                 order = self.my_main_protocol.get_slave_state()
-                if not self.calculate_move_path():
-                    self.if_finish_move = True
-                    return #直接退出return
+                
                 if order == "finish":
                     self.reset_orbit()  # 重置环绕相关变量
                     self.my_beep.test()
                     counter = 0
+                    if not self.calculate_move_path():
+                        self.if_finish_move = True
+                        return #直接退出return
                     self.vision_manager.if_finish_servo = False
                     #self.handle_next_point()
                     self.my_plan.move_state = MOVE
@@ -427,13 +410,13 @@ class MoveControl:
                 self.state_transition()
         elif self.current_state == MOVE:
             #self.my_plan.navigate(path = [self.next_point])
-            self.my_plan.navigate(path = self.plan_path)
             self.my_photo.update_photo_state()
             if self.my_photo.current_state == OutLine:
                 self.reset_car_pos()
                 self.my_photo.reset_photo()
                 self.my_beep.test()
                 self.my_plan.if_finish_navigate = True
+            self.my_plan.navigate(path = self.plan_path)
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
         elif self.current_state == SERVO:
