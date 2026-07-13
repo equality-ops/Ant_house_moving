@@ -21,7 +21,8 @@ UART_BAUDRATE = 115200
 CAMERA_PIXFORMAT = sensor.RGB565
 CAMERA_FRAMESIZE = sensor.QQVGA  # 160x120
 CAMERA_FRAMERATE = 60
-CAMERA_BRIGHTNESS = 800
+CAMERA_BRIGHTNESS = 600 
+# 白天用800，晚上用600
 
 # 屏幕尺寸
 SCREEN_WIDTH = 160
@@ -88,12 +89,21 @@ DRAW_COLORS = {
 }
 
 # 颜色阈值
+# 白天 亮度800
+# THRESHOLD = {
+#     'brown':[(21, 46, -12, 20, -6, 52), (21, 40, -16, 8, -2, 44)],
+#     'red':[(29, 52, 12, 57, -25, 28), (21, 48, 10, 53, -9, 32)],
+#     'green':[(51, 97, -48, -13, 38, 95), (41, 98, -52, -21, 5, 93)],
+#     'blue':[(38, 77, -24, -5, -55, -27), (29, 40, -21, 2, -41, -24), (27, 39, -15, 1, -34, -18)],
+#     'white':[(55, 100, -29, -5, -1, 37), (45, 100, -16, -1, -10, 20)]
+# }
+# 晚上 亮度600
 THRESHOLD = {
-    'brown':[(21, 46, -12, 20, -6, 52), (21, 40, -16, 8, -2, 44)],
-    'red':[(29, 52, 12, 57, -25, 28), (21, 48, 10, 53, -9, 32)],
-    'green':[(51, 97, -48, -13, 38, 95), (41, 98, -52, -21, 5, 93)],
-    'blue':[(38, 77, -24, -5, -55, -27), (29, 40, -21, 2, -41, -24), (27, 39, -15, 1, -34, -18)],
-    'white':[(55, 100, -29, -5, -1, 37), (45, 100, -16, -1, -10, 20)]
+    'brown':[(11, 60, -9, 14, 6, 69)],
+    'red':[(18, 55, 20, 76, -12, 59)],
+    'green':[(54, 98, -60, -20, 39, 109)],
+    'blue':[(36, 80, -30, -6, -49, -29)],
+    'white':[(59, 100, -32, -10, 5, 43)]
 }
 
 # YOLO模型路径
@@ -783,19 +793,19 @@ def handle_uart_commands(uart):
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_COLOR
-            sensor.set_brightness(800)
+            # sensor.set_brightness(800)
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            sensor.set_brightness(800)
+            # sensor.set_brightness(800)
             reset_all()
         elif cmd == b'A':
             current_mode = MODE_PREVIEW
-            sensor.set_brightness(800)
+            # sensor.set_brightness(800)
             reset_all()
         elif cmd == b'R':
             current_mode = MODE_CORRECTION
-            sensor.set_brightness(600)
+            # sensor.set_brightness(600)
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
