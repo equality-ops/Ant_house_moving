@@ -257,9 +257,6 @@ def slave_start():
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
@@ -270,6 +267,10 @@ def slave_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                # 初始化小车坐标及偏航角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
