@@ -266,8 +266,8 @@ def slave_start():
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
-                # 延时2秒避免零漂校准不准确
-                time.sleep_ms(2000)
+                # 延时1秒避免零漂校准不准确
+                time.sleep_ms(1000)
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
