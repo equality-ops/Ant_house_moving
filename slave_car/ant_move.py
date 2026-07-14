@@ -287,8 +287,8 @@ class MoveControl:
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
 
-            # 延时1s
-            if counter >= 100:
+            # 延时500ms
+            if counter >= 50:
                 # 重置计数器
                 counter = 0
                 self.my_plan.reset_navigate()
