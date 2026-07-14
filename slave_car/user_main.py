@@ -276,9 +276,6 @@ def slave_start():
                 # 初始化小车坐标及偏航角
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
-                my_car.now_yaw = 0.0
-                # 停止定时器2
-                pit2.stop()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
