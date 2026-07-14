@@ -131,6 +131,7 @@ class VisionManager:
         self.calibrate_times = 0
         self.if_ready_calibrate =False
         self.if_finish_calibrate = True
+        self.calibrate_waiting_time = self.flash_sys.find_value("calibrate_waiting_time")
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 延时计数器
@@ -597,7 +598,7 @@ class VisionManager:
     def apriltag_calibrate_control(self):
         if self.if_ready_calibrate == False:
             if self.if_waiting:
-                if self.counter >=40:
+                if self.counter >=self.calibrate_waiting_time:
                     self.counter = 0
                     self.if_waiting = False
                 else:self.counter+=1

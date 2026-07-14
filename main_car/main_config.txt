@@ -146,4 +146,6 @@ acc_move_coef = 0.04
 
 if_model = 1
 if_calibrate = 1
+
+calibrate_waiting_time = 
 # 小车最高速度为180
