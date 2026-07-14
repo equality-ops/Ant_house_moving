@@ -323,7 +323,7 @@ class MoveControl:
                 elif self.move_dir==180:p2 = [self.my_car.x_current+dx,-20]
                 elif self.move_dir==-90:p2 = [-20,self.my_car.y_current+dy]
                 else :p2 = [340,self.my_car.y_current+dy]
-                if abs(dx)<1e3 or abs(dy)<1e3:
+                if abs(dx)<1e-3 or abs(dy)<1e-3:
                     plan_path = [p0,p2]
                 else:plan_path = [p0,p1,p2]
             except:return False
