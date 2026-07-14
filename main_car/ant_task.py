@@ -300,6 +300,7 @@ class TaskController:
                         self.my_plan.current_object = self.current_object
                         self.my_vision.current_servo_object = self.current_object
                         rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side)
+                        self.my_uart.write(f"car_position:{self.my_moving.push_postion}\n")
                         #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:
                             self.my_moving.saved_best_path =self.object_plan.best_path
@@ -371,13 +372,25 @@ class TaskController:
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
-    def merge_nearby_same_kind(self,objects, threshold=10.0):
+    def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
+        threshold_far = threshold_near+5
         for kind, x, y in objects:
             match_idx = -1
             for idx, (old_kind, old_x, old_y) in enumerate(merged):
                 if old_kind != kind:
                     continue
+                # Farther detections have larger coordinate error, so relax the
+                # merge threshold linearly from 30 cm to 110 cm ahead/behind.
+                object_dist = max(abs(y - self.my_car.y_current),
+                                  abs(old_y - self.my_car.y_current))
+                if object_dist <= 30.0:
+                    threshold = threshold_near
+                elif object_dist >= 110.0:
+                    threshold = threshold_far
+                else:
+                    ratio = (object_dist - 30.0) / 80.0
+                    threshold = threshold_near + (threshold_far - threshold_near) * ratio
                 dist2 = (x - old_x) ** 2 + (y - old_y) ** 2
                 if dist2 <= threshold ** 2:
                     match_idx = idx

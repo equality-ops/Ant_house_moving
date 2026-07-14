@@ -10,7 +10,7 @@ class BoundaryPathPlanner:
         gc.collect()
 
     def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
-        if swell_angle == 1 or swell_angle== -1:swell_size = 5.0
+        if swell_angle == 1 or swell_angle== -1:swell_size = 10.0
         else:swell_size = 20.0
         circle_r = float(self.Data.OBSTACLE_R)
         safe_margin = float(self.Data.SAFE_MARGIN)
