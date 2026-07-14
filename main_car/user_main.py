@@ -191,6 +191,7 @@ else:
     acc_x_fil = ant_motor.SlipAveragingFilter(5)
     acc_y_fil = ant_motor.SlipAveragingFilter(5)
     acc_z_fil = ant_motor.SlipAveragingFilter(5)
+    acc_z_fil.buffer_init(4096)  # 初始化z轴加速度计滤波器的初始值为4096
 
     # 创建小车自转角滤波器对象（已弃用）
     car_yaw_fil = ant_motor.SlipAveragingFilter(1)

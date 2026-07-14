@@ -175,6 +175,7 @@ diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
 acc_x_fil = ant_motor.SlipAveragingFilter(5)
 acc_y_fil = ant_motor.SlipAveragingFilter(5)
 acc_z_fil = ant_motor.SlipAveragingFilter(5)
+acc_z_fil.buffer_init(4096)  # 初始化z轴加速度计滤波器的初始值为4096
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
