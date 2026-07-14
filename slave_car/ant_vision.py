@@ -247,7 +247,7 @@ class VisionManager:
                 self.last_car_x = self.my_car.x_current
                 self.last_car_y = self.my_car.y_current
                 
-                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE) and (self.real_servo_point[1] - self.last_real_servo_point[1] >= 0):
+                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE):
                     if self.real_servo_point[1] - self.last_real_servo_point[1] < 0:
                         # 帧有效，更新记录
                         self.last_real_servo_point = self.real_servo_point.copy()

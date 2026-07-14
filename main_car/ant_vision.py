@@ -287,7 +287,7 @@ class VisionManager:
                 
                 self.reset_last_car_pos()  # 更新上一帧小车位置，便于下一帧计算
                 
-                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE) and (self.real_servo_point[1] - self.last_real_servo_point[1] >= 0):
+                if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE):
                     if self.real_servo_point[1] - self.last_real_servo_point[1] < 0:
                         # 帧有效，更新记录
                         self.last_real_servo_point = self.real_servo_point.copy()
