@@ -36,14 +36,14 @@ kv = 20.0
 integral_limitmax = 10000
 pwmout_limitmax = 9000
 
-angle_normal_kp = 30.0
+angle_normal_kp = 35.0
 # 已弃用
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.2
-high_angle_pwmout_limitmax = 450
-low_angle_pwmout_limitmax = 400
+high_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
 A = 200
 # B大致为最大静差的1.5倍
@@ -59,13 +59,12 @@ gyro_z_supply = 1.146436
 
 ###################【时间规划】####################
 motor_control_T = 4
-collect_dt = 0.004
 plan_calculate_T = 10
 uart_and_menu_T = 53
+
 ###################【路径规划】####################
 final_threshold = 1.0
 branch_threshold = 5.0
-blend_radius = 20.0
 
 IF_rogue_plan = 0
 total_objects_num = 7
@@ -73,31 +72,30 @@ rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []]
 cube_obstacles = "(145, 25, 23.8, 10.6), (70.0, 92.0,10.6, 23.8)"
 circle = "(262.5, 88.8)"
 
-
 error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
-###################【速度规划】####################
-# 负压风扇
-if_fan = 1
-fixed_high_level_us = 1400
 
-min_start_v = 40
+###################【风扇控制】####################
+if_fan = 1
+fixed_high_level_us = 1350
+
+###################【速度规划】####################
+min_start_v = 35
 long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
 acc_move_coef = 0.04
-dec_coef = 0.08
-max_yaw_rate = 4.0 
-scan_rate = 0.8
+dec_coef = 0.1
+scan_rate = 0.7
 
-orbit_v_max = 110
+orbit_v_max = 90
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 160
-move_v_max_B = 160
+move_v_max_T = 120
+move_v_max_S = 120
+move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数

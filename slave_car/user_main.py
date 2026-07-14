@@ -36,8 +36,6 @@ else:
     gc.collect()
     import ant_task
     gc.collect()
-    import ant_pid
-    gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -152,7 +150,7 @@ my_art_protocol = ant_else.UARTProtocol(my_uart6)
 my_slave_protocol = ant_else.LinkProtocol(my_uart3)
 
 # 创建pid参数对象
-pid_data = ant_pid.PID_data(my_flash_sys)
+pid_data = ant_motor.PID_data(my_flash_sys)
 
 #创建无刷
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
@@ -161,29 +159,29 @@ my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
 my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
 
 # 创建电机微分项的滑动平均滤波器对象
-diff_filter_ul = ant_pid.SlipAveragingFilter(3)    # 滤波窗口为2个
-diff_filter_ur = ant_pid.SlipAveragingFilter(3)    # 滤波窗口为3个
-diff_filter_md = ant_pid.SlipAveragingFilter(5)    # 滤波窗口为2个
-diff_filter_gyroz = ant_pid.SlipAveragingFilter(3)  # 滤波窗口为5个
+diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
+diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
+diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
+diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 # 创建小车自转角滤波器对象
-car_yaw_fil = ant_pid.SlipAveragingFilter(1)
+car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_pid.SlipAveragingFilter(4)    
-cos_servo_fil = ant_pid.SlipAveragingFilter(4)
+sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
+cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
 
 # 创建电机pid对象和角度pid对象
-motor_ul_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
-motor_ur_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
-motor_md_pid = ant_pid.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
-angle_pid = ant_pid.AnglePositionPID(my_flash_sys)
-servo_pid = ant_pid.ServoPID(my_flash_sys)
+motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
+motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ur)
+motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
+angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
+servo_pid = ant_motor.ServoPID(my_flash_sys)
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
@@ -252,20 +250,20 @@ def slave_start():
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
                 time.sleep_ms(2000)
-                my_beep.test()
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                # 初始化小车坐标及偏航角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():

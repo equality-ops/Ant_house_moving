@@ -492,9 +492,15 @@ class NavigationPlan:
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
+
+        x_dist = abs(self.path[1][0] - self.my_car.x_current)
         # 固定系数（负压状态下）
-        self.my_car.alpha_x = 1.0
-        self.my_car.alpha_y = 1.0
+        if x_dist >= 100.0:  # x轴为主运动方向
+            self.my_car.alpha_x = 0.923144
+        else:
+            self.my_car.alpha_x = 0.890688
+
+        self.my_car.alpha_y = 0.918563  # 需要标定（可能值不同）
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -658,6 +664,16 @@ class NavigationPlan:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
+
+            x_dist = abs(self.path[self.aimed_point_index + 1][0] - self.my_car.x_current)
+            # 固定系数（负压状态下）
+            if x_dist >= 100.0:  # x轴为主运动方向
+                self.my_car.alpha_x = 0.923144
+            else:
+                self.my_car.alpha_x = 0.890688
+
+            self.my_car.alpha_y = 0.918563  # 需要标定（可能值不同）
+            
         elif is_last_segment and rest_dist <= self.final_threshold:
             self.aimed_point_index += 1
             # 清空上一次小车速度

@@ -187,6 +187,11 @@ else:
     diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
     diff_filter_gyroz = ant_motor.SlipAveragingFilter(1)  # 滤波窗口为1个
 
+    # 创建加速度计滤波对象
+    acc_x_fil = ant_motor.SlipAveragingFilter(5)
+    acc_y_fil = ant_motor.SlipAveragingFilter(5)
+    acc_z_fil = ant_motor.SlipAveragingFilter(5)
+
     # 创建小车自转角滤波器对象（已弃用）
     car_yaw_fil = ant_motor.SlipAveragingFilter(1)
     # 创建视觉伺服正余弦滤波对象
@@ -194,7 +199,7 @@ else:
     cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
     # 创建姿态数据对象
-    pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+    pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
 
     # 创建电机pid对象和角度pid对象
     motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -274,9 +279,6 @@ def main_start():
             # if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
-                # 初始化小车坐标
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
                 my_state.state = READY_NAVIGATE
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
@@ -286,6 +288,10 @@ def main_start():
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
+                # 初始化小车坐标及偏航角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
 spin_angle = 90.0
 def test_spin():
@@ -434,6 +440,7 @@ def time_pit1_handler(time):
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
+
     # 更新负压风扇的高电平时间
     """
     if my_fan.if_fan:
@@ -463,7 +470,7 @@ def time_pit3_handler(time) -> None:
     # test_orbit()
 
     # 自转测试程序
-    test_spin()
+    # test_spin()
 
     pass
 
@@ -481,7 +488,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
