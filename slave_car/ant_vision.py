@@ -482,7 +482,6 @@ class VisionManager:
         if self.current_servo_object == 'T':
             self.my_plan.error_x = self.my_plan.error_x_T
             self.final_dist_y = self.servo_pid.target_y_T
-            self.final_dist_x = self.servo_pid.target_x_T
             if  current_turn_deg == -90:self.object_radius = self.radius_T_R
             elif current_turn_deg == 90:self.object_radius = self.radius_T_L
             elif current_turn_deg == 180:self.object_radius = self.radius_T_U
@@ -492,7 +491,6 @@ class VisionManager:
         elif self.current_servo_object in ['S', 'E']:
             self.my_plan.error_x = self.my_plan.error_x_S
             self.final_dist_y = self.servo_pid.target_y_S
-            self.final_dist_x = self.servo_pid.target_x_S
             if  current_turn_deg == -90:self.object_radius = self.radius_S_R
             elif current_turn_deg == 90:self.object_radius = self.radius_S_L
             elif current_turn_deg == 180:self.object_radius = self.radius_S_U
@@ -502,7 +500,6 @@ class VisionManager:
         elif self.current_servo_object in ['B', 'W']:
             self.my_plan.error_x = self.my_plan.error_x_B
             self.final_dist_y = self.servo_pid.target_y_B
-            self.final_dist_x = self.servo_pid.target_x_B
             if  current_turn_deg == -90:self.object_radius = self.radius_B_R
             elif current_turn_deg == 90:self.object_radius = self.radius_B_L
             elif current_turn_deg == 180:self.object_radius = self.radius_B_U
