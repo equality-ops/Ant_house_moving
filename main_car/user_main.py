@@ -71,6 +71,8 @@ if_press_start_key = False
 start_flag = False
 # 是否完成零漂采集
 zero_bias_collected = False
+# 是否收到ready标志位
+if_get_ready = False
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -267,7 +269,7 @@ def angle_pid_compute():
 
 # 用于主车启动的函数
 def main_start():
-    global counter, current_time, last_left_time, start_flag, if_press_start_key, zero_bias_collected
+    global counter, current_time, last_left_time, start_flag, if_get_ready, if_press_start_key, zero_bias_collected
     if start_flag == False:
         if zero_bias_collected == False:
             if if_press_start_key == False:
@@ -279,13 +281,16 @@ def main_start():
                     my_main_protocol.send_start()
                     if_press_start_key = True
             else:   
-                counter += 1
-                if counter >= 180:
-                    counter = 0 # 重置计数器
-                    zero_bias_collected = True
+                if if_get_ready:
+                    counter += 1
+                    # 延时1s，预热四元数
+                    if counter >= 20:
+                        counter = 0 # 重置计数器
+                        zero_bias_collected = True
 
                 # 测试，此时只调试主车，双车正常通信时需要解注释  
                 if my_main_protocol.get_slave_state() == "ready":
+                    if_get_ready = True
                     # 此时开启无刷负压风扇
                     my_fan.set_fan_signal()
                     my_state.state = READY_NAVIGATE
@@ -503,7 +508,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-    my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{pose_data.acc_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")

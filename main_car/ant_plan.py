@@ -461,7 +461,7 @@ class NavigationPlan:
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
             # 我加负压了，给我拉满过弯速度
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.3
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.1
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):

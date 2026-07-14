@@ -404,7 +404,7 @@ class PoseData:
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
-
+        
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
