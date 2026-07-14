@@ -213,8 +213,8 @@ class VisionManager:
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
         scale = max(0.8, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
@@ -466,10 +466,10 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         # 选择正常的视觉伺服pid参数
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-        self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+        self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         current_yaw_deg = self.record_angle * 180.0 / PI
         if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: current_turn_deg = 0.0

@@ -214,8 +214,8 @@ class VisionManager:
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
         scale = max(0.7, min(1.0, dist / 10.0)) # 8cm外全速，近处最少降60%
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x * scale
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y * scale
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     def if_in_rect(self,x,y):
         rect_x_min = self.my_plan.plan_data.center_rect[0][0] - 5
@@ -400,10 +400,10 @@ class VisionManager:
             self.target_rel_yaw = 0.0
             self.last_real_servo_point = None  # 重置上一帧伺服点位
             # 切换回正常的视觉伺服pid参数
-            self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-            self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-            self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-            self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+            self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+            self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+            self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+            self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
             self.my_order_manager.finish()
             self.if_finish_servo = True
         else:
@@ -529,10 +529,10 @@ class VisionManager:
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point, state = "servo"):
         # 选择正常伺服状态下的pid参数
-        self.servo_pid.servo_kp_x = self.servo_pid.servo_normal_kp_x
-        self.servo_pid.servo_kd_x = self.servo_pid.servo_normal_kd_x
-        self.servo_pid.servo_kp_y = self.servo_pid.servo_normal_kp_y
-        self.servo_pid.servo_kd_y = self.servo_pid.servo_normal_kd_y
+        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+        self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+        self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
         
         self.current_servo_object = chr(target_point[2])
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用

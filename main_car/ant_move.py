@@ -19,7 +19,7 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
-    def __init__(self,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager, assist_protocol):
+    def __init__(self,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager):
         self.my_beep = beep
         self.my_photo = photo
         self.vision_manager = vision_manager
@@ -31,7 +31,6 @@ class MoveControl:
         self.my_main_protocol = main_protocol
         self.my_art_protocol = art_protocol
         self.my_order_manager = order_manager
-        self.my_assist_protocol = assist_protocol
         self.move_plan = move_plan
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)

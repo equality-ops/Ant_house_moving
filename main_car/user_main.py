@@ -21,8 +21,7 @@ my_uart_debug.write('1')
 gc.collect()
 import ant_plan
 gc.collect()
-import ant_else
-gc.collect()
+
 # 与定时器2周期一致，都为53ms
 pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
 del(pin_obj)
@@ -30,18 +29,22 @@ pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
 if_menu = False
 if not pin_obj.value():#进入调试模式
     if_menu = True
+    import ant_else
+    gc.collect()
     import ant_menu
     gc.collect()
 else:
     import ant_vision
     gc.collect()
-    import ant_boundary_plan
+    import ant_task
     gc.collect()
-    import ant_motor
+    import ant_boundary_plan
     gc.collect()
     import ant_move
     gc.collect()
-    import ant_task
+    import ant_motor
+    gc.collect()
+    import ant_else
     gc.collect()
     #import ant_pid
     #gc.collect()
@@ -175,9 +178,6 @@ else:
     # 创建主从车无线串口通信对象
     my_main_protocol = ant_else.LinkProtocol(my_uart3)
 
-    # 创建主辅车无线串口通信对象
-    my_assist_protocol = ant_else.AssistLinkProtocol(my_uart8)
-
     # 创建pid参数对象
     pid_data = ant_motor.PID_data(my_flash_sys)
 
@@ -228,11 +228,11 @@ else:
     my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
     # 搬运控制类
-    my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager, my_assist_protocol)
+    my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager)
     
     my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
     # 任务及类
-    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_assist_protocol,my_uart_debug)
+    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol,my_uart_debug)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -333,7 +333,7 @@ spin_angle = 90.0
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT,CALIBRATE]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
@@ -541,3 +541,4 @@ while True:
         break
 
     gc.collect()
+

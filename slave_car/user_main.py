@@ -36,6 +36,8 @@ else:
     gc.collect()
     import ant_task
     gc.collect()
+    #import ant_pid
+    #gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -164,6 +166,11 @@ diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
 
+# 创建加速度计滤波对象
+acc_x_fil = ant_motor.SlipAveragingFilter(5)
+acc_y_fil = ant_motor.SlipAveragingFilter(5)
+acc_z_fil = ant_motor.SlipAveragingFilter(5)
+
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
@@ -250,20 +257,20 @@ def slave_start():
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
+                # 初始化小车坐标
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
                 # 初始状态设置为准备导航状态
                 my_state.state =READY_NAVIGATE
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
                 time.sleep_ms(2000)
+                my_beep.test()
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
                 # 检测是否正常初始化所有
                 detect_if_normal()
-                # 初始化小车坐标及偏航角
-                my_car.x_current = plan_data.fixed_point[0][0]
-                my_car.y_current = plan_data.fixed_point[0][1]
-                my_car.now_yaw = 0.0
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():

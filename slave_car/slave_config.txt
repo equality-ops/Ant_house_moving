@@ -95,10 +95,10 @@ move_v_max_B = 120
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_normal_kp_x = 7.0
-servo_normal_kd_x = 10.0
-servo_normal_kp_y = 7.0
-servo_normal_kd_y = 10.0
+servo_kp_normal_x = 7.0
+servo_kd_normal_x = 10.0
+servo_kp_normal_y = 7.0
+servo_kd_normal_y = 10.0
 
 #红外控制参数
 servo_RY_kp_x = 1
@@ -124,7 +124,7 @@ apriltag_threshold_y = 1.0
 
 min_rel_speed = 40
 max_rel_speed = 130
-pwmout_normal_limit = 130
+servo_pwmout_limitmax = 130
 
 
 ###################【环绕控制】####################
@@ -145,6 +145,8 @@ radius_B_D = 15.5
 angle_T = 40
 angle_S = 40
 angle_B = 35
+
+orbit_kp = 15.0
 
 if_model = 1
 # 小车最高速度为290
