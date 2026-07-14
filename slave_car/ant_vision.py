@@ -313,10 +313,10 @@ class VisionManager:
             self.target_rel_yaw = 0.0
             self.last_real_servo_point = None  # 重置上一帧伺服点位
             # 切换回正常的视觉伺服pid参数
-            self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_x 
-            self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_y 
-            self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_x 
-            self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_y 
+            self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x
+            self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
+            self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
+            self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
             self.my_order_manager.finish()
             self.if_finish_servo = True
         else:

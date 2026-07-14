@@ -125,8 +125,6 @@ apriltag_threshold_y = 1.0
 min_rel_speed = 40
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
-
-
 ###################【环绕控制】####################
 radius_T_U = 13.0
 radius_T_R = 11.0
