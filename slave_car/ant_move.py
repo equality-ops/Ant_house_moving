@@ -283,6 +283,7 @@ class MoveControl:
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
                 self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',target_point)
                 self.vision_manager.reset_servo_angle()
+                self.my_plan.reset_navigate()
                 self.reset_orbit() # 重置环绕相关变量
                 self.plan_path = []
                 self.current_state = SERVO
@@ -395,5 +396,6 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
-                if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
-                    self.state_transition()  # 退出当前状态
+
+            if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
+                self.state_transition()  # 退出当前状态

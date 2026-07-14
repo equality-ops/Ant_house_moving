@@ -3,12 +3,14 @@ from micropython import const
 import math
 import time
 import gc
+
 PI = const(3.1415926)
 OneThird = const(0.3333333)
 SQRT3 = const(1.7320508)
 InField = const(-1)
 OnLine = const(0)
 OutLine = const(1)
+
 # 光电管控制类
 class PhotoControl:
     def __init__(self, flash_sys, beep, photo) -> None:
@@ -29,6 +31,8 @@ class PhotoControl:
             if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
                 self.current_state = OnLine
+        else:
+            self.on_line_times = 0
         
         if current_state == 0 and self.current_state == OnLine:
             self.current_state = OutLine
@@ -36,6 +40,7 @@ class PhotoControl:
     def reset_photo(self):
         self.on_line_times = 0
         self.current_state = InField
+        
 
 # 无刷风扇控制类
 class FanControl:
@@ -52,7 +57,7 @@ class FanControl:
 
     # 设置无刷风扇的高电平时间
     def set_fan_signal(self):
-         # 限幅在 1000-self.fan_signal_limit 之间
+        # 限幅在 1000-self.fan_signal_limit 之间
         if self.if_fan:
             high_level_us = max(1000, min(self.fixed_high_level_us, self.fan_signal_limit)) 
             # 更新高电平时间值
@@ -68,8 +73,64 @@ class FanControl:
     # 关闭风扇（设置为最低信号）
     def fan_off(self):
         self.my_fan.highlevel_us(1000)
-        
 
+class PID_data:
+    def __init__(self, flash_sys):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+
+        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
+        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
+        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
+        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
+        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
+        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
+        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
+        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
+        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
+
+        self.ul_mid_kp = self.flash_sys.find_value("ul_mid_kp")  # type: float
+        self.ul_mid_ki = self.flash_sys.find_value("ul_mid_ki")  # type: float
+        self.ul_mid_kd = self.flash_sys.find_value("ul_mid_kd")  # type: float
+        self.ur_mid_kp = self.flash_sys.find_value("ur_mid_kp")  # type: float
+        self.ur_mid_ki = self.flash_sys.find_value("ur_mid_ki")  # type: float
+        self.ur_mid_kd = self.flash_sys.find_value("ur_mid_kd")  # type: float
+        self.md_mid_kp = self.flash_sys.find_value("md_mid_kp")  # type: float
+        self.md_mid_ki = self.flash_sys.find_value("md_mid_ki")  # type: float
+        self.md_mid_kd = self.flash_sys.find_value("md_mid_kd")  # type: float
+        
+        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
+        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
+        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
+        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
+        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
+        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
+        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
+        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
+        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
+
+        gc.collect()  # 主动触发垃圾回收，释放内存
+
+# 滑动平均滤波器
+class SlipAveragingFilter:
+    # 构造对象时传入滤波窗口大小
+    def __init__(self, filter_size: int):
+        self.filter_size = filter_size
+        self.index = 0
+        self.last_value = 0.0
+        self.buffer = [0.0] * filter_size
+
+        gc.collect()
+
+    def buffer_init(self, initial_value):
+        self.buffer = [initial_value] * self.filter_size
+
+    # 滤波时传入一个新的数据，返回滤波后的结果(float)
+    def filtering(self, data: float) -> float:
+        self.buffer[self.index] = data
+        self.index = (self.index + 1) % self.filter_size
+        return sum(self.buffer) / self.filter_size
+    
 # 一维卡尔曼滤波器
 class KalmanFilter:
     def __init__(self, P=1.0, Q=0.01, R=0.1, initial_output=0.0):
@@ -78,16 +139,17 @@ class KalmanFilter:
         self.R = R
         self.Output = initial_output
 
+        gc.collect()
+
     def update(self, input_value):
         self.P += self.Q
         K = self.P / (self.P + self.R)
         self.Output += K * (input_value - self.Output)
         self.P = (1 - K) * self.P
-        return self.Output
-    
+        return self.Output    
     
 class PoseData:
-    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz):
+    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入串口对象
@@ -97,6 +159,10 @@ class PoseData:
         self.encoder_ul = encoder_ul
         self.encoder_ur = encoder_ur
         self.encoder_md = encoder_md
+        # 加速度计滤波器
+        self.acc_x_filter = acc_x_filter
+        self.acc_y_filter = acc_y_filter
+        self.acc_z_filter = acc_z_filter
         # 注入滤波器对象
         self.diff_filter_gyroz = diff_filter_gyroz
         # IMU数据列表
@@ -132,8 +198,8 @@ class PoseData:
         self.last_update_time = time.ticks_us()
 
         # 算法参数 (根据你的 4ms 采样周期设置)
-        self.dt = 0.004
-        self.kp = 1.0  # 加速度计权重
+        self.dt = 0.004 
+        self.kp = 0.5  # 加速度计权重
         self.ki = 0.00001 # 零偏补偿权重
 
         # 最终角度输出
@@ -149,6 +215,11 @@ class PoseData:
         核心四元数更新算法
         输入单位：ax-az (g), gx-gz (rad/s)
         """
+        # 进行软件低通滤波，干掉电机震动带来的高频毛刺
+        ax = self.acc_x_filter.filtering(ax)
+        ay = self.acc_y_filter.filtering(ay)
+        az = self.acc_z_filter.filtering(az)
+
         q0, q1, q2, q3 = self.q
         
         # 1. 当前加速度计的原始数据模长
@@ -156,13 +227,13 @@ class PoseData:
         if norm == 0: return # 防止除以0
 
         G_REFERENCE = 4195.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
-        
+       
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.1g 以内完全信任，偏差大于 0.2g 完全不信任)
-        LOWER_THRESHOLD = 0.1
-        UPPER_THRESHOLD = 0.2
+        # 设定信任阈值 (偏差在 0.15g 以内完全信任，偏差大于 0.35g 完全不信任)
+        LOWER_THRESHOLD = 0.15
+        UPPER_THRESHOLD = 0.35
         
         dynamic_weight = 1.0  # 默认权重为 1
         
@@ -205,7 +276,7 @@ class PoseData:
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
-        
+
         # 6. 一阶龙格库塔法更新四元数
         half_dt = 0.5 * self.dt
         q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
@@ -298,7 +369,7 @@ class PoseData:
         gyro_x_sum = 0
         gyro_y_sum = 0
         gyro_z_sum = 0
-        sample_count = 250
+        sample_count = 500
         # 将imu_data与imu对象链接起来
         self.imu_data = self.imu.get()
         for i in range(sample_count):
@@ -306,26 +377,28 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(4)
+            time.sleep_ms(4)  # 延时4ms，确保采样间隔均匀
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
         self.gyro_z_bias = gyro_z_sum / sample_count
 
+
     # 传感器数据更新函数
     def update_data(self):
+        """
         # 1. 计算真实的动态 dt
         current_time = time.ticks_us()
         # 计算时间差并转换为秒 (MicroPython 下推荐用 ticks_diff 防溢出)
         self.dt = time.ticks_diff(current_time, self.last_update_time) / 1000000.0
         self.last_update_time = current_time
 
-        # print(f"dt: {self.dt:.6f} s")
         # self.my_uart3.write(f"dt: {self.dt:.6f} s\n")  # 调试用：输出实际 dt
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
             self.dt = 0.004
-
+        """
+            
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
@@ -343,15 +416,197 @@ class PoseData:
 
         self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2],
                         self.gyro_x, self.gyro_y, self.gyro_z)
-        
+
         # 4. 更新欧拉角输出
         self.update_euler_angles()
+
         
+# 定义一个抽象类用于顶层设计
+# 该类能够存储pid参数并计算得到当前应该输出的pwm值
+class ControlPID:
+    def compute_pid(self, target: int, actual: int) -> None:
+        pass
+
+# 速度环位置式PID
+class SpeedPositionPID(ControlPID):
+    def __init__(self, flash_sys, diff_filter: SlipAveragingFilter):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+        self.kp = 0.0        # type: float
+        self.ki = 0.0       # type: float
+        self.kd = 0.0       # type: float
+        # 速度前馈系数
+        self.kv = self.flash_sys.find_value("kv")  # type: float
+        self.target = 0     # type: float
+        self.actual = 0     # type: int
+        self.nowError = 0   # type: float
+        self.preError = 0   # type: float
+        self.integral = 0   # type: float
+        self.derivative = 0 # type: float
+        self.pwm_output = 0 # type: float
+        self.__integral_limitmax = self.flash_sys.find_value("integral_limitmax")      # type: float
+        self.__pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")          # type: float
+        # 注入微分项滤波器对象
+        self.diff_filter = diff_filter
+        self.__A = self.flash_sys.find_value("A")      # type: float # 变速积分误差阈值上限
+        self.__B = self.flash_sys.find_value("B")      # type: float # 变速积分误差阈值下限
+
+    def set_pid_params(self, kp: float, ki: float, kd: float) -> None:
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+    def compute_pid(self, target: float, actual: int):
+        # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
+        if abs(target) <= 5 and abs(self.target) >= 1e-6:
+            self.reset_integral()
+
+        self.target = target
+        self.actual = actual
+        self.preError = self.nowError
+        self.nowError = self.target - self.actual
+
+        abs_nowerror = abs(self.nowError)
+        coefficient = 1.0   # type: float
+        if self.__A == self.__B:
+            # 避免除以0
+            if (abs_nowerror > self.__A):
+                coefficient = 0.0
+            else:
+                coefficient = 1.0
+        else:
+            if abs_nowerror > self.__A:
+                coefficient = 0.0
+            elif abs_nowerror > self.__B:
+                coefficient = (self.__A - abs_nowerror) / (self.__A - self.__B)
+            else:
+                coefficient = 1.0
+        
+        # 根据误差大小调整积分项
+        self.integral += coefficient * self.nowError
+
+        # 积分项限幅
+        self.integral = max(-self.__integral_limitmax, min(self.integral, self.__integral_limitmax))
+
+        # 对微分项进行滑动平均滤波
+        self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
+
+        # 计算pwm_output
+        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
+        
+        
+        # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
+        if self.target == 0:
+            if self.nowError < 5 and self.nowError > 0:
+                self.pwm_output += self.pwm_output + 500
+            elif self.nowError > -5 and self.nowError < 0:
+                self.pwm_output += self.pwm_output - 500
+    
+        # pwm_output限幅
+        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
+
+    # 清零积分项
+    def reset_integral(self):
+        self.integral = 0
+
+# 角度环PID
+class AnglePositionPID(ControlPID):
+    def __init__(self, flash_sys):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+        self.kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
+        self.kd = self.flash_sys.find_value("angle_normal_kd")        # type: float
+        self.angle_normal_kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
+        self.orbit_kp = self.flash_sys.find_value("orbit_kp")        # type: float
+        self.target = 0     # type: float
+        self.actual = 0     # type: float
+        self.nowError = 0   # type: float
+        self.preError = 0   # type: float
+        self.integral = 0   # type: float
+        self.derivative = 0 # type: float
+        self.pwm_output = 0 # type: float
+        self.high_pwmout_limitmax = self.flash_sys.find_value("high_angle_pwmout_limitmax")    # type: float
+        self.low_pwmout_limitmax = self.flash_sys.find_value("low_angle_pwmout_limitmax")    # type: float
+        self.pwmout_limitmax = self.high_pwmout_limitmax
+        
+    def compute_pid(self, target: float, actual: float):
+        self.target = target
+        self.actual = actual
+        self.preError = self.nowError
+        self.nowError = self.target - self.actual
+        # 对误差限幅
+        if self.nowError > 180:
+            self.nowError -= 360
+        elif self.nowError < -180:
+            self.nowError += 360
+            
+        self.integral += self.nowError
+        self.derivative = self.nowError - self.preError
+
+        # 计算pwm_output
+        self.pwm_output = self.kp * self.nowError + self.kd * self.derivative
+
+        # pwm_output限幅
+        self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
+
+
+# 视觉伺服PD
+class ServoPID(ControlPID):
+    def __init__(self, flash_sys):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+        self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
+        self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
+        self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
+        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
+        self.servo_kp_x = 0.0
+        self.servo_kp_y = 0.0
+        self.servo_kd_x = 0.0
+        self.servo_kd_y = 0.0
+        self.target_x = 0.0
+        self.actual_x = 0.0
+        self.target_y = 0.0   # type: float
+        self.actual_y = 0.0     # type: float
+
+        self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
+        self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
+        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
+
+        self.nowError_x = 0   # type: float
+        self.preError_x = 0   # type: float
+        self.nowError_y = 0   # type: float
+        self.preError_y = 0   # type: float
+        self.derivative_x = 0 # type: float
+        self.derivative_y = 0 # type: float
+        self.pwm_output_x = 0 # type: int
+        self.pwm_output_y = 0 # type: int
+        self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
+    
+        gc.collect()  # 主动触发垃圾回收，释放内存
+
+    # 模型下的pid计算
+    def model_compute_pid(self, actual_x: float, actual_y: float):
+        self.actual_x = actual_x
+        self.actual_y = actual_y    
+        self.preError_x = self.nowError_x
+        self.preError_y = self.nowError_y
+        self.nowError_x = self.actual_x - self.target_x 
+        self.nowError_y = self.actual_y - self.target_y
+        # 计算微分项
+        self.derivative_x = self.nowError_x - self.preError_x
+        self.derivative_y = self.nowError_y - self.preError_y
+        # 计算pwm_output
+        self.pwm_output_x = int(self.servo_kp_x * self.nowError_x + self.servo_kd_x * self.derivative_x)
+        self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
+
+        # pwm_output限幅
+        self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
+        self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
 
 # 小车姿态控制
 class CarPose:
-    def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter, angle_pid,
-                 motor_ul_pid, motor_ur_pid, motor_md_pid, motor_ul, motor_ur, motor_md):
+    def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
+                 motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入速度与路径规划对象
@@ -398,7 +653,12 @@ class CarPose:
         # self.encouder_md = 0.0
 
         gc.collect()  # 主动触发垃圾回收，释放内存
-        
+    
+    # 清空上一次速度
+    def clear_last_car_speed(self):
+        self.last_car_speed_x = 0.0
+        self.last_car_speed_y = 0.0
+
     # 小车姿态更新
     def update_pose(self):
         ###################【速度计算】###################
@@ -430,10 +690,6 @@ class CarPose:
         self.x_current += real_speed_x * self.alpha_x
         self.y_current += real_speed_y * self.alpha_y
 
-    def clear_last_car_speed(self):
-        self.last_car_speed_x = 0.0
-        self.last_car_speed_y = 0.0
-
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
     def move_ctrl(self, move_speed_target: float, move_angle_target: float, turn_angle_target: float):
@@ -463,7 +719,7 @@ class CarPose:
         motor_ul_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target + car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_ur_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target - car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
         motor_md_speed_target = (car_speed_w_target * OneThird - car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
-        
+
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
         self.motor_ur_pid.compute_pid(motor_ur_speed_target, self.pose_data.encoder_data_ur)
@@ -474,239 +730,9 @@ class CarPose:
         self.motor_ul.duty(int(self.motor_ul_pid.pwm_output))
         self.motor_ur.duty(int(self.motor_ur_pid.pwm_output))
         self.motor_md.duty(int(self.motor_md_pid.pwm_output))
+
     # pwm信号归零
     def pwm_stop(self):
         self.motor_ul.duty(0)
         self.motor_ur.duty(0)
         self.motor_md.duty(0)
-import gc
-class SlipAveragingFilter:
-    # 构造对象时传入滤波窗口大小
-    def __init__(self, filter_size: int):
-        self.filter_size = filter_size
-        self.index = 0
-        self.last_value = 0.0
-        self.buffer = [0.0] * filter_size
-
-    def buffer_init(self, initial_value):
-        self.buffer = [initial_value] * self.filter_size
-
-    # 滤波时传入一个新的数据，返回滤波后的结果(float)
-    def filtering(self, data: float) -> float:
-        self.buffer[self.index] = data
-        self.index = (self.index + 1) % self.filter_size
-        return sum(self.buffer) / self.filter_size
-class PID_data:
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
-        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
-        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
-        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
-        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
-        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
-        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
-        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
-        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
-        self.ul_mid_kp = self.flash_sys.find_value("ul_mid_kp")  # type: float
-        self.ul_mid_ki = self.flash_sys.find_value("ul_mid_ki")  # type: float
-        self.ul_mid_kd = self.flash_sys.find_value("ul_mid_kd")  # type: float
-        self.ur_mid_kp = self.flash_sys.find_value("ur_mid_kp")  # type: float
-        self.ur_mid_ki = self.flash_sys.find_value("ur_mid_ki")  # type: float
-        self.ur_mid_kd = self.flash_sys.find_value("ur_mid_kd")  # type: float
-        self.md_mid_kp = self.flash_sys.find_value("md_mid_kp")  # type: float
-        self.md_mid_ki = self.flash_sys.find_value("md_mid_ki")  # type: float
-        self.md_mid_kd = self.flash_sys.find_value("md_mid_kd")  # type: float
-        
-        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
-        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
-        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
-        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
-        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
-        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
-        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
-        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
-        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
-
-# 定义一个抽象类用于顶层设计
-# 该类能够存储pid参数并计算得到当前应该输出的pwm值
-class ControlPID:
-    def compute_pid(self, target: int, actual: int) -> None:
-        pass
-
-# 速度环位置式PID
-class SpeedPositionPID(ControlPID):
-    def __init__(self, flash_sys, diff_filter: SlipAveragingFilter):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-        self.kp = 0.0        # type: float
-        self.ki = 0.0       # type: float
-        self.kd = 0.0       # type: float
-        # 速度前馈系数
-        self.kv = self.flash_sys.find_value("kv")  # type: float
-        self.target = 0     # type: float
-        self.actual = 0     # type: int
-        self.nowError = 0   # type: float
-        self.preError = 0   # type: float
-        self.integral = 0   # type: float
-        self.derivative = 0 # type: float
-        self.pwm_output = 0 # type: float
-        self.__integral_limitmax = self.flash_sys.find_value("integral_limitmax")      # type: float
-        self.__pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")          # type: float
-        # 注入微分项滤波器对象
-        self.diff_filter = diff_filter
-        self.__A = self.flash_sys.find_value("A")      # type: float # 变速积分误差阈值上限
-        self.__B = self.flash_sys.find_value("B")      # type: float # 变速积分误差阈值下限
-
-    def set_pid_params(self, kp: float, ki: float, kd: float) -> None:
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-
-    def compute_pid(self, target: float, actual: int):
-        # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
-        if abs(target) <= 5 and abs(self.target) >= 1e-6:
-            self.integral = 0
-
-        self.target = target
-        self.actual = actual
-        self.preError = self.nowError
-        self.nowError = self.target - self.actual
-
-        abs_nowerror = abs(self.nowError)
-        coefficient = 1.0   # type: float
-        if self.__A == self.__B:
-            # 避免除以0
-            if (abs_nowerror > self.__A):
-                coefficient = 0.0
-            else:
-                coefficient = 1.0
-        else:
-            if abs_nowerror > self.__A:
-                coefficient = 0.0
-            elif abs_nowerror > self.__B:
-                coefficient = (self.__A - abs_nowerror) / (self.__A - self.__B)
-            else:
-                coefficient = 1.0
-        
-        # 根据误差大小调整积分项
-        self.integral += coefficient * self.nowError
-
-        # 积分项限幅
-        self.integral = max(-self.__integral_limitmax, min(self.integral, self.__integral_limitmax))
-
-        # 对微分项进行滑动平均滤波
-        self.derivative = self.diff_filter.filtering(self.nowError - self.preError)
-
-        # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
-        
-        
-        # 当目标速度很小且此时误差极小时，强制增加一个制动pwm输出来驱动
-        if self.target == 0:
-            if self.nowError < 5 and self.nowError > 0:
-                self.pwm_output += self.pwm_output + 500
-            elif self.nowError > -5 and self.nowError < 0:
-                self.pwm_output += self.pwm_output - 500
-    
-        # pwm_output限幅
-        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
-
-
-# 角度环PID
-class AnglePositionPID(ControlPID):
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-        self.kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
-        self.kd = self.flash_sys.find_value("angle_normal_kd")        # type: float
-        self.target = 0     # type: float
-        self.actual = 0     # type: float
-        self.nowError = 0   # type: float
-        self.preError = 0   # type: float
-        self.integral = 0   # type: float
-        self.derivative = 0 # type: float
-        self.pwm_output = 0 # type: float
-        self.high_pwmout_limitmax = self.flash_sys.find_value("high_angle_pwmout_limitmax")    # type: float
-        self.low_pwmout_limitmax = self.flash_sys.find_value("low_angle_pwmout_limitmax")    # type: float
-        self.pwmout_limitmax = self.high_pwmout_limitmax
-        
-    def compute_pid(self, target: float, actual: float):
-        self.target = target
-        self.actual = actual
-        self.preError = self.nowError
-        self.nowError = self.target - self.actual
-        # 对误差限幅
-        if self.nowError > 180:
-            self.nowError -= 360
-        elif self.nowError < -180:
-            self.nowError += 360
-            
-        self.integral += self.nowError
-        self.derivative = self.nowError - self.preError
-
-        # 计算pwm_output
-        self.pwm_output = self.kp * self.nowError + self.kd * self.derivative
-
-        # pwm_output限幅
-        self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
-
-
-# 视觉伺服PD
-class ServoPID(ControlPID):
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-        self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
-        self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
-        self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
-        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
-        self.servo_kp_x = 0.0
-        self.servo_kd_x = 0.0
-        self.servo_kp_y = 0.0
-        self.servo_kd_y = 0.0
-        self.target_x = 0.0
-        self.actual_x = 0.0
-        self.target_y = 0.0   # type: float
-        self.actual_y = 0.0     # type: float
-
-        self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
-        self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
-        self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
-
-        self.nowError_x = 0   # type: float
-        self.preError_x = 0   # type: float
-        self.nowError_y = 0   # type: float
-        self.preError_y = 0   # type: float
-        self.derivative_x = 0 # type: float
-        self.derivative_y = 0 # type: float
-        self.pwm_output_x = 0 # type: int
-        self.pwm_output_y = 0 # type: int
-        self.pwmout_normal_limit = self.flash_sys.find_value("pwmout_normal_limit") 
-        self.pwmout_limitmax = 100    # type: int
-    
-        gc.collect()  # 主动触发垃圾回收，释放内存
-
-    # pid计算
-    def model_compute_pid(self, actual_x: float, actual_y: float):
-        self.actual_x = actual_x
-        self.actual_y = actual_y    
-        self.preError_x = self.nowError_x
-        self.preError_y = self.nowError_y
-        self.nowError_x = self.actual_x - self.target_x 
-        self.nowError_y = self.actual_y - self.target_y
-        # 计算微分项
-        self.derivative_x = self.nowError_x - self.preError_x
-        self.derivative_y = self.nowError_y - self.preError_y
-        # 计算pwm_output
-        self.pwm_output_x = int(self.servo_kp_x * self.nowError_x + self.servo_kd_x * self.derivative_x)
-        self.pwm_output_y = int(self.servo_kp_y * self.nowError_y + self.servo_kd_y * self.derivative_y)
-
-        # pwm_output限幅
-        self.pwm_output_x = max(-self.pwmout_limitmax, min(self.pwm_output_x, self.pwmout_limitmax))
-        self.pwm_output_y = max(-self.pwmout_limitmax, min(self.pwm_output_y, self.pwmout_limitmax))
-        # 模型下的pid计算
-# 滑动平均滤波器
-
-    

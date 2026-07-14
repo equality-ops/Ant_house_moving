@@ -87,7 +87,7 @@ photo = Pin('B4', Pin.IN, value = False)
 
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=False)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty=0, invert=True)
 
 """传感器初始化"""
@@ -181,7 +181,7 @@ sin_servo_fil = ant_motor.SlipAveragingFilter(4)
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
-pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz)
+pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -265,7 +265,6 @@ def slave_start():
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
                 time.sleep_ms(2000)
-                my_beep.test()
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
@@ -429,9 +428,9 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
     # 全向定位测试程序
-
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -453,7 +452,7 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    
+    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
@@ -487,7 +486,7 @@ def time_pit2_handler(time):
     """
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
     # my_uart3.write(f"state: {my_state.state}\n")
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
