@@ -284,10 +284,10 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
-                    self.my_uart.write(f"{self.now_objects}\n")
-                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
-                    self.my_uart.write(f"path{self.object_plan.path}\n")
-                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                    # self.uart_debug.write(f"{self.now_objects}\n")
+                    # self.uart_debug.write(f"target{self.object_plan.target_objects}\n")
+                    # self.uart_debug.write(f"path{self.object_plan.path}\n")
+                    # self.uart_debug.write(f"score{self.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()

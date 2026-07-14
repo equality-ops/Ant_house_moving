@@ -400,7 +400,6 @@ class MoveControl:
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
         elif self.current_state == SERVO:
-            self.vision_manager.visual_servo_control()
             if self.vision_manager.if_lost_object == False:
                 self.vision_manager.visual_servo_control()
             else:
