@@ -85,10 +85,10 @@ fixed_high_level_us = 1350
 min_start_v = 35
 long_v_max = 180
 find_line_v_max = 60
-acc_normal_coef = 0.04
-acc_move_coef = 0.04
+acc_normal_coef = 0.06
+acc_move_coef = 0.06
 dec_coef = 0.1
-scan_rate = 0.7
+scan_rate = 1.0
 
 orbit_v_max = 90
 orbit_v_min = 30
@@ -147,5 +147,3 @@ acc_move_coef = 0.04
 if_model = 1
 if_calibrate = 1
 # 小车最高速度为180
-
-
