@@ -150,6 +150,19 @@ class VisionManager:
         self.far_H_matrix = [[ 2.74130432e+00,4.32802220e-02,-2.29544169e+02],
                             [-1.38227049e-01,-2.38356178e+00,3.21314055e+02],
                             [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
+        # apriltag码矫正相关变量--------------------------------------------------------
+        self.apriltage_postion = {'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
+        self.apriltag_threshold_x = 2.0
+        self.apriltag_threshold_y = 2.0
+        self.calibrate_times = 0
+        self.if_ready_calibrate =False
+        self.if_finish_calibrate = True
+        # 边线矫正时小车位置
+        self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
+        # 延时计数器
+        self.if_waiting = True
+        self.counter = 0       # type: int     # 延时计数器
+        self.calibrate_buffer = []     # type: list    # 目标横或纵坐标缓冲区
         gc.collect()
         
     # 重置视觉伺服角度
@@ -506,4 +519,21 @@ class VisionManager:
         if point:
             self.calculate_dist(point[0], point[1], 'far')
             self.last_real_servo_point = None
-
+    def reset_calibrate(self):
+        self.if_finish_calibrate =False
+        self.calibrate_buffer = []
+        self.my_plan.if_finish_navigate = False
+        self.counter = 0
+        self.if_ready_calibrate =False
+    # apriltag辅助校准校准控制函数
+    def apriltag_calibrate_control(self):
+        if self.if_ready_calibrate == False:
+            if self.if_waiting:
+                if self.counter >=40:
+                    self.counter = 0
+                    self.if_waiting = False
+                else:self.counter+=1
+            else:
+                self.my_plan.navigate(self.calibrate_buffer[0],self.calibrate_buffer[1])
+                if self.my_plan.if_finish_navigate == True:
+                    self.if_finish_calibrate = True

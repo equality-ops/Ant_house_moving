@@ -92,9 +92,7 @@ class TaskController:
             self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
             pass
         elif state == CALIBRATE:
-            # 进入校准状态，进行位置或传感器校准
-            # 记录小车在哪个边线
-            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
+            pass
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微调
             pass
@@ -127,6 +125,27 @@ class TaskController:
                 self.my_plan.reset_navigate()  # 重置导航标志
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            elif self.current_object == 'A':
+                self.my_vision.reset_calibrate()
+                if self.pt_buffer[1] == 90:
+                    if self.my_car.x_current <= self.pt_buffer[0][0]:
+                        self.my_vision.if_waiting = True
+                    else:self.my_vision.if_waiting = False
+                elif self.pt_buffer[1] == -90:
+                    if self.my_car.x_current >= self.pt_buffer[0][0]:
+                        self.my_vision.if_waiting = True
+                    else:self.my_vision.if_waiting = False
+                elif self.pt_buffer[1] == 0:
+                    if self.my_car.y_current <= self.pt_buffer[0][1]:
+                        self.my_vision.if_waiting = True
+                    else:self.my_vision.if_waiting = False
+                elif self.pt_buffer[1] == 180:
+                    if self.my_car.y_current >= self.pt_buffer[0][1]:
+                        self.my_vision.if_waiting = True
+                    else:self.my_vision.if_waiting = False
+                self.my_vision.calibrate_buffer = [[self.pt_buffer[0]],self.pt_buffer[1]]
+                self.my_state.state = CALIBRATE
+                self.if_transitioning=True
             else:
                 #target_point = self.my_art_protocol.coordinate_receive()
                 #if target_point and chr(target_point[2]) == self.current_object:
@@ -168,7 +187,7 @@ class TaskController:
                 self.my_state.state = RETREAT  # 直接切换到校准状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
-            self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
+            self.my_vision.reset_calibrate()  # 重置校准标志
             self.my_plan.reset_navigate_angle()
             self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
@@ -299,17 +318,18 @@ class TaskController:
             self.exit()  # 退出当前状态，进入下一个状态
     
     def handle_calibrate(self):
-        # if state == CALIBRATE
-        global counter
-        self.my_vision.apriltag_calibrate_control()
-
         if self.my_vision.if_finish_calibrate:
-            counter += 1
-            # 延时100ms
-            if counter >= 10:
-                counter = 0
-                self.exit()  # 退出当前状态，进入下一个状态
-
+            self.exit()
+            return
+        if self.my_vision.if_lost_object == False:
+            self.my_vision.apriltag_calibrate_control()
+        else:
+            # 控制小车前后移动寻找apriltag码
+            self.my_plan.navigate([ [self.my_car.x_current-25.0, self.my_car.y_current],
+                                    [self.my_car.x_current-25.0, self.my_car.y_current-15.0], 
+                                    [self.my_car.x_current+10.0, self.my_car.y_current-15.0], 
+                                    [self.my_car.x_current+10.0, self.my_car.y_current+15.0]])
+            self.exit()
     def handle_adjust(self):
         # if state == ADJUST
         pass

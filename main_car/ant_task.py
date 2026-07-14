@@ -69,7 +69,8 @@ class TaskController:
         self.last_side = 'D'
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
-
+        self.ap_slave_buffer = []
+        self.april_tag_list = ['L','U']
         self.use_scan_point = 2
         self.planned_scan_path = []
         self.if_plan_scan =False#是否规划出扫描路径
@@ -127,9 +128,7 @@ class TaskController:
             # 测试
             # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
         elif state == CALIBRATE:
-            # 进入校准状态，进行位置或传感器校准
-            # 记录小车在哪个边�?
-            self.my_vision.car_position = object_to_line_dict.get(self.current_object)
+            self.my_plan.if_finish_plan = False
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微�?
             pass
@@ -146,7 +145,7 @@ class TaskController:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
         elif state == RETREAT:
-            self.my_art_protocol.send_path('A',,[0,0])
+            self.my_main_protocol.send_path('A',self.ap_slave_buffer[1],self.ap_slave_buffer[0])
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
             pass
@@ -218,38 +217,47 @@ class TaskController:
                     self.my_state.state = READY_NAVIGATE
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == MOVE:
-            global counter
-            if counter >=40:
-                counter=0
-                # 退出搬运状态，停止搬运动作 
-                if self.current_object == 'T':self.last_side = 'U'
-                elif self.current_object == 'S' or self.current_object == 'E':self.last_side = 'L'
-                elif self.current_object == 'W' or self.current_object == 'B':self.last_side = 'R'
-                else:
-                    self.my_plan.reset_navigate_angle()
-                    # 如果从车丢失物体直接返回发车区避免浪费时�?
-                    self.my_state.state = RETURN 
+            if self.current_object == 'T':self.last_side = 'U'
+            elif self.current_object == 'S' or self.current_object == 'E':self.last_side = 'L'
+            elif self.current_object == 'W' or self.current_object == 'B':self.last_side = 'R'
+            else:
+                self.my_plan.reset_navigate_angle()
+                # 如果从车丢失物体直接返回发车区避免浪费时�?
+                self.my_state.state = RETURN 
+            if self.last_side in self.april_tag_list and self.data.current_index < self.data.total_objects_num-1 \
+                and self.my_moving.current_state == NAVIGATE:
                 # 若从车丢失物体，则跳过当前物�?     
                 self.data.current_index += 1
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
-                self.my_state.state = READY_NAVIGATE
-                if self.data.current_index >= self.data.total_objects_num:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-                # 此时从车丢失物体
-                if self.my_moving.current_state != NAVIGATE:
-                    self.my_plan.reset_navigate_angle()
-                    # 如果从车丢失物体直接返回发车区避免浪费时�?
-                    self.my_state.state = RETURN 
-                # 跳过当前物体
+                self.my_state.state = RETREAT
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                counter +=1
+                global counter
+                if counter >=40:
+                    counter=0
+                    # 若从车丢失物体，则跳过当前物�?     
+                    self.data.current_index += 1
+                    self.my_plan.reset_navigate()
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = READY_NAVIGATE
+                    if self.data.current_index >= self.data.total_objects_num:
+                        self.my_plan.reset_navigate_angle()
+                        self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
+                    # 此时从车丢失物体
+                    if self.my_moving.current_state != NAVIGATE:
+                        self.my_plan.reset_navigate_angle()
+                        # 如果从车丢失物体直接返回发车区避免浪费时�?
+                        self.my_state.state = RETURN 
+                    # 跳过当前物体
+                    self.my_moving.reset_move()  # 重置搬运标志
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                else:
+                    counter +=1
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更�?
-            self.my_vision.reset_apriltag_calibrate()  # 重置校准标志
+            self.my_vision.reset_calibrate()  # 重置校准标志
             if self.my_vision.if_lost_object:
                 self.my_plan.if_finish_plan = False
                 self.my_plan.reset_navigate_angle()
@@ -538,6 +546,7 @@ class TaskController:
             current_object = self.current_object
             retreat_threhold = 10
             ap_threhold = 25
+            self.my_vision.reset_calibrate()
             if current_object == 'T':
                 self.my_vision.car_position = 'U'
                 if self.my_car.now_yaw<0:
@@ -545,6 +554,7 @@ class TaskController:
                     set_angle = -90
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0]+ap_threhold,ap_pos[1]]]
+                    self.ap_slave_buffer = [[ap_pos[0]-ap_threhold,ap_pos[1]],90]
                     if self.my_car.x_current+retreat_threhold >= path[0][0]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
@@ -553,6 +563,7 @@ class TaskController:
                     set_angle = 90
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0]-ap_threhold,ap_pos[1]]]
+                    self.ap_slave_buffer = [[ap_pos[0]+ap_threhold,ap_pos[1]],-90]
                     if self.my_car.x_current-retreat_threhold <= path[0][0]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
@@ -563,6 +574,7 @@ class TaskController:
                     set_angle = 180
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0],ap_pos[1]+ap_threhold]]
+                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]-ap_threhold],0]
                     if self.my_car.y_current+retreat_threhold >= path[0][1]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
@@ -571,15 +583,18 @@ class TaskController:
                     set_angle = 0
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0],ap_pos[1]-ap_threhold]]
+                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]+ap_threhold],180]
                     if self.my_car.y_current-retreat_threhold <= path[0][1]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             elif current_object in ['B', 'W']:
+                self.my_vision.car_position = 'R'
                 if self.my_car.now_yaw<PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
                     set_angle = 0
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0],ap_pos[1]-ap_threhold]]
+                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]+ap_threhold],180]
                     if self.my_car.y_current-retreat_threhold <= path[0][1]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
@@ -588,16 +603,22 @@ class TaskController:
                     set_angle = 180
                     ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
                     path = [[ap_pos[0],ap_pos[1]+ap_threhold]]
+                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]-ap_threhold],0]
                     if self.my_car.y_current+retreat_threhold >= path[0][1]:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             self.my_vision.calibrate_buffer = [path,set_angle]
             self.exit()  # 退出当前状态，进入下一个状�?
     def handle_retreat(self):
-        pass
+        self.my_plan.navigate(path = [self.retreat_message])
+        if self.my_plan.if_finish_navigate:
+            self.exit()  # 退出当前状态，进入下一个状态
     def handle_calibrate(self):
+        if self.my_vision.if_finish_calibrate:
+            self.exit()
+            return
         if self.my_vision.if_lost_object == False:
-                self.my_vision.apriltag_calibrate_control()
+            self.my_vision.apriltag_calibrate_control()
         else:
             # 控制小车前后移动寻找apriltag码
             self.my_plan.navigate([ [self.my_car.x_current-25.0, self.my_car.y_current],
