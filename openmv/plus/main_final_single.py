@@ -830,14 +830,36 @@ def handle_uart_commands(uart):
                 reset_all()
 
 
+def nms(objects, iou_thresh=0.3):
+    """非极大值抑制，去除重叠框"""
+    kept = []
+    for obj in sorted(objects, key=lambda o: o[5], reverse=True):
+        x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
+        overlap = False
+        for k in kept:
+            kx1, ky1, kx2, ky2 = k[0], k[1], k[2], k[3]
+            ix1, iy1 = max(x1, kx1), max(y1, ky1)
+            ix2, iy2 = min(x2, kx2), min(y2, ky2)
+            if ix2 > ix1 and iy2 > iy1:
+                inter = (ix2 - ix1) * (iy2 - iy1)
+                union = (x2 - x1) * (y2 - y1) + (kx2 - kx1) * (ky2 - ky1) - inter
+                if inter / union > iou_thresh:
+                    overlap = True
+                    break
+        if not overlap:
+            kept.append(obj)
+    return kept
+
+
 def detect_all_objects(img, Ts):
     """执行全量目标检测，按颜色分类处理并汇总结果
 
     处理流程:
         1. YOLO模型推理，获取所有检测框
-        2. brown/white/blue物体 → 多目标卡尔曼跟踪（置信度阈值0.3）
-        3. red/green物体 → 直接绘制检测框（置信度阈值0.5，不做卡尔曼跟踪）
-        4. 所有检测到的目标坐标（含卡尔曼预测值）汇总到center列表
+        2. 经过NMS过滤重叠框
+        3. brown/white/blue物体 → 多目标卡尔曼跟踪（置信度阈值0.3）
+        4. red/green物体 → 直接绘制检测框（置信度阈值0.5，不做卡尔曼跟踪）
+        5. 所有检测到的目标坐标（含卡尔曼预测值）汇总到center列表
 
     Args:
         img: 当前帧图像（会被process_kalman_multi和draw_other_objects修改）
@@ -853,6 +875,7 @@ def detect_all_objects(img, Ts):
     obj for obj in objects
     if (obj[2] - obj[0]) * img.width() * (obj[3] - obj[1]) * img.height() >= MIN_DETECT_AREA
 ]
+    objects = nms(objects, iou_thresh=0.3)
 
     # 按颜色分类过滤（不同颜色置信度阈值不同）
     brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
