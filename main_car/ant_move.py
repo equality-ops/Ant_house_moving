@@ -188,12 +188,10 @@ class MoveControl:
         elif self.vision_manager.current_servo_object == 'T':self.__angle = self.angle_T
         else:self.__angle = self.angle_B
         # 记录小车当前角度
-        self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
-        current_yaw_deg = self.record_angle * 180.0 / PI
-        if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: current_turn_deg = 0.0
-        elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:current_turn_deg = 90.0
-        elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:current_turn_deg = 180.0
-        elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:current_turn_deg = -90.0
+        if now_side == 'L':current_turn_deg = 90.0
+        elif now_side == 'R':current_turn_deg = -90.0
+        elif now_side == 'D':current_turn_deg = 0.0
+        else:current_turn_deg = 180
         self.angle_buffer.clear()
         self.get_object_square_points(current_turn_deg,20)
         # 初始参考偏航角就是当前小车所在方向（度数）
@@ -471,6 +469,6 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(target_point, 'servo')
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
-                if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
-                    self.state_transition()  # 退出当前状态
+            if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
+                self.state_transition()  # 退出当前状态
                 

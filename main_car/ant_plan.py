@@ -596,8 +596,8 @@ class NavigationPlan:
                 cos_yaw = math.cos(self.target_yaw*PI / 180.0)
                 if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
                 else: return v_target
-        elif self.my_state.state == SCAN:
-            v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
+        #elif self.my_state.state == SCAN:
+        #    v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
         else:
             v_cruise = self.long_v_max
 
