@@ -292,6 +292,8 @@ def main_start():
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_car.now_yaw = 0.0
+                # 停止定时器2
+                pit2.stop()
 
 spin_angle = 90.0
 def test_spin():
@@ -541,4 +543,3 @@ while True:
         break
 
     gc.collect()
-
