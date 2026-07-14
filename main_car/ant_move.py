@@ -456,7 +456,6 @@ class MoveControl:
             if self.vision_manager.if_lost_object == False:
                 self.vision_manager.visual_servo_control()
             else:
-                self.my_uart.write(f"lost\n")
                 # 若丢失物体则四处移动寻找物体
                 x = self.my_car.x_current
                 y = self.my_car.y_current
