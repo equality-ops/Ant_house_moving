@@ -284,12 +284,10 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
-                    '''
                     self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")
                     self.my_uart.write(f"score{self.object_plan.target_score}\n")
-                    '''
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -455,7 +453,7 @@ class TaskController:
                 new_world = self.handle_object_info(object_package)
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
-                self.my_uart.write(f"{self.now_objects}\n")
+                #self.my_uart.write(f"{self.now_objects}\n")
                 self.my_vision.analysed_objects = self.now_objects
             else:
                 self.scan_empty_counter+=1

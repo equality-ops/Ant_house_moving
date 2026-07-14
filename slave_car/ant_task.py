@@ -52,13 +52,13 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状态
         }
-
+        self.clamp_distance = {'T':1.2,'S':2,'E':2,'W':0.5,'B':0.5}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
-
+        current_pushed_num = 0
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -89,7 +89,10 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
+            num_compensation = self.current_pushed_num * 0.35
+            self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
             self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
+            self.current_pushed_num += 1
             pass
         elif state == CALIBRATE:
             pass
