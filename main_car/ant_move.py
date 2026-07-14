@@ -232,6 +232,7 @@ class MoveControl:
             ANGle = [angle_r,current_ref_yaw_deg]
             car_postion -= 90
         car_postion = 180 - (180 - car_postion) % 360
+        # Offset toward the other car rather than away from the object pair.
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
@@ -314,6 +315,8 @@ class MoveControl:
         if not plan_path or len(plan_path)<=1:
             try:
                 dx,dy = self.saved_best_path
+                dx-=self.push_postion[0]*10
+                dy-=self.push_postion[1]*10
                 p0 = [self.my_car.x_current,self.my_car.y_current]
                 p1 = [self.my_car.x_current+dx,self.my_car.y_current+dy]
                 if self.move_dir==0:p2 = [self.my_car.x_current+dx,260]

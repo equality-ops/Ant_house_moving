@@ -168,6 +168,7 @@ class MoveControl:
             angle = angle_l
             car_postion += 90
         car_postion = 180 - (180 - car_postion) % 360
+        # Offset toward the other car rather than away from the object pair.
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
