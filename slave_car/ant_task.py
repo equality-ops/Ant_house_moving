@@ -52,7 +52,7 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状态
         }
-        self.clamp_distance = {'T':1.2,'S':2,'E':2,'W':0.5,'B':0.5}
+        self.clamp_distance = {'T':1.5,'S':2,'E':2,'W':1,'B':1}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
@@ -112,7 +112,6 @@ class TaskController:
     def exit(self):
         global counter
         state = self.my_state.state
-
         if state == READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
             if self.current_object == 'R':
