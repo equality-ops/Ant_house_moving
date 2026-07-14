@@ -58,7 +58,7 @@ class TaskController:
         self.current_object = ''  # 当前目标物体种类
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
-        current_pushed_num = 0
+        self.current_pushed_num = 0
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
