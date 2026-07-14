@@ -365,7 +365,7 @@ class MoveControl:
                 if self.if_send_orbit_command == False:
                     self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
                     self.if_send_orbit_command = True
-            self.my_plan.if_finish_navigate = False
+            self.my_plan.reset_navigate()
             self.current_state = SERVO
         elif self.current_state == ORBIT:
             self.vision_manager.if_send_order = False

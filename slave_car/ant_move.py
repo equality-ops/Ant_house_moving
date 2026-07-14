@@ -1,6 +1,10 @@
 from micropython import const
 import math
 import gc
+
+# 计数器
+counter = 0
+
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
@@ -13,6 +17,7 @@ ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 OutLine = const(1)
+
 # 搬运控制类
 class MoveControl:
     def __init__(self,flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager):
@@ -168,7 +173,6 @@ class MoveControl:
             angle = angle_l
             car_postion += 90
         car_postion = 180 - (180 - car_postion) % 360
-        # Offset toward the other car rather than away from the object pair.
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
@@ -273,12 +277,29 @@ class MoveControl:
         
     # 状态过渡函数
     def state_transition(self):
+        global counter
         if self.current_state == NAVIGATE:
+            counter += 1
+
             if self.vision_manager.if_send_order == False:
                 self.my_order_manager.mode_target()
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
+
+            # 延时1s
+            if counter >= 100:
+                # 重置计数器
+                counter = 0
+                self.my_plan.reset_navigate()
+                self.vision_manager.reset_servo_angle()
+                self.reset_orbit() # 重置环绕相关变量
+                self.plan_path = []
+                self.vision_manager.if_finish_servo = False
+                self.vision_manager.if_lost_object = True
+                self.current_state = SERVO
+                return 
+
             target_point = self.my_art_protocol.coordinate_receive()
             #self.my_uart.write(f"wait:{self.vision_manager.current_servo_object}, tp:{target_point}, send:{self.vision_manager.if_send_order}\n")
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
@@ -332,12 +353,15 @@ class MoveControl:
             pass
         elif self.current_state == SERVO:
             if self.vision_manager.if_lost_object:
+                # 若丢失物体则给从车发送丢失消息
+                self.my_slave_protocol.send_slave_state("lost")
                 self.if_finish_move = True
                 return
             self.vision_manager.if_finish_servo = False
             self.vision_manager.if_finish_orbit = False
             self.vision_manager.if_orbit_ready = False
             self.vision_manager.reset_orbit_angle()
+            
             if self.if_to_the_top:
                 self.vision_manager.if_finish_orbit = True#直接跳过旋转
             self.current_state = ORBIT
@@ -376,6 +400,7 @@ class MoveControl:
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
         elif self.current_state == SERVO:
+            self.vision_manager.visual_servo_control()
             if self.vision_manager.if_lost_object == False:
                 self.vision_manager.visual_servo_control()
             else:
@@ -395,5 +420,6 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
+
             if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
                 self.state_transition()  # 退出当前状态

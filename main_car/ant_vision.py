@@ -77,6 +77,7 @@ class VisionManager:
         # 解算后的物体与小车的相对位置偏差
         self.relative_raw_x = 0.0
         self.relative_raw_y = 0.0
+        self.last_relative_raw_y = 0.0
         self.relative_actual_x = 0.0
         self.relative_actual_y = 0.0
         self.actual_dist = 0.0
@@ -357,8 +358,9 @@ class VisionManager:
                 self.last_car_y = self.my_car.y_current
 
                 if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE):
-                    if self.real_servo_point[1] - self.last_real_servo_point[1] < 0:
+                    if self.relative_raw_y < self.last_relative_raw_y:
                         # 帧有效，更新记录
+                        self.last_relative_raw_y = self.relative_raw_y
                         self.last_real_servo_point = self.real_servo_point.copy()
                         self.servo_lost_count = 0
                     else:
@@ -367,6 +369,7 @@ class VisionManager:
                         self.servo_lost_count += 1
             else:
                 # 首帧，直接接受
+                self.last_relative_raw_y = self.relative_raw_y
                 self.last_real_servo_point = self.real_servo_point.copy()
                 self.last_car_x = self.my_car.x_current
                 self.last_car_y = self.my_car.y_current
@@ -580,13 +583,16 @@ class VisionManager:
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
         self.calculate_dist(target_point[0], target_point[1], 'far')
+        self.last_relative_raw_y = self.relative_raw_y
         self.last_real_servo_point = None
+
     def reset_calibrate(self):
         self.if_finish_calibrate =False
         self.calibrate_buffer = []
         self.my_plan.if_finish_navigate = False
         self.counter = 0
         self.if_ready_calibrate =False
+
     # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
         if self.if_ready_calibrate == False:

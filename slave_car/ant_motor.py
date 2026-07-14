@@ -149,11 +149,11 @@ class KalmanFilter:
         return self.Output    
     
 class PoseData:
-    def __init__(self, flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
+    def __init__(self, flash_sys, my_uart8, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入串口对象
-        self.my_uart3 = my_uart3
+        self.my_uart8 = my_uart8
         # 注入传感器对象
         self.imu = imu
         self.encoder_ul = encoder_ul
@@ -199,8 +199,8 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 0.2  # 加速度计权重
-        self.ki = 0.00001 # 零偏补偿权重
+        self.kp = 1.5  # 加速度计权重
+        self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -215,10 +215,13 @@ class PoseData:
         核心四元数更新算法
         输入单位：ax-az (g), gx-gz (rad/s)
         """
-        # 进行软件低通滤波，干掉电机震动带来的高频毛刺
         ax = self.acc_x_filter.filtering(ax)
         ay = self.acc_y_filter.filtering(ay)
         az = self.acc_z_filter.filtering(az)
+
+        self.acc_x = ax
+        self.acc_y = ay
+        self.acc_z = az
 
         q0, q1, q2, q3 = self.q
         
@@ -227,26 +230,56 @@ class PoseData:
         if norm == 0: return # 防止除以0
 
         G_REFERENCE = 4195.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
-       
+    
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # 设定信任阈值 (偏差在 0.15g 以内完全信任，偏差大于 0.35g 完全不信任)
-        LOWER_THRESHOLD = 0.15
-        UPPER_THRESHOLD = 0.35
-        
-        dynamic_weight = 1.0  # 默认权重为 1
-        
+        # self.my_uart8.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
+
+        # --- norm 偏差权重（加速度模长与重力的偏差）---
+        # 偏差在 5% 以内完全信任，偏差大于 20% 完全不信任
+        LOWER_THRESHOLD = 0.05
+        UPPER_THRESHOLD = 0.20
+
         if acc_error < LOWER_THRESHOLD:
-            dynamic_weight = 1.0
+            norm_weight = 1.0
         elif acc_error > UPPER_THRESHOLD:
-            dynamic_weight = 0.0
+            norm_weight = 0.0
         else:
-            # 线性插值，平滑过渡 
-            dynamic_weight = 1.0 - ((acc_error - LOWER_THRESHOLD) / (UPPER_THRESHOLD - LOWER_THRESHOLD))
+            # 线性插值，平滑过渡
+            norm_weight = 1.0 - ((acc_error - LOWER_THRESHOLD) / (UPPER_THRESHOLD - LOWER_THRESHOLD))
+
+        # --- 水平加速度幅值权重（防止急转弯时加速度计"骗"了姿态）---
+        # 低于 200 不干预，高于 500 才完全拉黑，中间线性过渡
+        ACC_LOWER = 200
+        ACC_UPPER = 500
+
+        abs_ax = abs(ax)
+        abs_ay = abs(ay)
+
+        if abs_ax < ACC_LOWER:
+            ax_weight = 1.0
+        elif abs_ax > ACC_UPPER:
+            ax_weight = 0.0
+        else:
+            ax_weight = 1.0 - (abs_ax - ACC_LOWER) / (ACC_UPPER - ACC_LOWER)
+
+        if abs_ay < ACC_LOWER:
+            ay_weight = 1.0
+        elif abs_ay > ACC_UPPER:
+            ay_weight = 0.0
+        else:
+            ay_weight = 1.0 - (abs_ay - ACC_LOWER) / (ACC_UPPER - ACC_LOWER)
+
+        mag_weight = ax_weight if ax_weight < ay_weight else ay_weight
+
+        # 取两种机制中最严格的权重（双重保险）
+        dynamic_weight = min(norm_weight, mag_weight)
             
         # 计算当前周期实际使用的 kp
         current_kp = self.kp * dynamic_weight
+
+        # self.my_uart8.write(f"{dynamic_weight},{current_kp}\n")  # 调试用：输出动态权重和当前 kp
 
         # self.my_uart3.write(f"{norm},{current_kp}\n")  # 调试用：输出原始加速度模长
 
@@ -264,10 +297,14 @@ class PoseData:
         ez = (ax*vy - ay*vx)
         
         # --- 改进1：增加积分限幅 (Anti-Windup) ---
-        I_LIMIT = 0.1  # 限制积分项最大影响
-        self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
-        self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-        self.e_int[2] = 0.0 # 6轴系统，不要信任加速度计对 Yaw 的积分修正，强制清零
+        # 6轴系统不修正 Yaw 的积分，始终清零
+        self.e_int[2] = 0.0
+
+        # 只有加速度计可信时才更新积分项，否则冻结，防止累积"垃圾"
+        if dynamic_weight > 0.1:
+            I_LIMIT = 0.1  # 限制积分项最大影响
+            self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
+            self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
         
         # 强制将 ez 置为 0，防止加速度计在 Z 轴上的假误差污染陀螺仪的 gz
         ez = 0.0 
@@ -377,7 +414,7 @@ class PoseData:
             gyro_x_sum += self.imu_data[3]
             gyro_y_sum += self.imu_data[4]
             gyro_z_sum += self.imu_data[5]
-            time.sleep_ms(4)  # 延时4ms，确保采样间隔均匀
+            time.sleep_ms(4)  # 延时2ms，确保采样间隔均匀
 
         self.gyro_x_bias = gyro_x_sum / sample_count    
         self.gyro_y_bias = gyro_y_sum / sample_count
@@ -402,7 +439,7 @@ class PoseData:
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
-
+        
         self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
         self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply

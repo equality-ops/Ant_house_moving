@@ -110,7 +110,7 @@ class TaskController:
         elif state == SCAN:
             # 进入扫描状态，开始寻找目标物�?
             self.detected_num = 0
-            self.my_plan.if_finish_navigate = False
+            self.my_plan.reset_navigate()
             self.if_send_detect_message = False
             #self.my_order_manager.mode_detect()
             self.object_plan.reset_judge()
@@ -307,7 +307,7 @@ class TaskController:
                             num_compensation = self.data.current_index * 0.2
                             self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
                             self.if_choose_object = True
-                            self.my_plan.if_finish_navigate = False
+                            self.my_plan.reset_navigate()
                         else:self.exit()
             else:self.exit()
         else:
@@ -471,7 +471,7 @@ class TaskController:
             else:
                 self.scan_empty_counter+=1
                 if self.scan_empty_counter>40:
-                    self.my_plan.if_finish_navigate = False
+                    self.my_plan.reset_navigate()
                     self.scan_waiting_count = 0 
                     self.scan_empty_counter = 0
                     self.my_order_manager.finish()
@@ -482,7 +482,7 @@ class TaskController:
                 self.detected_num+=1#切换到下一个物体
                 counter = 0
                 self.scan_waiting_count = 0
-                self.my_plan.if_finish_navigate = False
+                self.my_plan.reset_navigate()
                 self.if_plan_scan = False
                 self.my_order_manager.finish()
                 self.if_send_detect_message = False

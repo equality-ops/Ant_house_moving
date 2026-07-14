@@ -204,7 +204,7 @@ else:
     cos_servo_fil = ant_motor.SlipAveragingFilter(5)
 
     # 创建姿态数据对象
-    pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
+    pose_data = ant_motor.PoseData(my_flash_sys, my_uart8, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
 
     # 创建电机pid对象和角度pid对象
     motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -359,8 +359,10 @@ def master_control():
         if my_moving.current_state == ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
         elif my_moving.current_state in [SERVO, ADJUST]:
-            if not my_vision_manager.if_lost_object:my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-            else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+            if not my_vision_manager.if_lost_object:
+                my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
+            else:
+                my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state == NAVIGATE:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state == MOVE:
@@ -509,7 +511,8 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{pose_data.acc_z}\n")
+    # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
+    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
