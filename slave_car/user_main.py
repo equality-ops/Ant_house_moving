@@ -14,6 +14,8 @@ gc.collect()
 from smartcar import ticker, encoder
 my_uart3 = UART(2)
 my_uart3.init(115200)
+my_uart8 = UART(7)
+my_uart8.init(115200)
 import ant_plan
 gc.collect()
 import ant_else
@@ -438,6 +440,7 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     task_machine()
+
     # 全向定位测试程序
     """
     if my_state.state == READY_NAVIGATE:
@@ -452,7 +455,7 @@ def time_pit3_handler(time) -> None:
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         # my_plan.navigate(path = [[0.0, 120.0]])
-        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [10.0, 40.0], [50.0, 80.0], [60.0, 30.0], [-40.0, 2.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -493,6 +496,8 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
+
+    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
