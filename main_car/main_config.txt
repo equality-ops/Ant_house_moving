@@ -74,7 +74,7 @@ error_x_B = 2.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1350
+fixed_high_level_us = 1300
 
 min_start_v = 35
 long_v_max = 180
@@ -88,9 +88,9 @@ orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 160
-move_v_max_B = 160
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数

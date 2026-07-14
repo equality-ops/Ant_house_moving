@@ -388,7 +388,6 @@ class PoseData:
 
     # 传感器数据更新函数
     def update_data(self):
-        """
         # 1. 计算真实的动态 dt
         current_time = time.ticks_us()
         # 计算时间差并转换为秒 (MicroPython 下推荐用 ticks_diff 防溢出)
@@ -399,7 +398,6 @@ class PoseData:
         # 防止 dt 出现离谱的值（比如程序刚启动卡顿）
         if self.dt > 0.1: 
             self.dt = 0.004
-        """
             
         self.encoder_data_ul = self.encoder_ul.get()
         self.encoder_data_ur = self.encoder_ur.get()
@@ -418,10 +416,14 @@ class PoseData:
 
         self.ahrs_update(self.imu_data[0], self.imu_data[1], self.imu_data[2],
                         self.gyro_x, self.gyro_y, self.gyro_z)
+        '''
+        alpha_x = 0.5
+        self.gyro_z = 0.5 * self.gyro_z + 0.5 * gyro_z
+        self.now_yaw += self.gyro_z * self.dt * (180.0 / PI)  # 将弧度转换为角度
+        '''
 
         # 4. 更新欧拉角输出
         self.update_euler_angles()
-
         
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
