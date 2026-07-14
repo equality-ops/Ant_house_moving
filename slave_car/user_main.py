@@ -71,6 +71,11 @@ state2 = switch2.value()
 # 构造输入电压分压检测电路接口
 power_adc = ADC('B27')
 
+# 定时器初始化
+pit1 = ticker(1)
+pit2 = ticker(2)
+pit3 = ticker(3)
+
 """蜂鸣器初始化"""
 beep = Pin('D24', Pin.OUT, value = False)
 
@@ -271,6 +276,8 @@ def slave_start():
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_car.now_yaw = 0.0
+                # 停止定时器2
+                pit2.stop()
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -496,24 +503,23 @@ def time_pit2_handler(time):
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
-    global imu_data
-    pit1 = ticker(1)
-    pit1.capture_list(encoder_ul, encoder_ur, encoder_md, imu)
+    global imu_data, pit1
+    pit1.capture_list(imu, encoder_ul, encoder_ur, encoder_md)
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)
-    pit1.start(my_flash_sys.find_value("motor_control_T"))#设置电机定时器周期
-    
+    pit1.start(my_flash_sys.find_value("motor_control_T"))
+
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
-    pit2 = ticker(2)
-    pit2.capture_list(key)
+    global pit2
     pit2.callback(time_pit2_handler)
+    pit2.capture_list(key)
     pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
-    pit3 = ticker(3)
+    global pit3
     pit3.callback(time_pit3_handler)
     pit3.start(my_flash_sys.find_value("plan_calculate_T"))
 
