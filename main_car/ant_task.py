@@ -52,7 +52,7 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状�?
         }
-        self.clamp_distance = {'T':1.2,'S':2,'E':2,'W':0.5,'B':0.5}
+        self.clamp_distance = {'T':1.5,'S':2,'E':2,'W':1,'B':1}
         self.scan_empty_counter = 0
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
@@ -158,6 +158,7 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
+                self.my_main_protocol.send_path('P',0.0,(0.0,0.0))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return

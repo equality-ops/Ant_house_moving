@@ -112,7 +112,6 @@ class TaskController:
     def exit(self):
         global counter
         state = self.my_state.state
-
         if state == READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
             if self.current_object == 'R':
