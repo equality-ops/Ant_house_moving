@@ -99,6 +99,7 @@ class TaskController:
         state = self.my_state.state
         self.if_transitioning = False  # 进入新状态，重置状态转换标志位
         if state == READY_NAVIGATE:
+            self.my_plan.reset_navigate_angle()
             self.object_plan.reset_judge()
             self.if_choose_object = False
             # 进入准备导航状态，做好路径规划准备和导航信息准�?
@@ -122,6 +123,7 @@ class TaskController:
         elif state == MOVE:
             # 进入搬运状态，开始搬运物�?
             self.my_plan.reset_navigate()
+            self.my_plan.reset_navigate_angle()
             self.my_moving.my_photo.reset_photo()
             pass
             # 测试
@@ -453,6 +455,7 @@ class TaskController:
                 new_world = self.handle_object_info(object_package)
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
+                self.my_uart.write(f"{self.now_objects}\n")
                 self.my_vision.analysed_objects = self.now_objects
             else:
                 self.scan_empty_counter+=1
