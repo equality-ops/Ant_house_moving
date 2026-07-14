@@ -338,7 +338,6 @@ class MoveControl:
             self.vision_manager.if_finish_orbit = False
             self.vision_manager.if_orbit_ready = False
             self.vision_manager.reset_orbit_angle()
-            
             if self.if_to_the_top:
                 self.vision_manager.if_finish_orbit = True#直接跳过旋转
             self.current_state = ORBIT
@@ -377,7 +376,6 @@ class MoveControl:
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
         elif self.current_state == SERVO:
-            self.vision_manager.visual_servo_control()
             if self.vision_manager.if_lost_object == False:
                 self.vision_manager.visual_servo_control()
             else:
@@ -397,6 +395,5 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
-
             if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
                 self.state_transition()  # 退出当前状态

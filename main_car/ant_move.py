@@ -19,7 +19,7 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
-    def __init__(self,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager):
+    def __init__(self,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart):
         self.my_beep = beep
         self.my_photo = photo
         self.vision_manager = vision_manager
@@ -32,6 +32,7 @@ class MoveControl:
         self.my_art_protocol = art_protocol
         self.my_order_manager = order_manager
         self.move_plan = move_plan
+        self.my_uart = my_uart
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
         self.flash_sys = flash_sys
@@ -452,10 +453,10 @@ class MoveControl:
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
         elif self.current_state == SERVO:
-            self.vision_manager.visual_servo_control()
             if self.vision_manager.if_lost_object == False:
                 self.vision_manager.visual_servo_control()
             else:
+                self.my_uart.write(f"lost\n")
                 # 若丢失物体则四处移动寻找物体
                 x = self.my_car.x_current
                 y = self.my_car.y_current

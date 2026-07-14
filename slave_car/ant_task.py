@@ -225,22 +225,25 @@ class TaskController:
                 # 进行路径规划
                 tx=path[2][0]
                 ty=path[2][1]
-                #规划停在主车左/右侧
-                current_yaw_deg = self.my_car.now_yaw * 180.0 / PI
-                if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
-                    current_turn_deg = 0.0
-                elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:
-                    current_turn_deg = 90.0
-                elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:
-                    current_turn_deg = 180.0
-                elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
-                    current_turn_deg = -90.0
-                if current_turn_deg == 0 or current_turn_deg == 180:
-                    tx=min(max(path[2][0]-horizon_stop_threshold,self.my_car.x_current),path[2][0]+horizon_stop_threshold)
+                if abs(tx+1)<1e-3 and abs(ty+1)<1e-3:
+                    self.navigate_message = [[-1,-1], path[1]]  # 只保留角度
                 else:
-                    ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
-                self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
-                self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
+                    #规划停在主车左/右侧
+                    current_yaw_deg = self.my_car.now_yaw * 180.0 / PI
+                    if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
+                        current_turn_deg = 0.0
+                    elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:
+                        current_turn_deg = 90.0
+                    elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:
+                        current_turn_deg = 180.0
+                    elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
+                        current_turn_deg = -90.0
+                    if current_turn_deg == 0 or current_turn_deg == 180:
+                        tx=min(max(path[2][0]-horizon_stop_threshold,self.my_car.x_current),path[2][0]+horizon_stop_threshold)
+                    else:
+                        ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
+                    self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
+                    self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
             self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
             # 测试

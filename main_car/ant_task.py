@@ -284,10 +284,10 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
-                    '''self.my_uart.write(f"{self.now_objects}\n")
+                    self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")
-                    self.my_uart.write(f"score{self.object_plan.target_score}\n")'''
+                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -304,7 +304,7 @@ class TaskController:
                         #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:
                             self.my_moving.saved_best_path =self.object_plan.best_path
-                            num_compensation = self.data.current_index * 0.35
+                            num_compensation = self.data.current_index * 0.2
                             self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
                             self.if_choose_object = True
                             self.my_plan.if_finish_navigate = False
