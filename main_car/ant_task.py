@@ -83,8 +83,8 @@ class TaskController:
         self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
                                  [[145,self.data.fixed_point[1][1]-5],0],
                                  [[190,self.data.fixed_point[1][1]-5],0],
-                                 [[175,self.data.fixed_point[3][1]+5],180],
-                                 [[130,self.data.fixed_point[3][1]+5],180]]
+                                 [[175,self.data.fixed_point[2][1]+5],180],
+                                 [[130,self.data.fixed_point[2][1]+5],180]]
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -289,10 +289,10 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
-                    # self.uart_debug.write(f"{self.now_objects}\n")
-                    # self.uart_debug.write(f"target{self.object_plan.target_objects}\n")
-                    # self.uart_debug.write(f"path{self.object_plan.path}\n")
-                    # self.uart_debug.write(f"score{self.object_plan.target_score}\n")
+                    self.my_uart.write(f"{self.now_objects}\n")
+                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
+                    self.my_uart.write(f"path{self.object_plan.path}\n")
+                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -362,17 +362,20 @@ class TaskController:
             self.exit()  # 退出当前状态，进入扫描状�?
             
     # 处理物体信息（将像素坐标转换为世界坐标）
-    def handle_object_info(self, ob_info):
+    def handle_object_info(self, ob_info,angle):
         """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
         real_ob_info = []
         for ob in ob_info[1]:
             sp, x, y  = ob
-            if x<10 or y<10 or x>150 or y >110:
+            if x<10 or y<10 or x>145 or y >105:
                 continue
             kind = chr(sp)
             # 更新当前物体种类，便于选择物体高度
             self.my_vision.current_servo_object = kind  
-            real_point = self.my_vision.predict_point(x, y)
+            if angle == 180:limit_y = 50
+            else:limit_y = 75
+            real_point = self.my_vision.predict_point(x, y,limit_y = limit_y)
+            if not real_point: continue
             if not self.my_vision.if_in_rect(real_point[0],real_point[1]):continue
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
@@ -385,11 +388,8 @@ class TaskController:
             for idx, (old_kind, old_x, old_y) in enumerate(merged):
                 if old_kind != kind:
                     continue
-                # Farther detections have larger coordinate error, so relax the
-                # merge threshold linearly from 30 cm to 110 cm ahead/behind.
-                object_dist = max(abs(y - self.my_car.y_current),
-                                  abs(old_y - self.my_car.y_current))
-                if object_dist <= 30.0:
+                object_dist = max(abs(y - self.my_car.y_current),abs(old_y - self.my_car.y_current))
+                if object_dist <= 30.0 or self.if_model_detect:
                     threshold = threshold_near
                 elif object_dist >= 110.0:
                     threshold = threshold_far
@@ -462,16 +462,16 @@ class TaskController:
                 ob_info.append(world_2[i])  
         return ob_info
     def first_scan(self):
-        def analyse_package(num):
+        def analyse_package(num,angle):
             global counter
             object_package=self.my_art_protocol.detect_objects_on_the_court()#[物体种类(ord),x,y]
             if object_package:
                 counter +=1
                 self.scan_empty_counter=0
-                new_world = self.handle_object_info(object_package)
+                new_world = self.handle_object_info(object_package,angle)
+                self.my_uart.write(f"{counter}{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
-                #self.my_uart.write(f"{self.now_objects}\n")
                 self.my_vision.analysed_objects = self.now_objects
             else:
                 self.scan_empty_counter+=1
@@ -508,10 +508,9 @@ class TaskController:
                         if self.if_model_detect:
                             self.my_order_manager.trans_to_mode_detect()
                     self.scan_waiting_count +=1
-                else:analyse_package(num)
+                else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
-            '''
             if len(self.now_objects) != self.data.total_objects_num:
                 self.my_uart.write(f"{self.now_objects}\n")
                 self.my_uart.write(f"target{self.object_plan.target_objects}\n")
@@ -519,7 +518,6 @@ class TaskController:
                 self.my_uart.write(f"score{self.object_plan.target_score}\n")
                 self.exit()
                 return
-            '''
             self.if_end_first_scan = True
         else:scan_point(1)
     def handle_scan(self):

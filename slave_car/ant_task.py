@@ -300,16 +300,19 @@ class TaskController:
             retreat_threhold = 10
             self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
             if current_object == 'T':
+                self.my_vision.car_position = 'U'
                 if self.my_car.now_yaw<0:
                     self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
                 else:
                     self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
             elif current_object in ['S', 'E']:
+                self.my_vision.car_position = 'L'
                 if self.my_car.now_yaw<-PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
                 else:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
             elif current_object in ['B', 'W']:
+                self.my_vision.car_position = 'R'
                 if self.my_car.now_yaw<PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
                 else:

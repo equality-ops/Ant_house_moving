@@ -277,9 +277,11 @@ class VisionManager:
         # 返回真实的物理坐标
         return X_raw * K, Y_raw * K
         # 推测目标点位并进行视觉伺服控制
-    def predict_point(self, x, y):
+    def predict_point(self, x, y,limit_y = None):
         car_radius = 10.0
         raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
+        if limit_y:
+            if raw_y>limit_y: return []
         raw_y += car_radius
         relative_angle = -math.atan2(-raw_x, raw_y)
         actual_angle = self.my_car.now_yaw + relative_angle

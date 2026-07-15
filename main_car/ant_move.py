@@ -346,7 +346,8 @@ class MoveControl:
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
             dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
             dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
-            p1=[plan_path[1][0]+dy1/(dy1+dy2)*self.push_postion[0]now_clamp,plan_path[1][1]+dx1/(dx1+dx2)*self.push_postion[1]*now_clamp]
+            p1=[plan_path[1][0]+dy1/(dy1+dy2)*self.push_postion[0]*now_clamp,
+                plan_path[1][1]+dx1/(dx1+dx2)*self.push_postion[1]*now_clamp]
             p2=[plan_path[2][0]+self.push_postion[0]*now_clamp*twist_clamp_factor,plan_path[2][1]+self.push_postion[1]*now_clamp*twist_clamp_factor]
             self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
             self.plan_path = plan_path[1:]
