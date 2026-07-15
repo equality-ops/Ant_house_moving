@@ -264,15 +264,15 @@ class VisionManager:
         object_H_min = 0.0
         object_H_max = 0.0
         if self.if_model_detect:
-            MIN_Y,MAX_Y = 15.0,120.0
+            MIN_Y,MAX_Y = 15.0, 120.0
             if self.current_servo_object in ['T']:
                 object_H_min,object_H_max= 5.0,6.0
             elif self.current_servo_object in ['S', 'E']:
                 object_H_min,object_H_max= 6.0,7.0
             elif self.current_servo_object in ['W', 'B']:
-                object_H_min,object_H_max= 4.0,5.0
+                object_H_min,object_H_max= 5.0,6.5
         else:
-            MIN_Y,MAX_Y = 30.0,120.0
+            MIN_Y,MAX_Y = 30.0, 120.0
             if self.current_servo_object in ['T']:
                 object_H_min,object_H_max= 4.0,5.0
             elif self.current_servo_object in ['S', 'E']:
