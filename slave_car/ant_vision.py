@@ -700,6 +700,42 @@ class VisionManager:
                         if self.target_rel_yaw > 45.0 or self.target_rel_yaw < -45.0:
                             self.target_rel_speed = int(self.target_rel_speed * 0.8)
                         self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
+            
+                if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
+                    if self.calibrate_times == 1:
+                        # 计算目标转角(多次测量取平均值)
+                        if self.car_position == 'L':
+                            if self.rel_pos_to_apriltag == 'left':
+                                self.angle_buffer.append(0.0 + target_point[2])
+                            elif self.rel_pos_to_apriltag == 'right':
+                                angle = 180.0 - target_point[2]
+                                if angle > 180.0:
+                                    angle -= 360.0
+                                self.angle_buffer.append(angle)
+                        elif self.car_position == 'R':
+                            if self.rel_pos_to_apriltag == 'left':
+                                angle = 180.0 + target_point[2]
+                                if angle > 180.0:
+                                    angle -= 360.0
+                                self.angle_buffer.append(angle)
+                            elif self.rel_pos_to_apriltag == 'right':
+                                self.angle_buffer.append(0.0 - target_point[2])
+                        elif self.car_position == 'U':
+                            if self.rel_pos_to_apriltag == 'left':
+                                self.angle_buffer.append(90.0 + target_point[2])
+                            elif self.rel_pos_to_apriltag == 'right':
+                                self.angle_buffer.append(-90.0 - target_point[2])
+                    else:
+                        """
+                        now_yaw = self.my_car.now_yaw * 180.0 / PI
+                        # 计算目标转角
+                        if self.rel_pos_to_apriltag == 'left':
+                            self.target_rel_turn_angle = now_yaw - target_point[2]
+                        elif self.rel_pos_to_apriltag == 'right':
+                            self.target_rel_turn_angle = now_yaw + target_point[2]
+                        """
+                        self.if_gain_calibrate_angle = True
+
             else:
                 self.servo_lost_count += 1
                 # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
@@ -708,38 +744,3 @@ class VisionManager:
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
                     self.if_lost_object = True
-
-            if self.if_gain_calibrate_angle == False or self.calibrate_times == 1:
-                if self.calibrate_times == 1:
-                    # 计算目标转角(多次测量取平均值)
-                    if self.car_position == 'L':
-                        if self.rel_pos_to_apriltag == 'left':
-                            self.angle_buffer.append(0.0 + target_point[2])
-                        elif self.rel_pos_to_apriltag == 'right':
-                            angle = 180.0 - target_point[2]
-                            if angle > 180.0:
-                                angle -= 360.0
-                            self.angle_buffer.append(angle)
-                    elif self.car_position == 'R':
-                        if self.rel_pos_to_apriltag == 'left':
-                            angle = 180.0 + target_point[2]
-                            if angle > 180.0:
-                                angle -= 360.0
-                            self.angle_buffer.append(angle)
-                        elif self.rel_pos_to_apriltag == 'right':
-                            self.angle_buffer.append(0.0 - target_point[2])
-                    elif self.car_position == 'U':
-                        if self.rel_pos_to_apriltag == 'left':
-                            self.angle_buffer.append(90.0 + target_point[2])
-                        elif self.rel_pos_to_apriltag == 'right':
-                            self.angle_buffer.append(-90.0 - target_point[2])
-                else:
-                    """
-                    now_yaw = self.my_car.now_yaw * 180.0 / PI
-                    # 计算目标转角
-                    if self.rel_pos_to_apriltag == 'left':
-                        self.target_rel_turn_angle = now_yaw - target_point[2]
-                    elif self.rel_pos_to_apriltag == 'right':
-                        self.target_rel_turn_angle = now_yaw + target_point[2]
-                    """
-                    self.if_gain_calibrate_angle = True
