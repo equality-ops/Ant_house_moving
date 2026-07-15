@@ -236,6 +236,7 @@ class VisionManager:
             y < rect_y_min or y > rect_y_max:
             return False
         return True
+    
         # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world_scan(self, u, v):
         """
