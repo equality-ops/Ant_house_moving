@@ -66,8 +66,6 @@ uart_and_menu_T = 53
 final_threshold = 1.0
 branch_threshold = 2.5
 
-
-
 error_x_T = 2.0
 error_x_S = 2.0
 error_x_B = 2.0
@@ -146,10 +144,14 @@ angle_B = 35
 
 orbit_kp = 15.0
 
-if_model = 1
 calibrate_waiting_time = 40
 #############################################
+#惯导避障膨胀半径
 SAFE_MARGIN = 14.0
 
+#是否使用模型servo
+if_model = 1
+
+#障碍物位置
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135.0,11.6 , 24.8)"
 circle = "(48, 171)"

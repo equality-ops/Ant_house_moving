@@ -9,6 +9,8 @@ class BoundaryPathPlanner:
         self.sigal_swell_size = self.flash_sys.find_value("sigal_swell_size")#单向膨胀
         self.bothway_swell_size = self.flash_sys.find_value("bothway_swell_size")#双向膨胀
         self.SAFE_MARGIN = self.flash_sys.find_value("MOVE_SAFE_MARGIN")#四周膨胀半径
+        self.near_area = self.flash_sys.find_value("NEAR_AREA")
+        self.avoid_width = self.flash_sys.find_value("AVOID_WIDTH")
         self.rects = []
         self.ready_path = []
         gc.collect()
@@ -305,7 +307,6 @@ class objects_planner:
         self.objects_information = []
         self.objects_characters = []
         self.my_BoundaryPath = my_BoundaryPath
-        self.near_therohold = 15
         self.objects_score = []
         self.barrier = []
         self.now_objects = []
@@ -336,48 +337,10 @@ class objects_planner:
         self.plan_target = []
         self.now_idx = 0
         gc.collect()
-    def calculate_score(self, needed_area_barriers, run_area_barriers, has_push_path, push_distance, push_angle, distance_from_car, car_side):
-        danger,speed = 0,0
-        side = {'D':[0,0],'L':[0,1],'U':[1,1],'R':[1,0]}
-        if not has_push_path:danger += 1
-        danger *=10
-        if push_angle>60:danger += 1
-        danger *=10
-        for i in needed_area_barriers:
-            if len(needed_area_barriers[i])>0:
-                danger+=4
-                if 'T' in needed_area_barriers[i]:
-                    danger+=2
-        R_Bs=run_area_barriers
-        min_dis = 10
-        min_dis_T = 10
-        Plan_side,Plan_side_T,target_side= car_side,car_side,car_side
-        for i in R_Bs:
-            dis = abs(side[i][0]-side[car_side][0])+abs(side[i][1]-side[car_side][1])
-            if not R_Bs[i]:
-                if min_dis>dis:
-                    min_dis = dis
-                    Plan_side = i
-            else:
-                if not 'T' in R_Bs[i]:
-                    if min_dis_T>dis:
-                        min_dis_T = dis
-                        Plan_side_T = i
-        target_side=Plan_side
-        if min_dis == 10:
-            if min_dis_T==10:
-                danger += 9
-            else:
-                danger += 5
-                speed+=dis*50
-            target_side=Plan_side_T
-        else:speed+=dis*50
-        speed += distance_from_car*1+push_distance*1
-        return danger,speed,target_side#危险性，速度性，目标�?    
     def judge_side_in(self,side,now_object):
         def _if_p_block_p(p,p_):
-            avoid_width = 20
-            near_area = 3
+            avoid_width = self.my_BoundaryPath.avoid_width
+            near_area = self.my_BoundaryPath.near_area
             if side == 'D':
                 if p_[1]>p[1]-near_area:return False
                 if abs(p_[0]-p[0])>avoid_width:return False
