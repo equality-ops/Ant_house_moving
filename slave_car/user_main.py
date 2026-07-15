@@ -395,7 +395,7 @@ def set_pid_params():
 # 视觉伺服辅助apriltag码矫正
 def test_apriltag_calibrate():
     if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
+        my_state.state = CALIBRATE
     elif my_state.state == NAVIGATE:
         my_plan.navigate(path = [[-10.0, 30.0]], target_turn_angle = -40.0)
         if my_plan.if_finish_navigate == True:
@@ -513,7 +513,7 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
-    my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times}\r\n")
+    my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
