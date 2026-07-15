@@ -66,7 +66,10 @@ class TaskController:
         self.if_send_path = False  # 是否已经发送路径规划信�?
         self.detected_num = 0
         self.if_send_detect_message = False
-        self.last_side = 'D'
+        self.if_model_detect = self.my_flash_system.find_value("if_model_detect")
+        if self.if_model_detect:
+            self.last_side = 'U'
+        else:self.last_side = 'D'
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
         self.ap_slave_buffer = []
@@ -76,7 +79,6 @@ class TaskController:
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
-        self.if_model_detect = self.my_flash_system.find_value("if_model_detect")
         if self.if_model_detect:
             self.use_scan_point = 4
         else:self.use_scan_point = 2
@@ -161,7 +163,10 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
-                self.my_main_protocol.send_path('P',0.0,(0.0,0.0))
+                if self.if_model_detect:
+                    self.my_main_protocol.send_path('P',180.0,(0.0,0.0))
+                else:
+                    self.my_main_protocol.send_path('P',0.0,(0.0,0.0))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
@@ -471,7 +476,7 @@ class TaskController:
                 counter +=1
                 self.scan_empty_counter=0
                 new_world = self.handle_object_info(object_package,angle)
-                self.my_uart.write(f"{counter}{new_world}\n")
+                #self.my_uart.write(f"{counter}{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects
@@ -513,13 +518,13 @@ class TaskController:
                 else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
-            if len(self.now_objects) != self.data.total_objects_num:
+            '''if len(self.now_objects) != self.data.total_objects_num:
                 self.my_uart.write(f"{self.now_objects}\n")
                 self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                 self.my_uart.write(f"path{self.object_plan.path}\n")
                 self.my_uart.write(f"score{self.object_plan.target_score}\n")
                 self.exit()
-                return
+                return'''
             self.if_end_first_scan = True
         else:scan_point(1)
     def handle_scan(self):
