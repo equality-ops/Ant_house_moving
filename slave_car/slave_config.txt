@@ -107,10 +107,10 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【apriltag矫正】####################
-servo_kp_calibrate_x = 6.0
-servo_kd_calibrate_x = 8.0
-servo_kp_calibrate_y = 6.0
-servo_kd_calibrate_y = 8.0
+servo_kp_calibrate_x = 8.0
+servo_kd_calibrate_x = 10.0
+servo_kp_calibrate_y = 8.0
+servo_kd_calibrate_y = 10.0
 
 servo_target_y_A = 6.0
 
@@ -152,6 +152,6 @@ cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135.0,11.6 , 24.8)"
 circle = "(48, 171)"
 
 # 不同物体的搬运速度
-move_v_max_T = 130
-move_v_max_S = 130
-move_v_max_B = 130
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140

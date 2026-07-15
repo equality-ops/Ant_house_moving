@@ -33,13 +33,14 @@ if not pin_obj.value():#进入调试模式
     import ant_menu
     gc.collect()
 else:
-    import ant_task
     gc.collect()
     import ant_vision
     gc.collect()
-    import ant_boundary_plan
+    import ant_task
     gc.collect()
     import ant_move
+    gc.collect()
+    import ant_boundary_plan
     gc.collect()
     import ant_motor
     gc.collect()
