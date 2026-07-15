@@ -716,7 +716,7 @@ class VisionManager:
                         self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
                         self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
                         # 计算目标角度，单位：度（注意避免除以0）
-                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI + self.target_rel_turn_angle
+                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI
                         if self.target_rel_yaw > 180.0:
                             self.target_rel_yaw -= 360.0
                         elif self.target_rel_yaw < -180.0:

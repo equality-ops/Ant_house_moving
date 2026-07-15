@@ -724,10 +724,10 @@ class VisionManager:
                             # print(f"final_angle: {sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])}")
                             self.pose_data.reset_yaw(sum(self.angle_buffer[5:]) / len(self.angle_buffer[5:]))
                             self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
-                            self.my_uart3.write(f"\r\nnow_yaw: {self.pose_data.now_yaw}\r\n")
+                            # self.my_uart3.write(f"\r\nnow_yaw: {self.pose_data.now_yaw}\r\n")
                             self.angle_buffer.clear()
                             # 更新小车里程计坐标
-                            RELATIVE_DIST = 24.0
+                            RELATIVE_DIST = 21.0
                             if self.car_position == 'L':
                                 # self.my_car.x_current = self.apriltage_postion['L'][0]
                                 apriltag_y = self.apriltage_postion['L'][1]
@@ -783,7 +783,7 @@ class VisionManager:
                         self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
                         self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
                         # 计算目标角度，单位：度（注意避免除以0）
-                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI + self.target_rel_turn_angle
+                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI
                         if self.target_rel_yaw > 180.0:
                             self.target_rel_yaw -= 360.0
                         elif self.target_rel_yaw < -180.0:
