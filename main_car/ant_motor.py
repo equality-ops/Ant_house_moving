@@ -594,7 +594,11 @@ class ServoPID(ControlPID):
         self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
         self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
         self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
-        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
+        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")    
+        self.servo_kp_calibrate_x = self.flash_sys.find_value("servo_kp_calibrate_x")        # type: float
+        self.servo_kd_calibrate_x = self.flash_sys.find_value("servo_kd_calibrate_x")        # type: float
+        self.servo_kp_calibrate_y = self.flash_sys.find_value("servo_kp_calibrate_y")        # type: float
+        self.servo_kd_calibrate_y = self.flash_sys.find_value("servo_kd_calibrate_y")        # type: float    # type: float
         self.servo_kp_x = 0.0
         self.servo_kp_y = 0.0
         self.servo_kd_x = 0.0
