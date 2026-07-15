@@ -513,6 +513,8 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
+
+    my_uart3.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")

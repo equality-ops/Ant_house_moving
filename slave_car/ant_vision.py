@@ -129,6 +129,7 @@ class VisionManager:
         self.angle_buffer = []     # type: list    # 目标角度缓冲区      
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
+        self.rel_pos_to_apriltag = 'left'  # 'left'为左侧，'right'为右侧
         # 临时用于测试的角度变量
         self.angle_temp = 0.0
         # 停在物体的左侧或者右侧
