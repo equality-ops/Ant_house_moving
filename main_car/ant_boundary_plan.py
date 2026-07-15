@@ -319,8 +319,8 @@ class objects_planner:
         self.now_idx = 0
         gc.collect()
     def set_barriers(self,barriers):
-        wideness={'T':4,'S':3,'E':3,'B':2,'W':2,}
-        height={'T':4,'S':3,'E':3,'B':2,'W':2,}
+        wideness={'T':2,'S':1,'E':1,'B':0,'W':0,}
+        height={'T':2,'S':1,'E':1,'B':0,'W':0,}
         for i in self.now_objects:
             w,h=wideness[i[0]],height[i[0]]
             barriers.append([i[1],i[2],w,h])
