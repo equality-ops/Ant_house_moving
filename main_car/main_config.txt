@@ -141,19 +141,33 @@ angle_T = 40
 angle_S = 40
 angle_B = 35
 
-if_model = 1
-if_model_detect = 1
-if_calibrate = 1
-
-calibrate_waiting_time = 40
-total_objects_num = 6
-#############################################
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
+calibrate_waiting_time = 40
+NEAR_AREA = 3
+AVOID_WIDTH = 20
+#############################################
+#是否矫正
+if_calibrate = 1
+#是否使用模型servo
+if_model = 1
+#是否使用模型scan
+if_model_detect = 1
+#单侧膨胀长度
 sigal_swell_size = 20
+#双侧膨胀长度
 bothway_swell_size = 10
-SAFE_MARGIN = 14.0
 
+#惯导避障膨胀半径
+SAFE_MARGIN = 14.0
+#推动避障膨胀半径
 MOVE_SAFE_MARGIN = 13.0
+total_objects_num = 6
+
+#九宫格长宽
+SUDOKU_length_x = 30.0
+SUDOKU_width_y = 30.0
+
+#障碍物位置
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
 circle = "(48, 171)"

@@ -231,7 +231,7 @@ class TaskController:
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
                     return
                 else:counter +=1
-            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate:
+            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score >=10:
                 self.data.current_index += 1
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
