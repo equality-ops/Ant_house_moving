@@ -507,7 +507,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
     """
@@ -528,7 +528,7 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
     """
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 搬运控制测试程序
     # test_moving()
