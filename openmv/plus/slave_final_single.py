@@ -280,7 +280,7 @@ class ModelDetector:
         img1 = img.copy(0.75, 1)
         return tf.detect(self.net, img1)
 
-    def process_kalman_multi(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
+    def process_kalman(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
         """模型检测单目标卡尔曼跟踪 + 其余原始坐标补全"""
         width, height = img.width(), img.height()
         kalman_on = kalman_enabled[color]
@@ -457,7 +457,7 @@ class ColorDetector:
                 filtered.append((blob, color))
         return filtered
 
-    def process_kalman_multi(self, img, blobs, tracker, color, Ts, center_list, kalman_coords_dict):
+    def process_kalman(self, img, blobs, tracker, color, Ts, center_list, kalman_coords_dict):
         """色块检测单目标卡尔曼跟踪 + 其余原始坐标补全"""
         kalman_on = kalman_enabled[color]
 
@@ -607,18 +607,19 @@ def handle_uart_commands(uart):
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_COLOR
-            # sensor.set_brightness(800)
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            # sensor.set_brightness(800)
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'R':
             current_mode = MODE_CORRECTION
-            # sensor.set_brightness(600)
+            sensor.set_brightness(400)
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            sensor.set_brightness(600)
             current_obj = ''
             reset_all()
 
@@ -698,9 +699,9 @@ def detect_all_objects(img, Ts):
         if color in ['red', 'green'] and confidence > 0.5:
             other_objects.append((obj, color))
 
-    model_detector.process_kalman_multi(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
-    model_detector.process_kalman_multi(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
-    model_detector.process_kalman_multi(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
     model_detector.draw_other_objects(img, other_objects, center)
 
     return center, objects
@@ -784,9 +785,9 @@ while True:
             else:
                 other_blobs.append((blob, color))
 
-        color_detector.process_kalman_multi(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
         # 发送离基准点(80,85)最近的目标坐标

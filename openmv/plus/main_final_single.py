@@ -323,7 +323,7 @@ class ModelDetector:
         img1 = img.copy(0.75, 1)
         return tf.detect(self.net, img1)
 
-    def process_kalman_multi(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
+    def process_kalman(self, img, objects, tracker, color, Ts, center_list, kalman_coords_dict):
         """模型检测单目标卡尔曼跟踪 + 其余原始坐标补全"""
         width, height = img.width(), img.height()
         kalman_on = kalman_enabled[color]
@@ -508,7 +508,7 @@ class ColorDetector:
                 filtered.append((blob, color))
         return filtered
 
-    def process_kalman_multi(self, img, blobs, tracker, color, Ts, center_list, kalman_coords_dict):
+    def process_kalman(self, img, blobs, tracker, color, Ts, center_list, kalman_coords_dict):
         """色块检测单目标卡尔曼跟踪 + 其余原始坐标补全"""
         kalman_on = kalman_enabled[color]
 
@@ -759,6 +759,9 @@ last_time = time.ticks_ms()
 # GC帧计数器（色块/模型模式下使用）
 frame_count = 0
 
+# 预览模式是否使用模型识别（收到'm'切换）
+preview_use_model = False
+
 # ======================== 工具函数 ========================
 # 当前选中目标类型（由下位机通过UART指定）
 current_obj = ''
@@ -779,7 +782,7 @@ def handle_uart_commands(uart):
         e → 蓝色沙包(blue)
         t → 绿色网球(green)
     """
-    global current_mode, current_obj
+    global current_mode, current_obj, preview_use_model
     if uart.any():
         cmd = uart.read(1)
 
@@ -793,22 +796,24 @@ def handle_uart_commands(uart):
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_COLOR
-            # sensor.set_brightness(800)
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            # sensor.set_brightness(800)
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'A':
             current_mode = MODE_PREVIEW
-            # sensor.set_brightness(800)
+            preview_use_model = False
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'R':
             current_mode = MODE_CORRECTION
-            # sensor.set_brightness(600)
+            sensor.set_brightness(400)
             reset_all()
         elif cmd == b'F':
             current_mode = MODE_WAITING
+            sensor.set_brightness(600)
             current_obj = ''
             reset_all()
 
@@ -828,6 +833,9 @@ def handle_uart_commands(uart):
             current_obj = ''
             if current_mode == MODE_COLOR:
                 reset_all()
+        elif cmd == b'm':
+            if current_mode == MODE_PREVIEW:
+                preview_use_model = not preview_use_model
 
 
 def nms(objects, iou_thresh=0.3):
@@ -862,7 +870,7 @@ def detect_all_objects(img, Ts):
         5. 所有检测到的目标坐标（含卡尔曼预测值）汇总到center列表
 
     Args:
-        img: 当前帧图像（会被process_kalman_multi和draw_other_objects修改）
+        img: 当前帧图像（会被process_kalman和draw_other_objects修改）
         Ts: 帧间隔时间（秒）
 
     Returns:
@@ -890,9 +898,9 @@ def detect_all_objects(img, Ts):
             other_objects.append((obj, color))
 
     # brown/white/blue使用多目标卡尔曼跟踪（含丢失预测），其他颜色直接绘制
-    model_detector.process_kalman_multi(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
-    model_detector.process_kalman_multi(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
-    model_detector.process_kalman_multi(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, white_bear, white_tracker, 'white', Ts, center, kalman_coords)
+    model_detector.process_kalman(img, blue_bear, blue_tracker, 'blue', Ts, center, kalman_coords)
     model_detector.draw_other_objects(img, other_objects, center)
 
     return center, objects
@@ -990,9 +998,9 @@ while True:
                 other_blobs.append((blob, color))
 
         # 多目标跟踪（每个颜色可能有多个物体）
-        color_detector.process_kalman_multi(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
+        color_detector.process_kalman(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
         color_detector.draw_other_blobs(img, other_blobs, center)
 
         target_pos, target_color, locked_blob = target_locker.process_lock(filtered_blobs_with_color, kalman_coords, center)
@@ -1024,34 +1032,42 @@ while True:
         displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
         img.draw_string(5, 5, displayed_text, color=displayed_text_color, scale=2)
 
-    # 预览模式：色块检测全量打包发送（供上位机展示）
+    # 预览模式：默认色块识别全量打包发送，收到'm'切换为模型识别
     elif current_mode == MODE_PREVIEW:
-        all_blobs_with_color = color_detector.detect_colors(img, '', use_preview_threshold=True)
-        filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
+        if preview_use_model:
+            kalman_save = kalman_enabled.copy()
+            kalman_enabled.update({'brown': False, 'white': False, 'blue': False})
+            center, _ = detect_all_objects(img, Ts)
+            kalman_enabled.update(kalman_save)
+        else:
+            all_blobs_with_color = color_detector.detect_colors(img, '', use_preview_threshold=True)
+            filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
-        center.clear()
+            center.clear()
 
-        # 分离棕/白/蓝色块（多目标卡尔曼跟踪）与其他色块
-        brown_blobs.clear()
-        white_blobs.clear()
-        blue_blobs.clear()
-        other_blobs.clear()
-        for item in filtered_blobs_with_color:
-            blob = item[0]
-            color = item[1]
-            if color == 'brown':
-                brown_blobs.append(blob)
-            elif color == 'white':
-                white_blobs.append(blob)
-            elif color == 'blue':
-                blue_blobs.append(blob)
-            else:
-                other_blobs.append((blob, color))
+            brown_blobs.clear()
+            white_blobs.clear()
+            blue_blobs.clear()
+            other_blobs.clear()
+            for item in filtered_blobs_with_color:
+                blob = item[0]
+                color = item[1]
+                if color == 'brown':
+                    brown_blobs.append(blob)
+                elif color == 'white':
+                    white_blobs.append(blob)
+                elif color == 'blue':
+                    blue_blobs.append(blob)
+                else:
+                    other_blobs.append((blob, color))
 
-        color_detector.process_kalman_multi(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
-        color_detector.process_kalman_multi(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
-        color_detector.draw_other_blobs(img, other_blobs, center)
+            # 预览模式：所有色块直接用原始坐标，不走卡尔曼滤波
+            for blobs, c in [(brown_blobs, 'brown'), (white_blobs, 'white'), (blue_blobs, 'blue')]:
+                for blob in blobs:
+                    img.draw_rectangle(blob.rect(), color=DRAW_COLORS[c])
+                    img.draw_cross(blob.cx(), blob.cy(), color=DRAW_COLORS[c])
+                    center.append((blob.cx(), blob.cy(), c))
+            color_detector.draw_other_blobs(img, other_blobs, center)
 
         communicator.pack_center_data(center)
 
