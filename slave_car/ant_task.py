@@ -326,6 +326,7 @@ class TaskController:
         if self.my_vision.if_finish_calibrate:
             self.exit()
             return
+        
         if self.my_vision.if_lost_object == False:
             self.my_vision.apriltag_calibrate_control()
         else:
@@ -335,6 +336,7 @@ class TaskController:
                                     [self.my_car.x_current+10.0, self.my_car.y_current-15.0], 
                                     [self.my_car.x_current+10.0, self.my_car.y_current+15.0]])
             self.exit()
+    
     def handle_adjust(self):
         # if state == ADJUST
         pass
