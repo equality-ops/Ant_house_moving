@@ -228,6 +228,7 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
     def caculate_move_path(self,path):
         try:
+            twist_clamp_factor = 1.05
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
@@ -238,43 +239,35 @@ class MoveControl:
                 pl=[self.plan_data.FIELD_W+20,self.my_car.y_current+dy1]
             elif path[1] == -90:
                 pl=[-20,self.my_car.y_current+dy1]
-            p2 = [
-            pl[0] + self.push_postion[0] * self.clamp_distance,
-            pl[1] + self.push_postion[1] * self.clamp_distance,
-            ]
-            p_m = [
-            self.my_car.x_current + dx1,
-            self.my_car.y_current + dy1,
-            ]
+            dy = abs(pl[1]-self.my_car.y_current)
+            dx = abs(pl[0]-self.my_car.x_current)
+            now_clamp = self.clamp_distance * 0.005 * (dx + dy)
+            p2 = [pl[0] + self.push_postion[0] * now_clamp,
+                  pl[1] + self.push_postion[1] * now_clamp,]
+            p2_t = [pl[0] + self.push_postion[0] * now_clamp*twist_clamp_factor,
+                    pl[1] + self.push_postion[1] * now_clamp*twist_clamp_factor,]
+            p_m = [self.my_car.x_current + dx1,
+                   self.my_car.y_current + dy1,]
             if self.push_postion[0] != 0:
-                # x 内收，保持 vy
                 total_dy = abs(pl[1] - self.my_car.y_current)
-                if total_dy <= 1e-6:
-                    return []
+                if total_dy <= 1e-6:return []
                 ratio = abs(dy1) / total_dy
                 self.my_plan.keep_x_or_y_v = False
             elif self.push_postion[1] != 0:
                 # y 内收，保持 vx
                 total_dx = abs(pl[0] - self.my_car.x_current)
-                if total_dx <= 1e-6:
-                    return []
+                if total_dx <= 1e-6:return []
                 ratio = abs(dx1) / total_dx
                 self.my_plan.keep_x_or_y_v = True
-            else:
-                return []
+            else:return []
             if dx1==0 and dy1==0:
                 self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
                 return [pl]
-            p1 = [
-            p_m[0] + ratio * self.push_postion[0] * self.clamp_distance,
-            p_m[1] + ratio * self.push_postion[1] * self.clamp_distance,
-            ]
-
-            self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2]
+            p1 = [p_m[0] + ratio * self.push_postion[0] * now_clamp,
+                  p_m[1] + ratio * self.push_postion[1] * now_clamp,]
+            self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2_t]
             return [p_m,pl]
-        except:
-            return []
-        
+        except:return []
     # 状态过渡函数
     def state_transition(self):
         global counter
@@ -286,7 +279,6 @@ class MoveControl:
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
-
             # 延时500ms
             if counter >= 50:
                 # 重置计数器
@@ -299,7 +291,6 @@ class MoveControl:
                 self.vision_manager.if_lost_object = True
                 self.current_state = SERVO
                 return 
-
             target_point = self.my_art_protocol.coordinate_receive()
             #self.my_uart.write(f"wait:{self.vision_manager.current_servo_object}, tp:{target_point}, send:{self.vision_manager.if_send_order}\n")
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
@@ -319,12 +310,10 @@ class MoveControl:
                 self.my_order_manager.finish() # 关闭目标识别模式
                 self.vision_manager.if_send_order = False
             rec_path = self.my_slave_protocol.get_path_list()
-            if rec_path and rec_path[0] == 'R':
-                return
+            if rec_path and rec_path[0] == 'R':return
             if rec_path and rec_path[0] == 'M':
                 self.plan_path = self.caculate_move_path(rec_path)
-                if not self.plan_path:
-                    return
+                if not self.plan_path:return
                 # 测试
                 self.my_beep.test()
                 self.vision_manager.if_finish_servo = False

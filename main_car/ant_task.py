@@ -22,7 +22,7 @@ object_to_line_dict = {
 }
 counter = 0 
 class TaskController:
-    def __init__(self,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
+    def __init__(self,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -38,6 +38,7 @@ class TaskController:
         self.my_main_protocol = main_protocol
         self.object_plan = object_plan
         self.uart_debug = uart_debug
+        self.my_flash_system = flash_system
         # 状态映射表：将状态常量映射到对应的处理函�?
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -70,18 +71,20 @@ class TaskController:
         self.scan_waiting_count = 0
         self.ap_slave_buffer = []
         self.april_tag_list = ['L','U']
-        self.use_scan_point = 2
         self.planned_scan_path = []
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
-
+        self.if_model_detect = self.my_flash_system.find_value("if_model_detect")
+        if self.if_model_detect:
+            self.use_scan_point = 4
+        else:self.use_scan_point = 2
         self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
                                  [[145,self.data.fixed_point[1][1]-5],0],
                                  [[190,self.data.fixed_point[1][1]-5],0],
-                                 [[130,self.data.fixed_point[3][1]+5],180],
-                                 [[110,self.data.fixed_point[3][1]+5],180]]
+                                 [[175,self.data.fixed_point[3][1]+5],180],
+                                 [[130,self.data.fixed_point[3][1]+5],180]]
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -501,6 +504,8 @@ class TaskController:
                         self.my_art_protocol.clear_uart_buffer()
                         self.my_order_manager.clear_knock()
                         self.my_order_manager.mode_detect()
+                        if self.if_model_detect:
+                            self.my_order_manager.trans_to_mode_detect()
                     self.scan_waiting_count +=1
                 else:analyse_package(num)
         if self.detected_num == self.use_scan_point:

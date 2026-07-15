@@ -260,7 +260,8 @@ class order_manager:
             self.my_uart.write("M")
         else:
             self.my_uart.write("C")
-
+    def trans_to_mode_detect(self):
+        self.my_uart.write("m")
     # 切换到上下边界识别模�?
     def mode_boundary_ud(self):
         self.my_uart.write("U")
