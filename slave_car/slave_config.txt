@@ -133,16 +133,16 @@ radius_B_U = 15.5
 radius_B_R = 17.5
 radius_B_L = 16.5
 radius_B_D = 15.5
-angle_T = 40
-angle_S = 40
-angle_B = 35
+angle_T = 38
+angle_S = 39
+angle_B = 32
 
 orbit_kp = 15.0
 
 calibrate_waiting_time = 40
 #############################################
 #惯导避障膨胀半径
-SAFE_MARGIN = 14.0
+SAFE_MARGIN = 16.0
 
 #是否使用模型servo
 if_model = 1
