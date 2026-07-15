@@ -228,7 +228,7 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
     def caculate_move_path(self,path):
         try:
-            twist_clamp_factor = 1
+            twist_clamp_factor = 1.05
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
@@ -312,6 +312,7 @@ class MoveControl:
             if rec_path and rec_path[0] == 'M':
                 self.plan_path = self.caculate_move_path(rec_path)
                 if not self.plan_path:return
+                self.my_slave_protocol.send_slave_state("finish")
                 # 测试
                 self.my_beep.test()
                 self.vision_manager.if_finish_servo = False

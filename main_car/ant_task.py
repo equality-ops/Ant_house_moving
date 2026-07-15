@@ -53,7 +53,7 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状�?
         }
-        self.clamp_distance = {'T':1.5,'S':2,'E':2,'W':1,'B':1}
+        self.clamp_distance = {'T':2,'S':2.5,'E':2.5,'W':1.8,'B':1.8}
         self.scan_empty_counter = 0
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
@@ -258,6 +258,7 @@ class TaskController:
                 counter += 1
                 # 延时200ms
                 if counter >= 20:
+                    self.need_calibrate_score = 1.5#将need_score降低为1.5
                     counter = 0     # 重置计数器
                     self.my_plan.if_finish_plan = False
                     self.my_vision.reset_calibrate()  # 重置校准标志
@@ -560,8 +561,9 @@ class TaskController:
             retreat_threhold = 10
             ap_threhold = 25
             self.my_vision.reset_calibrate()
+            global counter
             if current_object == 'T':
-                self.need_calibrate_score += 3
+                if counter == 0:self.need_calibrate_score += 3.5
                 self.my_vision.car_position = 'U'
                 if self.my_car.now_yaw<0:
                     self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
@@ -582,7 +584,7 @@ class TaskController:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             elif current_object in ['S', 'E']:
-                self.need_calibrate_score += 4
+                if counter == 0:self.need_calibrate_score += 4.5
                 self.my_vision.car_position = 'L'
                 if self.my_car.now_yaw<-PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
@@ -603,7 +605,8 @@ class TaskController:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             else:
-                self.need_calibrate_score += 3
+                
+                if counter == 0:self.need_calibrate_score += 3.5
                 self.my_vision.car_position = 'R'
                 if self.my_car.now_yaw<PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]

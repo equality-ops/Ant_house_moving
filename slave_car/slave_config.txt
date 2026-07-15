@@ -66,8 +66,8 @@ uart_and_menu_T = 53
 final_threshold = 1.0
 branch_threshold = 5.0
 
-cube_obstacles = "(147, 27, 23.8, 10.6), (88.0, 222.0, 23.8, 10.6)"
-circle = "(262.5, 88.8)"
+cube_obstacles = "(182.5, 195, 23.8, 10.6), (270.0, 95.0,10.6 , 23.8)"
+circle = "(48, 171)"
 
 error_x_T = 2.0
 error_x_S = 2.0

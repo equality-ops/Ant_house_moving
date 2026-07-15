@@ -52,7 +52,7 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状态
         }
-        self.clamp_distance = {'T':1.5,'S':2,'E':2,'W':1.0,'B':1.0}
+        self.clamp_distance = {'T':2,'S':2.5,'E':2.5,'W':1.8,'B':1.8}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类

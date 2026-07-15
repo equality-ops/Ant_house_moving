@@ -69,6 +69,7 @@ class MoveControl:
         self.if_send_navigate_command = False  # 是否发送过惯导控制指令
         self.if_start_orbit = False  # 是否开始环绕
         self.if_finish_move = False  # 是否完成搬运
+        self.if_slave_ready_move = False
         self.push_postion = [0,0] #用于判断推动时所需的xy补偿
         self.plan_path = []
         self.send_point = []
@@ -178,6 +179,7 @@ class MoveControl:
         self.current_state = NAVIGATE
         self.if_finish_move = False
         self.if_start_orbit = False
+        self.if_slave_ready_move = False
         self.navigate_buffer.clear()
         self.my_plan.reset_navigate()
         self.my_plan.reset_navigate_angle()
@@ -343,7 +345,7 @@ class MoveControl:
             self.my_plan.fitting_path_ = [plan_path[0],[plan_path[1][0]+self.push_postion[0]*now_clamp,plan_path[1][1]+self.push_postion[1]*now_clamp]]
             self.plan_path = plan_path[1:]
         elif len(plan_path) == 3:
-            twist_clamp_factor = 1
+            twist_clamp_factor = 1.05
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
             dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
             dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
@@ -380,26 +382,29 @@ class MoveControl:
             self.vision_manager.if_send_order = False
             if counter >= 5:
                 order = self.my_main_protocol.get_slave_state()
-                
-                if order == "finish":
-                    self.reset_orbit()  # 重置环绕相关变量
-                    self.my_beep.test()
-                    counter = 0
-                    if not self.calculate_move_path():
+                if self.if_slave_ready_move:
+                    if order == "finish":
+                        counter = 0
+                        self.reset_orbit()  # 重置环绕相关变量
+                        self.my_beep.test()
+                        self.my_plan.reset_navigate_angle()
+                        self.my_plan.reset_navigate()
+                        self.my_plan.move_state = MOVE
+                        self.current_state = MOVE
+                        self.vision_manager.if_finish_servo = False
+                else:
+                    if order == "finish":
+                        if not self.calculate_move_path():
+                            self.if_finish_move = True
+                            return #直接退出return
+                        #self.handle_next_point()
+                        self.my_plan.fitting_path_ = []
+                        self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
+                        self.if_slave_ready_move = True
+                    elif order == "lost":
+                        counter = 0
                         self.if_finish_move = True
                         return #直接退出return
-                    self.vision_manager.if_finish_servo = False
-                    #self.handle_next_point()
-                    self.my_plan.move_state = MOVE
-                    self.my_plan.fitting_path_ = []
-                    self.current_state = MOVE
-                    self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
-                    self.my_plan.reset_navigate_angle()
-                    self.my_plan.reset_navigate()
-                elif order == "lost":
-                    counter = 0
-                    self.if_finish_move = True
-                    return #直接退出return
             else:
                 counter += 1
         elif self.current_state == ADJUST:
