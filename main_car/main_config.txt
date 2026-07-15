@@ -88,11 +88,6 @@ scan_rate = 1.0
 orbit_v_max = 90
 orbit_v_min = 30
 
-# 不同物体的搬运速度
-move_v_max_T = 130
-move_v_max_S = 130
-move_v_max_B = 130
-
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
 servo_kp_normal_x = 7.0
@@ -168,7 +163,14 @@ total_objects_num = 6
 #九宫格长宽
 SUDOKU_length_x = 30.0
 SUDOKU_width_y = 30.0
+#使用扫描点
+USE_SCAN_POINT = 4
 
 #障碍物位置
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
 circle = "(48, 171)"
+
+# 不同物体的搬运速度
+move_v_max_T = 130
+move_v_max_S = 130
+move_v_max_B = 130

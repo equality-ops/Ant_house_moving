@@ -69,7 +69,8 @@ class TaskController:
         self.if_model_detect = self.my_flash_system.find_value("if_model_detect")
         self.SUDOKU_length_x = self.my_flash_system.find_value("SUDOKU_length_x")
         self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
-        if self.if_model_detect:
+        self.use_scan_point = self.my_flash_system.find_value("USE_SCAN_POINT")
+        if self.use_scan_point>2:
             self.last_side = 'U'
         else:self.last_side = 'D'
         self.retreat_message= (0,0)
@@ -82,9 +83,6 @@ class TaskController:
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
         self.need_calibrate_score = 0
-        if self.if_model_detect:
-            self.use_scan_point = 4
-        else:self.use_scan_point = 2
         self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
                                  [[145,self.data.fixed_point[1][1]-5],0],
                                  [[190,self.data.fixed_point[1][1]-5],0],
@@ -166,7 +164,7 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
-                if self.if_model_detect:
+                if self.use_scan_point>2:
                     self.my_main_protocol.send_path('P',180.0,(0.0,0.0))
                 else:
                     self.my_main_protocol.send_path('P',0.0,(0.0,0.0))
@@ -374,12 +372,12 @@ class TaskController:
         real_ob_info = []
         for ob in ob_info[1]:
             sp, x, y  = ob
-            if x<10 or y<10 or x>145 or y >105:
+            if x<15 or y<10 or x>145 or y >110:
                 continue
             kind = chr(sp)
             # 更新当前物体种类，便于选择物体高度
             self.my_vision.current_servo_object = kind
-            if self.if_model_detect:  
+            if self.use_scan_point>2:  
                 if angle == 180:limit_y = 50
                 else:limit_y = 75
             else: limit_y = None
@@ -466,7 +464,7 @@ class TaskController:
                 if old_kind != kind:
                     continue
                 object_dist = max(abs(y - self.my_car.y_current),abs(old_y - self.my_car.y_current))
-                if object_dist <= 30.0 or self.if_model_detect:
+                if object_dist <= 30.0 or self.use_scan_point > 2:
                     threshold = threshold_near
                 elif object_dist >= 110.0:
                     threshold = threshold_far
