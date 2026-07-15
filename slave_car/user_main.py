@@ -486,7 +486,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    test_apriltag_calibrate()
+    # test_apriltag_calibrate()
 
     # 环绕物体测试程序
     # test_orbit()
