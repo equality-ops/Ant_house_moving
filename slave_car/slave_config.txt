@@ -72,14 +72,14 @@ error_x_B = 2.0
 
 ###################【风扇控制】####################
 if_fan = 1
-fixed_high_level_us = 1300
+fixed_high_level_us = 1280
 
 ###################【速度规划】####################
 min_start_v = 35
 long_v_max = 180
 find_line_v_max = 60
-acc_normal_coef = 0.06
-acc_move_coef = 0.06
+acc_normal_coef = 0.05
+acc_move_coef = 0.05
 dec_coef = 0.1
 
 orbit_v_max = 90
