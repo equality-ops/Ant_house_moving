@@ -147,4 +147,5 @@ angle_B = 35
 orbit_kp = 15.0
 
 if_model = 1
+calibrate_waiting_time = 40
 # 小车最高速度为180

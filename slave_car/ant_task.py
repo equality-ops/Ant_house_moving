@@ -331,11 +331,20 @@ class TaskController:
             self.my_vision.apriltag_calibrate_control()
         else:
             # 控制小车前后移动寻找apriltag码
-            self.my_plan.navigate([ [self.my_car.x_current-25.0, self.my_car.y_current],
-                                    [self.my_car.x_current-25.0, self.my_car.y_current-15.0], 
-                                    [self.my_car.x_current+10.0, self.my_car.y_current-15.0], 
-                                    [self.my_car.x_current+10.0, self.my_car.y_current+15.0]])
-            self.exit()
+            self.my_plan.navigate([ [self.my_car.x_current- 15.0, self.my_car.y_current],
+                                    [self.my_car.x_current- 15.0, self.my_car.y_current-15.0], 
+                                    [self.my_car.x_current+ 15.0, self.my_car.y_current-15.0], 
+                                    [self.my_car.x_current+ 15.0, self.my_car.y_current+15.0]])
+
+            target_point = self.my_art_protocol.apriltag_receive()
+            if target_point:
+                self.my_plan.reset_navigate()
+                self.my_vision.counter = 0
+                self.my_vision.calibrate_times = 0
+                self.my_vision.if_lost_object, self.my_vision.if_gain_calibrate_angle = False, False
+            
+            if self.my_plan.if_finish_navigate:
+                self.exit()
     
     def handle_adjust(self):
         # if state == ADJUST

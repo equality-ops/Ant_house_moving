@@ -260,11 +260,13 @@ class order_manager:
             self.my_uart.write("M")
         else:
             self.my_uart.write("C")
+
     def trans_to_mode_detect(self):
         self.my_uart.write("m")
-    # 切换到上下边界识别模�?
-    def mode_boundary_ud(self):
-        self.my_uart.write("U")
+
+    # 切换到apriltag识别模式
+    def mode_apriltag(self):
+        self.my_uart.write("R")
 
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
@@ -276,12 +278,13 @@ class order_manager:
     def mode_boundary_lf(self):
         self.my_uart.write("L")
 
-    # 切换到apriltag识别模式
+    # 色块识别模式
     def color_target(self):
         self.my_uart.write("C")
 
     def mode_detect(self):
         self.my_uart.write("A")
+
     # 当前模式结束
     def finish(self):
         self.my_uart.write("F")    

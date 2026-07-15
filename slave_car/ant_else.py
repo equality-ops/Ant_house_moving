@@ -79,7 +79,7 @@ class order_manager:
 
     # 切换到apriltag识别模式
     def mode_apriltag(self):
-        self.my_uart.write("C")
+        self.my_uart.write("R")
 
     # 切换到搬运检查模式
     def mode_pickup_check(self):

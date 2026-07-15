@@ -392,20 +392,17 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
+# 视觉伺服辅助apriltag码矫正
+def test_apriltag_calibrate():
+    if my_state.state == NAVIGATE:
+        my_state.state = CALIBRATE
+        my_order_manager.mode_apriltag()
+    elif my_state.state == CALIBRATE:
+        target_point = my_art_protocol.apriltag_receive()
+        if target_point:
+            my_uart8.write(f"target_point: {target_point}\n")
+    elif my_state.state == STOP:
+        my_plan.stop()
 
 # 任务机执行函数
 def task_machine():
@@ -488,6 +485,8 @@ def time_pit3_handler(time) -> None:
     # 自转测试函数
     # test_spin()
 
+    # apriltag码矫正测试函数
+    test_apriltag_calibrate()
     pass
 
 
