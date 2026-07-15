@@ -312,7 +312,7 @@ class MoveControl:
             if rec_path and rec_path[0] == 'M':
                 self.plan_path = self.caculate_move_path(rec_path)
                 if not self.plan_path:return
-                self.my_slave_protocol.send_slave_state("finish")
+                self.my_slave_protocol.send_slave_state("ready")
                 # 测试
                 self.my_beep.test()
                 self.vision_manager.if_finish_servo = False

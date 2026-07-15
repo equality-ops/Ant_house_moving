@@ -265,6 +265,7 @@ class MoveControl:
     
     # 重置搬运控制相关变量
     def reset_move(self):
+        self.if_slave_ready_move = False
         self.saved_best_path = []
         self.moving_idx = 0
         self.slave_massage ={
@@ -383,7 +384,7 @@ class MoveControl:
             if counter >= 5:
                 order = self.my_main_protocol.get_slave_state()
                 if self.if_slave_ready_move:
-                    if order == "finish":
+                    if order == "ready":
                         counter = 0
                         self.reset_orbit()  # 重置环绕相关变量
                         self.my_beep.test()
@@ -394,11 +395,11 @@ class MoveControl:
                         self.vision_manager.if_finish_servo = False
                 else:
                     if order == "finish":
+                        self.my_plan.fitting_path_ = []
                         if not self.calculate_move_path():
                             self.if_finish_move = True
                             return #直接退出return
                         #self.handle_next_point()
-                        self.my_plan.fitting_path_ = []
                         self.my_main_protocol.send_path('M',self.move_dir,self.send_point)
                         self.if_slave_ready_move = True
                     elif order == "lost":
