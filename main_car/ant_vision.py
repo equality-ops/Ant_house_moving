@@ -181,7 +181,7 @@ class VisionManager:
     def reset_orbit_angle(self):
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
 
-        # 重置小车上一帧记录的坐标
+    # 重置小车上一帧记录的坐标
     def reset_last_car_pos(self):
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
