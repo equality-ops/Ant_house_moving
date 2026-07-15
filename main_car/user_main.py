@@ -236,7 +236,7 @@ else:
     
     my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
     # 任务及类
-    my_task = ant_task.TaskController(my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
+    my_task = ant_task.TaskController(my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
