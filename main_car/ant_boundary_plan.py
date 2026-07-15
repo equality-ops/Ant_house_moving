@@ -1,17 +1,20 @@
 import math
 import gc
 class BoundaryPathPlanner:
-    def __init__(self, plan_data, car, my_plan):
+    def __init__(self, plan_data, car, my_plan,flash_sys):
         self.Data = plan_data
         self.my_car = car
         self.my_plan = my_plan
+        self.flash_sys = flash_sys
+        self.sigal_swell_size = self.flash_sys.find_value("sigal_swell_size")#单向膨胀
+        self.bothway_swell_size = self.flash_sys.find_value("bothway_swell_size")#双向膨胀
         self.rects = []
         self.ready_path = []
         gc.collect()
 
     def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
-        if swell_angle == 1 or swell_angle== -1:swell_size = 10.0
-        else:swell_size = 20.0
+        if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
+        else:swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
         safe_margin = float(self.Data.SAFE_MARGIN)
         circles = self.Data.circle
@@ -310,6 +313,7 @@ class objects_planner:
         self.path = []
         self.best_path = [0,0]
         self.judge_state = 0#0:未开始，1:正在进行，2:已结束
+        self.last_sandbag_idx = -1
         self.now_idx = 0
         gc.collect()
     def set_barriers(self,barriers):
@@ -319,6 +323,7 @@ class objects_planner:
             w,h=wideness[i[0]],height[i[0]]
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
+        self.last_sandbag_idx = -1
         self.path = []
         self.objects_score = []
         self.target_objects = []
@@ -410,7 +415,10 @@ class objects_planner:
             return False
         elif self.judge_state == 2:#计算每个目标物体的评分
             side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
-            if self.now_idx>=len(self.target_objects): self.judge_state = 3
+            if self.now_idx>=len(self.target_objects): 
+                if self.last_sandbag_idx >=0:
+                    self.target_score[self.last_sandbag_idx] += 1500
+                self.judge_state = 3
             else:
                 i = self.target_objects[self.now_idx]
                 score = 0
@@ -439,6 +447,11 @@ class objects_planner:
                 distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
                 score += push_distance + push_angle*10 +distance_from_car*10
                 self.target_score.append(score)
+                if i[1] == 'S':
+                    if self.last_sandbag_idx == -1:#前面没有沙袋
+                        self.last_sandbag_idx = self.now_idx
+                    elif self.last_sandbag_idx != -2:#前面已经有1个沙袋
+                        self.last_sandbag_idx = -2
                 self.now_idx+=1
             return False
         elif self.judge_state == 3:#选择评分最低的物体作为目标

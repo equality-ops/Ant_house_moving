@@ -149,4 +149,7 @@ if_model_detect = 1
 if_calibrate = 1
 
 calibrate_waiting_time = 40
+
+sigal_swell_size = 20
+bothway_swell_size = 10
 # 小车最高速度为180
