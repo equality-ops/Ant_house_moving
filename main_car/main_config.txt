@@ -88,11 +88,6 @@ scan_rate = 1.0
 orbit_v_max = 90
 orbit_v_min = 30
 
-# 不同物体的搬运速度
-move_v_max_T = 130
-move_v_max_S = 130
-move_v_max_B = 130
-
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
 servo_kp_normal_x = 7.0
@@ -112,14 +107,14 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【apriltag矫正】####################
-servo_kp_calibrate_x = 6.0
-servo_kd_calibrate_x = 8.0
-servo_kp_calibrate_y = 6.0
+servo_kp_calibrate_x = 8.0
+servo_kd_calibrate_x = 10.0
+servo_kp_calibrate_y = 8.0
 servo_kd_calibrate_y = 8.0
 
 servo_target_y_A = 6.0
 
-# 用于apriltag矫正的阈值
+# 用于apriltag矫正的阈
 apriltag_threshold_x = 1.0
 apriltag_threshold_y = 1.0
 ###################【环绕控制】####################
@@ -140,6 +135,7 @@ radius_B_D = 17.5
 angle_T = 40
 angle_S = 40
 angle_B = 35
+acc_move_coef = 0.04
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
@@ -161,13 +157,20 @@ bothway_swell_size = 10
 #惯导避障膨胀半径
 SAFE_MARGIN = 14.0
 #推动避障膨胀半径
-MOVE_SAFE_MARGIN = 13.0
+MOVE_SAFE_MARGIN = 14.0
 total_objects_num = 6
 
 #九宫格长宽
 SUDOKU_length_x = 30.0
 SUDOKU_width_y = 30.0
+#使用扫描点
+USE_SCAN_POINT = 4
 
 #障碍物位置
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
 circle = "(48, 171)"
+
+# 不同物体的搬运速度
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140

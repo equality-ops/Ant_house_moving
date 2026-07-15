@@ -199,16 +199,20 @@ class VisionManager:
         """
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H = 0.0
-        if not object_kind:
-            object_kind = self.current_servo_object
-        if mode == 'M':
-            if object_kind in ['T']:object_H = 3.5
-            elif object_kind in ['S', 'E']:object_H = 4.0
-            elif object_kind in ['W', 'B']:object_H = 3
+        if self.my_state.state == CALIBRATE:
+            object_H = 0.0
         else:
-            if object_kind in ['T']:object_H = 3.5
-            elif object_kind in ['S', 'E']:object_H = 4.0
-            elif object_kind in ['W', 'B']:object_H = 3
+            if not object_kind:
+                object_kind = self.current_servo_object
+            if mode == 'M':
+                if object_kind in ['T']:object_H = 3.5
+                elif object_kind in ['S', 'E']:object_H = 4.0
+                elif object_kind in ['W', 'B']:object_H = 3
+            else:
+                if object_kind in ['T']:object_H = 3.5
+                elif object_kind in ['S', 'E']:object_H = 4.0
+                elif object_kind in ['W', 'B']:object_H = 3
+                
         # 根据物体远近选择单应性矩阵H
         H_matrix = self.far_H_matrix
         if sign == 'close':
