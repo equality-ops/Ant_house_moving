@@ -664,7 +664,7 @@ class VisionManager:
                             self.rel_pos_to_apriltag = 'right'
                     self.reset_last_car_pos()
                     self.my_order_manager.mode_apriltag()
-                    self.my_uart3.write(f"\r\n{self.calibrate_buffer}, {self.rel_pos_to_apriltag}")
+                    # self.my_uart3.write(f"\r\n{self.calibrate_buffer}, {self.rel_pos_to_apriltag}")
         else:
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
@@ -722,7 +722,7 @@ class VisionManager:
                             self.counter = 0
                             # 里程计和姿态角硬复位
                             # print(f"final_angle: {sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])}")
-                            self.pose_data.reset_yaw(sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]))
+                            self.pose_data.reset_yaw(sum(self.angle_buffer[5:]) / len(self.angle_buffer[5:]))
                             self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
                             self.my_uart3.write(f"\r\nnow_yaw: {self.pose_data.now_yaw}\r\n")
                             self.angle_buffer.clear()

@@ -544,7 +544,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
+    # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
