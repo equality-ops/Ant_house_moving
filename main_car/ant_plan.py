@@ -41,7 +41,7 @@ class PlanData:
         self.CUBE_LENTH = 23.8   # 立方体障碍物长度
         self.CUBE_WIDE = 10.6  # 立方体障碍物宽度
         self.INF = 1000000000.0  # 无穷大
-        self.SAFE_MARGIN = 13.0  # 小车安全裕量 (质点膨胀半径)
+        self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")# 小车安全裕量 (质点膨胀半径)
 
         self.rectangle_obstacles = self.create_expanded_rect(160.0, 120.0, 100.0, 100.0)  # 中心禁区矩形障碍物（已膨胀）
         self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）

@@ -66,12 +66,7 @@ uart_and_menu_T = 53
 ###################【路径规划】####################
 final_threshold = 1.0
 branch_threshold = 2.5
-
 IF_rogue_plan = 0
-total_objects_num = 6
-rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
-cube_obstacles = "(182.5, 195, 23.8, 10.6), (270.0, 135,10.6 , 23.8)"
-circle = "(48, 171)"
 
 error_x_T = 2.0
 error_x_S = 2.0
@@ -152,7 +147,14 @@ if_model_detect = 1
 if_calibrate = 1
 
 calibrate_waiting_time = 40
+total_objects_num = 6
+#############################################
+rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
 sigal_swell_size = 20
 bothway_swell_size = 10
-# 小车最高速度为180
+SAFE_MARGIN = 14.0
+
+MOVE_SAFE_MARGIN = 13.0
+cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
+circle = "(48, 171)"

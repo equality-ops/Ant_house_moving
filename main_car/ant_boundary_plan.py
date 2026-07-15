@@ -8,6 +8,7 @@ class BoundaryPathPlanner:
         self.flash_sys = flash_sys
         self.sigal_swell_size = self.flash_sys.find_value("sigal_swell_size")#单向膨胀
         self.bothway_swell_size = self.flash_sys.find_value("bothway_swell_size")#双向膨胀
+        self.SAFE_MARGIN = self.flash_sys.find_value("MOVE_SAFE_MARGIN")#四周膨胀半径
         self.rects = []
         self.ready_path = []
         gc.collect()
@@ -16,7 +17,7 @@ class BoundaryPathPlanner:
         if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
         else:swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
-        safe_margin = float(self.Data.SAFE_MARGIN)
+        safe_margin = self.SAFE_MARGIN
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
