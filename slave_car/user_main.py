@@ -411,7 +411,7 @@ def test_apriltag_calibrate():
         if my_vision_manager.if_finish_calibrate == True:
             my_vision_manager.reset_calibrate()
             my_plan.reset_navigate()
-            my_state.state = RETURN
+            my_state.state = STOP
     elif my_state.state == RETURN:
         my_plan.navigate(path = [plan_data.fixed_point[0]], target_turn_angle = 0.0)
 
