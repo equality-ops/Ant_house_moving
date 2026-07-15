@@ -39,9 +39,9 @@ else:
     gc.collect()
     import ant_boundary_plan
     gc.collect()
-    import ant_motor
-    gc.collect()
     import ant_move
+    gc.collect()
+    import ant_motor
     gc.collect()
     import ant_else
     gc.collect()
@@ -541,6 +541,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
+    # my_uart3.write(f"{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")

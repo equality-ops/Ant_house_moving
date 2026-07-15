@@ -334,10 +334,7 @@ class TaskController:
             self.my_vision.apriltag_calibrate_control()
         else:
             # 控制小车前后移动寻找apriltag码
-            self.my_plan.navigate([ [self.my_car.x_current- 15.0, self.my_car.y_current],
-                                    [self.my_car.x_current- 15.0, self.my_car.y_current-15.0], 
-                                    [self.my_car.x_current+ 15.0, self.my_car.y_current-15.0], 
-                                    [self.my_car.x_current+ 15.0, self.my_car.y_current+15.0]])
+            self.my_plan.navigate(path = self.my_vision.lost_path)
 
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:

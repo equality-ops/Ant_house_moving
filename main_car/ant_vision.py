@@ -143,6 +143,8 @@ class VisionManager:
         self.counter = 0       # type: int     # 延时计数器
         # 目标横或纵坐标缓冲区
         self.calibrate_buffer = []     # type: list    # 目标横或纵坐标缓冲区
+        # 矫正时丢失需要行进的路径
+        self.lost_path = []
         # 目标角度缓冲区
         self.angle_buffer = []     # type: list    # 目标角度缓冲区      
         # 临时用于测试的角度变量
@@ -611,6 +613,7 @@ class VisionManager:
         self.if_finish_calibrate =False
         self.if_gain_calibrate_angle = False    
         self.if_waiting = True
+        self.if_lost_object = False
         self.reset_last_car_pos()
         self.calibrate_buffer = []
         self.my_plan.reset_navigate()
@@ -809,6 +812,27 @@ class VisionManager:
                 self.servo_lost_count += 1
                 # 连续丢失150帧apriltag坐标后（在1.5s内不再收到物体坐标信息），认为apriltag丢失，停止小车运动
                 if self.servo_lost_count >= 150:
+                    if self.car_position == 'L':
+                        if self.rel_pos_to_apriltag == 'left':
+                            self.lost_path = [[self.my_car.x_current, self.my_car.y_current - 15.0],[self.my_car.x_current + 15.0, self.my_car.y_current - 15.0],
+                                              [self.my_car.x_current + 15.0, self.my_car.y_current + 10.0]]
+                        elif self.rel_pos_to_apriltag == 'right':
+                            self.lost_path = [[self.my_car.x_current, self.my_car.y_current + 15.0],[self.my_car.x_current + 15.0, self.my_car.y_current + 15.0],
+                                              [self.my_car.x_current + 15.0, self.my_car.y_current - 10.0]]
+                    elif self.car_position == 'R':
+                        if self.rel_pos_to_apriltag == 'left':
+                            self.lost_path = [[self.my_car.x_current, self.my_car.y_current + 15.0],[self.my_car.x_current - 15.0, self.my_car.y_current + 15.0],
+                                              [self.my_car.x_current - 15.0, self.my_car.y_current - 10.0]]
+                        elif self.rel_pos_to_apriltag == 'right':
+                            self.lost_path = [[self.my_car.x_current, self.my_car.y_current - 15.0],[self.my_car.x_current - 15.0, self.my_car.y_current - 15.0],
+                                              [self.my_car.x_current + 15.0, self.my_car.y_current + 10.0]]
+                    elif self.car_position == 'U':
+                        if self.rel_pos_to_apriltag == 'left':
+                            self.lost_path = [[self.my_car.x_current - 15.0, self.my_car.y_current],[self.my_car.x_current - 15.0, self.my_car.y_current - 15.0],
+                                              [self.my_car.x_current + 10.0, self.my_car.y_current - 15.0]]
+                        elif self.rel_pos_to_apriltag == 'right':
+                            self.lost_path = [[self.my_car.x_current + 15.0, self.my_car.y_current],[self.my_car.x_current + 15.0, self.my_car.y_current - 15.0],
+                                              [self.my_car.x_current - 10.0, self.my_car.y_current - 15.0]]
                     self.target_rel_speed = 0
                     self.target_rel_yaw = 0.0
                     self.servo_lost_count = 0
