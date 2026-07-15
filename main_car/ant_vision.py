@@ -129,6 +129,7 @@ class VisionManager:
         self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
         self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
         self.calibrate_times = 0
+        self.if_gain_calibrate_angle = False
         self.if_ready_calibrate = False
         self.if_finish_calibrate = False
         self.calibrate_waiting_time = self.flash_sys.find_value("calibrate_waiting_time")
@@ -178,6 +179,11 @@ class VisionManager:
     # 重置环绕角度
     def reset_orbit_angle(self):
         self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
+
+        # 重置小车上一帧记录的坐标
+    def reset_last_car_pos(self):
+        self.last_car_x = self.my_car.x_current
+        self.last_car_y = self.my_car.y_current
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world(self, u, v, sign: str, object_kind = None,mode = 'M'):
@@ -357,8 +363,8 @@ class VisionManager:
             if self.last_real_servo_point is not None:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
-                self.last_car_x = self.my_car.x_current
-                self.last_car_y = self.my_car.y_current
+
+                self.reset_last_car_pos()
 
                 if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE):
                     if self.relative_raw_y < self.last_relative_raw_y:
@@ -534,6 +540,7 @@ class VisionManager:
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
                 self.if_finish_orbit = True
+
     # 用于准备视觉伺服和环绕
     def ready_servo_and_orbit(self, target_point, state = "servo"):
         # 选择正常伺服状态下的pid参数
@@ -582,19 +589,23 @@ class VisionManager:
         else:
             self.final_dist_y *= 0.8
             self.final_dist_x *= 0.8
+
         # 第一帧图像预测伺服点位
-        self.last_car_x = self.my_car.x_current
-        self.last_car_y = self.my_car.y_current
+        self.reset_last_car_pos()
+
         self.calculate_dist(target_point[0], target_point[1], 'far')
         self.last_relative_raw_y = self.relative_raw_y
         self.last_real_servo_point = None
 
     def reset_calibrate(self):
+        self.if_ready_calibrate =False
         self.if_finish_calibrate =False
+        self.if_gain_calibrate_angle = False    
+        self.if_waiting = True
+        self.reset_last_car_pos()
         self.calibrate_buffer = []
         self.my_plan.reset_navigate()
         self.counter = 0
-        self.if_ready_calibrate =False
 
     # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
@@ -658,7 +669,7 @@ class VisionManager:
                             self.target_rel_turn_angle = now_yaw + target_point[2]
                         self.if_gain_calibrate_angle = True
 
-                self.servo_pid.color_compute_pid(target_point[0], target_point[1])
+                self.servo_pid.model_compute_pid(target_point[0], target_point[1])
                 self.target_rel_speed_x = self.servo_pid.pwm_output_x
                 self.target_rel_speed_y = self.servo_pid.pwm_output_y
                 
