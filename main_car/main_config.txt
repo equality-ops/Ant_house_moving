@@ -112,7 +112,7 @@ servo_kd_calibrate_x = 10.0
 servo_kp_calibrate_y = 8.0
 servo_kd_calibrate_y = 8.0
 
-servo_target_y_A = 6.0
+servo_target_y_A = 3.0
 
 # 用于apriltag矫正的阈
 apriltag_threshold_x = 1.0
@@ -150,9 +150,9 @@ if_model = 1
 #是否使用模型scan
 if_model_detect = 1
 #单侧膨胀长度
-sigal_swell_size = 20
+sigal_swell_size = 22
 #双侧膨胀长度
-bothway_swell_size = 10
+bothway_swell_size = 11
 
 #惯导避障膨胀半径
 SAFE_MARGIN = 14.0
