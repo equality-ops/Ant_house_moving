@@ -439,6 +439,29 @@ def set_pid_params():
         else:
             motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
+# 视觉伺服辅助apriltag码矫正
+def test_apriltag_calibrate():
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[-10.0, 30.0]], target_turn_angle = -40.0)
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            my_vision_manager.reset_calibrate()
+            my_vision_manager.calibrate_buffer = [[[-15.0, 90.0]], 0.0]
+            my_vision_manager.car_position = 'L'
+            my_state.state = CALIBRATE
+            my_order_manager.mode_apriltag()
+    elif my_state.state == CALIBRATE:
+        my_vision_manager.apriltag_calibrate_control()
+        if my_vision_manager.if_finish_calibrate == True:
+            my_vision_manager.reset_calibrate()
+            my_plan.reset_navigate()
+            my_state.state = RETURN
+    elif my_state.state == RETURN:
+        my_plan.navigate(path = [plan_data.fixed_point[0]], target_turn_angle = 0.0)
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -521,7 +544,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
+    my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
     # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")

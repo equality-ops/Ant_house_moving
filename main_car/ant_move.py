@@ -293,6 +293,7 @@ class MoveControl:
             self.my_car.x_current = 0.0 + light_to_center * COS
         elif current_object in ['B', 'W']:
             self.my_car.x_current = 320.0 - light_to_center * COS
+            
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):
         # 当前车头朝向 (弧度)

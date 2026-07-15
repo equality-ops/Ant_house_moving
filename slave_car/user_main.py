@@ -486,7 +486,7 @@ def time_pit3_handler(time) -> None:
     # test_vision_servo()
 
     # 边线校准测试程序
-    # test_apriltag_calibrate()
+    test_apriltag_calibrate()
 
     # 环绕物体测试程序
     # test_orbit()
@@ -513,7 +513,7 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
-    my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
+    # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")

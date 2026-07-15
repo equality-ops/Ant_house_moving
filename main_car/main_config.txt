@@ -42,7 +42,7 @@ orbit_kp = 15.0
 angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.1
+gkd = -0.15
 high_angle_pwmout_limitmax = 400
 low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右

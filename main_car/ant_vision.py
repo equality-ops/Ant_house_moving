@@ -621,7 +621,6 @@ class VisionManager:
         if self.if_finish_calibrate == True:
             return # 已经完成视觉伺服控制，直接返回  
         if self.if_ready_calibrate == False:
-        
             if self.if_waiting:
                 if self.counter >= self.calibrate_waiting_time:
                     self.counter = 0
@@ -665,6 +664,7 @@ class VisionManager:
                             self.rel_pos_to_apriltag = 'right'
                     self.reset_last_car_pos()
                     self.my_order_manager.mode_apriltag()
+                    self.my_uart3.write(f"\r\n{self.calibrate_buffer}, {self.rel_pos_to_apriltag}")
         else:
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
@@ -724,7 +724,7 @@ class VisionManager:
                             # print(f"final_angle: {sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])}")
                             self.pose_data.reset_yaw(sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]))
                             self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
-                            # print(f"now_yaw: {self.pose_data.now_yaw}\r\n")
+                            self.my_uart3.write(f"\r\nnow_yaw: {self.pose_data.now_yaw}\r\n")
                             self.angle_buffer.clear()
                             # 更新小车里程计坐标
                             RELATIVE_DIST = 24.0
