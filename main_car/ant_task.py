@@ -79,6 +79,7 @@ class TaskController:
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
+        self.need_calibrate_score = 0
         if self.if_model_detect:
             self.use_scan_point = 4
         else:self.use_scan_point = 2
@@ -216,6 +217,9 @@ class TaskController:
                 self.my_plan.reset_navigate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
+            dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
+                            (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
+            score = self.need_calibrate_score - dis * 0.05 
             global counter
             if self.data.current_index >= self.data.total_objects_num or self.my_moving.current_state != NAVIGATE:
                 if counter >=40:
@@ -225,7 +229,7 @@ class TaskController:
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
                     return
                 else:counter +=1
-            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate:
+            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score >= 10:
                 self.data.current_index += 1
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
@@ -552,6 +556,7 @@ class TaskController:
             ap_threhold = 25
             self.my_vision.reset_calibrate()
             if current_object == 'T':
+                self.need_calibrate_score += 3
                 self.my_vision.car_position = 'U'
                 if self.my_car.now_yaw<0:
                     self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
@@ -572,6 +577,7 @@ class TaskController:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             elif current_object in ['S', 'E']:
+                self.need_calibrate_score += 4
                 self.my_vision.car_position = 'L'
                 if self.my_car.now_yaw<-PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
@@ -592,6 +598,7 @@ class TaskController:
                         self.my_vision.if_waiting = True
                     else:self.my_vision.if_waiting = False
             else:
+                self.need_calibrate_score += 3
                 self.my_vision.car_position = 'R'
                 if self.my_car.now_yaw<PI/2:
                     self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
