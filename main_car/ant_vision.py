@@ -69,6 +69,7 @@ class VisionManager:
         self.target_rel_speed_y = 0.0          # type: float   # 伺服控制目标y速度
         self.max_rel_speed = self.flash_sys.find_value("max_rel_speed")  # type: float   # 视觉伺服控制最大速度
         self.min_rel_speed = self.flash_sys.find_value("min_rel_speed")  # type: float   # 视觉伺服控制最小速度 
+        self.if_model_detect = self.flash_sys.find_value("if_model_detect")
         self.target_point = []                      # type: list   # 目标点像素坐标
         self.target_rel_speed = 0.0                 # type: float     # 目标速度
         self.target_rel_yaw = 0.0                   # type: float   # 目标航向角
@@ -257,15 +258,20 @@ class VisionManager:
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H_min = 0.0
         object_H_max = 0.0
-        if self.current_servo_object in ['T']:
-            object_H_min = 4.0
-            object_H_max = 5.0
-        elif self.current_servo_object in ['S', 'E']:
-            object_H_min = 5.5
-            object_H_max = 7.0
-        elif self.current_servo_object in ['W', 'B']:
-            object_H_min = 5.0
-            object_H_max = 6.0
+        if self.if_model_detect:
+            if self.current_servo_object in ['T']:
+                object_H_min,object_H_max= 4.0,5.0
+            elif self.current_servo_object in ['S', 'E']:
+                object_H_min,object_H_max= 5.5,7.0
+            elif self.current_servo_object in ['W', 'B']:
+                object_H_min,object_H_max= 5.0,6.0
+        else:
+            if self.current_servo_object in ['T']:
+                object_H_min,object_H_max= 4.0,5.0
+            elif self.current_servo_object in ['S', 'E']:
+                object_H_min,object_H_max= 5.5,7.0
+            elif self.current_servo_object in ['W', 'B']:
+                object_H_min,object_H_max= 5.0,6.0
         # 根据物体的远近选择缩放因子K
         if Y_raw < MIN_Y:
             object_H = object_H_max
