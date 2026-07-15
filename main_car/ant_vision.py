@@ -129,8 +129,8 @@ class VisionManager:
         self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
         self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
         self.calibrate_times = 0
-        self.if_ready_calibrate =False
-        self.if_finish_calibrate = True
+        self.if_ready_calibrate = False
+        self.if_finish_calibrate = False
         self.calibrate_waiting_time = self.flash_sys.find_value("calibrate_waiting_time")
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线

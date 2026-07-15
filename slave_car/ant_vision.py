@@ -153,12 +153,12 @@ class VisionManager:
                             [-1.93211578e-03,9.33698324e-02,1.00000000e+00]]
         # apriltag码矫正相关变量--------------------------------------------------------
         self.apriltage_postion = {'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
-        self.apriltag_threshold_x = 2.0
-        self.apriltag_threshold_y = 2.0
+        self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
+        self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
         self.calibrate_times = 0
         self.calibrate_waiting_time = self.flash_sys.find_value("calibrate_waiting_time")
-        self.if_ready_calibrate =False
-        self.if_finish_calibrate = True
+        self.if_ready_calibrate = False
+        self.if_finish_calibrate = False
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 延时计数器
@@ -528,21 +528,22 @@ class VisionManager:
             self.last_real_servo_point = None
         
     def reset_calibrate(self):
+        self.if_ready_calibrate =False
         self.if_finish_calibrate =False
+        self.if_waiting = True
         self.calibrate_buffer = []
         self.my_plan.reset_navigate()
         self.counter = 0
-        self.if_ready_calibrate =False
-
+        
     # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
         if self.if_ready_calibrate == False:
             if self.if_waiting:
-                if self.counter >=self.calibrate_waiting_time:
+                if self.counter >= self.calibrate_waiting_time:
                     self.counter = 0
                     self.if_waiting = False
                 else:
-                    self.counter+=1
+                    self.counter += 1
             else:
                 self.my_plan.navigate(self.calibrate_buffer[0],self.calibrate_buffer[1])
                 if self.my_plan.if_finish_navigate == True:
