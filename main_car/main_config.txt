@@ -112,11 +112,11 @@ servo_kd_calibrate_x = 10.0
 servo_kp_calibrate_y = 8.0
 servo_kd_calibrate_y = 8.0
 
-servo_target_y_A = 3.0
+servo_target_y_A = 1.0
 
 # 用于apriltag矫正的阈
-apriltag_threshold_x = 1.0
-apriltag_threshold_y = 1.0
+apriltag_threshold_x = 2.0
+apriltag_threshold_y = 2.0
 ###################【环绕控制】####################
 radius_T_U = 12.7
 radius_T_R = 12.7
@@ -157,7 +157,7 @@ bothway_swell_size = 11
 #惯导避障膨胀半径
 SAFE_MARGIN = 14.0
 #推动避障膨胀半径
-MOVE_SAFE_MARGIN = 14.0
+MOVE_SAFE_MARGIN = 15.0
 total_objects_num = 6
 
 #九宫格长宽
@@ -167,7 +167,7 @@ SUDOKU_width_y = 30.0
 USE_SCAN_POINT = 4
 
 #障碍物位置
-cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
+cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135, 11.6 , 24.8)"
 circle = "(48, 171)"
 
 # 不同物体的搬运速度

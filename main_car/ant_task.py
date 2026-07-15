@@ -587,15 +587,15 @@ class TaskController:
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
             self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y)
-            '''if len(self.now_objects) != self.data.total_objects_num:
+            if len(self.now_objects) != self.data.total_objects_num:
                 self.my_uart.write(f"{self.now_objects}\n")
                 self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                 self.my_uart.write(f"path{self.object_plan.path}\n")
                 self.my_uart.write(f"score{self.object_plan.target_score}\n")
                 self.exit()
-                return'''
+                return
             self.if_end_first_scan = True
-        else:scan_point(1)
+        else:scan_point(2)
     def handle_scan(self):
         global counter
         if not self.if_end_first_scan:
