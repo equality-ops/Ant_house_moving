@@ -133,8 +133,8 @@ radius_B_R = 17.7
 radius_B_L = 16.5
 radius_B_D = 17.5
 angle_T = 38
-angle_S = 39
-angle_B = 32
+angle_S = 40
+angle_B = 36
 acc_move_coef = 0.04
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
