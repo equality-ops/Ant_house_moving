@@ -625,7 +625,7 @@ class TaskController:
                                     [self.my_car.x_current+ 15.0, self.my_car.y_current+15.0]])
 
             target_point = self.my_art_protocol.apriltag_receive()
-            if target_point:
+            if target_point:    
                 self.my_plan.reset_navigate()
                 self.my_vision.counter = 0
                 self.my_vision.calibrate_times = 0

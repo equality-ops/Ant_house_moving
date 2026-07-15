@@ -394,15 +394,26 @@ def set_pid_params():
 
 # 视觉伺服辅助apriltag码矫正
 def test_apriltag_calibrate():
-    if my_state.state == NAVIGATE:
-        my_state.state = CALIBRATE
-        my_order_manager.mode_apriltag()
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[-10.0, 30.0]], target_turn_angle = -40.0)
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            my_vision_manager.reset_calibrate()
+            my_vision_manager.calibrate_buffer = [[[-15.0, 90.0]], 0.0]
+            my_vision_manager.car_position = 'L'
+            my_state.state = CALIBRATE
+            my_order_manager.mode_apriltag()
     elif my_state.state == CALIBRATE:
-        target_point = my_art_protocol.apriltag_receive()
-        if target_point:
-            my_uart8.write(f"target_point: {target_point}\n")
-    elif my_state.state == STOP:
-        my_plan.stop()
+        my_vision_manager.apriltag_calibrate_control()
+        if my_vision_manager.if_finish_calibrate == True:
+            my_vision_manager.reset_calibrate()
+            my_plan.reset_navigate()
+            my_state.state = RETURN
+    elif my_state.state == RETURN:
+        my_plan.navigate(path = [plan_data.fixed_point[0]], target_turn_angle = 0.0)
 
 # 任务机执行函数
 def task_machine():
@@ -443,7 +454,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
     """
@@ -502,7 +513,9 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
-
+    my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
+    # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
+    # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
     # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")

@@ -100,15 +100,6 @@ servo_kd_normal_x = 10.0
 servo_kp_normal_y = 7.0
 servo_kd_normal_y = 10.0
 
-#红外控制参数
-servo_RY_kp_x = 1
-servo_RY_kd_x = 1
-servo_RY_kp_y = 1
-servo_RY_kd_y = 1
-servo_target_y_RY = -10
-pwmout_RY_limit = 70
-
-servo_target_y_A = 11.0
 servo_target_y_T = 2.5
 servo_target_y_S = 3.0
 servo_target_y_B = 7.0
@@ -118,13 +109,23 @@ servo_target_x_B = 0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
-# 用于apriltag矫正的阈值
-apriltag_threshold_x = 1.0
-apriltag_threshold_y = 1.0
 
 min_rel_speed = 40
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
+
+###################【apriltag矫正】####################
+servo_kp_calibrate_x = 6.0
+servo_kd_calibrate_x = 8.0
+servo_kp_calibrate_y = 6.0
+servo_kd_calibrate_y = 8.0
+
+servo_target_y_A = 11.0
+
+# 用于apriltag矫正的阈值
+apriltag_threshold_x = 1.0
+apriltag_threshold_y = 1.0
+
 ###################【环绕控制】####################
 radius_T_U = 13.0
 radius_T_R = 11.0
