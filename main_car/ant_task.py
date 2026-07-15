@@ -485,7 +485,7 @@ class TaskController:
                 counter +=1
                 self.scan_empty_counter=0
                 new_world = self.handle_object_info(object_package,angle)
-                #self.my_uart.write(f"{counter}{new_world}\n")
+                self.my_uart.write(f"{self.detected_num}{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects

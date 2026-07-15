@@ -228,7 +228,7 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
     def caculate_move_path(self,path):
         try:
-            twist_clamp_factor = 1.05
+            twist_clamp_factor = 1
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
@@ -239,9 +239,7 @@ class MoveControl:
                 pl=[self.plan_data.FIELD_W+20,self.my_car.y_current+dy1]
             elif path[1] == -90:
                 pl=[-20,self.my_car.y_current+dy1]
-            dy = abs(pl[1]-self.my_car.y_current)
-            dx = abs(pl[0]-self.my_car.x_current)
-            now_clamp = self.clamp_distance * 0.005 * (dx + dy)
+            now_clamp = self.clamp_distance
             p2 = [pl[0] + self.push_postion[0] * now_clamp,
                   pl[1] + self.push_postion[1] * now_clamp,]
             p2_t = [pl[0] + self.push_postion[0] * now_clamp*twist_clamp_factor,

@@ -331,7 +331,7 @@ class MoveControl:
         try:
             dy = abs(plan_path[-1][1]-plan_path[0][1])
             dx = abs(plan_path[-1][0]-plan_path[0][0])
-            now_clamp = self.clamp_distance * 0.005 * (dx + dy)
+            now_clamp = self.clamp_distance
         except:return False
         if self.push_postion[0] == 0:
             self.my_plan.keep_x_or_y_v = True
@@ -343,7 +343,7 @@ class MoveControl:
             self.my_plan.fitting_path_ = [plan_path[0],[plan_path[1][0]+self.push_postion[0]*now_clamp,plan_path[1][1]+self.push_postion[1]*now_clamp]]
             self.plan_path = plan_path[1:]
         elif len(plan_path) == 3:
-            twist_clamp_factor = 1.05
+            twist_clamp_factor = 1
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
             dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
             dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
