@@ -64,9 +64,9 @@ uart_and_menu_T = 53
 
 ###################【路径规划】####################
 final_threshold = 1.0
-branch_threshold = 5.0
+branch_threshold = 2.5
 
-cube_obstacles = "(182.5, 195, 23.8, 10.6), (270.0, 95.0,10.6 , 23.8)"
+cube_obstacles = "(182.5, 195, 23.8, 10.6), (270.0, 135.0,10.6 , 23.8)"
 circle = "(48, 171)"
 
 error_x_T = 2.0

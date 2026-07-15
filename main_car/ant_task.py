@@ -397,6 +397,74 @@ class TaskController:
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
+    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y):
+        """Snap detected objects to unique centers of a 3x3 grid."""
+        if not objects:
+            return []
+        if cell_x <= 0 or cell_y <= 0:
+            raise ValueError("cell_x and cell_y must be greater than zero")
+
+        grid_centers = []
+        for row in (-1, 0, 1):
+            for col in (-1, 0, 1):
+                grid_centers.append((160.0 + col * cell_x,
+                                     120.0 + row * cell_y))
+
+        # Reliable detections claim a cell first; conflicts use the nearest
+        # unoccupied cell instead of producing duplicate grid positions.
+        candidates = []
+        valid_objects = []
+        for original_idx, obj in enumerate(objects):
+            try:
+                kind, obj_x, obj_y = obj
+                obj_x = float(obj_x)
+                obj_y = float(obj_y)
+            except:
+                continue
+
+            nearest_dist2 = float('inf')
+            for center_x, center_y in grid_centers:
+                dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
+                if dist2 < nearest_dist2:
+                    nearest_dist2 = dist2
+            valid_idx = len(valid_objects)
+            valid_objects.append((original_idx, kind, obj_x, obj_y))
+            candidates.append((nearest_dist2, valid_idx))
+
+        candidates.sort(key=lambda item: item[0])
+        occupied = [False] * len(grid_centers)
+        assignments = [-1] * len(valid_objects)
+        for _, valid_idx in candidates:
+            _, _, obj_x, obj_y = valid_objects[valid_idx]
+            best_center_idx = -1
+            best_dist2 = float('inf')
+            for center_idx, (center_x, center_y) in enumerate(grid_centers):
+                if occupied[center_idx]:
+                    continue
+                dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
+                if dist2 < best_dist2:
+                    best_dist2 = dist2
+                    best_center_idx = center_idx
+
+            # Inputs beyond nine cannot all have unique grid positions.
+            if best_center_idx < 0:
+                for center_idx, (center_x, center_y) in enumerate(grid_centers):
+                    dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
+                    if dist2 < best_dist2:
+                        best_dist2 = dist2
+                        best_center_idx = center_idx
+            else:
+                occupied[best_center_idx] = True
+            assignments[valid_idx] = best_center_idx
+
+        snapped = []
+        for valid_idx, (original_idx, kind, _, _) in enumerate(valid_objects):
+            center_x, center_y = grid_centers[assignments[valid_idx]]
+            snapped.append((original_idx, kind, center_x, center_y))
+        snapped.sort(key=lambda item: item[0])
+        return [(kind, center_x, center_y)
+                for _, kind, center_x, center_y in snapped]
+
     def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
         threshold_far = threshold_near+5

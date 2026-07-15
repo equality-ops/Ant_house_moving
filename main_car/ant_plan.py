@@ -571,13 +571,13 @@ class NavigationPlan:
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
-            if self.my_car.y_current >= 240.0 - near_line_threshold:
+            if self.my_car.y_current >= 240.0 - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (240.0 - self.my_car.y_current) / near_line_threshold
-            elif self.my_car.y_current <= near_line_threshold:
+            elif self.my_car.y_current <= near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = self.my_car.y_current / near_line_threshold
-            elif self.my_car.x_current <= near_line_threshold:
+            elif self.my_car.x_current <= near_line_threshold and self.keep_x_or_y_v == True:
                 ratio = self.my_car.x_current / near_line_threshold
-            elif self.my_car.x_current >= 320.0 - near_line_threshold:
+            elif self.my_car.x_current >= 320.0 - near_line_threshold and self.keep_x_or_y_v == True:
                 ratio = (320.0 - self.my_car.x_current) / near_line_threshold
             else:
                 ratio = 1.0
