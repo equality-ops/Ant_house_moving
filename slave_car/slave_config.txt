@@ -115,8 +115,8 @@ servo_kd_calibrate_y = 10.0
 servo_target_y_A = 6.0
 
 # 用于apriltag矫正的阈值
-apriltag_threshold_x = 1.0
-apriltag_threshold_y = 1.0
+apriltag_threshold_x = 1.5
+apriltag_threshold_y = 1.5
 
 ###################【环绕控制】####################
 radius_T_U = 13.0
@@ -148,7 +148,7 @@ SAFE_MARGIN = 14.0
 if_model = 1
 
 #障碍物位置
-cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135.0,11.6 , 24.8)"
+cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135.0,11.6 , 24.8)"
 circle = "(48, 171)"
 
 # 不同物体的搬运速度
