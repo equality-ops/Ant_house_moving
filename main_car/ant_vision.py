@@ -706,7 +706,7 @@ class VisionManager:
                         if diff > 180.0:
                             diff = 360.0 - diff
 
-                        ANGLE_CALIBRATE_THRESHOLD = 6.0
+                        ANGLE_CALIBRATE_THRESHOLD = 2.0
                         # 当角度与实际角度差别过大时才矫正
                         if diff > ANGLE_CALIBRATE_THRESHOLD:
                             self.pose_data.reset_yaw(final_angle)
