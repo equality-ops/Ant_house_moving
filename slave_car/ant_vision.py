@@ -550,7 +550,7 @@ class VisionManager:
         self.my_plan.reset_navigate()
         self.counter = 0
         
-    # apriltag辅助校准校准控制函数
+     # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
         if self.if_finish_calibrate == True:
             return # 已经完成视觉伺服控制，直接返回  
@@ -627,9 +627,18 @@ class VisionManager:
                         self.counter = 0
                         # 里程计和姿态角硬复位
                         # print(f"final_angle: {sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])}")
-                        self.pose_data.reset_yaw(sum(self.angle_buffer[10:]) / len(self.angle_buffer[10:]))
-                        self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
-                        # print(f"now_yaw: {self.pose_data.now_yaw}\r\n")
+                        final_angle = sum(self.angle_buffer[10:]) / len(self.angle_buffer[10:])
+                            
+                        diff = abs(final_angle - self.my_car.now_yaw * 180.0 / PI)
+                        if diff > 180.0:
+                            diff = 360.0 - diff
+
+                        ANGLE_CALIBRATE_THRESHOLD = 6.0
+                        # 当角度与实际角度差别过大时才矫正
+                        if diff > ANGLE_CALIBRATE_THRESHOLD:
+                            self.pose_data.reset_yaw(final_angle)
+                            self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
+
                         self.angle_buffer.clear()
                         # 更新小车里程计坐标
                         RELATIVE_DIST = 17.5
@@ -725,9 +734,15 @@ class VisionManager:
                                 self.angle_buffer.append(0.0 - target_point[2])
                         elif self.car_position == 'U':
                             if self.rel_pos_to_apriltag == 'left':
-                                self.angle_buffer.append(90.0 + target_point[2])
+                                angle = 90.0 + target_point[2]
+                                if angle > 180.0:
+                                    angle -= 360.0
+                                self.angle_buffer.append(angle)
                             elif self.rel_pos_to_apriltag == 'right':
-                                self.angle_buffer.append(-90.0 - target_point[2])
+                                angle = -90.0 - target_point[2]
+                                if angle < -180.0:  
+                                    angle += 360.0
+                                self.angle_buffer.append(angle)
                     else:
                         """
                         now_yaw = self.my_car.now_yaw * 180.0 / PI
