@@ -281,18 +281,19 @@ class MoveControl:
         self.if_finish_move = False
         self.if_to_the_top =False
         gc.collect()
-
+    
     # 重置小车里程计
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
-        light_to_center = 8.5  # 光电管到车体中心的距离
-        COS = 0.707
+        # 经验修正值
+        correction = 2.0
         if current_object == 'T':
-            self.my_car.y_current = 240.0 - light_to_center * COS
+            self.my_car.y_current = 240.0 - correction
         elif current_object in ['S', 'E']:
-            self.my_car.x_current = 0.0 + light_to_center * COS
+            self.my_car.x_current = 0.0 + correction
         elif current_object in ['B', 'W']:
-            self.my_car.x_current = 320.0 - light_to_center * COS
+            self.my_car.x_current = 320.0 - correction
+            
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):
         # 当前车头朝向 (弧度)

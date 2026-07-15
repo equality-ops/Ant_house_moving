@@ -621,7 +621,6 @@ class VisionManager:
         if self.if_finish_calibrate == True:
             return # 已经完成视觉伺服控制，直接返回  
         if self.if_ready_calibrate == False:
-        
             if self.if_waiting:
                 if self.counter >= self.calibrate_waiting_time:
                     self.counter = 0
@@ -631,40 +630,46 @@ class VisionManager:
             else:
                 self.my_plan.navigate(self.calibrate_buffer[0],self.calibrate_buffer[1])
                 if self.my_plan.if_finish_navigate == True:
-                    self.my_plan.reset_navigate()
-                    self.if_ready_calibrate = True
-                    # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
-                    self.final_dist_y = self.servo_pid.target_y_A
-                    # 将视觉伺服pid参数切换为矫正模式的参数
-                    self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_calibrate_x
-                    self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_calibrate_y
-                    self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_calibrate_x
-                    self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_calibrate_y
-                    self.calibrate_times = 0
-                    # 清空目标角度缓冲区
-                    self.angle_buffer.clear()
-                    self.target_rel_turn_angle = self.my_plan.turn_angle_target
-                    # 更新小车相对于apriltag的位置
-                    if self.car_position == 'L':
-                        now_yaw = self.my_car.now_yaw * 180.0 / PI
-                        if now_yaw >= -90.0 and now_yaw < 90.0:
-                            self.rel_pos_to_apriltag = 'left'
-                        else:
-                            self.rel_pos_to_apriltag = 'right'
-                    elif self.car_position == 'R':
-                        now_yaw = self.my_car.now_yaw * 180.0 / PI
-                        if now_yaw >= -90.0 and now_yaw < 90.0:
-                            self.rel_pos_to_apriltag = 'right'
-                        else:
-                            self.rel_pos_to_apriltag = 'left'
-                    elif self.car_position == 'U':
-                        now_yaw = self.my_car.now_yaw * 180.0 / PI
-                        if now_yaw >= 0.0 and now_yaw < 180.0:
-                            self.rel_pos_to_apriltag = 'left'
-                        else:
-                            self.rel_pos_to_apriltag = 'right'
-                    self.reset_last_car_pos()
-                    self.my_order_manager.mode_apriltag()
+                    self.counter += 1
+                    # 延时200ms等待小车稳定
+                    if self.counter >= 20:
+                        # 重置计数器
+                        self.counter = 0
+                        self.my_plan.reset_navigate()
+                        self.if_ready_calibrate = True
+                        # 伺服apriltag时固定目标点坐标（单位：像素），并且固定目标转角为0（即小车面向apriltag）
+                        self.final_dist_y = self.servo_pid.target_y_A
+                        # 将视觉伺服pid参数切换为矫正模式的参数
+                        self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_calibrate_x
+                        self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_calibrate_y
+                        self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_calibrate_x
+                        self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_calibrate_y
+                        self.calibrate_times = 0
+                        # 清空目标角度缓冲区
+                        self.angle_buffer.clear()
+                        self.target_rel_turn_angle = self.my_plan.turn_angle_target
+                        # 更新小车相对于apriltag的位置
+                        if self.car_position == 'L':
+                            now_yaw = self.my_car.now_yaw * 180.0 / PI
+                            if now_yaw >= -90.0 and now_yaw < 90.0:
+                                self.rel_pos_to_apriltag = 'left'
+                            else:
+                                self.rel_pos_to_apriltag = 'right'
+                        elif self.car_position == 'R':
+                            now_yaw = self.my_car.now_yaw * 180.0 / PI
+                            if now_yaw >= -90.0 and now_yaw < 90.0:
+                                self.rel_pos_to_apriltag = 'right'
+                            else:
+                                self.rel_pos_to_apriltag = 'left'
+                        elif self.car_position == 'U':
+                            now_yaw = self.my_car.now_yaw * 180.0 / PI
+                            if now_yaw >= 0.0 and now_yaw < 180.0:
+                                self.rel_pos_to_apriltag = 'left'
+                            else:
+                                self.rel_pos_to_apriltag = 'right'
+                        self.reset_last_car_pos()
+                        self.my_order_manager.mode_apriltag()
+                        # self.my_uart3.write(f"\r\n{self.calibrate_buffer}, {self.rel_pos_to_apriltag}")
         else:
             target_point = self.my_art_protocol.apriltag_receive()
             if target_point:
@@ -712,7 +717,7 @@ class VisionManager:
 
                     # print(f"{abs(self.absolute_actual_x)}, {abs(self.absolute_actual_y)}, {diff}, {self.calibrate_times}\r\n")
                     
-                    if self.if_gain_calibrate_angle and (((abs(self.absolute_actual_x) <= self.apriltag_threshold_x and abs(self.absolute_actual_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 10):
+                    if self.if_gain_calibrate_angle and (((abs(self.absolute_actual_x) <= self.apriltag_threshold_x and abs(self.absolute_actual_y) <= self.apriltag_threshold_y) and diff <= 1.0 and self.calibrate_times != 1) or len(self.angle_buffer) >= 15):
                         self.target_rel_speed = 0
                         self.target_rel_yaw = 0.0
                         self.calibrate_times += 1
@@ -722,12 +727,12 @@ class VisionManager:
                             self.counter = 0
                             # 里程计和姿态角硬复位
                             # print(f"final_angle: {sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:])}")
-                            self.pose_data.reset_yaw(sum(self.angle_buffer[2:]) / len(self.angle_buffer[2:]))
+                            self.pose_data.reset_yaw(sum(self.angle_buffer[10:]) / len(self.angle_buffer[10:]))
                             self.my_car.now_yaw = -self.pose_data.now_yaw * PI / 180.0
-                            # print(f"now_yaw: {self.pose_data.now_yaw}\r\n")
+                            # self.my_uart3.write(f"\r\nnow_yaw: {self.pose_data.now_yaw}\r\n")
                             self.angle_buffer.clear()
                             # 更新小车里程计坐标
-                            RELATIVE_DIST = 24.0
+                            RELATIVE_DIST = 21.0
                             if self.car_position == 'L':
                                 # self.my_car.x_current = self.apriltage_postion['L'][0]
                                 apriltag_y = self.apriltage_postion['L'][1]
@@ -783,7 +788,7 @@ class VisionManager:
                         self.target_rel_speed_x = self.sin_servo_fil.filtering(self.target_rel_speed_x)
                         self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
                         # 计算目标角度，单位：度（注意避免除以0）
-                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI + self.target_rel_turn_angle
+                        self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI
                         if self.target_rel_yaw > 180.0:
                             self.target_rel_yaw -= 360.0
                         elif self.target_rel_yaw < -180.0:

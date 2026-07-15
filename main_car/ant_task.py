@@ -248,18 +248,23 @@ class TaskController:
                 else:counter +=1
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更�?
-            self.my_vision.reset_calibrate()  # 重置校准标志
             if self.my_vision.if_lost_object:
                 self.my_plan.if_finish_plan = False
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
+                self.my_vision.reset_calibrate()  # 重置校准标志
                 self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
             else:
-                self.my_plan.if_finish_plan = False
-                self.my_plan.reset_navigate()
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物�?
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                counter += 1
+                # 延时200ms
+                if counter >= 20:
+                    counter = 0     # 重置计数器
+                    self.my_plan.if_finish_plan = False
+                    self.my_vision.reset_calibrate()  # 重置校准标志
+                    self.my_plan.reset_navigate()
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物?
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状?
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更�?
             self.my_vision.reset_orbit()
