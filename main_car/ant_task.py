@@ -53,7 +53,6 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状�?
         }
-        self.clamp_distance = {'T':2,'S':2.5,'E':2.5,'W':1.8,'B':1.8}
         self.scan_empty_counter = 0
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
@@ -70,6 +69,11 @@ class TaskController:
         self.SUDOKU_length_x = self.my_flash_system.find_value("SUDOKU_length_x")
         self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
         self.use_scan_point = self.my_flash_system.find_value("USE_SCAN_POINT")
+        self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
+        T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
+        S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
+        B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
+        self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         if self.use_scan_point>2:
             self.last_side = 'U'
         else:self.last_side = 'D'
@@ -219,7 +223,7 @@ class TaskController:
                 self.my_state.state = RETURN 
             dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
                             (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
-            score = self.need_calibrate_score - dis * 0.05 
+            score = self.need_calibrate_score - dis * 0.015
             global counter
             if self.data.current_index >= self.data.total_objects_num or self.my_moving.current_state != NAVIGATE:
                 if counter >=40:
@@ -314,7 +318,7 @@ class TaskController:
                         #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:
                             self.my_moving.saved_best_path =self.object_plan.best_path
-                            num_compensation = self.data.current_index * 0.2
+                            num_compensation = self.data.current_index * self.num_clamp_factor
                             self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
                             self.if_choose_object = True
                             self.my_plan.reset_navigate()

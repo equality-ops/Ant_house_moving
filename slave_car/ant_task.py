@@ -23,7 +23,7 @@ object_to_line_dict = {
     'B': 'R'
 }
 class TaskController:
-    def __init__(self, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol):
+    def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -37,7 +37,7 @@ class TaskController:
         self.my_order_manager = order_manager
         self.my_art_protocol = art_protocal
         self.my_slave_protocol = slave_protocol
-
+        self.my_flash_system = flash
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -52,7 +52,11 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状态
         }
-        self.clamp_distance = {'T':2,'S':2.5,'E':2.5,'W':1.8,'B':1.8}
+        self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
+        T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
+        S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
+        B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
+        self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
@@ -89,7 +93,7 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
-            num_compensation = self.current_pushed_num * 0.35
+            num_compensation = self.current_pushed_num * self.num_clamp_factor
             self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
             self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
             self.current_pushed_num += 1

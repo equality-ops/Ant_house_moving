@@ -146,6 +146,13 @@ SAFE_MARGIN = 16.0
 
 #是否使用模型servo
 if_model = 1
+#推动内收因子
+CLAMP_FACTOR = 1.15
+NUM_CLAMP_FACTOR = 0.25
+#内收距离
+TENNIS_cla_dis = 2
+SANDBAG_cla_dis = 2.5
+BEAR_cla_dis = 1.8
 
 #障碍物位置
 cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135.0,11.6 , 24.8)"
@@ -155,3 +162,4 @@ circle = "(48, 171)"
 move_v_max_T = 140
 move_v_max_S = 140
 move_v_max_B = 140
+

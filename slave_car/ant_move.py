@@ -45,6 +45,7 @@ class MoveControl:
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
+        self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
@@ -228,7 +229,7 @@ class MoveControl:
             self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
     def caculate_move_path(self,path):
         try:
-            twist_clamp_factor = 1.15
+            
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
@@ -242,8 +243,8 @@ class MoveControl:
             now_clamp = self.clamp_distance
             p2 = [pl[0] + self.push_postion[0] * now_clamp,
                   pl[1] + self.push_postion[1] * now_clamp,]
-            p2_t = [pl[0] + self.push_postion[0] * now_clamp*twist_clamp_factor,
-                    pl[1] + self.push_postion[1] * now_clamp*twist_clamp_factor,]
+            p2_t = [pl[0] + self.push_postion[0] * now_clamp*self.twist_clamp_factor,
+                    pl[1] + self.push_postion[1] * now_clamp*self.twist_clamp_factor,]
             p_m = [self.my_car.x_current + dx1,
                    self.my_car.y_current + dy1,]
             if self.push_postion[0] != 0:

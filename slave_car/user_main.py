@@ -217,7 +217,7 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, a
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager)
 # 任务及类
-my_task = ant_task.TaskController(my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
+my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)

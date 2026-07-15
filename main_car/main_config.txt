@@ -159,6 +159,13 @@ SAFE_MARGIN = 16.0
 #推动避障膨胀半径
 MOVE_SAFE_MARGIN = 15.0
 total_objects_num = 6
+#推动内收因子
+CLAMP_FACTOR = 1.15
+NUM_CLAMP_FACTOR = 0.25
+#内收距离
+TENNIS_cla_dis = 2
+SANDBAG_cla_dis = 2.5
+BEAR_cla_dis = 1.8
 
 #九宫格长宽
 SUDOKU_length_x = 30.0
