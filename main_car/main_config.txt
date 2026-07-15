@@ -112,9 +112,9 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【apriltag矫正】####################
-servo_kp_calibrate_x = 8.0
-servo_kd_calibrate_x = 10.0
-servo_kp_calibrate_y = 8.0
+servo_kp_calibrate_x = 6.0
+servo_kd_calibrate_x = 8.0
+servo_kp_calibrate_y = 6.0
 servo_kd_calibrate_y = 8.0
 
 servo_target_y_A = 6.0
@@ -140,7 +140,6 @@ radius_B_D = 17.5
 angle_T = 40
 angle_S = 40
 angle_B = 35
-acc_move_coef = 0.04
 
 if_model = 1
 if_model_detect = 1
@@ -154,9 +153,6 @@ rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []]
 sigal_swell_size = 20
 bothway_swell_size = 10
 SAFE_MARGIN = 14.0
-
-SUDOKU_length_x = 30.0
-SUDOKU_width_y = 30.0
 
 MOVE_SAFE_MARGIN = 13.0
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
