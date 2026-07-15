@@ -383,7 +383,7 @@ class NavigationPlan:
                     # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax
                     
-                    # 在未完成转角调整时，持续进行转角调整
+                    # 在未完成转角调整时，持续进行转角调整 
                     diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
                     if diff > 180.0:
                         diff = 360.0 - diff

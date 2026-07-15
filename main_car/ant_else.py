@@ -634,7 +634,7 @@ class TaskController:
                     self.my_plan.if_second_verify = False
                     
                     x_threshold = 20.0
-                    y_threshold = 20.0
+                    y_threshold = 30.0
                     rich_angle = 8.0  # 角度裕量
                     if self.if_to_top == False:
                         self.spin_angle_buf = -180 + self.my_vision.orbit_angle + rich_angle
@@ -725,8 +725,8 @@ class TaskController:
             # 退出搬运状态，停止搬运动作 
             # 若从车丢失物体，则跳过当前物体   
             counter += 1
-            # 延时400ms
-            if counter >= 40:   
+            # 延时200ms
+            if counter >= 20:   
                 # 重置计数器
                 counter = 0
                 self.data.finished_num += 1
@@ -816,15 +816,16 @@ class TaskController:
         # 根据当前位于的扫描途径点修改任务状态
         self.change_object_status()
 
-        if_pos_rational = ((self.my_car.x_current <= 140.0 or self.my_car.x_current >= 180.0) and self.my_plan.aimed_point_index == 0)\
-        or (self.my_plan.aimed_point_index != 0)
+        if_pos_rational = ((self.my_car.x_current <= 140.0 or self.my_car.x_current >= 170.0) and self.my_plan.aimed_point_index == 0)\
+        or (self.my_plan.aimed_point_index != 0) or (self.object_status == OVER_ONE_IN_TOP)
         
         target_point = self.my_art_protocol.coordinate_receive()
         if target_point and if_pos_rational:
             # 更新当前伺服物体种类
             self.my_vision.current_servo_object = chr(target_point[2])  
             # 判断目标点是否合理，若不合理则清空当前伺服物体种类    
-            if self.my_vision.judge_if_object_rational(target_point[0], target_point[1]):
+            if  self.object_status in [ONE_IN_TOP, OVER_ONE_IN_TOP] or \
+                (self.my_vision.judge_if_object_rational(target_point[0], target_point[1]) and self.object_status == ALL_IN_BOTTOM):
                 if self.object_status == OVER_ONE_IN_TOP and (not self.if_to_top or self.the_last_one):
                     if not self.if_second_verify:
                         self.my_plan.if_second_verify = True

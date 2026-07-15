@@ -43,8 +43,8 @@ angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.2
-high_angle_pwmout_limitmax = 400
-low_angle_pwmout_limitmax = 360
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 200
 # B大致为最大静差的1.5倍
@@ -82,15 +82,15 @@ find_line_v_max = 60
 acc_normal_coef = 0.03
 acc_move_coef = 0.04
 dec_coef = 0.1
-scan_rate = 0.7
+scan_rate = 0.8
 
 orbit_v_max = 110
 orbit_v_min = 30
 
 # 不同物体的搬运速度
-move_v_max_T = 140
-move_v_max_S = 140
-move_v_max_B = 140
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
@@ -106,7 +106,7 @@ servo_target_y_B = 5.5
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
 
-max_rational_dist = 70.0
+max_rational_dist = 75.0
 
 min_rel_speed = 40
 max_rel_speed = 130

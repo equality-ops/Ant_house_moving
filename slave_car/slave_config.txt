@@ -43,8 +43,8 @@ angle_normal_ki = 0.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.2
-high_angle_pwmout_limitmax = 400
-low_angle_pwmout_limitmax = 360
+high_angle_pwmout_limitmax = 450
+low_angle_pwmout_limitmax = 400
 # A设置为B的2倍左右
 A = 200
 # B大致为最大静差的1.5倍
@@ -73,7 +73,7 @@ error_x_B = 2.0
 ###################【速度规划】####################
 # 负压风扇
 if_fan = 1
-fixed_high_level_us = 1350
+fixed_high_level_us = 1300
 
 min_start_v = 35
 long_v_max = 180
