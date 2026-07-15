@@ -253,19 +253,20 @@ class VisionManager:
         # 计算原始坐标（未缩放）
         X_raw = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime
         Y_raw = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime
-        MIN_Y = 30.0
-        MAX_Y = 120.0
+        
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H_min = 0.0
         object_H_max = 0.0
         if self.if_model_detect:
+            MIN_Y,MAX_Y = 15.0,120.0
             if self.current_servo_object in ['T']:
-                object_H_min,object_H_max= 4.0,5.0
+                object_H_min,object_H_max= 5.0,6.0
             elif self.current_servo_object in ['S', 'E']:
-                object_H_min,object_H_max= 5.5,7.0
+                object_H_min,object_H_max= 6.0,7.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H_min,object_H_max= 5.0,6.0
         else:
+            MIN_Y,MAX_Y = 30.0,120.0
             if self.current_servo_object in ['T']:
                 object_H_min,object_H_max= 4.0,5.0
             elif self.current_servo_object in ['S', 'E']:
@@ -291,7 +292,7 @@ class VisionManager:
         return X_raw * K, Y_raw * K
         # 推测目标点位并进行视觉伺服控制
     def predict_point(self, x, y,limit_y = None):
-        car_radius = 10.0
+        car_radius = 12.0
         raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
         if limit_y:
             if raw_y>limit_y: return []
