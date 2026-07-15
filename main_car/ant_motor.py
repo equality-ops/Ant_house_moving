@@ -363,6 +363,11 @@ class PoseData:
         :param ref_yaw_deg: 外部传感器获取的绝对偏航角，单位：度 (°)
         """
         # 1. 将角度转换为半角弧度
+
+        # 重置俯仰角和偏航角
+        self.now_roll = 0.0
+        self.now_pitch = 0.0
+
         half_roll = self.now_roll * 0.5 * (PI / 180.0)
         half_pitch = self.now_pitch * 0.5 * (PI / 180.0)
         half_yaw = -ref_yaw_deg * 0.5 * (PI / 180.0)

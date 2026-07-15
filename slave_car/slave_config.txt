@@ -119,7 +119,7 @@ servo_kd_calibrate_x = 8.0
 servo_kp_calibrate_y = 6.0
 servo_kd_calibrate_y = 8.0
 
-servo_target_y_A = 11.0
+servo_target_y_A = 6.0
 
 # 用于apriltag矫正的阈值
 apriltag_threshold_x = 1.0
