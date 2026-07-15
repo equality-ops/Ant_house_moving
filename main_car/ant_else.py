@@ -101,8 +101,8 @@ class order_manager:
         self.my_uart = uart
     
     def mode_target(self):
-        # self.my_uart.write("M")   # 切换到目标识别模式（模型）
-        self.my_uart.write("C")     # 切换到目标识别模式（色块）
+        self.my_uart.write("M")   # 切换到目标识别模式（模型）
+        # self.my_uart.write("C")     # 切换到目标识别模式（色块）
 
     # 切换到全局预览模式（多目标识别）
     def mode_preview(self):

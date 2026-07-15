@@ -184,21 +184,23 @@ class VisionManager:
         X_raw = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime
         Y_raw = (H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime
 
-        MIN_Y = 30.0
+        """模型"""
+        MIN_Y = 15.0
         MAX_Y = 120.0
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H_min = 0.0
         object_H_max = 0.0
         if self.current_servo_object in ['T']:
-            object_H_min = 4.0
-            object_H_max = 5.0
+            object_H_min = 5.0
+            object_H_max = 6.0
         elif self.current_servo_object in ['S', 'E']:
-            object_H_min = 5.5
+            object_H_min = 6.0
             object_H_max = 7.0
         elif self.current_servo_object in ['W', 'B']:
             object_H_min = 5.0
             object_H_max = 6.0
 
+        print(f"{Y_raw}")
         # 根据物体的远近选择缩放因子K
         if Y_raw < MIN_Y:
             object_H = object_H_max
