@@ -454,7 +454,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
 
     # 全向定位测试程序
     """
@@ -497,7 +497,7 @@ def time_pit3_handler(time) -> None:
     # test_spin()
 
     # apriltag码矫正测试函数
-    test_apriltag_calibrate()
+    # test_apriltag_calibrate()
     pass
 
 
