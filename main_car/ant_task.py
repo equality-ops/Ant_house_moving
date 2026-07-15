@@ -67,6 +67,8 @@ class TaskController:
         self.detected_num = 0
         self.if_send_detect_message = False
         self.if_model_detect = self.my_flash_system.find_value("if_model_detect")
+        self.SUDOKU_length_x = self.my_flash_system.find_value("SUDOKU_length_x")
+        self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
         if self.if_model_detect:
             self.last_side = 'U'
         else:self.last_side = 'D'
@@ -229,7 +231,7 @@ class TaskController:
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
                     return
                 else:counter +=1
-            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score >= 10:
+            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate:
                 self.data.current_index += 1
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
@@ -586,6 +588,7 @@ class TaskController:
                 else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
+            self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y)
             '''if len(self.now_objects) != self.data.total_objects_num:
                 self.my_uart.write(f"{self.now_objects}\n")
                 self.my_uart.write(f"target{self.object_plan.target_objects}\n")

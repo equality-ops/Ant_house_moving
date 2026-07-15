@@ -155,6 +155,9 @@ sigal_swell_size = 20
 bothway_swell_size = 10
 SAFE_MARGIN = 14.0
 
+SUDOKU_length_x = 30.0
+SUDOKU_width_y = 30.0
+
 MOVE_SAFE_MARGIN = 13.0
 cube_obstacles = "(182.5, 195, 24.8, 11.6), (270.0, 135,11.6 , 24.8)"
 circle = "(48, 171)"
