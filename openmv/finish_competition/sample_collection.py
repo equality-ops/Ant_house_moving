@@ -37,7 +37,7 @@ while(True):
     if (count % 20) == 0 and count > 0:
         # 修改文件名称，准备保存
         save_img_num += 1
-        image_pat = "/sd/picture/"+str(save_img_num)+"_7_15.jpg"
+        image_pat = "/sd/picture/"+str(save_img_num)+"_7_16.jpg"
 
         # 将拷贝之后的图像保存到sd卡
         img.save(image_pat,quality=99)

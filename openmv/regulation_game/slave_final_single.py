@@ -566,7 +566,7 @@ kalman_enabled = {
     'blue': True
 }
 
-#上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
+# 上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
 
 # GC回收配置

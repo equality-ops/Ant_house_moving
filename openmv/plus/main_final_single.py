@@ -753,7 +753,7 @@ kalman_enabled = {
     'blue': True
 }
 
-# 上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
+#上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
 
 # GC帧计数器（色块/模型模式下使用）
@@ -997,7 +997,6 @@ while True:
             else:
                 other_blobs.append((blob, color))
 
-        # 多目标跟踪（每个颜色可能有多个物体）
         color_detector.process_kalman(img, brown_blobs, brown_tracker, 'brown', Ts, center, kalman_coords)
         color_detector.process_kalman(img, white_blobs, white_tracker, 'white', Ts, center, kalman_coords)
         color_detector.process_kalman(img, blue_blobs, blue_tracker, 'blue', Ts, center, kalman_coords)
