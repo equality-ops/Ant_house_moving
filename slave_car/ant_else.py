@@ -511,7 +511,11 @@ class flash_system:
             # 如果值以双引号开头和结尾，认为它是一个列表的字符串表示，替换为方括号后使用eval解析为列表
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
                 try:
-                    self.config[var_name] = self._parse_tuple_list(var_value[1:-1])
+                    inner = var_value[1:-1]
+                    if '(' in inner:
+                        self.config[var_name] = self._parse_tuple_list(inner)
+                    else:
+                        self.config[var_name] = [float(x.strip()) for x in inner.split(',')]
                 except Exception as e:
                     print(f"Error: Failed to parse {var_name} = {var_value}")
                     self.beep.beep_warn()

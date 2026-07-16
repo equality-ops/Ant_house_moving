@@ -111,7 +111,11 @@ class flash_system:
                         self.beep.beep_warn()
                 else:
                     try:
-                        self.config[var_name] = self._parse_tuple_list(var_value[1:-1])
+                        inner = var_value[1:-1]
+                        if '(' in inner:
+                            self.config[var_name] = self._parse_tuple_list(inner)
+                        else:
+                            self.config[var_name] = [float(x.strip()) for x in inner.split(',')]
                     except Exception as e:
                         print(f"Error: Failed to parse {var_name} = {var_value}")
                         self.beep.beep_warn()
