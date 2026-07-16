@@ -132,9 +132,9 @@ radius_B_U = 16
 radius_B_R = 17.7
 radius_B_L = 16.5
 radius_B_D = 17.5
-angle_T = 38
+angle_T = 41
 angle_S = 40
-angle_B = 36
+angle_B = 38
 acc_move_coef = 0.04
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
@@ -159,15 +159,15 @@ bothway_swell_size = 13
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径
-MOVE_SAFE_MARGIN = 15.0
+MOVE_SAFE_MARGIN = 11.0
 total_objects_num = 6
 #推动内收因子
-CLAMP_FACTOR = 1.15
-NUM_CLAMP_FACTOR = 0.25
+CLAMP_FACTOR = 1.08
+NUM_CLAMP_FACTOR = 0.2
 #内收距离
-TENNIS_cla_dis = 2
+TENNIS_cla_dis = 2.1
 SANDBAG_cla_dis = 2.5
-BEAR_cla_dis = 1.8
+BEAR_cla_dis = 2.4
 
 #九宫格长宽
 SUDOKU_length_x = 30.0
@@ -182,7 +182,7 @@ apr_pos_U = "160,240"
 apr_pos_D = "160,0"
 {'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
 #障碍物位置
-cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135, 11.6, 24.8)"
+cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135, 11.6, 34.8)"
 circle = "(48, 171)"
 
 # 不同物体的搬运速度

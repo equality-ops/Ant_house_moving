@@ -133,9 +133,9 @@ radius_B_U = 15.5
 radius_B_R = 17.5
 radius_B_L = 16.5
 radius_B_D = 15.5
-angle_T = 38
+angle_T = 41
 angle_S = 40
-angle_B = 36
+angle_B = 38
 
 orbit_kp = 15.0
 
@@ -147,12 +147,12 @@ SAFE_MARGIN = 16.0
 #是否使用模型servo
 if_model = 1
 #推动内收因子
-CLAMP_FACTOR = 1.15
-NUM_CLAMP_FACTOR = 0.25
+CLAMP_FACTOR = 1.08
+NUM_CLAMP_FACTOR = 0.2
 #内收距离
-TENNIS_cla_dis = 2
+TENNIS_cla_dis = 2.1
 SANDBAG_cla_dis = 2.5
-BEAR_cla_dis = 1.8
+BEAR_cla_dis = 2.4
 
 #april_tag位置
 apr_pos_L = "0,120"
@@ -161,11 +161,10 @@ apr_pos_U = "160,240"
 apr_pos_D = "160,0"
 
 #障碍物位置
-cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135.0,11.6 , 24.8)"
+cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135.0, 11.6, 34.8)"
 circle = "(48, 171)"
 
 # 不同物体的搬运速度
 move_v_max_T = 140
 move_v_max_S = 140
 move_v_max_B = 140
-
