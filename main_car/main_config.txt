@@ -160,7 +160,7 @@ bothway_swell_size = 13
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径
 MOVE_SAFE_MARGIN = 11.0
-total_objects_num = 6
+total_objects_num = 5
 #推动内收因子
 CLAMP_FACTOR = 1.08
 NUM_CLAMP_FACTOR = 0.2
@@ -180,10 +180,9 @@ apr_pos_L = "0,120"
 apr_pos_R = "320,120"
 apr_pos_U = "160,240"
 apr_pos_D = "160,0"
-{'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
 #障碍物位置
-cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135, 11.6, 34.8)"
-circle = "(48, 171)"
+cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
+circle = "(215, 190)"
 
 # 不同物体的搬运速度
 move_v_max_T = 140
