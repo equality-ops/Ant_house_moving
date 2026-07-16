@@ -212,7 +212,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.7, min(1.0, dist / 10.0)) # 6cm外全速，近处最少降70%
+        scale = max(0.8, min(1.0, dist / 8.0)) # 6cm外全速，近处最少降80%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 

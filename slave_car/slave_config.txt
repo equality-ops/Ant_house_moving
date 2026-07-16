@@ -66,9 +66,9 @@ uart_and_menu_T = 53
 final_threshold = 1.0
 branch_threshold = 5.0
 
-error_x_T = 2.0
-error_x_S = 2.0
-error_x_B = 2.0
+error_x_T = 3.0
+error_x_S = 3.0
+error_x_B = 3.0
 
 ###################【速度规划】####################
 # 负压风扇
@@ -102,7 +102,7 @@ servo_target_y_S = 3.4
 servo_target_y_B = 7.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
-finish_threshold_y = 1.0
+finish_threshold_y = 1.5
 
 min_rel_speed = 40
 max_rel_speed = 130
@@ -114,7 +114,7 @@ radius_S = 16.0
 radius_B = 20.5
 angle_T = 128.0
 angle_S = 135.0
-angle_B = 133.0
+angle_B = 135.0
 center_offset_T = -3.5
 center_offset_S = -2.0
 center_offset_B = -5.0
