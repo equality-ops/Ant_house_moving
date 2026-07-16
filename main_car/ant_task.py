@@ -73,6 +73,7 @@ class TaskController:
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
+        self.calibrate_score_threshold = self.my_flash_system.find_value("calibrate_score_threshold")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         if self.use_scan_point>2:
             self.last_side = 'U'
@@ -233,7 +234,7 @@ class TaskController:
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
                     return
                 else:counter +=1
-            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score >=10:
+            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score>=self.calibrate_score_threshold:
                 self.data.current_index += 1
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()

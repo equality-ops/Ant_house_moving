@@ -124,9 +124,12 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.correct_dist = 5.85    # 经验修正
-        
         # apriltag码矫正相关变量--------------------------------------------------------
-        self.apriltage_postion = {'U':[160.0, 255.0],'D':[160.0, -15.0],'R':[335.0, 120.0],'L':[-15.0, 120.0]}  # type: dict   # apriltag码在世界坐标系下的坐标
+        apr_pos_L = self.flash_sys.find_value("apr_pos_L")
+        apr_pos_R = self.flash_sys.find_value("apr_pos_R")
+        apr_pos_D = self.flash_sys.find_value("apr_pos_D")
+        apr_pos_U = self.flash_sys.find_value("apr_pos_U")
+        self.apriltage_postion = {'U':apr_pos_U,'D':apr_pos_D,'R':apr_pos_R,'L':apr_pos_L}  # type: dict   # apriltag码在世界坐标系下的坐标
         self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
         self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
         self.calibrate_times = 0

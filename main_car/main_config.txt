@@ -143,6 +143,8 @@ calibrate_waiting_time = 40
 NEAR_AREA = 3
 AVOID_WIDTH = 20
 #############################################
+#进入calibrate的分数值域
+calibrate_score_threshold = 10
 #是否矫正
 if_calibrate = 1
 #是否使用模型servo
@@ -173,6 +175,12 @@ SUDOKU_width_y = 30.0
 #使用扫描点
 USE_SCAN_POINT = 4
 
+#april_tag位置
+apr_pos_L = "0,120"
+apr_pos_R = "320,120"
+apr_pos_U = "160,240"
+apr_pos_D = "160,0"
+{'U':[160,240],'D':[160,0],'R':[320,120],'L':[0,120]}
 #障碍物位置
 cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135, 11.6, 24.8)"
 circle = "(48, 171)"

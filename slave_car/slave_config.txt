@@ -154,6 +154,12 @@ TENNIS_cla_dis = 2
 SANDBAG_cla_dis = 2.5
 BEAR_cla_dis = 1.8
 
+#april_tag位置
+apr_pos_L = "0,120"
+apr_pos_R = "320,120"
+apr_pos_U = "160,240"
+apr_pos_D = "160,0"
+
 #障碍物位置
 cube_obstacles = "(47.5, 66.5, 11.6, 24.8), (270.0, 135.0,11.6 , 24.8)"
 circle = "(48, 171)"
