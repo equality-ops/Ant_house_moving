@@ -270,6 +270,7 @@ def angle_pid_compute():
 # 用于主车启动的函数
 def main_start():
     global counter, current_time, last_left_time, start_flag, if_get_ready, if_press_start_key, zero_bias_collected
+    
     if start_flag == False:
         if zero_bias_collected == False:
             if if_press_start_key == False:
@@ -509,7 +510,6 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     task_machine()
-
     # 全向定位测试程序
     # 视觉伺服测试程序
     # test_vision_servo()
