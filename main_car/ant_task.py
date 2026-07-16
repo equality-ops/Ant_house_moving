@@ -597,7 +597,7 @@ class TaskController:
                 if len(self.now_objects) != self.data.total_objects_num:
                     for i in range(len(self.now_objects)):
                         self.my_beep.test()
-                        time.sleep_ms(100)
+                        time.sleep_ms(200)
                     self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")
