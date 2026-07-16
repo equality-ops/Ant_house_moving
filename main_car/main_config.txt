@@ -155,7 +155,10 @@ if_model_detect = 1
 sigal_swell_size = 25
 #双侧膨胀长度
 bothway_swell_size = 13
-
+#是否返回
+IF_BACK = 1
+#扫描帧数
+scan_num = 5
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径

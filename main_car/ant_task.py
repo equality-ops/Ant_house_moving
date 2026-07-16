@@ -1,6 +1,5 @@
 from micropython import const
-import gc,math
-
+import gc,math,time
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状�?
 NAVIGATE = const(1)       # 导航状�?
@@ -73,7 +72,9 @@ class TaskController:
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
+        self.if_back = self.my_flash_system.find_value("IF_BACK")
         self.calibrate_score_threshold = self.my_flash_system.find_value("calibrate_score_threshold")
+        self.scan_num = self.my_flash_system.find_value("scan_num")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         if self.use_scan_point>2:
             self.last_side = 'U'
@@ -226,7 +227,7 @@ class TaskController:
                             (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
             score = self.need_calibrate_score - dis * 0.015
             global counter
-            if self.data.current_index >= self.data.total_objects_num or self.my_moving.current_state != NAVIGATE:
+            if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
                 if counter >=40:
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
@@ -592,15 +593,19 @@ class TaskController:
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
             self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y)
-            if len(self.now_objects) != self.data.total_objects_num:
-                self.my_uart.write(f"{self.now_objects}\n")
-                self.my_uart.write(f"target{self.object_plan.target_objects}\n")
-                self.my_uart.write(f"path{self.object_plan.path}\n")
-                self.my_uart.write(f"score{self.object_plan.target_score}\n")
-                self.exit()
-                return
+            if self.if_back:
+                if len(self.now_objects) != self.data.total_objects_num:
+                    for i in range(len(self.now_objects)):
+                        self.my_beep.test()
+                        time.sleep_ms(100)
+                    self.my_uart.write(f"{self.now_objects}\n")
+                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
+                    self.my_uart.write(f"path{self.object_plan.path}\n")
+                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                    self.exit()
+                    return
             self.if_end_first_scan = True
-        else:scan_point(2)
+        else:scan_point(self.scan_num)
     def handle_scan(self):
         global counter
         if not self.if_end_first_scan:
