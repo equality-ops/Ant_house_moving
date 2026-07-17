@@ -15,6 +15,7 @@ ADJUST = const(7)         # 微调状态
 RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
+BLIND_BOX = const(11)     # 盲盒状态
 
 InField = const(-1)
 OnLine = const(0)
@@ -25,6 +26,8 @@ ALL_IN_BOTTOM = const(0)  # 物体完全在下区域内
 ONE_IN_TOP = const(2)     # 物体有一个在上区域内
 OVER_ONE_IN_TOP = const(4)  # 物体有两个或以上在上区域内
 
+# 盲盒旋转状态
+blind_box_status = 0
 
 # 计数器
 counter = 0 
@@ -425,8 +428,9 @@ class flash_system:
 
 # 状态机类
 class TaskController:
-    def __init__(self, beep: beep, fan, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol):
+    def __init__(self, flash_sys: flash_system, beep: beep, fan, photo, state, uart3, uart8, car, plan, vision, plan_data, order_manager: order_manager, art_protocal: UARTProtocol, main_protocol: LinkProtocol):
         # 注入对象
+        self.my_flash_sys = flash_sys
         self.my_beep = beep
         self.my_fan = fan
         self.my_photo = photo
@@ -454,6 +458,7 @@ class TaskController:
             STOP:      self.handle_stop,
             ORBIT:     self.handle_orbit,
             PREDICT:   self.handle_predict,
+            BLIND_BOX:  self.handle_blind_box  # 新增盲盒状态处理函数
             # ... 其他状态
         }
 
@@ -476,6 +481,9 @@ class TaskController:
         self.if_second_verify = False  # 是否进行第二次验证视觉
         self.if_change_status = False  # 是否完成任务状态切换
         self.if_skip_orbit = False  # 是否跳过环绕模式
+
+        # 外部接口变量
+        self.if_blind_box = self.my_flash_sys.find_value("if_blind_box")  # 是否有盲盒任务
 
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
 
@@ -766,6 +774,15 @@ class TaskController:
             # 退出返回状态，完成返回后进行必要的状态更新
             self.if_send_path = True
             self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
+            if self.if_blind_box:
+                self.my_state.state = BLIND_BOX  # 直接切换到盲盒状态
+            else:
+                self.my_state.state = STOP  # 直接切换到停止状态
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+        elif state == BLIND_BOX:
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
             self.my_state.state = STOP  # 直接切换到停止状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == STOP:
@@ -948,3 +965,31 @@ class TaskController:
     def handle_stop(self):
         # if state == STOP
         self.my_plan.stop()             
+
+    def handle_blind_box(self):
+        global blind_box_status
+        # if state == BLIND_BOX
+
+        if blind_box_status == 0:
+            self.my_plan.navigate(target_turn_angle = 120.0)
+
+            if self.my_plan.if_finish_navigate:
+                blind_box_status = 1
+                self.my_plan.reset_navigate()
+        elif blind_box_status == 1:
+            self.my_plan.navigate(target_turn_angle = -120.0)
+
+            if self.my_plan.if_finish_navigate:
+                blind_box_status = 2
+                self.my_plan.reset_navigate()
+        elif blind_box_status == 2:
+            self.my_plan.navigate(target_turn_angle = 0.0)
+
+            if self.my_plan.if_finish_navigate:
+                blind_box_status = 3
+                self.my_plan.reset_navigate()
+
+                self.exit()
+
+        #  if self.my_plan.if_finish_navigate:
+           #  self.exit()  # 退出当前状态，进入下一个状态

@@ -42,6 +42,7 @@ ADJUST = const(7)           # 微调状态
 RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
+BLIND_BOX = const(11)     # 盲盒状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -202,7 +203,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_st
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_uart8, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 任务及类
-my_task = ant_else.TaskController(my_beep, my_fan, my_photo, my_state, my_uart3, my_uart8, my_car, my_plan, my_vision_manager, plan_data, my_order_manager, my_art_protocol,  my_main_protocol)
+my_task = ant_else.TaskController(my_flash_sys, my_beep, my_fan, my_photo, my_state, my_uart3, my_uart8, my_car, my_plan, my_vision_manager, plan_data, my_order_manager, my_art_protocol,  my_main_protocol)
 
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
@@ -249,7 +250,9 @@ def main_start():
             if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
+                # 盲盒任务测试，一定要修改！！！
                 my_state.state = READY_NAVIGATE
+                # my_state.state = RETURN 
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
                 time.sleep_ms(2000)
@@ -406,7 +409,7 @@ def test_main_slave_sync():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, MOVE, RETURN, STOP, SCAN, CALIBRATE, PREDICT, ADJUST]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, MOVE, RETURN, STOP, SCAN, CALIBRATE, PREDICT, ADJUST, BLIND_BOX]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
