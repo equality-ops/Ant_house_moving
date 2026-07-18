@@ -156,14 +156,14 @@ sigal_swell_size = 25
 #双侧膨胀长度
 bothway_swell_size = 13
 #是否返回
-IF_BACK = 1
+IF_BACK = 0
 #扫描帧数
 scan_num = 5
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径
 MOVE_SAFE_MARGIN = 11.0
-total_objects_num = 5
+
 #推动内收因子
 CLAMP_FACTOR = 1.08
 NUM_CLAMP_FACTOR = 0.2
@@ -173,16 +173,16 @@ SANDBAG_cla_dis = 2.5
 BEAR_cla_dis = 2.4
 
 #九宫格长宽
-SUDOKU_length_x = 30.0
-SUDOKU_width_y = 30.0
+SUDOKU_length_x = 34.0
+SUDOKU_width_y = 34.0
 #使用扫描点
 USE_SCAN_POINT = 4
 
 #april_tag位置
-apr_pos_L = "0,120"
-apr_pos_R = "320,120"
-apr_pos_U = "160,240"
-apr_pos_D = "160,0"
+apr_pos_L = "0,123"
+apr_pos_R = "326,123"
+apr_pos_U = "163,246"
+apr_pos_D = "163,0"
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
 circle = "(215, 190)"
@@ -191,3 +191,11 @@ circle = "(215, 190)"
 move_v_max_T = 140
 move_v_max_S = 140
 move_v_max_B = 140
+
+CENTER_X = 163.0
+CENTER_Y = 128.0
+
+FIELD_W = 326.0
+FIELD_H = 246.0
+
+total_objects_num = 3

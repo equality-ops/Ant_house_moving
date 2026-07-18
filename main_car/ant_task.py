@@ -148,7 +148,7 @@ class TaskController:
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路�?
-            p1 = [min(max(15,self.my_car.x_current),320-15),min(max(15,self.my_car.y_current),240-15)]
+            p1 = [min(max(15,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
             self.my_path.ready_path[-1] = self.data.fixed_point[3]
             # 最后插入一个途径点便于计�?
             self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
@@ -385,7 +385,7 @@ class TaskController:
             self.my_vision.current_servo_object = kind
             if self.use_scan_point>2:  
                 if angle == 180:limit_y = 50
-                else:limit_y = 75
+                else:limit_y = 78
             else: limit_y = None
             real_point = self.my_vision.predict_point(x, y,limit_y = limit_y)
             if not real_point: continue
@@ -393,7 +393,8 @@ class TaskController:
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
-    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y):
+    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y,
+                                  grid_center_x=160.0, grid_center_y=120.0):
         """Snap detected objects to unique centers of a 3x3 grid."""
         if not objects:
             return []
@@ -403,8 +404,8 @@ class TaskController:
         grid_centers = []
         for row in (-1, 0, 1):
             for col in (-1, 0, 1):
-                grid_centers.append((160.0 + col * cell_x,
-                                     120.0 + row * cell_y))
+                grid_centers.append((grid_center_x + col * cell_x,
+                                     grid_center_y + row * cell_y))
 
         # Reliable detections claim a cell first; conflicts use the nearest
         # unoccupied cell instead of producing duplicate grid positions.
@@ -592,12 +593,12 @@ class TaskController:
                 else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
-            self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y)
+            self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y,grid_center_x=self.data.center_x,grid_center_y=self.data.center_y)
             if self.if_back:
                 if len(self.now_objects) != self.data.total_objects_num:
                     for i in range(len(self.now_objects)):
                         self.my_beep.test()
-                        time.sleep_ms(200)
+                        time.sleep_ms(300)
                     self.my_uart.write(f"{self.now_objects}\n")
                     self.my_uart.write(f"target{self.object_plan.target_objects}\n")
                     self.my_uart.write(f"path{self.object_plan.path}\n")

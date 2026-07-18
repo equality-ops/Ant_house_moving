@@ -155,10 +155,10 @@ SANDBAG_cla_dis = 2.5
 BEAR_cla_dis = 2.4
 
 #april_tag位置
-apr_pos_L = "0,120"
-apr_pos_R = "320,120"
-apr_pos_U = "160,240"
-apr_pos_D = "160,0"
+apr_pos_L = "0,123"
+apr_pos_R = "326,123"
+apr_pos_U = "163,246"
+apr_pos_D = "163,0"
 
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
@@ -168,3 +168,11 @@ circle = "(215, 190)"
 move_v_max_T = 140
 move_v_max_S = 140
 move_v_max_B = 140
+
+SUDOKU_length_x = 34.0
+
+CENTER_X = 163.0
+CENTER_Y = 128.0
+
+FIELD_W = 326.0
+FIELD_H = 246.0

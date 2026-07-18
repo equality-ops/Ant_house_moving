@@ -29,21 +29,25 @@ class PlanData:
         # 地图固定点坐标
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
         # fixed_point[3]为主车返回点, [4]为从车返回点
-        self.fixed_point = [[35.0, -40.0], [95.0, 55.0], [225.0, 185.0], [25.0, -100.0], [25.0, -80.0]]  # type: list
-        
+        self.center_x = self.flash_sys.find_value("CENTER_X")
+        self.center_y = self.flash_sys.find_value("CENTER_Y")
+        lenth = self.flash_sys.find_value("SUDOKU_length_x")
+        self.center_rect_center = [self.center_x,self.center_y]
+        self.fixed_point = [[35.0, -40.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
+                            [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -80.0], [25.0, -60.0]]  # type: list
         # 中心物品摆放的矩形区域
-        self.center_rect = [[110.0, 70.0], [110.0, 170.0], [210.0, 70.0], [210.0, 170.0]] 
-
+        self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
+                            [self.center_x + lenth*1.5,self.center_y - lenth*1.5], [self.center_x + lenth*1.5,self.center_y + lenth*1.5]] 
         # 路径规划相关常量
-        self.FIELD_W = 320.0  # 地图宽度
-        self.FIELD_H = 240.0  # 地图高度
+        self.FIELD_W = self.flash_sys.find_value("FIELD_W")  # 地图宽度
+        self.FIELD_H = self.flash_sys.find_value("FIELD_H")  # 地图高度
         self.OBSTACLE_R = 16.0  # 圆形障碍物默认半径 (直径 30cm -> 半径 15cm)
         self.CUBE_LENTH = 23.8   # 立方体障碍物长度
         self.CUBE_WIDE = 10.6  # 立方体障碍物宽度
         self.INF = 1000000000.0  # 无穷大
         self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")# 小车安全裕量 (质点膨胀半径)
 
-        self.rectangle_obstacles = self.create_expanded_rect(160.0, 120.0, 100.0, 100.0)  # 中心禁区矩形障碍物（已膨胀）
+        self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, 90.0, 90.0)  # 中心禁区矩形障碍物（已膨胀）
         self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
         self.circle = self.flash_sys.find_value("circle")  # 信标障碍物中心坐标列表
         # 将矩形障碍区进行膨胀（先后顺序不能改变）
@@ -571,14 +575,14 @@ class NavigationPlan:
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
-            if self.my_car.y_current >= 240.0 - near_line_threshold and self.keep_x_or_y_v == False:
-                ratio = (240.0 - self.my_car.y_current) / near_line_threshold
+            if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
+                ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
             elif self.my_car.y_current <= near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = self.my_car.y_current / near_line_threshold
             elif self.my_car.x_current <= near_line_threshold and self.keep_x_or_y_v == True:
                 ratio = self.my_car.x_current / near_line_threshold
-            elif self.my_car.x_current >= 320.0 - near_line_threshold and self.keep_x_or_y_v == True:
-                ratio = (320.0 - self.my_car.x_current) / near_line_threshold
+            elif self.my_car.x_current >= self.plan_data.FIELD_W - near_line_threshold and self.keep_x_or_y_v == True:
+                ratio = (self.plan_data.FIELD_W - self.my_car.x_current) / near_line_threshold
             else:
                 ratio = 1.0
             # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速

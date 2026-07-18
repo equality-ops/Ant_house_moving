@@ -112,13 +112,13 @@ class MoveControl:
             elif item[0] == 'y':
                 self.moving_point.append([self.moving_point[-1][0], item[1]])
         if current_object == 'T':
-            self.moving_point.append([self.moving_point[-1][0], 240.0])
+            self.moving_point.append([self.moving_point[-1][0], self.plan_data.FIELD_H])
             self.move_dir = 0
         elif current_object in ['S', 'E']:
             self.moving_point.append([0.0, self.moving_point[-1][1]])
             self.move_dir = -90
         elif current_object in ['B', 'W']:
-            self.moving_point.append([320.0, self.moving_point[-1][1]])
+            self.moving_point.append([self.plan_data.FIELD_W, self.moving_point[-1][1]])
             self.move_dir = 90
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
@@ -292,11 +292,11 @@ class MoveControl:
         # 经验修正值
         correction = 2.0
         if current_object == 'T':
-            self.my_car.y_current = 240.0 - correction
+            self.my_car.y_current = self.plan_data.FIELD_H - correction
         elif current_object in ['S', 'E']:
             self.my_car.x_current = 0.0 + correction
         elif current_object in ['B', 'W']:
-            self.my_car.x_current = 320.0 - correction
+            self.my_car.x_current = self.plan_data.FIELD_W - correction
             
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):

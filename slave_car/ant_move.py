@@ -113,9 +113,9 @@ class MoveControl:
         if ref_yaw is None:ref_yaw = self.record_angle
         else:ref_yaw = ref_yaw * PI / 180.0
         st = [120,160]
-        if sp == 'T': next_pt = [st[0],240] 
+        if sp == 'T': next_pt = [st[0],self.plan_data.FIELD_H] 
         elif sp in ['S','E']: next_pt = [0,st[1]]
-        elif sp in ['W','B']: next_pt = [320,st[1]]
+        elif sp in ['W','B']: next_pt = [self.plan_data.FIELD_W,st[1]]
         dx = next_pt[0] - st[0]
         dy = next_pt[1] - st[1]
         # 将世界坐标系下的差值投影到小车坐标系 (按 Y轴为车头前方，X轴为车身右侧 进行转换)
@@ -200,11 +200,11 @@ class MoveControl:
         # 经验修正值
         correction = 2.0
         if current_object == 'T':
-            self.my_car.y_current = 240.0 - correction
+            self.my_car.y_current = self.plan_data.FIELD_H - correction
         elif current_object in ['S', 'E']:
             self.my_car.x_current = 0.0 + correction
         elif current_object in ['B', 'W']:
-            self.my_car.x_current = 320.0 - correction
+            self.my_car.x_current = self.plan_data.FIELD_W - correction
 
     # 计算微调的目标点
     def calculate_adjustment_point(self, fixed_dist = 5.0):
