@@ -219,6 +219,13 @@ my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_ca
 # 任务及类
 my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 
+# 测试打印变量解析是否成功
+"""
+print("fixed+point:", plan_data.fixed_point)
+print("center_rect:", plan_data.center_rect)
+print("rectangle_obstacles:", plan_data.rectangle_obstacles)
+"""
+
 # 创建菜单对象
 # my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
 ###################################【函数定义】###################################
