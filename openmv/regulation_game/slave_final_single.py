@@ -560,13 +560,11 @@ kalman_coords = {
 }
 
 # 卡尔曼滤波开关（关闭后使用原始检测坐标）
-kalman_enabled = {
-    'brown': True,
-    'white': True,
-    'blue': True
-}
+kalman_enabled_color = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled_model = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled = kalman_enabled_color  # 默认引用
 
-# 上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
+#上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
 
 # GC回收配置
@@ -763,6 +761,7 @@ while True:
 
     # 色块模式：检测色块→多目标卡尔曼→取最下方发送
     elif current_mode == MODE_COLOR:
+        kalman_enabled = kalman_enabled_color
         all_blobs_with_color = color_detector.detect_colors(img, current_obj)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
@@ -798,6 +797,7 @@ while True:
 
     # 模型模式：YOLO检测→多目标卡尔曼→发送单个目标
     elif current_mode == MODE_MODEL:
+        kalman_enabled = kalman_enabled_model
         center, _ = detect_all_objects(img, Ts)
         is_sent = False
 

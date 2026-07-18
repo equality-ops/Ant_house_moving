@@ -91,12 +91,20 @@ DRAW_COLORS = {
 #     'white':[(55, 100, -29, -5, -1, 37), (45, 100, -16, -1, -10, 20)]
 # }
 # 晚上 亮度600
+# THRESHOLD = {
+#     'brown':[(11, 60, -9, 14, 6, 69)],
+#     'red':[(18, 55, 20, 76, -12, 59)],
+#     'green':[(54, 98, -60, -20, 39, 109)],
+#     'blue':[(36, 80, -30, -6, -49, -29)],
+#     'white':[(59, 100, -32, -10, 5, 43)]
+# }
+# 赛场 亮度800
 THRESHOLD = {
-    'brown':[(11, 60, -9, 14, 6, 69)],
-    'red':[(18, 55, 20, 76, -12, 59)],
-    'green':[(54, 98, -60, -20, 39, 109)],
-    'blue':[(36, 80, -30, -6, -49, -29)],
-    'white':[(59, 100, -32, -10, 5, 43)]
+    'brown':[(9, 67, -5, 15, 8, 31)],
+    'red':[(5, 28, 10, 42, -7, 42)],
+    'green':[(39, 74, -48, -22, 4, 78)],
+    'blue':[(22, 33, -14, -7, -33, -14)],
+    'white':[(31, 68, -4, 10, -3, 14)]
 }
 
 # YOLO模型路径
@@ -548,8 +556,8 @@ class CoordinateCorrection:
 # 运行模式定义（通过UART命令切换）
 MODE_COLOR = 0           # 色块模式：检测色块→多目标卡尔曼→发送单个目标
 MODE_MODEL = 1           # 模型模式：YOLO检测→多目标卡尔曼→发送单个目标
-MODE_CORRECTION = 3      # 矫正模式：检测Apriltag并发送偏转角
-MODE_WAITING = 4         # 等待模式：空闲，仅维持摄像头画面显示
+MODE_CORRECTION = 2      # 矫正模式：检测Apriltag并发送偏转角
+MODE_WAITING = 3         # 等待模式：空闲，仅维持摄像头画面显示
 current_mode = MODE_WAITING
 
 # 各颜色对应的卡尔曼预测坐标，默认值为屏幕中心
@@ -560,11 +568,9 @@ kalman_coords = {
 }
 
 # 卡尔曼滤波开关（关闭后使用原始检测坐标）
-kalman_enabled = {
-    'brown': True,
-    'white': True,
-    'blue': True
-}
+kalman_enabled_color = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled_model = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled = kalman_enabled_color  # 默认引用
 
 #上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
@@ -607,7 +613,7 @@ def handle_uart_commands(uart):
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_COLOR
-            sensor.set_brightness(600)
+            sensor.set_brightness(800)
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
@@ -763,6 +769,7 @@ while True:
 
     # 色块模式：检测色块→多目标卡尔曼→取最下方发送
     elif current_mode == MODE_COLOR:
+        kalman_enabled = kalman_enabled_color
         all_blobs_with_color = color_detector.detect_colors(img, current_obj)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
@@ -798,6 +805,7 @@ while True:
 
     # 模型模式：YOLO检测→多目标卡尔曼→发送单个目标
     elif current_mode == MODE_MODEL:
+        kalman_enabled = kalman_enabled_model
         center, _ = detect_all_objects(img, Ts)
         is_sent = False
 

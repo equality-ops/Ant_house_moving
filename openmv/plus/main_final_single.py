@@ -98,12 +98,19 @@ DRAW_COLORS = {
 #     'white':[(55, 100, -29, -5, -1, 37), (45, 100, -16, -1, -10, 20)]
 # }
 # 晚上 亮度600
+# THRESHOLD = {
+#     'brown':[(11, 60, -9, 14, 6, 69)],
+#     'red':[(18, 55, 20, 76, -12, 59)],
+#     'green':[(54, 98, -60, -20, 39, 109)],
+#     'blue':[(36, 80, -30, -6, -49, -29)],
+#     'white':[(59, 100, -32, -10, 5, 43)]
+# }
 THRESHOLD = {
-    'brown':[(11, 60, -9, 14, 6, 69)],
-    'red':[(18, 55, 20, 76, -12, 59)],
-    'green':[(54, 98, -60, -20, 39, 109)],
-    'blue':[(36, 80, -30, -6, -49, -29)],
-    'white':[(59, 100, -32, -10, 5, 43)]
+    'brown':[(13, 53, -11, 11, 10, 33)],
+    'red':[(2, 28, 9, 36, -3, 39)],
+    'green':[(39, 72, -46, -20, -9, 76)],
+    'blue':[(20, 31, -16, -8, -26, -13)],
+    'white':[(40, 69, -17, 2, 1, 16)]
 }
 
 # YOLO模型路径
@@ -747,11 +754,9 @@ kalman_coords = {
 }
 
 # 卡尔曼滤波开关（关闭后使用原始检测坐标）
-kalman_enabled = {
-    'brown': True,
-    'white': True,
-    'blue': True
-}
+kalman_enabled_color = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled_model = {'brown': False, 'white': False, 'blue': False}
+kalman_enabled = kalman_enabled_color  # 默认引用
 
 #上一帧的时间戳，用于计算卡尔曼滤波的时间步长Ts
 last_time = time.ticks_ms()
@@ -796,7 +801,7 @@ def handle_uart_commands(uart):
         # ---------- 模式切换命令 ----------
         if cmd == b'C':
             current_mode = MODE_COLOR
-            sensor.set_brightness(600)
+            sensor.set_brightness(800)
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
@@ -836,6 +841,7 @@ def handle_uart_commands(uart):
         elif cmd == b'm':
             if current_mode == MODE_PREVIEW:
                 preview_use_model = not preview_use_model
+                sensor.set_brightness(800 if not preview_use_model else 600)
 
 
 def nms(objects, iou_thresh=0.3):
@@ -973,6 +979,7 @@ while True:
 
     # 色块模式：检测色块→锁定目标→发送单个目标
     elif current_mode == MODE_COLOR:
+        kalman_enabled = kalman_enabled_color
         all_blobs_with_color = color_detector.detect_colors(img, current_obj)
         filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
@@ -1014,6 +1021,7 @@ while True:
 
     # 模型模式：YOLO检测→多目标卡尔曼跟踪→发送单个目标
     elif current_mode == MODE_MODEL:
+        kalman_enabled = kalman_enabled_model
         center, _ = detect_all_objects(img, Ts)
         is_sent = False
 
@@ -1039,6 +1047,7 @@ while True:
             center, _ = detect_all_objects(img, Ts)
             kalman_enabled.update(kalman_save)
         else:
+            sensor.set_brightness(800)
             all_blobs_with_color = color_detector.detect_colors(img, '', use_preview_threshold=True)
             filtered_blobs_with_color = color_detector.filter_all_blobs(all_blobs_with_color)
 
