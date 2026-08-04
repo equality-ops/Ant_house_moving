@@ -28,7 +28,7 @@ class PlanData:
         self.flash_sys = flash_sys
         # 地图固定点坐标
         # fixed_point[0]为从车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, fixed_point[3]为从车返回点
-        self.fixed_point = [[15.0, -40.2], [95.0, 55.0], [225.0, 185.0], [35.0, -50.0]]  # type: list
+        self.fixed_point = [[0.0, -0.0], [95.0, 55.0], [225.0, 185.0], [35.0, -50.0]]  # type: list
 
         gc.collect()
 
@@ -61,6 +61,8 @@ class NavigationPlan:
         self.acc_normal_coef = self.flash_sys.find_value("acc_normal_coef")     # 正常导航的加速距离系数
         self.acc_move_coef = self.flash_sys.find_value("acc_move_coef")         # 搬运状态下的加速距离系数
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
+        self.acc_min = self.flash_sys.find_value("acc_min")            # type: float  # 时基最小加速度(cm/s²)，用于起步防"黏地"
+        self.segment_cycle_count = 0   # type: int  # 进入当前路段后的控制周期计数
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
         self.find_line_v_max = self.flash_sys.find_value("find_line_v_max")  # 光电管寻找边界时的最大速度
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
@@ -134,7 +136,7 @@ class NavigationPlan:
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
             # 再缩放0.5系数，让速度更保守一些，增加过弯安全裕量
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.5
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.1
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
@@ -159,6 +161,7 @@ class NavigationPlan:
                 self.waypoint_v[i] = max_safe_v
 
         self.aimed_point_index = 0
+        self.segment_cycle_count = 0  # 重置周期计数器，新路径从零开始计时
         self.if_finish_navigate = False
         # 计算第一段路径的加减速参数
         self.plan_acc_dec()
@@ -214,6 +217,8 @@ class NavigationPlan:
             scale = self.usable_len / (self.d_acc + self.d_dec)
             self.d_acc *= scale
             self.d_dec *= scale
+        # 进入新路段，重置周期计数器，时基加速从零开始
+        self.segment_cycle_count = 0
 
     def _calculate_position_s_curve(self):
         # 多项式平滑插值函数 Gentle-Smoothstep
@@ -260,7 +265,13 @@ class NavigationPlan:
 
         if s_usable <= self.d_acc:
             if self.d_acc <= 1e-3: v_out = self.v_peak
-            else: v_out = v_start + (self.v_peak - v_start) * smoothstep(s_usable / self.d_acc)
+            else:
+                # 位置驱动的S曲线速度（原方案，确保中继点和终点精度）
+                v_pos = v_start + (self.v_peak - v_start) * smoothstep(s_usable / self.d_acc)
+                # 时基加速度下限：防止起步时位置增长慢导致速度"黏地"
+                v_time = v_start + self.acc_min * self.segment_cycle_count
+                # 取两者最大值，同时不超过理论峰值
+                v_out = min(max(v_pos, v_time), self.v_peak)
         elif s_usable >= self.usable_len - self.d_dec:
             if self.d_dec <= 1e-3: v_out = v_end
             else:
@@ -294,6 +305,7 @@ class NavigationPlan:
         # =======================================================
         # 1. 速度控制模块
         # =======================================================
+        self.segment_cycle_count += 1  # 递增控制周期计数，用于时基加速度下限
         self.target_v = self._calculate_position_s_curve()
 
         # =======================================================

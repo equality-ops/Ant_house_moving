@@ -229,7 +229,6 @@ def angle_pid_compute():
 def slave_start():
     global current_time, last_left_time, start_flag, if_press_start_key
     if start_flag == False:
-        
         if if_press_start_key == False:
             #print(key_data[3])
             current_time = time.ticks_ms()
@@ -240,7 +239,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -490,10 +489,9 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
-    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -502,7 +500,7 @@ def time_pit3_handler(time) -> None:
         # my_plan.navigate(path = [[0.0, 80.0], [16.0, -12.0], [50.0, 70.0], [0.0, 60.0], [50.0, 80.0], [160.0, 0.0], [0.0, 0.0]], target_turn_angle = 0.0)
         # my_plan.navigate(path = [[320.0, 0.0], [320.0, 240.0], [0.0, 240.0], [0.0, 0.0]])
         # my_plan.navigate(path = [[0.0, 120.0], [120.0, 120.0], [120.0, 0.0], [0.0, 0.0]])
-        my_plan.navigate(path = [[0.0, 20.0]])
+        my_plan.navigate(path = [[0.0, 60.0], [60.0, 60.0], [60.0, 0.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -511,7 +509,7 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    """
+
     # 视觉伺服测试程序
     # test_vision_servo()
 
@@ -543,7 +541,7 @@ def time_pit2_handler(time):
     key = my_menu.read_key()
     my_menu.handle_key_from_interrupt(key)
     """
-
+    my_uart3.write(f"{my_plan.target_v}\r\n")
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
