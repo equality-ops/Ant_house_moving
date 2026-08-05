@@ -3,17 +3,18 @@ import math
 import gc
 
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
+BLIND_BOX = const(11)     # 盲盒状态
 # 多路复用器计数器
 counter = 0
 
@@ -300,6 +301,7 @@ class VisionManager:
                         self.servo_lost_count += 1
                 else:
                     # 帧有效，更新记录
+                    self.last_relative_raw_y = self.relative_raw_y
                     self.last_real_servo_point = self.real_servo_point.copy()
                     self.servo_lost_count = 0
             else:

@@ -44,6 +44,10 @@ STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
 BLIND_BOX = const(11)     # 盲盒状态
 
+# 两种任务状态
+TASK_NORMAL = const(0)  # 正常任务状态
+TASK_CRAZY = const(1)   # 疯狂任务状态
+
 # 多路复用时间计数器
 counter = 0      # type: int
 # 是否按下启动按键标志位
@@ -239,9 +243,16 @@ def main_start():
     if start_flag == False:
         if if_press_start_key == False:
             if key_data[3] != 0:
+                # 短按发车键
+                if key_data[3] == 1:
+                    my_task.task_mode = TASK_NORMAL
+                    my_beep.short_key_test()
+                # 长按发车键
+                elif key_data[3] == 2:
+                    my_task.task_mode = TASK_CRAZY
+                    my_beep.long_key_test()
                 # 清除按键状态
                 key.clear(4)
-                my_beep.key_test()
                 # 测试，记得双车通信时要打开
                 my_main_protocol.send_start()
                 if_press_start_key = True
@@ -250,9 +261,7 @@ def main_start():
             if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
-                # 盲盒任务测试，一定要修改！！！
-                my_state.state = READY_NAVIGATE
-                # my_state.state = RETURN 
+                my_state.state = READY_NAVIGATE 
                 start_flag = True
                 # 延时2秒避免零漂校准不准确
                 time.sleep_ms(2000)

@@ -3,17 +3,18 @@ import math
 import gc
 
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 PREDICT = const(10)       # 预测状态
+BLIND_BOX = const(11)     # 盲盒状态
 
 # 状态机
 class StateMachine:
@@ -27,14 +28,31 @@ class PlanData:
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
-        # 地图固定点坐标
+
+        # 地图信息
+        self.FIELD_W = self.flash_sys.find_value("FIELD_W")  # type: float  # 场地宽度
+        self.FIELD_H = self.flash_sys.find_value("FIELD_H")  # type: float  # 场地高度
+        self.GRID_INTERVAL = self.flash_sys.find_value("GRID_INTERVAL")  # type: float  # 网格间距
+        self.center_x = self.FIELD_W / 2  # type: float  # 场地中心点x坐标
+        self.center_y = self.FIELD_H / 2  # type: float  # 场地中心点y坐标
+        self.col_1_x = self.center_x - self.GRID_INTERVAL # type: float  # 第一列物体的x坐标
+        self.col_2_x = self.center_x # type: float  # 第二列物体的x坐标
+        self.col_3_x = self.center_x + self.GRID_INTERVAL # type: float  # 第三列物体的x坐标
+
+        margin = 20.0   # 禁行区的膨胀量 
+
         # fixed_point[0]为主车起点，fixed_point[1]为矩形框左下方顶点，fixed_point[2]为矩形框右上方顶点, 
         # fixed_point[3]为主车返回点, [4]为从车返回点
-        self.fixed_point = [[35.0, -40.2], [95.0, 55.0], [225.0, 185.0], [15.0, -50.0], [35.0, -50.0]]  # type: list
+        self.fixed_point = [[35.0, -40.2], [self.col_1_x-margin, self.center_y-self.GRID_INTERVAL-margin], \
+        [self.col_3_x+margin, self.center_y+self.GRID_INTERVAL+margin], [15.0, -50.0], [35.0, -50.0]]  # type: list
+
         # 扫描路径
-        self.scan_point = [[130.0, 55.0], [130.0, 185.0]]
-        self.scan_path_1 = [[200.0, 55.0], [200.0, 100.0], [130.0, 100.0]]
-        self.scan_path_2 = [[200.0, 185.0]]
+        self.scan_point = [[self.col_1_x, self.fixed_point[1][1]], [self.col_1_x, self.fixed_point[2][1]]]
+        self.scan_path_1 = [[self.col_3_x, self.fixed_point[1][1]], \
+        [self.col_3_x, self.fixed_point[1][1]+self.GRID_INTERVAL], [self.col_1_x, self.fixed_point[1][1]+self.GRID_INTERVAL]]
+        self.scan_path_2 = [[self.col_3_x, self.fixed_point[2][1]], \
+        [self.col_3_x, self.fixed_point[2][1]-self.GRID_INTERVAL], [self.col_1_x, self.fixed_point[2][1]-self.GRID_INTERVAL]]
+
         self.finished_num = 0    # 已完成搬运的物体数量      
         # 物体总数
         self.total_objects_num = self.flash_sys.find_value("total_objects_num")  
@@ -113,6 +131,7 @@ class NavigationPlan:
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False              # type: bool  # 判断是否完成导航标志位
+        self.if_near_final = False          # type: bool  # 判断是否靠近终点
         self.if_second_verify = False              # type: bool  # 判断是否进行第二次验证视觉
 
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
@@ -370,13 +389,16 @@ class NavigationPlan:
                 self.my_car.alpha_x = 0.890688
 
             self.my_car.alpha_y = 0.918563  # 需要标定（可能值不同）
-
-        elif is_last_segment and self.rest_dist <= self.final_threshold:
-            self.aimed_point_index += 1
-            # 清空上一次小车速度
-            self.my_car.clear_last_car_speed()
-            self.if_finish_navigate = True
-            self.stop()
+        elif is_last_segment:
+            if self.rest_dist <= self.branch_threshold:
+                # 此时靠近目标点
+                self.if_near_final = True
+            elif self.rest_dist <= self.final_threshold:      
+                # self.aimed_point_index += 1
+                # 清空上一次小车速度
+                self.my_car.clear_last_car_speed()
+                self.if_finish_navigate = True
+                self.stop()
 
     # 停止小车运动
     def stop(self):
@@ -433,6 +455,7 @@ class NavigationPlan:
         self.target_v = 0.0
         self.if_finish_turn = False
         self.if_finish_navigate = False
+        self.if_near_final = False
         self.finished_dist = 0.0
         self.aimed_point_index = 0
         self.path.clear()

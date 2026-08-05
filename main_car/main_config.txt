@@ -81,6 +81,7 @@ long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
 acc_move_coef = 0.04
+acc_min = 0
 dec_coef = 0.1
 scan_rate = 0.8
 

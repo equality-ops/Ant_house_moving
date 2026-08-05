@@ -258,6 +258,11 @@ class VisionManager:
                         # 变化过大，丢弃本帧，还原为上一帧有效坐标
                         self.real_servo_point = self.last_real_servo_point.copy()
                         self.servo_lost_count += 1
+                else:
+                    # 帧有效，更新记录
+                    self.last_relative_raw_y = self.relative_raw_y
+                    self.last_real_servo_point = self.real_servo_point.copy()
+                    self.servo_lost_count = 0
             else:
                 # 首帧，直接接受
                 self.last_relative_raw_y = self.relative_raw_y
