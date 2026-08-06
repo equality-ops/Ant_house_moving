@@ -93,8 +93,10 @@ class MoveControl:
             self.my_car.x_current + dist_y * math.sin(now_yaw)+dist_x * math.cos(now_yaw),
             self.my_car.y_current + dist_y * math.cos(now_yaw)-dist_x * math.sin(now_yaw)
         ]
+
     def calculate_object_pos(self,point):#用扫描的一帧计算位置
         self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
+
     # 构建搬运途径点列表
     def build_moving_point(self,point):
         current_index = self.plan_data.current_index

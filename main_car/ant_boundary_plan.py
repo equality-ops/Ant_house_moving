@@ -299,6 +299,7 @@ class BoundaryPathPlanner:
             if self.my_plan._segment_hits_poly(a, b, rect):
                 return False
         return True
+    
 class objects_planner:
     def __init__(self, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.Data = plan_data

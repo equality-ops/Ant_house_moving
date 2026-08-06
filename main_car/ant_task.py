@@ -199,20 +199,15 @@ class TaskController:
             # 退出扫描状态，停止寻找目标物体
             if not self.if_end_first_scan:
                 self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
                 self.my_state.state = RETURN
                 self.if_transitioning = True  # 退出当前状态，直接回家
                 return
-            if not self.my_plan.if_finish_navigate:
+            else:
                 self.my_plan.reset_navigate()
-                self.my_vision.reset_servo_angle()
-                self.my_art_protocol.send_object_kind(self.current_object)
+                self.my_plan.reset_navigate_angle()
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-            else:
-                # 如果小车并没有找到物体，直接return
-                self.my_plan.reset_navigate()
-                self.my_state.state = RETURN
-                self.if_transitioning = True  # 退出当前状态，直接回家
         elif state == SERVO:
             pass
         elif state == MOVE:
@@ -361,6 +356,7 @@ class TaskController:
             if insert_point:planned_path = [insert_point] + planned_path
             self.my_moving.navigate_buffer['MAIN_P'] = planned_path
             self.exit()  # 退出当前状态，进入导航状�?
+
     def handle_navigate(self):
         # if state == NAVIGATE
         self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
@@ -393,6 +389,7 @@ class TaskController:
             real_ob_info.append((kind,real_point[0], real_point[1]))
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
+    
     def snap_objects_to_nine_grid(self, objects, cell_x, cell_y,
                                   grid_center_x=160.0, grid_center_y=120.0):
         """Snap detected objects to unique centers of a 3x3 grid."""
@@ -492,6 +489,7 @@ class TaskController:
                     (old_y + y) / 2.0,
                 )
         return merged
+    
     # 合并物体信息（双目视觉融合）
     def integrate_object_info(self,world_1,world_2):
         # 同一物体在两个扫描中的最大世界坐标偏差（cm）
@@ -543,20 +541,21 @@ class TaskController:
             if i not in used_2:
                 ob_info.append(world_2[i])  
         return ob_info
+    
     def first_scan(self):
         def analyse_package(num,angle):
             global counter
             object_package=self.my_art_protocol.detect_objects_on_the_court()#[物体种类(ord),x,y]
             if object_package:
                 counter +=1
-                self.scan_empty_counter=0
+                self.scan_empty_counter = 0
                 new_world = self.handle_object_info(object_package,angle)
                 self.my_uart.write(f"{self.detected_num}{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects
             else:
-                self.scan_empty_counter+=1
+                self.scan_empty_counter += 1
                 if self.scan_empty_counter>40:
                     self.my_plan.reset_navigate()
                     self.scan_waiting_count = 0 
@@ -607,6 +606,7 @@ class TaskController:
                     return
             self.if_end_first_scan = True
         else:scan_point(self.scan_num)
+
     def handle_scan(self):
         global counter
         if not self.if_end_first_scan:
@@ -621,8 +621,10 @@ class TaskController:
                 counter+=1
             else:self.first_scan()
         else:self.exit()
+
     def handle_servo(self):
         pass
+
     def handle_move(self):
         # if state == MOVE
         self.my_moving.moving()
