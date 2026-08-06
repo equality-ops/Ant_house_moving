@@ -69,10 +69,6 @@ counter = 0      # type: int
 if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
-# 是否完成零漂采集
-zero_bias_collected = False
-# 是否收到ready标志位
-if_get_ready = False
 
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
@@ -276,49 +272,37 @@ def angle_pid_compute():
 
 # 用于主车启动的函数
 def main_start():
-    global counter, current_time, last_left_time, start_flag, if_get_ready, if_press_start_key, zero_bias_collected
-    
+    global current_time, last_left_time, start_flag, if_press_start_key, pit2
     if start_flag == False:
-        if zero_bias_collected == False:
-            if if_press_start_key == False:
-                if key_data[3] != 0:
-                    # 清除按键状态
-                    key.clear(4)
-                    my_beep.key_test()
-                    # 测试，记得双车通信时要打开
-                    my_main_protocol.send_start()
-                    if_press_start_key = True
-            else:   
-                if if_get_ready:
-                    counter += 1
-                    # 延时1s，预热四元数
-                    if counter >= 20:
-                        counter = 0 # 重置计数器
-                        zero_bias_collected = True
+        if if_press_start_key == False:
+            if key_data[3] != 0:
+                # 清除按键状态
+                key.clear(4)
+                my_beep.key_test()
+                # 测试，记得双车通信时要打开
+                my_main_protocol.send_start()
+                if_press_start_key = True
+        else:   
+            # 测试，此时只调试主车，双车正常通信时需要解注释  
+            # if my_main_protocol.get_slave_state() == "ready":
+                # 此时开启无刷负压风扇          
+                my_fan.set_fan_signal()
+                # 盲盒任务测试，一定要修改！！！
+                my_state.state = READY_NAVIGATE
+                # my_state.state = RETURN 
+                start_flag = True
+                # 延时2秒避免零漂校准不准确
+                time.sleep_ms(2000)
+                # 打开定时器1和3
+                pit1_start()
+                pit3_start()
+                # 检测是否正常初始化所有
+                detect_if_normal()
+                # 初始化小车坐标及姿态角
+                my_car.x_current = plan_data.fixed_point[0][0]
+                my_car.y_current = plan_data.fixed_point[0][1]
+                my_car.now_yaw = 0.0
 
-                # 测试，此时只调试主车，双车正常通信时需要解注释  
-                if my_main_protocol.get_slave_state() == "ready":
-                    if_get_ready = True
-                    # 此时开启无刷负压风扇
-                    my_fan.set_fan_signal()
-                    my_state.state = READY_NAVIGATE
-                    # 延时1秒避免零漂校准不准确
-                    time.sleep_ms(1000)
-                    # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
-                    pose_data.init_bias()
-                    # 打开定时器1(计算四元数)
-                    pit1_start()
-                    # 采集零漂完成
-                    my_beep.test()
-        else:
-            start_flag = True
-            # 初始化小车坐标
-            my_car.x_current = plan_data.fixed_point[0][0]
-            my_car.y_current = plan_data.fixed_point[0][1]
-            # 打开定时器3
-            pit3_start()
-            # 检测是否正常初始化所有
-            detect_if_normal()
 
 
 spin_angle = 90.0
