@@ -527,6 +527,7 @@ class TaskController:
                 if self.data.finished_num == self.data.total_objects_num - 1:
                     self.move_direction = D_TO_D  # 下->下
                 else:
+                    del self.data.scan_path_2[:2]
                     self.move_direction = D_TO_U  # 下->上
             elif self.task_mode == TASK_CRAZY:
                 if self.move_direction == D_TO_U:
