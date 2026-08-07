@@ -166,13 +166,13 @@ class VisionManager:
         self.adjust_length = 3.0   # 用于补偿0到摄像头的距离
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix =[[ 3.08372788e+01, -2.29877897e-01, -2.65567281e+03],
-                            [ 1.70831047e-16, -2.47072012e+01,  3.30074756e+03],
-                            [ 4.95685273e-18,  1.33055071e+00,  1.00000000e+00]]
+        self.close_H_matrix = [[ 1.87876536e+00, -8.40010530e-02, -1.46726283e+02],
+                              [-1.82418055e-02, -1.44572485e+00,  2.13536746e+02],
+                              [-1.44311123e-03,  6.41833738e-02,  1.00000000e+00]]
         
-        self.far_H_matrix = [[ 3.08372788e+01, -2.29877897e-01, -2.65567281e+03],
-                            [ 1.70831047e-16, -2.47072012e+01,  3.30074756e+03],
-                            [ 4.95685273e-18,  1.33055071e+00,  1.00000000e+00]]
+        self.far_H_matrix = [[ 1.87876536e+00, -8.40010530e-02, -1.46726283e+02],
+                            [-1.82418055e-02, -1.44572485e+00,  2.13536746e+02],
+                            [-1.44311123e-03,  6.41833738e-02,  1.00000000e+00]]
         gc.collect()
         
     # 重置视觉伺服角度
@@ -192,7 +192,7 @@ class VisionManager:
         self.last_car_y = self.my_car.y_current
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str, object_kind = None,mode = 'M'):
+    def pixel_to_real_world(self, u, v, sign: str, object_kind = None, mode = 'M'):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -223,6 +223,7 @@ class VisionManager:
         elif sign == 'far':
             H_matrix = self.far_H_matrix
         K = (19.6 - object_H) / 19.6
+
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -266,6 +267,7 @@ class VisionManager:
         # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
         object_H_min = 0.0
         object_H_max = 0.0
+        
         if self.if_model_detect:
             MIN_Y,MAX_Y = 15.0, 120.0
             if self.current_servo_object in ['T']:
@@ -282,6 +284,7 @@ class VisionManager:
                 object_H_min,object_H_max= 5.5,7.0
             elif self.current_servo_object in ['W', 'B']:
                 object_H_min,object_H_max= 5.0,6.0
+
         # 根据物体的远近选择缩放因子K
         if Y_raw < MIN_Y:
             object_H = object_H_max

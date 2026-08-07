@@ -291,8 +291,8 @@ def main_start():
                 my_state.state = READY_NAVIGATE
                 # my_state.state = RETURN 
                 start_flag = True
-                # 延时2秒避免零漂校准不准确
-                time.sleep_ms(2000)
+                # 延时1秒避免零漂校准不准确
+                time.sleep_ms(1000)
                 # 打开定时器1和3
                 pit1_start()
                 pit3_start()
@@ -303,22 +303,6 @@ def main_start():
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_car.now_yaw = 0.0
 
-
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
 
 # 调试电机速度环pid函数
 def show_speed_PID_test():
@@ -339,9 +323,6 @@ def show_speed_PID_test():
         motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
     else:
         motor_ur_pid.compute_pid(160, pose_data.encoder_data_ur)
-    
-orbit_angle = 240.0
-spin_angle = 90.0
 
 # 小车姿态总控制函数
 def master_control():
@@ -379,8 +360,6 @@ def master_control():
 
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
-_BRAKE_THRESHOLD = 20.0   # 刹车误差阈值
-_TARGET_LIMIT = 1.0       # 刹车目标阈值
 _HIGH_TARGET = 180         # >= 此值使用High挡
 _MID_TARGET = 120          # >= 此值使用Mid→High线性插值
 _LOW_TARGET = 50           # >= 此值使用Low→Mid线性插值，< 此值使用Low挡
@@ -392,9 +371,7 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
     target_abs = abs(motor_pid.target)
 
     # 刹车条件：目标接近0但误差很大 → 高挡参数强力纠正
-    if target_abs <= _TARGET_LIMIT and abs(motor_pid.nowError) >= _BRAKE_THRESHOLD:
-        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
-    elif target_abs >= _HIGH_TARGET:
+    if target_abs >= _HIGH_TARGET:
         motor_pid.set_pid_params(kp_high, ki_high, kd_high)
     elif target_abs >= _MID_TARGET:
         ratio = (target_abs - _MID_TARGET) / (_HIGH_TARGET - _MID_TARGET)
@@ -430,6 +407,21 @@ def set_pid_params():
             pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd,
             pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd,
             pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180  
 
 # 视觉伺服辅助apriltag码矫正
 def test_apriltag_calibrate():
@@ -502,6 +494,7 @@ def time_pit3_handler(time) -> None:
     # task_machine()
 
     # 全向定位测试程序
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -523,6 +516,7 @@ def time_pit3_handler(time) -> None:
     elif my_state.state == STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+    """
     
     # 视觉伺服测试程序
     # test_vision_servo()

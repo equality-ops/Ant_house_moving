@@ -30,13 +30,14 @@ if not pin_obj.value():#进入调试模式
     import ant_menu
     gc.collect()
 else:
+    gc.collect()
     import ant_vision
     gc.collect()
     import ant_motor
     gc.collect()
-    import ant_move
-    gc.collect()
     import ant_task
+    gc.collect()
+    import ant_move
     gc.collect()
     #import ant_pid
     #gc.collect()
@@ -93,9 +94,9 @@ my_uart3.init(115200)
 photo = Pin('B4', Pin.IN, value = False)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty=0, invert=False)
-motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert=True)
-motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5, 13000, duty=0, invert=True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
+motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
 
 """传感器初始化"""
 # 编码器初始化
@@ -120,7 +121,6 @@ lcd.color(0xFFFF, 0x0000)
 lcd.mode(0)
 lcd.clear(0x0000)
 
-# 与定时器2周期一致，都为53ms
 key = KEY_HANDLER(53)
 key_data = key.get()
 # 按键对应的数据接口
@@ -256,10 +256,7 @@ def angle_pid_compute():
 def slave_start():
     global current_time, last_left_time, start_flag, if_press_start_key
     if start_flag == False:
-        
         if if_press_start_key == False:
-            #print(key_data[3])
-            current_time = time.ticks_ms()
             if key_data[3] != 0:
                 # 清除按键状态
                 key.clear(4)
@@ -267,7 +264,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            if my_slave_protocol.get_start_signal() == True:
+            # if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -306,6 +303,21 @@ def show_speed_PID_test():
         motor_md_pid.compute_pid(-120, pose_data.encoder_data_md)
     else:
         motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
+
+spin_angle = 90.0
+def test_spin():
+    global spin_angle, counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(target_turn_angle = spin_angle)
+        if my_plan.if_finish_navigate == True:
+            counter += 1
+            if counter >= 100:
+                counter = 0
+                my_plan.reset_navigate()
+                spin_angle += 90.0
+                spin_angle = (spin_angle + 180) % 360 - 180  
 
 # 测试角度闭环函数
 def complete_angle_circle():
@@ -347,8 +359,6 @@ def master_control():
 
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
-_BRAKE_THRESHOLD = 20.0   # 刹车误差阈值
-_TARGET_LIMIT = 1.0       # 刹车目标阈值
 _HIGH_TARGET = 180         # >= 此值使用High挡
 _MID_TARGET = 120          # >= 此值使用Mid→High线性插值
 _LOW_TARGET = 50           # >= 此值使用Low→Mid线性插值，< 此值使用Low挡
@@ -359,10 +369,7 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
     """为单个电机按目标速度选择并设置PID参数"""
     target_abs = abs(motor_pid.target)
 
-    # 刹车条件：目标接近0但误差很大 → 高挡参数强力纠正
-    if target_abs <= _TARGET_LIMIT and abs(motor_pid.nowError) >= _BRAKE_THRESHOLD:
-        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
-    elif target_abs >= _HIGH_TARGET:
+    if target_abs >= _HIGH_TARGET:
         motor_pid.set_pid_params(kp_high, ki_high, kd_high)
     elif target_abs >= _MID_TARGET:
         ratio = (target_abs - _MID_TARGET) / (_HIGH_TARGET - _MID_TARGET)
@@ -434,23 +441,20 @@ def time_pit1_handler(time):
     # 更新传感器数据
     pose_data.update_data()
 
-    set_pid_params()
-    
     # 更新小车姿态
     my_car.update_pose()
 
     # 测试角度闭环
     #complete_angle_circle()
-    """
-    if my_fan.if_fan:
-        my_fan.test_fan(my_fan.fixed_high_level_us)
-        my_fan.if_fan = False
-    """
+
     # 速度环测试
     #show_speed_PID_test()
     
     # 总控制函数
     master_control()
+
+    # 更新pid参数
+    set_pid_params()
 
     # 设置电机pwm输出
     my_car.set_motor_pwm()
@@ -461,23 +465,19 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    task_machine()
+    # task_machine()
 
     # 全向定位测试程序
     """
     if my_state.state == READY_NAVIGATE:
-        # my_path.plan_path(245.0, 56.0)
-        # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0]])
+        # my_plan.navigate(path = [[20.0, 0.0]])
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        # my_plan.navigate(path = [[0.0, 120.0]])
-        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -501,7 +501,7 @@ def time_pit3_handler(time) -> None:
     # test_main_slave_sync()
 
     # 自转测试函数
-    # test_spin()
+    test_spin()
 
     # apriltag码矫正测试函数
     # test_apriltag_calibrate()
@@ -514,7 +514,7 @@ def time_pit2_handler(time):
     """用于无线串口调试"""
     # 发车启动函数
     slave_start()
-    #my_uart3.write(f"{pose_data.now_yaw}\n")
+
     # 读取按键（中断中避免阻塞，快速返回）
     """
     key = my_menu.read_key()
@@ -525,7 +525,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
-    # my_uart8.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")

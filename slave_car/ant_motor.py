@@ -149,11 +149,11 @@ class KalmanFilter:
         return self.Output    
     
 class PoseData:
-    def __init__(self, flash_sys, my_uart8, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
+    def __init__(self, flash_sys, my_uart2, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入串口对象
-        self.my_uart8 = my_uart8
+        self.my_uart2 = my_uart2
         # 注入传感器对象
         self.imu = imu
         self.encoder_ul = encoder_ul
@@ -199,7 +199,7 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 1.0  # 加速度计权重
+        self.kp = 2.0  # 加速度计权重
         self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
@@ -229,12 +229,12 @@ class PoseData:
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
 
-        G_REFERENCE = 4195.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+        G_REFERENCE = 4185.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
     
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
-        # self.my_uart8.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
+        # self.my_uart2.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
 
         # --- norm 偏差权重（加速度模长与重力的偏差）---
         # 偏差在 5% 以内完全信任，偏差大于 20% 完全不信任
@@ -252,7 +252,7 @@ class PoseData:
         # --- 水平加速度幅值权重（防止急转弯时加速度计"骗"了姿态）---
         # 低于 200 不干预，高于 500 才完全拉黑，中间线性过渡
         ACC_LOWER = 200
-        ACC_UPPER = 500
+        ACC_UPPER = 700
 
         abs_ax = abs(ax)
         abs_ay = abs(ay)
@@ -279,7 +279,7 @@ class PoseData:
         # 计算当前周期实际使用的 kp
         current_kp = self.kp * dynamic_weight
 
-        # self.my_uart8.write(f"{dynamic_weight},{current_kp}\n")  # 调试用：输出动态权重和当前 kp
+        # self.my_uart2.write(f"{dynamic_weight},{current_kp}\n")  # 调试用：输出动态权重和当前 kp
 
         # self.my_uart3.write(f"{norm},{current_kp}\n")  # 调试用：输出原始加速度模长
 
@@ -363,7 +363,7 @@ class PoseData:
         :param ref_yaw_deg: 外部传感器获取的绝对偏航角，单位：度 (°)
         """
         # 1. 将角度转换为半角弧度
-        
+
         # 重置俯仰角和偏航角
         self.now_roll = 0.0
         self.now_pitch = 0.0
@@ -499,10 +499,6 @@ class SpeedPositionPID(ControlPID):
         self.kd = kd
 
     def compute_pid(self, target: float, actual: int):
-        # 如果检测到急刹车指令（目标突变为0），瞬间清空历史包袱
-        if abs(target) <= 5 and abs(self.target) >= 1e-6:
-            self.reset_integral()
-
         self.target = target
         self.actual = actual
         self.preError = self.nowError
@@ -536,7 +532,6 @@ class SpeedPositionPID(ControlPID):
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError+ self.ki * self.integral + self.kd * self.derivative + self.kv * self.target
         
-        
         # 当目标速度为0且此时误差极小时，强制增加一个制动pwm输出来驱动
         if self.target == 0:
             if self.nowError < 5 and self.nowError > 0:
@@ -559,7 +554,6 @@ class AnglePositionPID(ControlPID):
         self.kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
         self.kd = self.flash_sys.find_value("angle_normal_kd")        # type: float
         self.angle_normal_kp = self.flash_sys.find_value("angle_normal_kp")        # type: float
-        self.orbit_kp = self.flash_sys.find_value("orbit_kp")        # type: float
         self.target = 0     # type: float
         self.actual = 0     # type: float
         self.nowError = 0   # type: float
@@ -600,11 +594,11 @@ class ServoPID(ControlPID):
         self.servo_kp_normal_x = self.flash_sys.find_value("servo_kp_normal_x")        # type: float
         self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
         self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
-        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")        # type: float
+        self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")    
         self.servo_kp_calibrate_x = self.flash_sys.find_value("servo_kp_calibrate_x")        # type: float
         self.servo_kd_calibrate_x = self.flash_sys.find_value("servo_kd_calibrate_x")        # type: float
         self.servo_kp_calibrate_y = self.flash_sys.find_value("servo_kp_calibrate_y")        # type: float
-        self.servo_kd_calibrate_y = self.flash_sys.find_value("servo_kd_calibrate_y")        # type: float
+        self.servo_kd_calibrate_y = self.flash_sys.find_value("servo_kd_calibrate_y")        # type: float    # type: float
         self.servo_kp_x = 0.0
         self.servo_kp_y = 0.0
         self.servo_kd_x = 0.0
@@ -653,7 +647,7 @@ class ServoPID(ControlPID):
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
-                 motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
+                motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入速度与路径规划对象
@@ -740,7 +734,12 @@ class CarPose:
     # 全向移动控制函数
     # 参数说明：move_speed_target单位：编码器脉冲， move_angle_target单位：度， turn_angle_target单位：度
     def move_ctrl(self, move_speed_target: float, move_angle_target: float, turn_angle_target: float):
-       # 将目标转角和目标航向角限定在-180到180度之间
+        if move_speed_target == 0:  # 整车刹车指令，显式清零
+            self.motor_ul_pid.reset_integral()
+            self.motor_ur_pid.reset_integral()
+            self.motor_md_pid.reset_integral()
+
+        # 将目标转角和目标航向角限定在-180到180度之间
         if turn_angle_target > 180.0:
             turn_angle_target -= 360.0        
         elif turn_angle_target < -180.0:   
@@ -783,3 +782,9 @@ class CarPose:
         self.motor_ul.duty(0)
         self.motor_ur.duty(0)
         self.motor_md.duty(0)
+
+    # 积分清零
+    def reset_pid_integral(self):
+        self.motor_ul_pid.reset_integral()
+        self.motor_ur_pid.reset_integral()
+        self.motor_md_pid.reset_integral()

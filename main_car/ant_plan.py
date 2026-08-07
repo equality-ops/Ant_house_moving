@@ -518,6 +518,7 @@ class NavigationPlan:
             self.d_acc = 0.0
             self.d_dec = 0.0
             return
+        
         if self.move_state == MOVE:
             v_cruise = self.move_v_max
         elif self.my_state.state == SCAN:
