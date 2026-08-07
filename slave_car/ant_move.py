@@ -1,6 +1,14 @@
 from micropython import const
 import math
 import gc
+# 引入 VL53L4CD 驱动
+from vl53l4cd import VL53L4CD, \
+    RANGE_VALID, RANGE_WARN_SIGMA_ABOVE, RANGE_WARN_SIGMA_BELOW, \
+    RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD, RANGE_ERROR_INVALID_PHASE, \
+    RANGE_ERROR_HW_FAIL, RANGE_WARN_NO_WRAP_AROUND_CHECK, \
+    RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH, RANGE_ERROR_PROCESSING_FAIL, \
+    RANGE_ERROR_CROSSTALK_FAIL, RANGE_ERROR_INTERRUPT, RANGE_ERROR_MERGED_TARGET, \
+    RANGE_ERROR_SIGNAL_TOO_WEAK, RANGE_ERROR_OTHER
 
 # 计数器
 counter = 0
@@ -18,9 +26,58 @@ RETURN = const(8)		    # 返回状态
 STOP = const(9)           # 停止状态
 OutLine = const(1)
 
+class TofControl:
+    def __init__(self, flash_sys, beep, tof_L, tof_R):
+        self.flash_sys = flash_sys
+        self.my_beep = beep
+        self.tof_L = tof_L
+        self.tof_R = tof_R
+        # 传感器读数
+        self.data_L = 0.0 
+        self.data_R = 0.0
+        self.status_L = RANGE_VALID
+        self.status_R = RANGE_VALID 
+        self.bias_L = 0.0  # 左传感器偏置值
+        self.bias_R = 0.0  # 右传感器偏置值
+
+    # 更新tof传感器信息
+    def update_tof(self):
+        dist_L = -1.0
+        dist_R = -1.0
+
+        # 读取左传感器
+        if self.tof_L and self.tof_L.data_ready:
+            dist_L = self.tof_L.distance - self.bias_L
+            if dist_L < 0:
+                dist_L = 0.0
+
+            status_L = self.tof_L.range_status
+            self.tof_L.clear_interrupt()
+            # 只有状态正确才读取信息
+            if status_L == RANGE_VALID:
+                self.data_L = dist_L
+            else:
+                self.status_L = status_L
+                self.data_L = -1.0
+
+        # 读取右传感器
+        if self.tof_R and self.tof_R.data_ready:
+            dist_R = self.tof_R.distance - self.bias_R
+            if dist_R < 0:
+                dist_R = 0.0
+
+            status_R = self.tof_R.range_status
+            self.tof_R.clear_interrupt()
+            # 只有状态正确才读取信息
+            if status_R == RANGE_VALID:
+                self.data_R = dist_R
+            else:
+                self.status_R = status_R
+                self.data_R = -1.0
+
 # 搬运控制类
 class MoveControl:
-    def __init__(self,flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager):
+    def __init__(self, flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager):
         self.my_beep = beep
         self.my_photo = photo
         self.my_uart = uart

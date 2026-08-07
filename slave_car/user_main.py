@@ -14,8 +14,8 @@ gc.collect()
 from smartcar import ticker, encoder
 my_uart3 = UART(2)
 my_uart3.init(115200)
-my_uart8 = UART(7)
-my_uart8.init(115200)
+my_uart2 = UART(7)
+my_uart2.init(115200)
 import ant_plan
 gc.collect()
 import ant_else
@@ -39,8 +39,14 @@ else:
     gc.collect()
     import ant_move
     gc.collect()
-    #import ant_pid
-    #gc.collect()
+    # 引入 VL53L4CD 驱动
+    from vl53l4cd import VL53L4CD, \
+        RANGE_VALID, RANGE_WARN_SIGMA_ABOVE, RANGE_WARN_SIGMA_BELOW, \
+        RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD, RANGE_ERROR_INVALID_PHASE, \
+        RANGE_ERROR_HW_FAIL, RANGE_WARN_NO_WRAP_AROUND_CHECK, \
+        RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH, RANGE_ERROR_PROCESSING_FAIL, \
+        RANGE_ERROR_CROSSTALK_FAIL, RANGE_ERROR_INTERRUPT, RANGE_ERROR_MERGED_TARGET, \
+        RANGE_ERROR_SIGNAL_TOO_WEAK, RANGE_ERROR_OTHER
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -63,6 +69,23 @@ if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
 
+# tof状态码 → 可读错误描述映射
+RANGE_STATUS_DESC = {
+    RANGE_VALID:                                      "有效数据",
+    RANGE_WARN_SIGMA_ABOVE:                           "警告: 噪声偏高",
+    RANGE_WARN_SIGMA_BELOW:                           "警告: 噪声偏低",
+    RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD:   "错误: 低于检测阈值",
+    RANGE_ERROR_INVALID_PHASE:                        "错误: 无效相位",
+    RANGE_ERROR_HW_FAIL:                              "错误: 硬件故障",
+    RANGE_WARN_NO_WRAP_AROUND_CHECK:                  "警告: 无环绕检查",
+    RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH:        "错误: 相位不匹配",
+    RANGE_ERROR_PROCESSING_FAIL:                      "错误: 处理失败",
+    RANGE_ERROR_CROSSTALK_FAIL:                       "错误: 串扰检测失败",
+    RANGE_ERROR_INTERRUPT:                            "错误: 中断异常",
+    RANGE_ERROR_MERGED_TARGET:                        "错误: 目标合并",
+    RANGE_ERROR_SIGNAL_TOO_WEAK:                      "错误: 信号太弱",
+    RANGE_ERROR_OTHER:                                "错误: 未知",
+}
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
 # 核心板上 C4 是 LED
@@ -81,6 +104,8 @@ pit3 = ticker(3)
 
 """蜂鸣器初始化"""
 beep = Pin('D24', Pin.OUT, value = False)
+# 创建蜂鸣器对象
+my_beep = ant_else.beep(beep)
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
@@ -89,6 +114,51 @@ my_uart6.init(115200)
 """无线串口通信初始化"""
 my_uart3 = UART(2)
 my_uart3.init(115200)
+my_uart2 = UART(1)
+my_uart2.init(115200)
+
+# ------------------------------------------------------------------------------
+#   初始化 I2C 总线
+#   对于 RT1021-144P-BTB 核心板：
+#     I2C0: B30(SCL) / B31(SDA)   |   I2C3: D22(SCL) / D23(SDA)
+#   注意：BTB 核心板的 LPI2C3 (id=2) 不能使用，请避开 id=2。
+# ------------------------------------------------------------------------------
+i2c_1 = I2C(1, freq = 400000)
+i2c_3 = I2C(3, freq = 400000)
+
+# 扫描 I2C 总线确认设备在线
+# ------------------------------------------------------------------------------
+#   device_list = I2C.scan()
+#       return          返回内容    |   返回从 0x08 到 0x77 地址有响应的从机地址列表 字节数组形式
+# ------------------------------------------------------------------------------
+device_list_0 = i2c_1.scan()
+device_list_3 = i2c_3.scan()
+tof_L = None
+tof_R = None
+
+# 初始化传感器 1 (I2C1)
+if 0x29 in device_list_0:
+    try:
+        tof_L = VL53L4CD(i2c_1, address = 0x29)
+        tof_L.start_ranging()
+    except Exception as e:
+        my_beep.beep_warn()
+else:
+    my_beep.beep_warn()
+    print("TOF L (I2C1) not found! Please check wiring and XSHUT pull-up.")
+
+# 初始化传感器 3 (I2C3)
+if 0x29 in device_list_3:
+    try:
+        tof_R = VL53L4CD(i2c_3, address = 0x29)
+        tof_R.start_ranging()
+    except Exception as e:
+        my_beep.beep_warn()
+        print("TOF R (I2C3) init failed:", e)
+else:
+    my_beep.beep_warn()
+    print("TOF R (I2C3) not found! Please check wiring and XSHUT pull-up.")
+
 
 """光电管初始化"""
 photo = Pin('B4', Pin.IN, value = False)
@@ -139,8 +209,6 @@ enc_rotation = encoder("C0", "C1", True)
 my_state = ant_plan.StateMachine()
 
 fan = BLDC_CONTROLLER(BLDC_CONTROLLER.PWM_C25, freq=300, highlevel_us = 1000)
-# 创建蜂鸣器对象
-my_beep = ant_else.beep(beep)
 
 #【文件读取】
 # 从main_config.txt中读取保存所有的参数并保存到config字典中
@@ -148,6 +216,13 @@ my_flash_sys = ant_else.flash_system(my_beep, "/flash/slave_config.txt")
 my_flash_sys.phase_config()
 # 检查列表格式
 my_flash_sys.check_list_format()
+
+# 如果两个传感器都没找到 直接退出
+if tof_L is None and tof_R is None:
+    my_beep.beep_warn()
+    print("No VL53L4CD detected. Test aborted.")
+elif tof_L and tof_R:
+    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R)
 
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_flash_sys, my_uart6)
@@ -386,7 +461,6 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
     else:
         motor_pid.set_pid_params(kp_low, ki_low, kd_low)
 
-
 def set_pid_params():
     if my_state.state == MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -521,11 +595,15 @@ def time_pit2_handler(time):
     my_menu.handle_key_from_interrupt(key)
     """
 
-    # my_uart8.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
+    # 更新tof传感器信息
+    my_tof.update_tof()
+    my_uart3.write(f"{my_tof.data_L},{my_tof.data_R}\r\n")
+    
+    # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
-    my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
