@@ -654,6 +654,9 @@ def nms(objects, iou_thresh=0.3):
         x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
         overlap = False
         for k in kept:
+            # 类别不同则不参与重叠判断，允许不同颜色各自保留
+            if k[4] != obj[4]:
+                continue
             kx1, ky1, kx2, ky2 = k[0], k[1], k[2], k[3]
             ix1, iy1 = max(x1, kx1), max(y1, ky1)
             ix2, iy2 = min(x2, kx2), min(y2, ky2)
