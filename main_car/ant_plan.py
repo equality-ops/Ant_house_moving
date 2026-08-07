@@ -383,7 +383,6 @@ class NavigationPlan:
         self.long_v_max = self.flash_sys.find_value("long_v_max")    # type: int  # 长距离时的最大速度
         self.acc_coef = 0.0          # 加速距离系数
         self.acc_normal_coef = self.flash_sys.find_value("acc_normal_coef")     # 正常导航的加速距离系数
-        self.acc_move_coef = self.flash_sys.find_value("acc_move_coef")         # 搬运状态下的加速距离系数
         self.dec_coef = self.flash_sys.find_value("dec_coef")          # 减速距离系数
         self.scan_rate = self.flash_sys.find_value("scan_rate")      # type: int  # 扫描状态下的速度降低比例
         self.move_v_max = 0.0     # 根据物体种类选择搬运速度
@@ -446,11 +445,8 @@ class NavigationPlan:
         self.path = path[:] # 复制路径列表
         self.path.insert(0, [self.my_car.x_current, self.my_car.y_current])  # 在路径前添加主车起点
         if len(self.path) < 2: return
-        # 根据当前状态选择合适的加速距离系数
-        if self.move_state == MOVE:
-            self.acc_coef = self.acc_move_coef
-        else:
-            self.acc_coef = self.acc_normal_coef
+
+        self.acc_coef = self.acc_normal_coef
             
         n = len(self.path)
         self.waypoint_v = [self.min_start_v] * n
@@ -465,15 +461,15 @@ class NavigationPlan:
             # 当航向角变化超过一定角度时，强制设定通过该点的最大速度
             speed_factor = max(0.0, 1.0 - (delta_yaw / 180.0))
             # 我加负压了，给我拉满过弯速度
-            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.1
+            self.waypoint_v[i] = self.min_start_v + speed_factor * (self.long_v_max - self.min_start_v) * 0.4
 
         # 【前向推演：固有加速距离限制】
         for i in range(0, n - 1):
             seg_dist = math.sqrt((self.path[i+1][0] - self.path[i][0])**2 + (self.path[i+1][1] - self.path[i][1])**2)
             # 同样扣除提前到达阈值，这部分距离不能用来加速
             threshold = self.final_threshold if (i == n - 2) else self.branch_threshold
-            # 3.0为安全裕量
-            usable_dist = max(0.0, seg_dist - threshold - 3.0)
+            # 2.0为安全裕量
+            usable_dist = max(0.0, seg_dist - threshold - 2.0)
             max_reachable_v = self.waypoint_v[i] + (usable_dist / self.acc_coef)
             if self.waypoint_v[i+1] > max_reachable_v:
                 self.waypoint_v[i+1] = max_reachable_v
@@ -483,8 +479,8 @@ class NavigationPlan:
             seg_dist = math.sqrt((self.path[i+1][0] - self.path[i][0])**2 + (self.path[i+1][1] - self.path[i][1])**2)
             # 考虑最后一段和中间段不同的“提前到达”阈值作为刹车缓冲区的扣除
             threshold = self.final_threshold if (i == n - 2) else self.branch_threshold
-            # 3.0为安全裕量
-            safe_dist = max(0.0, seg_dist - threshold - 3.0)
+            # 2.0为安全裕量
+            safe_dist = max(0.0, seg_dist - threshold - 2.0)
             max_safe_v = self.waypoint_v[i+1] + (safe_dist / self.dec_coef)
             if self.waypoint_v[i] > max_safe_v:
                 self.waypoint_v[i] = max_safe_v
@@ -498,13 +494,10 @@ class NavigationPlan:
         self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
 
         x_dist = abs(self.path[1][0] - self.my_car.x_current)
-        # 固定系数（负压状态下）
-        if x_dist >= 100.0:  # x轴为主运动方向
-            self.my_car.alpha_x = 0.923144
-        else:
-            self.my_car.alpha_x = 0.890688
 
-        self.my_car.alpha_y = 0.918563  # 需要标定（可能值不同）
+        # 固定系数（负压状态下）
+        self.my_car.alpha_x = 0.926049
+        self.my_car.alpha_y = 0.920833
 
     # 根据当前过渡距离计算加减速距离
     def plan_acc_dec(self):
@@ -518,7 +511,7 @@ class NavigationPlan:
         # 修正：判断当前段的死区阈值，将S型的终点提前，得到真正的加减速“可用空间”
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         threshold = self.final_threshold if is_last_segment else self.branch_threshold
-        self.usable_len = max(0.01, self.segment_start_dist - threshold - 3.0) # 3.0为安全裕量
+        self.usable_len = max(0.01, self.segment_start_dist - threshold - 2.0) # 2.0为安全裕量
 
         if self.usable_len <= 0.1:
             self.v_peak = v_end
@@ -668,16 +661,8 @@ class NavigationPlan:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
             self.plan_acc_dec() 
-
-            x_dist = abs(self.path[self.aimed_point_index + 1][0] - self.my_car.x_current)
-            # 固定系数（负压状态下）
-            if x_dist >= 100.0:  # x轴为主运动方向
-                self.my_car.alpha_x = 0.923144
-            else:
-                self.my_car.alpha_x = 0.890688
-
-            self.my_car.alpha_y = 0.918563  # 需要标定（可能值不同）
-            
+            # pid积分清零
+            self.my_car.reset_pid_integral()
         elif is_last_segment and rest_dist <= self.final_threshold:
             self.aimed_point_index += 1
             # 清空上一次小车速度

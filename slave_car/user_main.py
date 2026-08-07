@@ -344,60 +344,60 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-# 设置pid参数
+
+# 根据目标速度选择对应挡位的PID参数（gain scheduling）
+# 阈值常量
+_BRAKE_THRESHOLD = 20.0   # 刹车误差阈值
+_TARGET_LIMIT = 1.0       # 刹车目标阈值
+_HIGH_TARGET = 180         # >= 此值使用High挡
+_MID_TARGET = 120          # >= 此值使用Mid→High线性插值
+_LOW_TARGET = 50           # >= 此值使用Low→Mid线性插值，< 此值使用Low挡
+
+def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
+                       kp_mid, ki_mid, kd_mid,
+                       kp_low, ki_low, kd_low):
+    """为单个电机按目标速度选择并设置PID参数"""
+    target_abs = abs(motor_pid.target)
+
+    # 刹车条件：目标接近0但误差很大 → 高挡参数强力纠正
+    if target_abs <= _TARGET_LIMIT and abs(motor_pid.nowError) >= _BRAKE_THRESHOLD:
+        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
+    elif target_abs >= _HIGH_TARGET:
+        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
+    elif target_abs >= _MID_TARGET:
+        ratio = (target_abs - _MID_TARGET) / (_HIGH_TARGET - _MID_TARGET)
+        motor_pid.set_pid_params(
+            kp_mid + (kp_high - kp_mid) * ratio,
+            ki_mid + (ki_high - ki_mid) * ratio,
+            kd_mid + (kd_high - kd_mid) * ratio)
+    elif target_abs >= _LOW_TARGET:
+        ratio = (target_abs - _LOW_TARGET) / (_MID_TARGET - _LOW_TARGET)
+        motor_pid.set_pid_params(
+            kp_low + (kp_mid - kp_low) * ratio,
+            ki_low + (ki_mid - ki_low) * ratio,
+            kd_low + (kd_mid - kd_low) * ratio)
+    else:
+        motor_pid.set_pid_params(kp_low, ki_low, kd_low)
+
+
 def set_pid_params():
     if my_state.state == MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
     else:
-        brake_threshold = 20.0
-        target_limit = 1.0
-        # 初始化pid参数（线性回归）
-        if abs(motor_ul_pid.target) <= target_limit and abs(motor_ul_pid.nowError) >= brake_threshold:
-            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        elif abs(motor_ul_pid.target) >= 180:
-            motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        elif abs(motor_ul_pid.target) >= 120:
-            now_ul_kp = pid_data.ul_mid_kp + (pid_data.ul_high_kp - pid_data.ul_mid_kp) * (abs(motor_ul_pid.target) - 120) / 60
-            now_ul_ki = pid_data.ul_mid_ki + (pid_data.ul_high_ki - pid_data.ul_mid_ki) * (abs(motor_ul_pid.target) - 120) / 60
-            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_mid_kd)
-        elif abs(motor_ul_pid.target) >= 50:
-            now_ul_kp = pid_data.ul_low_kp + (pid_data.ul_mid_kp - pid_data.ul_low_kp) * (abs(motor_ul_pid.target) - 50) / 70
-            now_ul_ki = pid_data.ul_low_ki + (pid_data.ul_mid_ki - pid_data.ul_low_ki) * (abs(motor_ul_pid.target) - 50) / 70
-            motor_ul_pid.set_pid_params(now_ul_kp, now_ul_ki, pid_data.ul_low_kd)
-        else:
-            motor_ul_pid.set_pid_params(pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-            
-        if abs(motor_ur_pid.target) <= target_limit and abs(motor_ur_pid.nowError) >= brake_threshold:
-            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        elif abs(motor_ur_pid.target) >= 180:
-            motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        elif abs(motor_ur_pid.target) >= 120:
-            now_ur_kp = pid_data.ur_mid_kp + (pid_data.ur_high_kp - pid_data.ur_mid_kp) * (abs(motor_ur_pid.target) - 120) / 60
-            now_ur_ki = pid_data.ur_mid_ki + (pid_data.ur_high_ki - pid_data.ur_mid_ki) * (abs(motor_ur_pid.target) - 120) / 60
-            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_mid_kd)
-        elif abs(motor_ur_pid.target) >= 50:
-            now_ur_kp = pid_data.ur_low_kp + (pid_data.ur_mid_kp - pid_data.ur_low_kp) * (abs(motor_ur_pid.target) - 50) / 70
-            now_ur_ki = pid_data.ur_low_ki + (pid_data.ur_mid_ki - pid_data.ur_low_ki) * (abs(motor_ur_pid.target) - 50) / 70
-            motor_ur_pid.set_pid_params(now_ur_kp, now_ur_ki, pid_data.ur_low_kd)
-        else:
-            motor_ur_pid.set_pid_params(pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
-
-        if abs(motor_md_pid.target) <= target_limit and abs(motor_md_pid.nowError) >= brake_threshold:
-            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-        elif abs(motor_md_pid.target) >= 180:
-            motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
-        elif abs(motor_md_pid.target) >= 120:
-            now_md_kp = pid_data.md_mid_kp + (pid_data.md_high_kp - pid_data.md_mid_kp) * (abs(motor_md_pid.target) - 120) / 60
-            now_md_ki = pid_data.md_mid_ki + (pid_data.md_high_ki - pid_data.md_mid_ki) * (abs(motor_md_pid.target) - 120) / 60
-            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_mid_kd)
-        elif abs(motor_md_pid.target) >= 50:
-            now_md_kp = pid_data.md_low_kp + (pid_data.md_mid_kp - pid_data.md_low_kp) * (abs(motor_md_pid.target) - 50) / 70
-            now_md_ki = pid_data.md_low_ki + (pid_data.md_mid_ki - pid_data.md_low_ki) * (abs(motor_md_pid.target) - 50) / 70
-            motor_md_pid.set_pid_params(now_md_kp, now_md_ki, pid_data.md_low_kd)
-        else:
-            motor_md_pid.set_pid_params(pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
+        _select_pid_params(motor_ul_pid,
+            pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd,
+            pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd,
+            pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
+        _select_pid_params(motor_ur_pid,
+            pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd,
+            pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd,
+            pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
+        _select_pid_params(motor_md_pid,
+            pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd,
+            pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd,
+            pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
 
 # 视觉伺服辅助apriltag码矫正
 def test_apriltag_calibrate():
