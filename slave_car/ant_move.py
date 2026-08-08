@@ -50,6 +50,7 @@ class TofControl:
         self.tof_valid_min = self.flash_sys.find_value("tof_valid_min")  # type: float
         self.tof_valid_max = self.flash_sys.find_value("tof_valid_max")  # type: float
 
+        self.if_init_fil = False # 是否初始化滤波器
         self.which_one = None  # 当前使用的传感器，'L'表示左传感器，'R'表示右传感器
         self._stale_count_L = 0  # 左传感器连续无效计数
         self._stale_count_R = 0  # 右传感器连续无效计数
@@ -105,7 +106,6 @@ class TofControl:
             if self._stale_count_R > 6:
                 self.data_R = -1.0
 
-
         # 自动选择：优先左传感器，无效则用右传感器
         if not self.which_one:
             if self.data_L != -1.0:
@@ -148,6 +148,7 @@ class TofControl:
         choose_sensor(sensor)
         self.my_car.fixed_direction = fixed_dir
         self.my_car.if_control_dist = True
+        self.if_init_fil = False
 
     # 重置tof传感器信息
     def reset_tof(self):
@@ -157,6 +158,7 @@ class TofControl:
         self.which_one = None
         self.status_L, self.status_R = RANGE_VALID, RANGE_VALID
         self.my_car.if_control_dist = False
+        self.if_init_fil = False
         self.reset_speed_weight()
         
     # 距离控制主函数
@@ -164,6 +166,13 @@ class TofControl:
         # 更新传感器数据
         self.update_tof()
         if self.is_data_valid():
+            if self.if_init_fil == False:
+                if self.which_one == 'L':
+                    self.dist_pid_L.init_filter(self.data_L)
+                elif self.which_one == 'R':
+                    self.dist_pid_R.init_filter(self.data_R)
+                self.if_init_fil = True
+
             if self.which_one == 'L':
                 self.dist_pid_L.compute_pid(self.data_L)
                 self.my_car.speed_weight = self.dist_pid_L.pwm_output

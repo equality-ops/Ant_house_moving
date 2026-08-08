@@ -646,12 +646,13 @@ class ServoPID(ControlPID):
 
 # 距离控制PD
 class DistPID(ControlPID):
-    def __init__(self, flash_sys, L_or_R: str):
+    def __init__(self, flash_sys, L_or_R: str, filter: SlipAveragingFilter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         self.dist_kp = self.flash_sys.find_value("dist_kp")        # type: float
         self.dist_kd = self.flash_sys.find_value("dist_kd")        # type: float
         self.L_or_R = L_or_R
+        self.my_filter = filter
         if L_or_R == "L":
             self.target = self.flash_sys.find_value("target_L")     # type: float
         elif L_or_R == "R":
@@ -685,12 +686,19 @@ class DistPID(ControlPID):
         elif self.L_or_R == "R":
             self.pwm_output = int(self.dist_kp * self.nowError + self.dist_kd * self.derivative)
 
+        # 对pwm_output进行滑动平均滤波
+        self.pwm_output = int(self.my_filter.filtering(float(self.pwm_output)))
+
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
     # 输出清零
     def reset_pwmout(self):
         self.pwm_output = 0
+
+    # 初始化滤波器
+    def init_filter(self, data):
+        self.my_filter.buffer_init(data)
 
 # 小车姿态控制
 class CarPose:
@@ -814,7 +822,7 @@ class CarPose:
                 self.fixed_direction -= 360.0
             elif self.fixed_direction < -180.0:
                 self.fixed_direction += 360.0
-                
+
             # 当前move_angle_target转弧度用于向量分解
             rad = self.fixed_direction * PI / 180.0
             # 原始速度在世界坐标系下的分量
