@@ -14,25 +14,28 @@ from vl53l4cd import VL53L4CD, \
 counter = 0
 
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
+RETREAT = const(10)       # 后退状态
+KEEP_SPACE = const(11)    # 保持距离状态
 OutLine = const(1)
 
 class TofControl:
-    def __init__(self, flash_sys, beep, tof_L, tof_R, car, dist_pid_L, dist_pid_R):
+    def __init__(self, flash_sys, beep, tof_L, tof_R, car, plan, dist_pid_L, dist_pid_R):
         self.flash_sys = flash_sys
         self.my_beep = beep
         self.tof_L = tof_L
         self.tof_R = tof_R
         self.my_car = car
+        self.my_plan = plan
         self.dist_pid_L = dist_pid_L
         self.dist_pid_R = dist_pid_R
 
@@ -131,29 +134,30 @@ class TofControl:
     def reset_speed_weight(self):
         self.my_car.speed_weight = 0.0
 
-    # 选择tof传感器
-    def choose_sensor(self, sensor):
-        if sensor == 'left':
-            self.which_one = 'L'
-        elif sensor == 'right':
-            self.which_one = 'R'
-        else:
-            self.which_one = None
+    # tof准备
+    def ready_tof(self, sensor, fixed_dir):
+        def choose_sensor(sensor):
+            if sensor == 'left':
+                self.which_one = 'L'
+            elif sensor == 'right':
+                self.which_one = 'R'
+            else:
+                self.which_one = None
+
+        # 选择tof传感器
+        choose_sensor(sensor)
+        self.my_car.fixed_direction = fixed_dir
+        self.my_car.if_control_dist = True
 
     # 重置tof传感器信息
     def reset_tof(self):
         self.data_L, self.data_R = -1.0, -1.0
         self._stale_count_L, self._stale_count_R = 0, 0
         self._invalid_count = 0
-        self._invalid_count = 0
         self.which_one = None
         self.status_L, self.status_R = RANGE_VALID, RANGE_VALID
         self.my_car.if_control_dist = False
         self.reset_speed_weight()
-
-    # 设置速度分量固定的方向
-    def set_fixed_direction(self, direction):
-        self.my_car.fixed_direction = direction
         
     # 距离控制主函数
     def dist_control(self):

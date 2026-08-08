@@ -2,18 +2,20 @@
 from micropython import const
 import gc
 import math
+
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
-RETREAT = const(10)
+RETREAT = const(10)       # 后退状态
+KEEP_SPACE = const(11)    # 保持距离状态
 counter = 0  # 计数器
 object_to_line_dict = {
     'T': 'U',
@@ -22,6 +24,7 @@ object_to_line_dict = {
     'W': 'R',
     'B': 'R'
 }
+
 class TaskController:
     def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol):
         # 注入对象
