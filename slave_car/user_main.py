@@ -232,6 +232,9 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
 sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
+# 创建距离控制滤波对象
+dist_fil_L = ant_motor.SlipAveragingFilter(5)
+dist_fil_R = ant_motor.SlipAveragingFilter(5)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
@@ -242,8 +245,8 @@ motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filte
 motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
 angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
-dist_pid_L = ant_motor.DistPID(my_flash_sys, "L")
-dist_pid_R = ant_motor.DistPID(my_flash_sys, "R")
+dist_pid_L = ant_motor.DistPID(my_flash_sys, "L", dist_fil_L)
+dist_pid_R = ant_motor.DistPID(my_flash_sys, "R", dist_fil_R)
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
