@@ -36,7 +36,7 @@ kv = 30.0
 integral_limitmax = 10000
 pwmout_limitmax = 9000
 
-angle_normal_kp = 25.0
+angle_normal_kp = 20.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.1
@@ -74,7 +74,7 @@ fixed_high_level_us = 1260
 
 ###################【速度规划】####################
 min_start_v = 40
-long_v_max = 60
+long_v_max = 180
 find_line_v_max = 60
 acc_normal_coef = 0.03
 dec_coef = 0.08
@@ -85,16 +85,13 @@ orbit_v_min = 30
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
 servo_kp_normal_x = 7.0
-servo_kd_normal_x = 10.0
+servo_kd_normal_x = 5.0
 servo_kp_normal_y = 7.0
-servo_kd_normal_y = 10.0
+servo_kd_normal_y = 5.0
 
-servo_target_y_T = 2.5
+servo_target_y_T = 2.3
 servo_target_y_S = 3.0
-servo_target_y_B = 7.0
-servo_target_x_T = 0
-servo_target_x_S = 0
-servo_target_x_B = 0
+servo_target_y_B = 5.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -120,7 +117,7 @@ dist_kp = 12.0
 dist_kd = 5.0
 target_L = 16.0
 target_R = 16.0
-dist_deadzone = 1.0
+dist_deadzone = 1.2
 tof_valid_min = 5.0
 tof_valid_max = 30.0
 dist_pwmout_limitmax = 60
@@ -139,16 +136,18 @@ radius_B_U = 15.5
 radius_B_R = 17.5
 radius_B_L = 16.5
 radius_B_D = 15.5
+
 angle_T = 40
 angle_S = 40
 angle_B = 40
-
-orbit_kp = 15.0
 
 calibrate_waiting_time = 40
 #############################################
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
+
+# 是否检测到障碍物
+if_obstacles = 0
 
 #是否使用模型servo
 if_model = 1
@@ -166,7 +165,6 @@ apr_pos_R = "326,123"
 apr_pos_U = "163,246"
 apr_pos_D = "163,0"
 
-if_obstacles = 1
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
 circle = "(215, 190)"

@@ -205,7 +205,7 @@ class VisionManager:
             if mode == 'M':
                 if object_kind in ['T']: object_H = 2.5
                 elif object_kind in ['S', 'E']: object_H = 5.0
-                elif object_kind in ['W', 'B']: object_H = 3
+                elif object_kind in ['W', 'B']: object_H = 3.0
             else:
                 if object_kind in ['T']: object_H = 3.5
                 elif object_kind in ['S', 'E']: object_H = 4.0

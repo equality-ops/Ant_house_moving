@@ -147,13 +147,10 @@ class VisionManager:
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
         self.car_radius = 13.0   # 小车推杆到中心的距离
         self.correct_dist = 5.90    # 经验修正值（物体在推杆正前方的值）
-        self.close_H_matrix = [[ 1.93284562e+00, -1.87582067e-04, -1.42042018e+02],
+        self.H_matrix = [[ 1.93284562e+00, -1.87582067e-04, -1.42042018e+02],
                               [-4.39372726e-16, -1.31007314e+00,  1.96628024e+02],
                               [-1.32799359e-17,  6.57475145e-02,  1.00000000e+00]]
                         
-        self.far_H_matrix = [[ 1.93284562e+00, -1.87582067e-04, -1.42042018e+02],
-                            [-4.39372726e-16, -1.31007314e+00,  1.96628024e+02],
-                            [-1.32799359e-17,  6.57475145e-02,  1.00000000e+00]]
         # apriltag码矫正相关变量--------------------------------------------------------
         apr_pos_L = self.flash_sys.find_value("apr_pos_L")
         apr_pos_R = self.flash_sys.find_value("apr_pos_R")
@@ -195,12 +192,12 @@ class VisionManager:
         self.last_car_y = self.my_car.y_current
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str, object_kind = None):
+    def pixel_to_real_world(self, u, v, object_kind = None):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
         :param v: 像素点的 y 坐标 (行)
-        :param sign: 远近标志
+        :param object_kind: 物体种类
         :return: 真实的物理坐标 (X_w, Y_w)
         """
         object_H = 0.0  # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
@@ -210,19 +207,15 @@ class VisionManager:
             if not object_kind:
                 object_kind = self.current_servo_object
             if object_kind == 'T': 
-                object_H = 3.5
+                object_H = 2.5
             elif object_kind in ['S', 'E']:
-                object_H = 6.0
+                object_H = 5.0
             elif object_kind in ['W', 'B']:
-                object_H = 4.0
+                object_H = 3.0
 
-        # 根据物体远近选择单应性矩阵H
-        if sign == 'close':
-            H_matrix = self.close_H_matrix
-        elif sign == 'far':
-            H_matrix = self.far_H_matrix
+        H_matrix = self.H_matrix
 
-        K = (19.7- object_H) / 19.7
+        K = (23.5 - object_H) / 23.5
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算真实的物理坐标
@@ -234,7 +227,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.8, min(1.0, dist / 8.0)) # 8cm外全速，近处最少降60%
+        scale = max(0.8, min(1.0, dist / 10.0)) # 10cm外全速，近处最少降到90%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
@@ -242,7 +235,7 @@ class VisionManager:
     def calculate_dist(self, x: int, y: int, sign: str = 'far'):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
         self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        self.relative_raw_y -= self.correct_dist + self.final_dist_y
+        # self.relative_raw_y = self.relative_raw_y - self.final_dist_y - self.correct_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -267,7 +260,7 @@ class VisionManager:
         self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
-        # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
+        self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     # 视觉伺服控制函数
     def visual_servo_control(self):
@@ -281,7 +274,7 @@ class VisionManager:
             self.calculate_dist(self.target_point[0], self.target_point[1])
 
             # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡
-            MAX_POINT_CHANGE = 10.0  # 最大坐标变化阈值（单位：cm）
+            MAX_POINT_CHANGE = 12.0  # 最大坐标变化阈值（单位：cm）
             if self.last_real_servo_point is not None:
                 dx = abs(self.real_servo_point[0] - self.last_real_servo_point[0])
                 dy = abs(self.real_servo_point[1] - self.last_real_servo_point[1])
@@ -298,6 +291,11 @@ class VisionManager:
                         # 变化过大，丢弃本帧，还原为上一帧有效坐标
                         self.real_servo_point = self.last_real_servo_point.copy()
                         self.servo_lost_count += 1
+                else:
+                    # 帧有效，更新记录
+                    self.last_relative_raw_y = self.relative_raw_y
+                    self.last_real_servo_point = self.real_servo_point.copy()
+                    self.servo_lost_count = 0
             else:
                 # 首帧，直接接受
                 self.last_relative_raw_y = self.relative_raw_y
@@ -401,7 +399,7 @@ class VisionManager:
                 self.direct = 'CCW'
             self.current_dis = 0.0
 
-            # 计算总的环绕角度（考虑选择的环绕方向，CW为顺时针，CCW为逆时针）
+             # 计算总的环绕角度（考虑选择的环绕方向，CW为顺时针，CCW为逆时针）
             natural_cw = (diff_angle >= 0.0)
             actual_cw = (self.direct == 'CW')
             self.total_orbit_angle = abs(diff_angle) if natural_cw == actual_cw else 360.0 - abs(diff_angle)
@@ -410,7 +408,6 @@ class VisionManager:
             # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
             self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
             self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * PI / 180.0)
-
             self.if_orbit_ready = True
         else:
             if self.if_finish_orbit == True:
@@ -429,7 +426,7 @@ class VisionManager:
             err_r = self.orbit_radius - actual_r
             
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
-            kr = 2.5
+            kr = 2.0
             
             if self.direct == 'CW':
                 # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
@@ -450,20 +447,18 @@ class VisionManager:
             if diff > 180.0:
                 diff = 360.0 - diff
 
-            # 环绕速度规划：S形缓动速度曲线 —— ease-out启动（快起），ease-in停止（柔停）
+            # 环绕速度规划：对称梯形速度曲线 —— 启动时线性加速，结束时线性减速
             accel_range = min(15.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
-            decel_range = min(40.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            decel_range = min(25.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
             traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
-
             if traveled < accel_range:
                 # 启动阶段：三次 ease-out，起步快、过渡平滑
                 t = traveled / accel_range              # 0.0 → 1.0
                 ease = 1.0 - (1.0 - t) ** 3     # 三次 ease-out
                 self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
             elif diff < decel_range:
-                # 减速阶段：三次 ease-in，停止柔和、不突兀
                 t = diff / decel_range                  # 1.0 → 0.0
-                ease = t * t                            # 二次 ease-in
+                ease = t * t * (3.0 - 2.0 * t)          # smoothstep：两端导数=0，无顿挫
                 self.orbit_speed = self.orbit_v_min + (self.orbit_v_max - self.orbit_v_min) * ease
             else:
                 # 匀速阶段：保持最大速度

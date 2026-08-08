@@ -376,6 +376,64 @@ def test_spin():
                 spin_angle += 90.0
                 spin_angle = (spin_angle + 180) % 360 - 180  
 
+# 视觉测试
+def test_vision_servo():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = NAVIGATE
+    elif my_state.state == NAVIGATE:
+        if my_vision_manager.if_send_order == False:
+            my_order_manager.mode_target()
+            my_vision_manager.if_send_order = True
+
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
+            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
+            my_vision_manager.if_send_order = False
+            my_state.state = SERVO
+    elif my_state.state == SERVO:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
+            # my_order_manager.mode_target()
+            my_plan.reset_navigate_angle()
+            counter += 1
+            my_state.state = STOP
+            if counter >= 20:
+                counter = 0
+                # 测试
+                my_beep.test()
+                my_vision_manager.if_finish_servo = False
+                my_vision_manager.reset_orbit_angle()
+                my_state.state = ORBIT
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(140.0)
+        if my_vision_manager.if_finish_orbit == True:
+            my_plan.reset_navigate_angle()
+            my_moving.reset_orbit()
+            my_state.state = STOP
+            """
+            if my_vision_manager.if_send_order == False:
+                my_order_manager.mode_target()
+                my_vision_manager.if_send_order = True
+
+            target_point = my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == my_vision_manager.current_servo_object and\
+            target_point[1] >= 40.0:
+                my_vision_manager.ready_servo_and_orbit(target_point, 'adjust')
+                my_vision_manager.if_send_order = False
+                my_vision_manager.reset_servo_angle()
+                my_state.state = ADJUST
+            """
+    elif my_state.state == ADJUST:
+        my_vision_manager.visual_servo_control()
+        if my_vision_manager.if_finish_servo == True:
+            my_plan.reset_navigate_angle()
+            my_state.state = STOP
+    elif my_state.state == STOP:
+        my_plan.stop()
+
+
 # 测试角度闭环函数
 def complete_angle_circle():
     my_car.move_ctrl(0, 0, 0)
@@ -571,7 +629,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 边线校准测试程序
     # test_apriltag_calibrate()
@@ -580,7 +638,7 @@ def time_pit3_handler(time) -> None:
     # test_orbit()
 
     # 测试tof距离控制
-    test_tof_distance_control()
+    # test_tof_distance_control()
 
     # 自转测试函数
     # test_spin()
