@@ -524,7 +524,7 @@ def time_pit3_handler(time) -> None:
         my_plan.keep_x_or_y_v = False
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
-        my_plan.move_v_max = 0
+        my_plan.move_v_max = 100
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == MOVE:
