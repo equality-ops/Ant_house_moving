@@ -524,11 +524,11 @@ def time_pit3_handler(time) -> None:
         my_plan.keep_x_or_y_v = False
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
-        my_plan.move_v_max = 100
+        my_plan.move_v_max = 160
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == MOVE:
-        my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
+        my_plan.navigate(path = [[50.0, 100.0], [50.0, 150.0]], target_turn_angle = -30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
@@ -538,9 +538,9 @@ def time_pit3_handler(time) -> None:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
             my_state.state = STOP
-            my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
             my_beep.test()
     elif my_state.state == STOP:
+        my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # 视觉伺服测试程序
