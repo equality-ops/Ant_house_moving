@@ -160,12 +160,14 @@ class TofControl:
         self.my_car.if_control_dist = False
         self.if_init_fil = False
         self.reset_speed_weight()
+        self.my_beep.beep.low()
         
     # 距离控制主函数
     def dist_control(self):
         # 更新传感器数据
         self.update_tof()
         if self.is_data_valid():
+            # self.my_beep.beep.low()
             if self.if_init_fil == False:
                 if self.which_one == 'L':
                     self.dist_pid_L.init_filter(self.data_L)
@@ -182,10 +184,13 @@ class TofControl:
             else:
                 # 清零输出
                 self.dist_pid_L.reset_pwmout()
+                self.dist_pid_R.reset_pwmout()
                 self.reset_speed_weight()
         else:
+            # self.my_beep.beep.high()
             # 清零输出
             self.dist_pid_L.reset_pwmout()
+            self.dist_pid_R.reset_pwmout()
             self.reset_speed_weight()
 
 # 搬运控制类

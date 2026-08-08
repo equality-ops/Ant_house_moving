@@ -96,7 +96,7 @@ servo_target_y_B = 5.0
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
 
-min_rel_speed = 40
+min_rel_speed = 30
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
@@ -113,33 +113,33 @@ apriltag_threshold_x = 1.5
 apriltag_threshold_y = 1.5
 
 ###################【tof距离控制】####################
-dist_kp = 12.0
+dist_kp = 12.5
 dist_kd = 5.0
-target_L = 16.0
-target_R = 16.0
-dist_deadzone = 1.2
+target_L = 14.5
+target_R = 14.5
+dist_deadzone = 0.8
 tof_valid_min = 5.0
 tof_valid_max = 30.0
 dist_pwmout_limitmax = 60
 ###################【环绕控制】####################
-radius_T_U = 16.0
-radius_T_R = 16.0
-radius_T_L = 16.0
+radius_T_U = 17.0
+radius_T_R = 15.0
+radius_T_L = 15.0
 radius_T_D = 16.0
 
-radius_S_U = 19.0
-radius_S_R = 19.0
-radius_S_L = 19.0
-radius_S_D = 19.0
+radius_S_U = 17.0
+radius_S_R = 18.0
+radius_S_L = 18.0
+radius_S_D = 17.0
 
-radius_B_U = 21.0
-radius_B_R = 21.0
-radius_B_L = 21.0
-radius_B_D = 21.0
+radius_B_U = 19.0
+radius_B_R = 20.0
+radius_B_L = 20.0
+radius_B_D = 19.0
 
-angle_T = 45
-angle_S = 45
-angle_B = 45
+angle_T = 35
+angle_S = 35
+angle_B = 35
 
 calibrate_waiting_time = 40
 #############################################
