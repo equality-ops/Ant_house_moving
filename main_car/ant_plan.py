@@ -33,7 +33,7 @@ class PlanData:
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
-        self.fixed_point = [[0.0, 0.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
+        self.fixed_point = [[35.0,-40.2], [self.center_x - lenth*2,self.center_y - lenth*2], 
                             [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -80.0], [25.0, -60.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
@@ -588,7 +588,7 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
-            return self.move_v_max
+            return v_target
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             '''if self.keep_x_or_y_v == True:
                 sin_fit = math.sin(self.fit_target_yaw*PI / 180.0)

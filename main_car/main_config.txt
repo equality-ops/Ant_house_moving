@@ -129,9 +129,9 @@ radius_B_R = 17.7
 radius_B_L = 16.5
 radius_B_D = 17.5
 
-angle_T = 41
+angle_T = 40
 angle_S = 40
-angle_B = 38
+angle_B = 40
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
@@ -172,7 +172,7 @@ BEAR_cla_dis = 2.4
 SUDOKU_length_x = 34.0
 SUDOKU_width_y = 34.0
 #使用扫描点
-USE_SCAN_POINT = 4
+USE_SCAN_POINT = 2
 
 #april_tag位置
 apr_pos_L = "0,123"

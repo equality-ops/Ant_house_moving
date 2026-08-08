@@ -139,9 +139,9 @@ radius_B_U = 15.5
 radius_B_R = 17.5
 radius_B_L = 16.5
 radius_B_D = 15.5
-angle_T = 41
+angle_T = 40
 angle_S = 40
-angle_B = 38
+angle_B = 40
 
 orbit_kp = 15.0
 

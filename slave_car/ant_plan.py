@@ -575,7 +575,7 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
-            return self.move_v_max
+            return v_target
             """
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             if self.keep_x_or_y_v == True:
