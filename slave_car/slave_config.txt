@@ -79,7 +79,7 @@ find_line_v_max = 60
 acc_normal_coef = 0.03
 dec_coef = 0.08
 
-orbit_v_max = 90
+orbit_v_max = 120
 orbit_v_min = 30
 
 ###################【视觉伺服】####################
