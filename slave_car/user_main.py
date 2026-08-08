@@ -487,7 +487,7 @@ def test_apriltag_calibrate():
 def test_tof_distance_control():
     if my_state.state == READY_NAVIGATE:
         my_state.state = MOVE
-        my_plan.move_v_max = 0.0
+        my_plan.move_v_max = 100
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
         my_plan.keep_x_or_y_v = False
