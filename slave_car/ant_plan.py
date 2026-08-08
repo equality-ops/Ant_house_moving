@@ -14,7 +14,6 @@ ADJUST = const(7)         # 微调状态
 RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 RETREAT = const(10)       # 后退状态
-KEEP_SPACE = const(11)    # 保持距离状态
 
 # 状态机
 class StateMachine:
