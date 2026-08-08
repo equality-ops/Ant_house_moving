@@ -211,6 +211,7 @@ class MoveControl:
         self.adjust_point = []   # 微调目标点
         self.now_object_pt = []
         self.clamp_distance = 3
+        self.next_postion = 'l'
         self.push_postion = [1,0]
         self.plan_path = []
         self.angle_T = self.flash_sys.find_value("angle_T")
@@ -330,23 +331,33 @@ class MoveControl:
             self.if_to_the_top = True
             self.now_object_pt = point
             self.get_object_square_points(current_ref_yaw_deg, 18)
-            sla_p = [self.surrounding_points['LD']]
-            angle = angle_l
-            self.my_tof.ready_tof('right',target_turn)
+            if self.next_postion == 'r':
+                sla_p = [self.surrounding_points['RD']]
+                angle = angle_r
+                self.next_postion = 'l'
+                self.my_tof.ready_tof('left',target_turn)
+            else:
+                sla_p = [self.surrounding_points['LD']]
+                angle = angle_l
+                self.next_postion = 'r'
+                self.my_tof.ready_tof('right',target_turn)
             car_postion += 90
         elif turn_angle == 90.0:
             sla_p = [point]
             angle = angle_r
+            self.next_postion = 'l'
             self.my_tof.ready_tof('left',target_turn)
             car_postion -= 90
         elif turn_angle == 180.0:
             sla_p = [point]
             angle = angle_r
+            self.next_postion = 'l'
             self.my_tof.ready_tof('left',target_turn)
             car_postion -= 90
         elif turn_angle == -90.0:
             sla_p = [point]
             angle = angle_l
+            self.next_postion = 'r'
             self.my_tof.ready_tof('right',target_turn)
             car_postion += 90
         car_postion = 180 - (180 - car_postion) % 360

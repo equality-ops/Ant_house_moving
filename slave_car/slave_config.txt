@@ -166,6 +166,7 @@ apr_pos_R = "326,123"
 apr_pos_U = "163,246"
 apr_pos_D = "163,0"
 
+if_obstacles = 1
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
 circle = "(215, 190)"

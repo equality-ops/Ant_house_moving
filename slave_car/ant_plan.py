@@ -48,8 +48,13 @@ class PlanData:
         self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")# 小车安全裕量 (质点膨胀半径)
 
         self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, 90.0, 90.0)  # 中心禁区矩形障碍物（已膨胀）
-        self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
-        self.circle = self.flash_sys.find_value("circle")  # 信标障碍物中心坐标列表
+        self.if_obstacles = self.flash_sys.find_value("if_obstacles")
+        if self.if_obstacles == 1:
+            self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
+            self.circle = self.flash_sys.find_value("circle")  # 信标障碍物中心坐标列表
+        else:
+            self.cube = []
+            self.circle = []
         # 将矩形障碍区进行膨胀（先后顺序不能改变）
         self.rectangles = [self.create_expanded_rect(x[0], x[1], x[2], x[3]) for x in self.cube]
         self.rectangles.append(self.rectangle_obstacles)  # 将中心禁区矩形障碍物加入矩形障碍物列表
