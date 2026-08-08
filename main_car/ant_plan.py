@@ -568,7 +568,6 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
-            """
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
@@ -584,8 +583,9 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            return v_target
             # 在搬运模式下为保证加速阶段一致设置恒定速度
-            if self.keep_x_or_y_v == True:
+            '''if self.keep_x_or_y_v == True:
                 sin_fit = math.sin(self.fit_target_yaw*PI / 180.0)
                 sin_yaw = math.sin(self.target_yaw*PI / 180.0)
                 if abs(sin_fit) > 1e-3:return v_target*sin_yaw/sin_fit
@@ -594,11 +594,9 @@ class NavigationPlan:
                 cos_fit = math.cos(self.fit_target_yaw*PI / 180.0)
                 cos_yaw = math.cos(self.target_yaw*PI / 180.0)
                 if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
-                else: return v_target
+                else: return v_target'''
         #elif self.my_state.state == SCAN:
         #    v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
-            """
-            return self.move_v_max
         else:
             v_cruise = self.long_v_max
 
@@ -634,6 +632,8 @@ class NavigationPlan:
         if self.aimed_point_index >= len(self.path) - 1:
             self.target_v = 0
             return self.target_v, self.target_yaw
+        target_pt = self.path[self.aimed_point_index + 1]
+        self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
         if self.move_state == MOVE: 
             p0 = self.path[self.aimed_point_index]
             p1 = self.path[self.aimed_point_index + 1]
@@ -643,15 +643,13 @@ class NavigationPlan:
                 self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
                 self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
             else:
-                if self.keep_x_or_y_v:self.fit_rest_dist = abs(p1[0] - car_x)
-                else:self.fit_rest_dist = abs(p1[1] - car_y)
+                if self.keep_x_or_y_v:self.fit_rest_dist = abs(target_pt[0] - car_x)
+                else:self.fit_rest_dist = abs(target_pt[1] - car_y)
         else:
             # =======================================================
             # 2. 闭环航向角解算模块
             # =======================================================
-            target_pt = self.path[self.aimed_point_index + 1]
             self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
 
         # 1. 速度控制模块
         # =======================================================

@@ -553,7 +553,7 @@ class NavigationPlan:
             v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
-            """
+            
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
@@ -569,6 +569,8 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+            return v_target
+            """
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             if self.keep_x_or_y_v == True:
                 sin_fit = math.sin(self.fit_target_yaw*PI / 180.0)
@@ -615,21 +617,25 @@ class NavigationPlan:
         if self.aimed_point_index >= len(self.path) - 1:
             self.target_v = 0
             return self.target_v, self.target_yaw
-        if self.move_state == MOVE and self.fitting_path_: 
+        target_pt = self.path[self.aimed_point_index + 1]
+        self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
+        if self.move_state == MOVE: 
             p0 = self.path[self.aimed_point_index]
             p1 = self.path[self.aimed_point_index + 1]
             self.target_yaw = -math.atan2(-(p1[0] - p0[0]), p1[1] - p0[1]) * 180.0 / PI
-            
-            target_pt = self.fitting_path_[self.aimed_point_index + 1]
-            self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-            self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+            if self.fitting_path_:
+                target_pt = self.fitting_path_[self.aimed_point_index + 1]
+                self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
+                self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+            else:
+                if self.keep_x_or_y_v:self.fit_rest_dist = abs(target_pt[0] - car_x)
+                else:self.fit_rest_dist = abs(target_pt[1] - car_y)
         else:
             # =======================================================
-            # 闭环航向角解算模块
+            # 2. 闭环航向角解算模块
             # =======================================================
-            target_pt = self.path[self.aimed_point_index + 1]
             self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
+        
         # =======================================================
         # 速度控制模块
         # =======================================================
@@ -643,7 +649,7 @@ class NavigationPlan:
         # =======================================================
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         rest_dist=self.rest_dist
-        if self.move_state == MOVE and self.fitting_path_: 
+        if self.move_state == MOVE: 
             rest_dist=self.fit_rest_dist
 
         if not is_last_segment and rest_dist <= self.branch_threshold:
