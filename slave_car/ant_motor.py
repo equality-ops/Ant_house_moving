@@ -809,6 +809,12 @@ class CarPose:
 
         # 距离控制模式：根据speed_weight合成垂直于当前速度方向的分量
         if self.if_control_dist and self.speed_weight != 0.0:
+            # 重新限幅到-180到180度
+            if self.fixed_direction > 180.0:
+                self.fixed_direction -= 360.0
+            elif self.fixed_direction < -180.0:
+                self.fixed_direction += 360.0
+                
             # 当前move_angle_target转弧度用于向量分解
             rad = self.fixed_direction * PI / 180.0
             # 原始速度在世界坐标系下的分量

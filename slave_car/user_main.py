@@ -40,27 +40,21 @@ else:
     import ant_move
     gc.collect()
     # 引入 VL53L4CD 驱动
-    from vl53l4cd import VL53L4CD, \
-        RANGE_VALID, RANGE_WARN_SIGMA_ABOVE, RANGE_WARN_SIGMA_BELOW, \
-        RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD, RANGE_ERROR_INVALID_PHASE, \
-        RANGE_ERROR_HW_FAIL, RANGE_WARN_NO_WRAP_AROUND_CHECK, \
-        RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH, RANGE_ERROR_PROCESSING_FAIL, \
-        RANGE_ERROR_CROSSTALK_FAIL, RANGE_ERROR_INTERRUPT, RANGE_ERROR_MERGED_TARGET, \
-        RANGE_ERROR_SIGNAL_TOO_WEAK, RANGE_ERROR_OTHER
+    from vl53l4cd import VL53L4CD
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
+READY_NAVIGATE = const(0) # 准备导航状态
 NAVIGATE = const(1)       # 导航状态
 SCAN = const(2)           # 扫描状态
 SERVO = const(3)          # 视觉伺服状态
 ORBIT = const(4)          # 环绕状态
 MOVE = const(5)           # 搬运状态
 CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
+ADJUST = const(7)         # 微调状态
+RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
-RETREAT = const(10) 
+RETREAT = const(10)       # 后退状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -69,23 +63,6 @@ if_press_start_key = False
 # 是否成功启动标志位
 start_flag = False
 
-# tof状态码 → 可读错误描述映射
-RANGE_STATUS_DESC = {
-    RANGE_VALID:                                      "有效数据",
-    RANGE_WARN_SIGMA_ABOVE:                           "警告: 噪声偏高",
-    RANGE_WARN_SIGMA_BELOW:                           "警告: 噪声偏低",
-    RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD:   "错误: 低于检测阈值",
-    RANGE_ERROR_INVALID_PHASE:                        "错误: 无效相位",
-    RANGE_ERROR_HW_FAIL:                              "错误: 硬件故障",
-    RANGE_WARN_NO_WRAP_AROUND_CHECK:                  "警告: 无环绕检查",
-    RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH:        "错误: 相位不匹配",
-    RANGE_ERROR_PROCESSING_FAIL:                      "错误: 处理失败",
-    RANGE_ERROR_CROSSTALK_FAIL:                       "错误: 串扰检测失败",
-    RANGE_ERROR_INTERRUPT:                            "错误: 中断异常",
-    RANGE_ERROR_MERGED_TARGET:                        "错误: 目标合并",
-    RANGE_ERROR_SIGNAL_TOO_WEAK:                      "错误: 信号太弱",
-    RANGE_ERROR_OTHER:                                "错误: 未知",
-}
 ##################################【实例对象构建及初始化】##################################
 """""""""核心板与学习板接口初始化"""""""""
 # 核心板上 C4 是 LED
@@ -286,7 +263,7 @@ if tof_L is None and tof_R is None:
     my_beep.beep_warn()
     print("No VL53L4CD detected. Test aborted.")
 elif tof_L and tof_R:
-    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R, my_car, dist_pid_L, dist_pid_R)
+    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R, my_car, my_plan, dist_pid_L, dist_pid_R)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
@@ -510,11 +487,8 @@ def test_apriltag_calibrate():
 def test_tof_distance_control():
     if my_state.state == READY_NAVIGATE:
         my_state.state = MOVE
-        my_car.if_control_dist = True
         my_plan.move_v_max = 100
         my_moving.current_state = MOVE
-        my_tof.choose_sensor('left')
-        my_tof.set_fixed_direction(0.0)
     elif my_state.state == MOVE:
         # 距离控制
         my_tof.dist_control()
