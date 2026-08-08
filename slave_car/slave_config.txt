@@ -122,24 +122,24 @@ tof_valid_min = 5.0
 tof_valid_max = 30.0
 dist_pwmout_limitmax = 60
 ###################【环绕控制】####################
-radius_T_U = 13.0
-radius_T_R = 11.0
-radius_T_L = 11.0
-radius_T_D = 12.0
+radius_T_U = 16.0
+radius_T_R = 16.0
+radius_T_L = 16.0
+radius_T_D = 16.0
 
-radius_S_U = 11.0
-radius_S_R = 12.0
-radius_S_L = 14.0
-radius_S_D = 12.0
+radius_S_U = 19.0
+radius_S_R = 19.0
+radius_S_L = 19.0
+radius_S_D = 19.0
 
-radius_B_U = 15.5
-radius_B_R = 17.5
-radius_B_L = 16.5
-radius_B_D = 15.5
+radius_B_U = 21.0
+radius_B_R = 21.0
+radius_B_L = 21.0
+radius_B_D = 21.0
 
-angle_T = 40
-angle_S = 40
-angle_B = 40
+angle_T = 45
+angle_S = 45
+angle_B = 45
 
 calibrate_waiting_time = 40
 #############################################
