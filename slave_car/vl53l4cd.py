@@ -56,7 +56,7 @@ RANGE_ERROR_OTHER = const(0xFF)
 class VL53L4CD:
     """MicroPython driver for the VL53L4CD distance sensor."""
     
-    def __init__(self, i2c, address=0x29, i2c_retries=10000000):
+    def __init__(self, i2c, address=0x29, i2c_retries=100):
         self._i2c = i2c
         self._address = address
         self._ranging = False

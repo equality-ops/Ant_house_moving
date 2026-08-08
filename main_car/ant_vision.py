@@ -165,14 +165,10 @@ class VisionManager:
         self.car_radius = 4.5   # 小车推杆到中心的距离
         self.adjust_length = 3.0   # 用于补偿0到摄像头的距离
         # ================= 视觉伺服矫正相关变量 =================
-        # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.close_H_matrix = [[ 1.87876536e+00, -8.40010530e-02, -1.46726283e+02],
-                              [-1.82418055e-02, -1.44572485e+00,  2.13536746e+02],
-                              [-1.44311123e-03,  6.41833738e-02,  1.00000000e+00]]
-        
-        self.far_H_matrix = [[ 1.87876536e+00, -8.40010530e-02, -1.46726283e+02],
-                            [-1.82418055e-02, -1.44572485e+00,  2.13536746e+02],
-                            [-1.44311123e-03,  6.41833738e-02,  1.00000000e+00]]
+        # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）        
+        self.H_matrix = [[4.30750917e+00,  2.15894512e-03, -3.34971472e+02],
+                        [1.57693840e-02, -2.81229605e+00,  4.29224341e+02],
+                        [3.28528820e-03,  1.57144796e-01,  1.00000000e+00]]
         gc.collect()
         
     # 重置视觉伺服角度
@@ -192,7 +188,7 @@ class VisionManager:
         self.last_car_y = self.my_car.y_current
 
     # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, sign: str, object_kind = None, mode = 'M'):
+    def pixel_to_real_world(self, u, v, object_kind = None, mode = 'M'):
         """
         将像素坐标转换为实际物理坐标
         :param u: 像素点的 x 坐标 (列)
@@ -217,12 +213,9 @@ class VisionManager:
                 elif object_kind in ['W', 'B']:object_H = 3
                 
         # 根据物体远近选择单应性矩阵H
-        H_matrix = self.far_H_matrix
-        if sign == 'close':
-            H_matrix = self.close_H_matrix
-        elif sign == 'far':
-            H_matrix = self.far_H_matrix
-        K = (19.6 - object_H) / 19.6
+        H_matrix = self.H_matrix
+
+        K = (23.5 - object_H) / 23.5
 
         # 计算缩放因子
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
@@ -248,7 +241,7 @@ class VisionManager:
             return False
         return True
     
-        # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
+    # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
     def pixel_to_real_world_scan(self, u, v):
         """
         将像素坐标转换为实际物理坐标
@@ -258,7 +251,7 @@ class VisionManager:
         :return: 真实的物理坐标 (X_w, Y_w)
         """
         # 根据物体远近选择单应性矩阵H
-        H_matrix = self.far_H_matrix
+        H_matrix = self.H_matrix
         w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
         # 计算原始坐标（未缩放）
         X_raw = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime
@@ -298,7 +291,7 @@ class VisionManager:
         # print(f"Y_raw: {Y_raw}, object_H: {object_H}")
 
         # 计算缩放因子
-        K = (19.0 - object_H) / 19.0
+        K = (23.5 - object_H) / 23.5
  
         # 返回真实的物理坐标
         return X_raw * K, Y_raw * K
@@ -350,11 +343,11 @@ class VisionManager:
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
-    def calc_object_global_pos(self, pixel_x, pixel_y, sign='far',object_kind=None,mode = 'C'):
+    def calc_object_global_pos(self, pixel_x, pixel_y, object_kind=None,mode = 'C'):
         # 像素点 -> 车体坐标系下真实坐标
         if object_kind:
             self.current_servo_object = object_kind
-        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y,sign,object_kind,mode)
+        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y, object_kind, mode)
         rel_y += self.car_radius
         # 车体坐标系下，x 为车右侧，y 为车前方
         dist = math.sqrt(rel_x ** 2 + rel_y ** 2)

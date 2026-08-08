@@ -518,6 +518,8 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
+
+    """
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
@@ -544,9 +546,9 @@ def time_pit3_handler(time) -> None:
         my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    
+    """
     # 视觉伺服测试程序
-    # test_vision_servo()
+    test_vision_servo()
 
     # 搬运控制测试程序
     # test_moving()
