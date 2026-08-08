@@ -190,7 +190,7 @@ class TofControl:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager):
+    def __init__(self, flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager, tof):
         self.my_beep = beep
         self.my_photo = photo
         self.my_uart = uart
@@ -204,6 +204,7 @@ class MoveControl:
         self.my_art_protocol = art_protocol
         self.my_order_manager = order_manager
         self.flash_sys = flash_sys
+        self.my_tof = tof
         self.next_orbit_angle = 0.0  # 下一环绕角度
         self.move_pt_buffer = []     # 搬运目标点缓冲区
         self.next_point = []     # 下一目标点
@@ -321,6 +322,7 @@ class MoveControl:
         # 角度限幅到 [-180, 180)
         target_turn = (target_turn + 180.0) % 360.0 - 180.0
         car_postion = target_turn
+        
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
         self.if_to_the_top = False
@@ -330,18 +332,22 @@ class MoveControl:
             self.get_object_square_points(current_ref_yaw_deg, 18)
             sla_p = [self.surrounding_points['LD']]
             angle = angle_l
+            self.my_tof.ready_tof('right',target_turn)
             car_postion += 90
         elif turn_angle == 90.0:
             sla_p = [point]
             angle = angle_r
+            self.my_tof.ready_tof('left',target_turn)
             car_postion -= 90
         elif turn_angle == 180.0:
             sla_p = [point]
             angle = angle_r
+            self.my_tof.ready_tof('left',target_turn)
             car_postion -= 90
         elif turn_angle == -90.0:
             sla_p = [point]
             angle = angle_l
+            self.my_tof.ready_tof('right',target_turn)
             car_postion += 90
         car_postion = 180 - (180 - car_postion) % 360
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
@@ -430,11 +436,11 @@ class MoveControl:
                 self.my_plan.keep_x_or_y_v = True
             else:return []
             if dx1==0 and dy1==0:
-                self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
+                #self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
                 return [pl]
             p1 = [p_m[0] + ratio * self.push_postion[0] * now_clamp,
                   p_m[1] + ratio * self.push_postion[1] * now_clamp,]
-            self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2_t]
+            #self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2_t]
             return [p_m,pl]
         except:return []
     # 状态过渡函数
@@ -494,6 +500,7 @@ class MoveControl:
                 self.current_state = MOVE
         elif self.current_state == MOVE:
             if self.my_plan.if_near_line or self.my_plan.if_finish_navigate:
+                self.my_tof.reset_tof()
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False
                 self.if_finish_move = True
@@ -552,6 +559,7 @@ class MoveControl:
                 self.my_plan.if_near_line = True
                 self.my_plan.if_finish_navigate = True
             self.my_plan.navigate(path = self.plan_path)
+            self.my_tof.dist_control()
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
         elif self.current_state == ADJUST:
