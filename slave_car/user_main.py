@@ -489,6 +489,10 @@ def test_tof_distance_control():
         my_state.state = MOVE
         my_plan.move_v_max = 100
         my_moving.current_state = MOVE
+        my_plan.keep_x_or_y_v = False
+        my_tof.ready_tof('left',0)
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
     elif my_state.state == MOVE:
         # 距离控制
         my_tof.dist_control()
@@ -499,6 +503,7 @@ def test_tof_distance_control():
             my_plan.reset_navigate_angle()
             my_state.state = STOP
     elif my_state.state == STOP:
+        my_uart3.write("stop\n")
         pass
 
 # 任务机执行函数
