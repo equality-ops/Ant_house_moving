@@ -297,7 +297,7 @@ class VisionManager:
     
     # 推测目标点位并进行视觉伺服控制
     def predict_point(self, x, y,limit_y = None):
-        car_radius = 12.0
+        car_radius = 7.0
         raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
         if limit_y:
             if raw_y>limit_y: return []

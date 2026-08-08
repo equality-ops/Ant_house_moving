@@ -119,8 +119,7 @@ class VisionManager:
         self.angle_S = self.flash_sys.find_value("angle_S")     # type: float   # 沙袋环绕角度
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
-        self.car_radius = 10.0   # 小车推杆到中心的距离
-        self.correct_dist = 4.85    # 经验修正值（物体在推杆正前方的值）
+        self.correct_dist = 10.51    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
         self.counter = 0       # type: int     # 延时计数器
@@ -145,11 +144,10 @@ class VisionManager:
         self.if_finish_orbit = False      # type: bool   # 是否完成环绕控制标志位
         # ================= 视觉伺服矫正相关变量 =================
         # 单应性矩阵（由cv2.findHomography求得，作用是将像素坐标转换为实际物理坐标，考虑了摄像头的内参和外参）
-        self.car_radius = 13.0   # 小车推杆到中心的距离
-        self.correct_dist = 5.90    # 经验修正值（物体在推杆正前方的值）
+        self.correct_dist = 10.51    # 经验修正值（物体在推杆正前方的值）
         self.H_matrix = [[ 1.93284562e+00, -1.87582067e-04, -1.42042018e+02],
-                              [-4.39372726e-16, -1.31007314e+00,  1.96628024e+02],
-                              [-1.32799359e-17,  6.57475145e-02,  1.00000000e+00]]
+                        [-4.39372726e-16, -1.31007314e+00,  1.96628024e+02],
+                        [-1.32799359e-17,  6.57475145e-02,  1.00000000e+00]]
                         
         # apriltag码矫正相关变量--------------------------------------------------------
         apr_pos_L = self.flash_sys.find_value("apr_pos_L")
@@ -211,7 +209,7 @@ class VisionManager:
             elif object_kind in ['S', 'E']:
                 object_H = 5.0
             elif object_kind in ['W', 'B']:
-                object_H = 3.0
+                object_H = 3.5
 
         H_matrix = self.H_matrix
 
@@ -232,10 +230,10 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     # 物体像素点坐标解算函数
-    def calculate_dist(self, x: int, y: int, sign: str = 'far'):
+    def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
-        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y, sign)
-        # self.relative_raw_y = self.relative_raw_y - self.final_dist_y - self.correct_dist
+        self.relative_raw_x, self.relative_raw_y = self.pixel_to_real_world(x, y)
+        self.relative_raw_y = self.relative_raw_y - self.final_dist_y - self.correct_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
         car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
@@ -260,7 +258,7 @@ class VisionManager:
         self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
-        self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
+        # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
 
     # 视觉伺服控制函数
     def visual_servo_control(self):
@@ -356,17 +354,6 @@ class VisionManager:
             if self.target_rel_yaw > 70.0 or self.target_rel_yaw < -70.0:
                 self.target_rel_speed = self.target_rel_speed * 0.8
             self.target_rel_speed = max(self.min_rel_speed, min(self.target_rel_speed, self.max_rel_speed))
-
-    # 计算环绕中心坐标函数（传入物体中心像素点坐标）
-    def calculate_orbit_center(self, x, y):
-        raw_x, raw_y = self.pixel_to_real_world(x, y, 'close')
-        # 3.0为物体平均半径
-        raw_y = raw_y + self.car_radius - self.correct_dist + 3.0  # 将物体距离修正为从小车中心到物体的距离
-        raw_yaw = -math.atan2(-raw_x, raw_y)
-        real_yaw = (raw_yaw + self.my_car.now_yaw + PI) % (2 * PI) - PI
-        actual_dist = math.sqrt(raw_x**2 + raw_y**2)
-        self.orbit_center_x = self.my_car.x_current + actual_dist * math.sin(real_yaw)
-        self.orbit_center_y = self.my_car.y_current + actual_dist * math.cos(real_yaw)
 
     # 环绕控制函数，传入环绕物体旋转的目标世界坐标系角度（单位：度）（范围：-180到180）
     def orbit_control(self, target_angle: float, direct = None):
@@ -537,7 +524,7 @@ class VisionManager:
             self.final_dist_x *= 0.8
 
         if point:
-            self.calculate_dist(point[0], point[1], 'far')
+            self.calculate_dist(point[0], point[1])
             self.last_relative_raw_y = self.relative_raw_y
             self.last_real_servo_point = None
         

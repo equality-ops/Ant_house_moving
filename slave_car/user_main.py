@@ -388,7 +388,7 @@ def test_vision_servo():
 
         target_point = my_art_protocol.coordinate_receive()
         if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
+            my_vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
             # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
             my_vision_manager.if_send_order = False
             my_state.state = SERVO
@@ -398,7 +398,6 @@ def test_vision_servo():
             # my_order_manager.mode_target()
             my_plan.reset_navigate_angle()
             counter += 1
-            my_state.state = STOP
             if counter >= 20:
                 counter = 0
                 # 测试
