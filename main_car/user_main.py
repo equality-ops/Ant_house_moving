@@ -538,10 +538,11 @@ def time_pit3_handler(time) -> None:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
             my_state.state = STOP
+            my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+        # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # 视觉伺服测试程序
     # test_vision_servo()
 

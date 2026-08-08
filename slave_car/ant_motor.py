@@ -802,29 +802,21 @@ class CarPose:
             self.motor_md_pid.reset_integral()
 
         # 将目标转角和目标航向角限定在-180到180度之间
-        if turn_angle_target > 180.0:
-            turn_angle_target -= 360.0        
-        elif turn_angle_target < -180.0:   
-            turn_angle_target += 360.0
-        
-        if move_angle_target > 180.0:
-            move_angle_target -= 360.0
-        elif move_angle_target < -180.0:
-            move_angle_target += 360.0
+        turn_angle_target = ((turn_angle_target + 180.0) % 360.0) - 180.0
+
+        move_angle_target = ((move_angle_target + 180.0) % 360.0) - 180.0
 
         # 设置目标转角
         self.turn_angle_target = turn_angle_target
 
         # 距离控制模式：根据speed_weight合成垂直于当前速度方向的分量
         if self.if_control_dist and self.speed_weight != 0.0:
-            # 重新限幅到-180到180度
-            if self.fixed_direction > 180.0:
-                self.fixed_direction -= 360.0
-            elif self.fixed_direction < -180.0:
-                self.fixed_direction += 360.0
+            self.fixed_direction = ((self.fixed_direction + 180.0) % 360.0) - 180.0
 
             # 当前move_angle_target转弧度用于向量分解
             rad = self.fixed_direction * PI / 180.0
+            # 将move_angle_target转换为弧度
+            move_angle_target = move_angle_target * PI / 180
             # 原始速度在世界坐标系下的分量
             vx_orig = move_speed_target * math.sin(move_angle_target)
             vy_orig = move_speed_target * math.cos(move_angle_target)
@@ -843,11 +835,7 @@ class CarPose:
             # 计算新的目标速度和目标角度
             move_speed_target = math.sqrt(vx_new * vx_new + vy_new * vy_new)
             move_angle_target = -math.atan2(-vx_new, vy_new) * 180.0 / PI
-            # 重新限幅到-180到180度
-            if move_angle_target > 180.0:
-                move_angle_target -= 360.0
-            elif move_angle_target < -180.0:
-                move_angle_target += 360.0
+            move_angle_target = ((move_angle_target + 180.0) % 360.0) - 180.0
 
         # 将move_angle_target转换为弧度
         move_angle_target = move_angle_target * PI / 180
