@@ -114,24 +114,24 @@ servo_target_y_A = 3.0
 apriltag_threshold_x = 2.0
 apriltag_threshold_y = 2.0
 ###################【环绕控制】####################
-radius_T_U = 12.7
-radius_T_R = 12.7
-radius_T_L = 12.7
-radius_T_D = 12.0
+radius_T_U = 16.0
+radius_T_R = 16.0
+radius_T_L = 16.0
+radius_T_D = 16.0
 
-radius_S_U = 14.0
-radius_S_R = 12.0
-radius_S_L = 14.0
+radius_S_U = 18.0
+radius_S_R = 18.0
+radius_S_L = 18.0
 radius_S_D = 18.0
 
-radius_B_U = 16
-radius_B_R = 17.7
-radius_B_L = 16.5
-radius_B_D = 17.5
+radius_B_U = 21.0
+radius_B_R = 21.0
+radius_B_L = 21.0
+radius_B_D = 21.0
 
-angle_T = 40
-angle_S = 40
-angle_B = 40
+angle_T = 45
+angle_S = 45
+angle_B = 45
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 

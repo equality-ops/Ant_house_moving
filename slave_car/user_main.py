@@ -406,7 +406,7 @@ def test_vision_servo():
                 my_vision_manager.reset_orbit_angle()
                 my_state.state = ORBIT
     elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
+        my_vision_manager.orbit_control(145.0)
         if my_vision_manager.if_finish_orbit == True:
             my_plan.reset_navigate_angle()
             my_moving.reset_orbit()
@@ -603,7 +603,7 @@ def time_pit3_handler(time) -> None:
     angle_pid_compute()
 
     # 任务执行机
-    # task_machine()
+    task_machine()
     
     # 全向定位测试程序
     """
@@ -628,7 +628,7 @@ def time_pit3_handler(time) -> None:
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
-    test_vision_servo()
+    # test_vision_servo()
 
     # 边线校准测试程序
     # test_apriltag_calibrate()

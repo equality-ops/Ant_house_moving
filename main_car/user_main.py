@@ -453,7 +453,7 @@ def test_vision_servo():
                 my_vision_manager.reset_orbit_angle()
                 my_state.state = ORBIT
     elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
+        my_vision_manager.orbit_control(145.0)
         if my_vision_manager.if_finish_orbit == True:
             my_plan.reset_navigate_angle()
             my_moving.reset_orbit()
