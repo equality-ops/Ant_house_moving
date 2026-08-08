@@ -139,25 +139,25 @@ tof_R = None
 # 初始化传感器 1 (I2C1)
 if 0x29 in device_list_0:
     try:
-        tof_L = VL53L4CD(i2c_1, address = 0x29)
-        tof_L.start_ranging()
+        tof_R = VL53L4CD(i2c_1, address = 0x29)
+        tof_R.start_ranging()
     except Exception as e:
         my_beep.beep_warn()
 else:
     my_beep.beep_warn()
-    print("TOF L (I2C1) not found! Please check wiring and XSHUT pull-up.")
+    print("TOF R (I2C1) not found! Please check wiring and XSHUT pull-up.")
 
 # 初始化传感器 3 (I2C3)
 if 0x29 in device_list_3:
     try:
-        tof_R = VL53L4CD(i2c_3, address = 0x29)
-        tof_R.start_ranging()
+        tof_L = VL53L4CD(i2c_3, address = 0x29)
+        tof_L.start_ranging()
     except Exception as e:
         my_beep.beep_warn()
-        print("TOF R (I2C3) init failed:", e)
+        print("TOF L (I2C3) init failed:", e)
 else:
     my_beep.beep_warn()
-    print("TOF R (I2C3) not found! Please check wiring and XSHUT pull-up.")
+    print("TOF L (I2C3) not found! Please check wiring and XSHUT pull-up.")
 
 
 """光电管初始化"""
@@ -217,13 +217,6 @@ my_flash_sys.phase_config()
 # 检查列表格式
 my_flash_sys.check_list_format()
 
-# 如果两个传感器都没找到 直接退出
-if tof_L is None and tof_R is None:
-    my_beep.beep_warn()
-    print("No VL53L4CD detected. Test aborted.")
-elif tof_L and tof_R:
-    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R)
-
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_flash_sys, my_uart6)
 
@@ -272,6 +265,8 @@ motor_ur_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filte
 motor_md_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_md)
 angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
+dist_pid_L = ant_motor.DistPID(my_flash_sys, "L")
+dist_pid_R = ant_motor.DistPID(my_flash_sys, "R")
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
@@ -285,6 +280,13 @@ plan_data = ant_plan.PlanData(my_flash_sys)
 my_path = ant_plan.PathPlan(plan_data, my_car)
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
+
+# 如果两个传感器都没找到 直接退出
+if tof_L is None and tof_R is None:
+    my_beep.beep_warn()
+    print("No VL53L4CD detected. Test aborted.")
+elif tof_L and tof_R:
+    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R, my_car, dist_pid_L, dist_pid_R)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
@@ -339,7 +341,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -503,6 +505,28 @@ def test_apriltag_calibrate():
     elif my_state.state == RETURN:
         my_plan.navigate(path = [plan_data.fixed_point[0]], target_turn_angle = 0.0)
 
+
+# 测试tof距离控制
+def test_tof_distance_control():
+    if my_state.state == READY_NAVIGATE:
+        my_state.state = MOVE
+        my_car.if_control_dist = True
+        my_plan.move_v_max = 100
+        my_moving.current_state = MOVE
+        my_tof.choose_sensor('left')
+        my_tof.set_fixed_direction(0.0)
+    elif my_state.state == MOVE:
+        # 距离控制
+        my_tof.dist_control()
+        my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = -30.0)
+        if my_plan.if_finish_navigate == True:
+            my_tof.reset_tof()
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            my_state.state = STOP
+    elif my_state.state == STOP:
+        pass
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -540,7 +564,7 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     # task_machine()
-
+    
     # 全向定位测试程序
     """
     if my_state.state == READY_NAVIGATE:
@@ -572,10 +596,11 @@ def time_pit3_handler(time) -> None:
     # 环绕物体测试程序
     # test_orbit()
 
-    # test_main_slave_sync()
+    # 测试tof距离控制
+    test_tof_distance_control()
 
     # 自转测试函数
-    test_spin()
+    # test_spin()
 
     # apriltag码矫正测试函数
     # test_apriltag_calibrate()
@@ -596,9 +621,8 @@ def time_pit2_handler(time):
     """
 
     # 更新tof传感器信息
-    my_tof.update_tof()
-    my_uart3.write(f"{my_tof.data_L},{my_tof.data_R}\r\n")
-    
+    # my_tof.update_tof()
+    # my_uart3.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")

@@ -31,7 +31,7 @@ class PlanData:
         self.center_x = self.flash_sys.find_value("CENTER_X")
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         lenth = self.flash_sys.find_value("SUDOKU_length_x")
-        self.fixed_point = [[15.0, -40.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
+        self.fixed_point = [[0.0, 0.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
                             [self.center_x + lenth*2,self.center_y + lenth*2],[25.0, -60.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
@@ -553,6 +553,7 @@ class NavigationPlan:
             v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
+            """
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
@@ -579,6 +580,8 @@ class NavigationPlan:
                 cos_yaw = math.cos(self.target_yaw*PI / 180.0)
                 if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
                 else: return v_target
+            """
+            return self.move_v_max
         # s 直接基于我们之前算出的 usable_len 限制
         s = self.segment_start_dist - self.rest_dist
         s_usable = max(0.0, min(s, self.usable_len))  # 强制束缚在可用区间内

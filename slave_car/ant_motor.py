@@ -644,6 +644,54 @@ class ServoPID(ControlPID):
         self.pwm_output_x = max(-self.__pwmout_limitmax, min(self.pwm_output_x, self.__pwmout_limitmax))
         self.pwm_output_y = max(-self.__pwmout_limitmax, min(self.pwm_output_y, self.__pwmout_limitmax))
 
+# 距离控制PD
+class DistPID(ControlPID):
+    def __init__(self, flash_sys, L_or_R: str):
+        # 注入flash系统对象
+        self.flash_sys = flash_sys
+        self.dist_kp = self.flash_sys.find_value("dist_kp")        # type: float
+        self.dist_kd = self.flash_sys.find_value("dist_kd")        # type: float
+        self.L_or_R = L_or_R
+        if L_or_R == "L":
+            self.target = self.flash_sys.find_value("target_L")     # type: float
+        elif L_or_R == "R":
+            self.target =  self.flash_sys.find_value("target_R")     # type: float
+        self.actual = 0.0
+        self.deadzone = self.flash_sys.find_value("dist_deadzone")     # type: float
+        self.nowError = 0   # type: float
+        self.preError = 0   # type: float
+        self.derivative = 0 # type: float
+        self.pwm_output = 0 # type: int
+        self.__pwmout_limitmax = self.flash_sys.find_value("dist_pwmout_limitmax")    # type: int
+    
+        gc.collect()  # 主动触发垃圾回收，释放内存
+
+    # pid计算
+    def compute_pid(self, actual: float):
+        self.actual = actual
+        self.preError = self.nowError
+        self.nowError = self.actual - self.target
+
+        # 死区判断：误差绝对值小于死区时，pwm输出置零
+        if abs(self.nowError) < self.deadzone:
+            self.pwm_output = 0
+            return
+
+        # 计算微分项
+        self.derivative = self.nowError - self.preError
+        # 计算pwm_output
+        if self.L_or_R == "L":
+            self.pwm_output = -int(self.dist_kp * self.nowError + self.dist_kd * self.derivative)
+        elif self.L_or_R == "R":
+            self.pwm_output = int(self.dist_kp * self.nowError + self.dist_kd * self.derivative)
+
+        # pwm_output限幅
+        self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
+
+    # 输出清零
+    def reset_pwmout(self):
+        self.pwm_output = 0
+
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
@@ -688,6 +736,12 @@ class CarPose:
         self.now_yaw = 0.0  # type: float
         self.last_gyro_z = 0.0  # type: float
         self.last_time = 0      # type: int
+
+        # tof距离控制变量
+        self.speed_weight = 0.0  # type: float
+        self.fixed_direction = 0.0  # type: float
+        self.if_control_dist = False  # type: bool
+
         # 测试一个电机的里程
         # self.encouder_ul = 0.0    
         # self.encouder_ur = 0.0
@@ -752,6 +806,34 @@ class CarPose:
 
         # 设置目标转角
         self.turn_angle_target = turn_angle_target
+
+        # 距离控制模式：根据speed_weight合成垂直于当前速度方向的分量
+        if self.if_control_dist and self.speed_weight != 0.0:
+            # 当前move_angle_target转弧度用于向量分解
+            rad = self.fixed_direction * PI / 180.0
+            # 原始速度在世界坐标系下的分量
+            vx_orig = move_speed_target * math.sin(move_angle_target)
+            vy_orig = move_speed_target * math.cos(move_angle_target)
+            abs_w = abs(self.speed_weight)
+            if self.speed_weight < 0:
+                # 逆时针旋转90度
+                vx_perp = -abs_w * math.cos(rad)
+                vy_perp = abs_w * math.sin(rad)
+            else:
+                # 顺时针旋转90度：
+                vx_perp = abs_w * math.cos(rad)
+                vy_perp = -abs_w * math.sin(rad)
+            # 合成新速度向量
+            vx_new = vx_orig + vx_perp
+            vy_new = vy_orig + vy_perp
+            # 计算新的目标速度和目标角度
+            move_speed_target = math.sqrt(vx_new * vx_new + vy_new * vy_new)
+            move_angle_target = -math.atan2(-vx_new, vy_new) * 180.0 / PI
+            # 重新限幅到-180到180度
+            if move_angle_target > 180.0:
+                move_angle_target -= 360.0
+            elif move_angle_target < -180.0:
+                move_angle_target += 360.0
 
         # 将move_angle_target转换为弧度
         move_angle_target = move_angle_target * PI / 180

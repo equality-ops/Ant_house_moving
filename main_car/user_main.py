@@ -284,7 +284,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            # if my_main_protocol.get_slave_state() == "ready":
+            if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
                 # 盲盒任务测试，一定要修改！！！
@@ -502,7 +502,7 @@ def time_pit3_handler(time) -> None:
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[0.0, 20.0]])
+        my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
         # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
@@ -517,7 +517,28 @@ def time_pit3_handler(time) -> None:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
-    
+    if my_state.state == READY_NAVIGATE:
+        # my_path.plan_path(245.0, 56.0)
+        # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
+        my_state.state = MOVE
+        my_plan.move_v_max = 100
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
+    elif my_state.state == NAVIGATE:
+        my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
+        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
+        # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
+        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+        # my_plan.navigate(path = [[0.0, 120.0]])
+        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
+        if my_plan.if_finish_navigate == True:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            my_state.state = STOP
+            my_beep.test()
+    elif my_state.state == STOP:
+        my_plan.stop()
+        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     # 视觉伺服测试程序
     # test_vision_servo()
 
