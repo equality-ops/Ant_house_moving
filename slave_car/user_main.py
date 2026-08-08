@@ -494,20 +494,21 @@ def test_tof_distance_control():
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
         my_plan.keep_x_or_y_v = False
-        my_tof.ready_tof('right',0)
+        my_tof.ready_tof('left',0)
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == MOVE:
         # 距离控制
         my_tof.dist_control()
-        my_plan.navigate(path = [[50.0, 100.0], [50.0, 150.0]], target_turn_angle = 30.0)
+        my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle = -30.0)
         if my_plan.if_finish_navigate == True:
             my_tof.reset_tof()
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
             my_state.state = STOP
     elif my_state.state == STOP:
-        my_uart3.write(f"slave_car: {my_car.x_current},{my_car.y_current}\n")
+        pass
+        # my_uart3.write(f"slave_car: {my_car.x_current},{my_car.y_current}\n")
 
 # 任务机执行函数
 def task_machine():
@@ -554,10 +555,10 @@ def time_pit3_handler(time) -> None:
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[20.0, 0.0]])
+        my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle= -30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
+        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
@@ -565,7 +566,7 @@ def time_pit3_handler(time) -> None:
             my_beep.test()
     elif my_state.state == STOP:
         my_plan.stop()
-        # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
@@ -611,7 +612,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
-    # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
+    # my_uart2.write(f"{my_car.x_current},{my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
