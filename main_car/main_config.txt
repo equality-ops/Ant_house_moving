@@ -36,7 +36,7 @@ kv = 30.0
 integral_limitmax = 10000
 pwmout_limitmax = 9000
 
-angle_normal_kp = 25.0
+angle_normal_kp = 20.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.1
@@ -81,19 +81,19 @@ acc_normal_coef = 0.03
 dec_coef = 0.08
 scan_rate = 1.0
 
-orbit_v_max = 90
+orbit_v_max = 120
 orbit_v_min = 30
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
 servo_kp_normal_x = 7.0
-servo_kd_normal_x = 10.0
+servo_kd_normal_x = 5.0
 servo_kp_normal_y = 7.0
-servo_kd_normal_y = 10.0
+servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.3
-servo_target_y_S = 3
-servo_target_y_B = 5
+servo_target_y_S = 3.0
+servo_target_y_B = 5.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -103,10 +103,10 @@ max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
 ###################【apriltag矫正】####################
-servo_kp_calibrate_x = 8.0
-servo_kd_calibrate_x = 10.0
-servo_kp_calibrate_y = 8.0
-servo_kd_calibrate_y = 8.0
+servo_kp_calibrate_x = 7.0
+servo_kd_calibrate_x = 5.0
+servo_kp_calibrate_y = 7.0
+servo_kd_calibrate_y = 5.0
 
 servo_target_y_A = 3.0
 
@@ -122,16 +122,16 @@ radius_T_D = 12.0
 radius_S_U = 14.0
 radius_S_R = 12.0
 radius_S_L = 14.0
-radius_S_D = 14.0
+radius_S_D = 18.0
 
 radius_B_U = 16
 radius_B_R = 17.7
 radius_B_L = 16.5
 radius_B_D = 17.5
+
 angle_T = 41
 angle_S = 40
 angle_B = 38
-acc_move_coef = 0.04
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
