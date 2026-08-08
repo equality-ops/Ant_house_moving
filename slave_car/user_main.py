@@ -100,8 +100,8 @@ my_uart2.init(115200)
 #     I2C0: B30(SCL) / B31(SDA)   |   I2C3: D22(SCL) / D23(SDA)
 #   注意：BTB 核心板的 LPI2C3 (id=2) 不能使用，请避开 id=2。
 # ------------------------------------------------------------------------------
-i2c_1 = I2C(1, freq = 400000)
-i2c_3 = I2C(3, freq = 400000)
+i2c_1 = I2C(1, freq = 100000)
+i2c_3 = I2C(3, freq = 100000)
 
 # 扫描 I2C 总线确认设备在线
 # ------------------------------------------------------------------------------
@@ -500,7 +500,7 @@ def test_tof_distance_control():
     elif my_state.state == MOVE:
         # 距离控制
         my_tof.dist_control()
-        my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle = -30.0)
+        my_plan.navigate(path = [[50.0, 50.0], [50.0, 150.0]], target_turn_angle = -45.0)
         if my_plan.if_finish_navigate == True:
             my_tof.reset_tof()
             my_plan.reset_navigate()
