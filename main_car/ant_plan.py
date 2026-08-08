@@ -33,7 +33,7 @@ class PlanData:
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
-        self.fixed_point = [[35.0, -40.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
+        self.fixed_point = [[0.0, 0.0], [self.center_x - lenth*2,self.center_y - lenth*2], 
                             [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -80.0], [25.0, -60.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
@@ -568,6 +568,7 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
+            """
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
@@ -596,6 +597,8 @@ class NavigationPlan:
                 else: return v_target
         #elif self.my_state.state == SCAN:
         #    v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
+            """
+            return self.move_v_max
         else:
             v_cruise = self.long_v_max
 

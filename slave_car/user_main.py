@@ -341,7 +341,7 @@ def slave_start():
                 if_press_start_key = True#按下启动按键后等待主车发送开始信号
         else:   
             # 测试，此时只调试从车，双车正常通信时需要解注释  
-            # if my_slave_protocol.get_start_signal() == True:
+            if my_slave_protocol.get_start_signal() == True:
                 my_beep.test()
                 my_slave_protocol.send_slave_state("ready")
                 # 此时开启无刷负压风扇
@@ -511,12 +511,14 @@ def test_tof_distance_control():
     if my_state.state == READY_NAVIGATE:
         my_state.state = MOVE
         my_car.if_control_dist = True
-        my_moving.current_state = NAVIGATE
+        my_plan.move_v_max = 100
+        my_moving.current_state = MOVE
         my_tof.choose_sensor('left')
+        my_tof.set_fixed_direction(0.0)
     elif my_state.state == MOVE:
         # 距离控制
         my_tof.dist_control()
-        my_plan.navigate(path = [[0.0, 100.0]], target_turn_angle = -30.0)
+        my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = -30.0)
         if my_plan.if_finish_navigate == True:
             my_tof.reset_tof()
             my_plan.reset_navigate()
@@ -620,8 +622,7 @@ def time_pit2_handler(time):
 
     # 更新tof传感器信息
     # my_tof.update_tof()
-    my_uart3.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output}\r\n")
-
+    # my_uart3.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")

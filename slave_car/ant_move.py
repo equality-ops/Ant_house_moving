@@ -50,6 +50,7 @@ class TofControl:
         self.which_one = None  # 当前使用的传感器，'L'表示左传感器，'R'表示右传感器
         self._stale_count_L = 0  # 左传感器连续无效计数
         self._stale_count_R = 0  # 右传感器连续无效计数
+        self._invalid_count = 0  # 数据超出valid范围的连续计数
 
     # 更新tof传感器信息
     def update_tof(self):
@@ -68,10 +69,15 @@ class TofControl:
             else:
                 self.status_L = status_L
                 self._stale_count_L += 1
-                # 连续多次无效才标记为 -1.0（约 200ms 后）
-                if self._stale_count_L > 10:
+                # 连续多次无效才标记为 -1.0
+                if self._stale_count_L > 6:
                     self.data_L = -1.0
-
+        else:
+            self._stale_count_L += 1
+            # 连续多次无效才标记为 -1.0
+            if self._stale_count_L > 6:
+                self.data_L = -1.0
+                    
         # 读取右传感器
         if self.tof_R and self.tof_R.data_ready:
             dist_R = self.tof_R.distance - self.bias_R
@@ -87,9 +93,15 @@ class TofControl:
             else:
                 self.status_R = status_R
                 self._stale_count_R += 1
-                # 连续多次无效才标记为 -1.0（约 200ms 后）
-                if self._stale_count_R > 10:
+                # 连续多次无效才标记为 -1.0
+                if self._stale_count_R > 6:
                     self.data_R = -1.0
+        else:
+            self._stale_count_R += 1
+            # 连续多次无效才标记为 -1.0
+            if self._stale_count_R > 6:
+                self.data_R = -1.0
+
 
         # 自动选择：优先左传感器，无效则用右传感器
         if not self.which_one:
@@ -100,12 +112,20 @@ class TofControl:
 
     # 判断数据是否合理
     def is_data_valid(self):
+        # 使用滞回判断避免频繁切换：需要连续多次无效才真正失效
+        raw_valid = False
         if self.which_one == 'L':
-            return self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
+            raw_valid = self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
         elif self.which_one == 'R':
-            return self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
+            raw_valid = self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
+
+        if raw_valid:
+            self._invalid_count = 0
+            return True
         else:
-            return False
+            self._invalid_count += 1
+            # 连续多次无效才真正失效
+            return self._invalid_count <= 4
 
     # 重置速度分量
     def reset_speed_weight(self):
@@ -124,11 +144,17 @@ class TofControl:
     def reset_tof(self):
         self.data_L, self.data_R = -1.0, -1.0
         self._stale_count_L, self._stale_count_R = 0, 0
+        self._invalid_count = 0
+        self._invalid_count = 0
         self.which_one = None
         self.status_L, self.status_R = RANGE_VALID, RANGE_VALID
         self.my_car.if_control_dist = False
         self.reset_speed_weight()
 
+    # 设置速度分量固定的方向
+    def set_fixed_direction(self, direction):
+        self.my_car.fixed_direction = direction
+        
     # 距离控制主函数
     def dist_control(self):
         # 更新传感器数据
@@ -141,8 +167,12 @@ class TofControl:
                 self.dist_pid_R.compute_pid(self.data_R)
                 self.my_car.speed_weight = self.dist_pid_R.pwm_output
             else:
+                # 清零输出
+                self.dist_pid_L.reset_pwmout()
                 self.reset_speed_weight()
         else:
+            # 清零输出
+            self.dist_pid_L.reset_pwmout()
             self.reset_speed_weight()
 
 # 搬运控制类

@@ -116,11 +116,11 @@ apriltag_threshold_x = 1.5
 apriltag_threshold_y = 1.5
 
 ###################【tof距离控制】####################
-dist_kp = 15.0
-dist_kd = 5.0
+dist_kp = 8.0
+dist_kd = 4.0
 target_L = 15.0
 target_R = 15.0
-dist_deadzone = 1.0
+dist_deadzone = 1.5
 tof_valid_min = 10.0
 tof_valid_max = 20.0
 dist_pwmout_limitmax = 60

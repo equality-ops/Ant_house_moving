@@ -688,6 +688,10 @@ class DistPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.__pwmout_limitmax, min(self.pwm_output, self.__pwmout_limitmax))
 
+    # 输出清零
+    def reset_pwmout(self):
+        self.pwm_output = 0
+
 # 小车姿态控制
 class CarPose:
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
@@ -735,6 +739,7 @@ class CarPose:
 
         # tof距离控制变量
         self.speed_weight = 0.0  # type: float
+        self.fixed_direction = 0.0  # type: float
         self.if_control_dist = False  # type: bool
 
         # 测试一个电机的里程
@@ -805,10 +810,10 @@ class CarPose:
         # 距离控制模式：根据speed_weight合成垂直于当前速度方向的分量
         if self.if_control_dist and self.speed_weight != 0.0:
             # 当前move_angle_target转弧度用于向量分解
-            rad = move_angle_target * PI / 180.0
+            rad = self.fixed_direction * PI / 180.0
             # 原始速度在世界坐标系下的分量
-            vx_orig = move_speed_target * math.sin(rad)
-            vy_orig = move_speed_target * math.cos(rad)
+            vx_orig = move_speed_target * math.sin(move_angle_target)
+            vy_orig = move_speed_target * math.cos(move_angle_target)
             abs_w = abs(self.speed_weight)
             if self.speed_weight < 0:
                 # 逆时针旋转90度
