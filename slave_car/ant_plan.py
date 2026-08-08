@@ -613,17 +613,20 @@ class NavigationPlan:
             self.target_v = 0
             return self.target_v, self.target_yaw
         if self.move_state == MOVE and self.fitting_path_: 
+            p0 = self.path[self.aimed_point_index]
+            p1 = self.path[self.aimed_point_index + 1]
+            self.target_yaw = -math.atan2(-(p1[0] - p0[0]), p1[1] - p0[1]) * 180.0 / PI
+            
             target_pt = self.fitting_path_[self.aimed_point_index + 1]
             self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
             self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        target_pt = self.path[self.aimed_point_index + 1]
+        else:
+            # =======================================================
+            # 闭环航向角解算模块
+            # =======================================================
+            target_pt = self.path[self.aimed_point_index + 1]
+            self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-        
-        # =======================================================
-        # 闭环航向角解算模块
-        # =======================================================
-        self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        
         # =======================================================
         # 速度控制模块
         # =======================================================

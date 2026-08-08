@@ -627,22 +627,29 @@ class NavigationPlan:
 
         # 更新小车到起点的距离
         self.finished_dist = math.sqrt((self.path[0][0] - car_x)**2 + (self.path[0][1] - car_y)**2)
-        
+
         if self.aimed_point_index >= len(self.path) - 1:
             self.target_v = 0
             return self.target_v, self.target_yaw
-
-        if self.move_state == MOVE and self.fitting_path_: 
-            target_pt = self.fitting_path_[self.aimed_point_index + 1]
-            self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-            self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        target_pt = self.path[self.aimed_point_index + 1]
+        if self.move_state == MOVE: 
+            p0 = self.path[self.aimed_point_index]
+            p1 = self.path[self.aimed_point_index + 1]
+            self.target_yaw = -math.atan2(-(p1[0] - p0[0]), p1[1] - p0[1]) * 180.0 / PI
+            if self.fitting_path_:
+                target_pt = self.fitting_path_[self.aimed_point_index + 1]
+                self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
+                self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+            else:
+                if self.keep_x_or_y_v:self.fit_rest_dist = abs(p1[0] - car_x)
+                else:self.fit_rest_dist = abs(p1[1] - car_y)
+        else:
+            # =======================================================
+            # 2. 闭环航向角解算模块
+            # =======================================================
+            target_pt = self.path[self.aimed_point_index + 1]
+            self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
         self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-        # =======================================================
-        # 2. 闭环航向角解算模块
-        # =======================================================
-        self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
-        
+
         # 1. 速度控制模块
         # =======================================================
         self.target_v = self._calculate_position_s_curve()
@@ -655,9 +662,8 @@ class NavigationPlan:
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         rest_dist=self.rest_dist
 
-        if self.move_state == MOVE and self.fitting_path_: 
+        if self.move_state == MOVE: 
             rest_dist=self.fit_rest_dist
-
         if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
