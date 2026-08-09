@@ -69,7 +69,7 @@ error_x_S = 2.0
 error_x_B = 2.0
 
 ###################【风扇控制】####################
-if_fan = 1
+if_fan = 0
 fixed_high_level_us = 1260
 
 ###################【速度规划】####################
@@ -113,10 +113,10 @@ apriltag_threshold_x = 1.5
 apriltag_threshold_y = 1.5
 
 ###################【tof距离控制】####################
-dist_kp = 12.5
+dist_kp = 15.0
 dist_kd = 5.0
-target_L = 14.5
-target_R = 14.5
+target_L = 14.0
+target_R = 14.0
 dist_deadzone = 0.8
 tof_valid_min = 5.0
 tof_valid_max = 30.0

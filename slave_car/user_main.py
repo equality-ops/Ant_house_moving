@@ -34,11 +34,11 @@ else:
     gc.collect()
     import ant_vision
     gc.collect()
-    import ant_motor
-    gc.collect()
     import ant_task
     gc.collect()
     import ant_move
+    gc.collect()
+    import ant_motor
     gc.collect()
     # 引入 VL53L4CD 驱动
     from vl53l4cd import VL53L4CD
@@ -668,7 +668,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
-    my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    # my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart2.write(f"{my_car.x_current},{my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")

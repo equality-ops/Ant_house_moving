@@ -200,7 +200,7 @@ class PoseData:
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
         self.kp = 1.0  # 加速度计权重
-        self.ki = 0.0001 # 零偏补偿权重
+        self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -209,7 +209,7 @@ class PoseData:
 
         gc.collect()  # 主动触发垃圾回收，释放内存
 
-    # 更新四元数
+        # 更新四元数
     def ahrs_update(self, ax, ay, az, gx, gy, gz):
         """
         核心四元数更新算法
@@ -229,13 +229,15 @@ class PoseData:
         norm = math.sqrt(ax*ax + ay*ay + az*az)
         if norm == 0: return # 防止除以0
 
-        G_REFERENCE = 4185.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
+        G_REFERENCE = 4170.0  # TODO: 请你在串口打印一下静止时 norm 的值，并把它填在这里！
     
         # 计算测量模长与标准重力 1g 的绝对偏差 (单位重新化为 g)
         acc_error = abs(norm - G_REFERENCE) / G_REFERENCE
         
         # self.my_uart2.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
 
+        # --- norm 偏差权重（加速度模长与重力的偏差）---
+        # 偏差在 5% 以内完全信任，偏差大于 20% 完全不信任
         LOWER_THRESHOLD = 0.05
         UPPER_THRESHOLD = 0.20
 
@@ -244,8 +246,11 @@ class PoseData:
         elif acc_error > UPPER_THRESHOLD:
             norm_weight = 0.0
         else:
+            # 线性插值，平滑过渡
             norm_weight = 1.0 - ((acc_error - LOWER_THRESHOLD) / (UPPER_THRESHOLD - LOWER_THRESHOLD))
 
+        # --- 水平加速度幅值权重（防止急转弯时加速度计"骗"了姿态）---
+        # 低于 200 不干预，高于 700 才完全拉黑，中间线性过渡
         ACC_LOWER = 200
         ACC_UPPER = 700
 
@@ -268,52 +273,55 @@ class PoseData:
 
         mag_weight = ax_weight if ax_weight < ay_weight else ay_weight
 
+        # 取两种机制中最严格的权重（双重保险）
         dynamic_weight = min(norm_weight, mag_weight)
             
+        # 计算当前周期实际使用的 kp
         current_kp = self.kp * dynamic_weight
 
+        # self.my_uart2.write(f"{dynamic_weight},{current_kp}\n")  # 调试用：输出动态权重和当前 kp
+
+        # self.my_uart3.write(f"{norm},{current_kp}\n")  # 调试用：输出原始加速度模长
+
+        # 继续执行归一化，将向量化为长度为 1 的单位向量给后续解算用
         ax /= norm; ay /= norm; az /= norm
         
-        # 【双积分法】
-        qDot0_raw = 0.5 * (-q1*gx - q2*gy - q3*gz)
-        qDot1_raw = 0.5 * ( q0*gx + q2*gz - q3*gy)
-        qDot2_raw = 0.5 * ( q0*gy - q1*gz + q3*gx)
-        qDot3_raw = 0.5 * ( q0*gz + q1*gy - q2*gx)
-
-        q0_mid = q0 + qDot0_raw * self.dt
-        q1_mid = q1 + qDot1_raw * self.dt
-        q2_mid = q2 + qDot2_raw * self.dt
-        q3_mid = q3 + qDot3_raw * self.dt
-
-        vx = 2 * (q1_mid*q3_mid - q0_mid*q2_mid)
-        vy = 2 * (q0_mid*q1_mid + q2_mid*q3_mid)
-        vz = q0_mid*q0_mid - q1_mid*q1_mid - q2_mid*q2_mid + q3_mid*q3_mid
-
+        # 2. 提取四元数矩阵中的理论重力方向 (机体坐标系下)
+        vx = 2 * (q1*q3 - q0*q2)
+        vy = 2 * (q0*q1 + q2*q3)
+        vz = q0*q0 - q1*q1 - q2*q2 + q3*q3
+        
+        # 3. 叉乘计算误差 (测量值与理论值的偏差)
         ex = (ay*vz - az*vy)
         ey = (az*vx - ax*vz)
         ez = (ax*vy - ay*vx)
+        
+        # --- 改进1：增加积分限幅 (Anti-Windup) ---
+        # 6轴系统不修正 Yaw 的积分，始终清零
         self.e_int[2] = 0.0
 
+        # 只有加速度计可信时才更新积分项，否则冻结，防止累积"垃圾"
         if dynamic_weight > 0.1:
-            I_LIMIT = 0.1 
+            I_LIMIT = 0.1  # 限制积分项最大影响
             self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
             self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-        ez = 0.0
+        
+        # 强制将 ez 置为 0，防止加速度计在 Z 轴上的假误差污染陀螺仪的 gz
+        ez = 0.0 
 
+        # --- 改进2：补偿角速度 ---
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
 
-        qDot0_corr = 0.5 * (-q1_mid*gx - q2_mid*gy - q3_mid*gz)
-        qDot1_corr = 0.5 * ( q0_mid*gx + q2_mid*gz - q3_mid*gy)
-        qDot2_corr = 0.5 * ( q0_mid*gy - q1_mid*gz + q3_mid*gx)
-        qDot3_corr = 0.5 * ( q0_mid*gz + q1_mid*gy - q2_mid*gx)
-
-        q0_new = q0_mid + qDot0_corr * self.dt
-        q1_new = q1_mid + qDot1_corr * self.dt
-        q2_new = q2_mid + qDot2_corr * self.dt
-        q3_new = q3_mid + qDot3_corr * self.dt
-
+        # 6. 一阶龙格库塔法更新四元数
+        half_dt = 0.5 * self.dt
+        q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
+        q1_new = q1 + (q0*gx + q2*gz - q3*gy) * half_dt
+        q2_new = q2 + (q0*gy - q1*gz + q3*gx) * half_dt
+        q3_new = q3 + (q0*gz + q1*gy - q2*gx) * half_dt
+        
+        # 7. 再次归一化四元数
         norm = math.sqrt(q0_new*q0_new + q1_new*q1_new + q2_new*q2_new + q3_new*q3_new)
         self.q[0] = q0_new/norm
         self.q[1] = q1_new/norm
