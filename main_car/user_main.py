@@ -18,14 +18,12 @@ gc.collect()
 my_uart_debug = UART(7)
 my_uart_debug.init(115200)
 gc.collect()
-import ant_plan
-gc.collect()
-import ant_else
-gc.collect()
+
+import ant_task
 gc.collect()
 import ant_vision
 gc.collect()
-import ant_task
+import ant_plan
 gc.collect()
 import ant_move
 gc.collect()
@@ -123,7 +121,7 @@ my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
 my_write_system = ant_else.write_system(my_beep,"/flash/main_log.txt")
-my_write_system.init_write()
+
 # 创建无刷风扇控制对象
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
 
@@ -243,6 +241,7 @@ def main_start():
                 my_beep.key_test()
                 # 测试，记得双车通信时要打开
                 my_main_protocol.send_start()
+                my_write_system.init_write()
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
@@ -298,7 +297,7 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state == NAVIGATE:
+        elif my_moving.current_state in [NAVIGATE, SCAN]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state == MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
