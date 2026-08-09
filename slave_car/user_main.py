@@ -16,6 +16,7 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 my_uart2 = UART(7)
 my_uart2.init(115200)
+
 import ant_plan
 gc.collect()
 import ant_else
@@ -662,12 +663,12 @@ def time_pit2_handler(time):
 
     # 更新tof传感器信息
     # my_tof.update_tof()
-    my_uart2.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output},{my_car.speed_weight}\r\n")
+    # my_uart2.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output},{my_car.speed_weight}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart2.write(f"{my_car.x_current},{my_car.y_current}\n")
     # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")

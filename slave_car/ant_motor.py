@@ -236,8 +236,6 @@ class PoseData:
         
         # self.my_uart2.write(f"{acc_error}\n")  # 调试用：输出加速度模长偏差
 
-        # --- norm 偏差权重（加速度模长与重力的偏差）---
-        # 偏差在 5% 以内完全信任，偏差大于 20% 完全不信任
         LOWER_THRESHOLD = 0.05
         UPPER_THRESHOLD = 0.20
 
@@ -246,11 +244,8 @@ class PoseData:
         elif acc_error > UPPER_THRESHOLD:
             norm_weight = 0.0
         else:
-            # 线性插值，平滑过渡
             norm_weight = 1.0 - ((acc_error - LOWER_THRESHOLD) / (UPPER_THRESHOLD - LOWER_THRESHOLD))
 
-        # --- 水平加速度幅值权重（防止急转弯时加速度计"骗"了姿态）---
-        # 低于 200 不干预，高于 500 才完全拉黑，中间线性过渡
         ACC_LOWER = 200
         ACC_UPPER = 700
 
@@ -273,21 +268,13 @@ class PoseData:
 
         mag_weight = ax_weight if ax_weight < ay_weight else ay_weight
 
-        # 取两种机制中最严格的权重（双重保险）
         dynamic_weight = min(norm_weight, mag_weight)
             
-        # 计算当前周期实际使用的 kp
         current_kp = self.kp * dynamic_weight
 
-        # self.my_uart2.write(f"{dynamic_weight},{current_kp}\n")  # 调试用：输出动态权重和当前 kp
-
-        # self.my_uart3.write(f"{norm},{current_kp}\n")  # 调试用：输出原始加速度模长
-
-        # 继续执行归一化，将向量化为长度为 1 的单位向量给后续解算用
         ax /= norm; ay /= norm; az /= norm
         
-        # 2. 【双积分法 - 第一步】用原始陀螺仪做第一次欧拉积分（全长 dt）
-        # 得到中间四元数 q_mid，它包含了本次旋转的预测
+        # 【双积分法】
         qDot0_raw = 0.5 * (-q1*gx - q2*gy - q3*gz)
         qDot1_raw = 0.5 * ( q0*gx + q2*gz - q3*gy)
         qDot2_raw = 0.5 * ( q0*gy - q1*gz + q3*gx)
@@ -298,37 +285,25 @@ class PoseData:
         q2_mid = q2 + qDot2_raw * self.dt
         q3_mid = q3 + qDot3_raw * self.dt
 
-        # 3. 提取中间四元数矩阵中的理论重力方向 (机体坐标系下)
-        # 使用 q_mid 让重力预测与加速度测量在时间上对齐
         vx = 2 * (q1_mid*q3_mid - q0_mid*q2_mid)
         vy = 2 * (q0_mid*q1_mid + q2_mid*q3_mid)
         vz = q0_mid*q0_mid - q1_mid*q1_mid - q2_mid*q2_mid + q3_mid*q3_mid
 
-        # 4. 叉乘计算误差 (测量值与理论值的偏差)
         ex = (ay*vz - az*vy)
         ey = (az*vx - ax*vz)
         ez = (ax*vy - ay*vx)
-
-        # --- 改进1：增加积分限幅 (Anti-Windup) ---
-        # 6轴系统不修正 Yaw 的积分，始终清零
         self.e_int[2] = 0.0
 
-        # 只有加速度计可信时才更新积分项，否则冻结，防止累积"垃圾"
         if dynamic_weight > 0.1:
-            I_LIMIT = 0.1  # 限制积分项最大影响
+            I_LIMIT = 0.1 
             self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
             self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-
-        # 强制将 ez 置为 0，防止加速度计在 Z 轴上的假误差污染陀螺仪的 gz
         ez = 0.0
 
-        # --- 改进2：补偿角速度 ---
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
 
-        # 5. 【双积分法 - 第二步】用修正后的陀螺仪做第二次欧拉积分（全长 dt）
-        # 在中间四元数 q_mid 基础上继续积分
         qDot0_corr = 0.5 * (-q1_mid*gx - q2_mid*gy - q3_mid*gz)
         qDot1_corr = 0.5 * ( q0_mid*gx + q2_mid*gz - q3_mid*gy)
         qDot2_corr = 0.5 * ( q0_mid*gy - q1_mid*gz + q3_mid*gx)
@@ -339,7 +314,6 @@ class PoseData:
         q2_new = q2_mid + qDot2_corr * self.dt
         q3_new = q3_mid + qDot3_corr * self.dt
 
-        # 6. 再次归一化四元数
         norm = math.sqrt(q0_new*q0_new + q1_new*q1_new + q2_new*q2_new + q3_new*q3_new)
         self.q[0] = q0_new/norm
         self.q[1] = q1_new/norm
@@ -351,24 +325,18 @@ class PoseData:
         """将四元数转换为欧拉角（度）"""
         q0, q1, q2, q3 = self.q
         
-        # 1. 俯仰角 Pitch (绕 Y 轴旋转)
-        # 数学逻辑：asin(-2*(q1*q3 - q0*q2))
         val = -2.0 * (q1 * q3 - q0 * q2)
-        # 边界处理，防止 asin 超域报错
+
         val = max(-1.0, min(1.0, val))
         self.now_pitch = math.asin(val) * (180.0 / PI)
-        
-        # 保护万向节锁，当 Pitch 接近 +- 90 度时
+
         if abs(val) > 0.999: # 极高仰角时 Roll 和 Yaw 共线
             self.now_roll = 0.0
             self.now_yaw = math.atan2(2.0 * (q1 * q2 - q0 * q3), 1.0 - 2.0 * (q1 * q1 + q3 * q3)) * (180.0 / PI)
         else:
-            # 2. 横滚角 Roll (绕 X 轴旋转)
-            # 使用更标准的 1 - 2*X^2 简化运算与误差
             self.now_roll = math.atan2(2.0 * (q2 * q3 + q0 * q1), 
                                     1.0 - 2.0 * (q1 * q1 + q2 * q2)) * (180.0 / PI)
             
-            # 3. 偏航角 Yaw (绕 Z 轴旋转)
             self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
                                     1.0 - 2.0 * (q2 * q2 + q3 * q3)) * (180.0 / PI)
 
