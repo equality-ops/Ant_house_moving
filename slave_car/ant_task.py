@@ -252,11 +252,11 @@ class TaskController:
                     else:
                         ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
                     self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
+                    pathh = self.my_path.ready_path  # 获取规划好的路径
                     if self.if_first_run:
                         self.if_first_run = False
-                        self.my_path.ready_path.insert(0, [self.my_car.x_current, self.my_car.y_current+30.0])
-                    path = self.my_path.ready_path  # 获取规划好的路径
-                    self.navigate_message = [path, path[1]]  # 目标坐标和转向角度
+                        pathh.insert(0, [self.my_car.x_current, self.my_car.y_current+40.0])
+                    self.navigate_message = [pathh, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
             self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
             # 测试
