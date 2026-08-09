@@ -253,10 +253,10 @@ class MoveControl:
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
-        if now_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
-        elif now_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
-        elif now_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
-        else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
+        if now_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1],ignore_center_rect=True)
+        elif now_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1],ignore_center_rect=True)
+        elif now_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True)   
+        else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True)
         M_PAth = self.my_path.ready_path + m_PAth
         self.navigate_buffer=({
                         'MAIN_P':M_PAth,
