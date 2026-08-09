@@ -697,7 +697,7 @@ class NavigationPlan:
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
                 if target_turn_angle is not None:
-                    if if_high_angle:
+                    if if_high_angle and not self.angle_pid.if_high_angle:
                         self.angle_pid.choose_high_angle_mode(True)
 
                     self.target_v = 0

@@ -241,7 +241,7 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
                 if counter >= 10:
-                    counter=0
+                    counter = 0
                     self.data.current_index += 1
                     self.my_plan.reset_navigate()
                     self.my_plan.reset_navigate_angle()
