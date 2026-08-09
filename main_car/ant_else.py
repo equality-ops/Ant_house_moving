@@ -125,8 +125,6 @@ class flash_system:
             if line_count % 8 == 0:
                 gc.collect()
         f.close()
-
-
     def find_value(self, var_name: str):
         try:
             var_value = self.config[var_name.strip()]
@@ -200,10 +198,47 @@ class flash_system:
 
         if error_flag:
             self.beep.beep_warn()
+class write_system:
+    def __init__(self, beep, file_path: str):
+        # 注入蜂鸣器对象，用于警报
+        self.beep = beep
+        self.num = 1
+        # 传入文件路径
+        self.file_path = file_path  # type: str
+        gc.collect()
+    def write_str(self, line: str) -> None:
+        try:
+            with open(self.file_path, 'a') as f:
+                f.write(line)
+                if not line.endswith("\n"):
+                    f.write("\n")
+        except Exception as e:
+            print(f"Error: Failed to write to {self.file_path}: {e}")
+            self.beep.beep_warn()
+    def init_write(self) -> None:
+        self.num = 1
+        try:
+            with open(self.file_path, 'r') as f:
+                first_line = f.readline()
+            prefix = "This is the "
+            suffix = "th log of the main car."
+            if first_line.startswith(prefix):
+                end = first_line.find(suffix, len(prefix))
+                if end >= 0:
+                    self.num = int(first_line[len(prefix):end]) + 1
+        except Exception:
+            # The first boot may not have created a log file yet.
+            self.num = 1
+        try:
+            with open(self.file_path, 'w') as f:
+                f.write(f"This is the {self.num}th log of the main car.\n")
+        except Exception as e:
+            print(f"Error: Failed to write to {self.file_path}: {e}")
+            self.beep.beep_warn()
 class beep:
     __slots__ = ('beep', 'beep_state')
     def __init__(self, beep):
-        # 注入蜂鸣器对�?
+        # 注入蜂鸣器对象，用于警报
         self.beep = beep
         self.beep_state = BEEP_OFF
     # 蜂鸣器警告函�?�?声，�?00ms响一声，每次持续50ms)

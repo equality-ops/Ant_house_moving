@@ -21,8 +21,9 @@ object_to_line_dict = {
 }
 counter = 0 
 class TaskController:
-    def __init__(self,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
+    def __init__(self,my_write_system,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
         # 注入对象
+        self.my_write_system = my_write_system
         self.my_beep = beep
         self.my_path = path
         self.my_uart = uart
@@ -297,10 +298,10 @@ class TaskController:
                 if self.object_plan.judge_object_character(self.now_objects,self.last_side):
                     target = self.object_plan.plan_target
                     self.if_end_first_scan = True
-                    self.my_uart.write(f"{self.now_objects}\n")
-                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
-                    self.my_uart.write(f"path{self.object_plan.path}\n")
-                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                    self.my_write_system.write_str(f"final_objects:{self.now_objects}\n")
+                    self.my_write_system.write_str(f"target{self.object_plan.target_objects}\n")
+                    self.my_write_system.write_str(f"path{self.object_plan.path}\n")
+                    self.my_write_system.write_str(f"score{self.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         self.exit()
@@ -552,7 +553,7 @@ class TaskController:
                 counter +=1
                 self.scan_empty_counter = 0
                 new_world = self.handle_object_info(object_package,angle)
-                self.my_uart.write(f"{self.detected_num}{new_world}\n")
+                self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects
@@ -600,10 +601,10 @@ class TaskController:
                     for i in range(len(self.now_objects)):
                         self.my_beep.test()
                         time.sleep_ms(300)
-                    self.my_uart.write(f"{self.now_objects}\n")
-                    self.my_uart.write(f"target{self.object_plan.target_objects}\n")
-                    self.my_uart.write(f"path{self.object_plan.path}\n")
-                    self.my_uart.write(f"score{self.object_plan.target_score}\n")
+                    self.my_write_system.write_str(f"final_objects:{self.now_objects}\n")
+                    self.my_write_system.write_str(f"target{self.object_plan.target_objects}\n")
+                    self.my_write_system.write_str(f"path{self.object_plan.path}\n")
+                    self.my_write_system.write_str(f"score{self.object_plan.target_score}\n")
                     self.exit()
                     return
             self.if_end_first_scan = True
