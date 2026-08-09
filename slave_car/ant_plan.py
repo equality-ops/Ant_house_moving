@@ -665,7 +665,6 @@ class NavigationPlan:
             # pid积分清零
             self.my_car.reset_pid_integral()
         elif is_last_segment and rest_dist <= self.final_threshold:
-            self.my_uart3.write(f"{self.my_car.x_current:.2f},{self.my_car.y_current:.2f}\r\n")
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
             # 重置导航标志位
