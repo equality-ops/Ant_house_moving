@@ -170,10 +170,12 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
+                p = self.fixed_scan_point[self.use_scan_point][0]
+                a = self.fixed_scan_point[self.use_scan_point][1]
                 if self.use_scan_point>2:
-                    self.my_main_protocol.send_path('P',180.0,(0.0,0.0))
+                    self.my_main_protocol.send_path('P',a,(p[0],240.0))
                 else:
-                    self.my_main_protocol.send_path('P',0.0,(0.0,0.0))
+                    self.my_main_protocol.send_path('P',a,(p[0],0.0))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return

@@ -55,6 +55,7 @@ class TaskController:
             RETREAT: self.handle_retreat,
             # ... 其他状态
         }
+        self.if_first_run = True
         self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
@@ -244,12 +245,18 @@ class TaskController:
                         current_turn_deg = 180.0
                     elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
                         current_turn_deg = -90.0
+                    if self.if_first_run:
+                        horizon_stop_threshold = 20
                     if current_turn_deg == 0 or current_turn_deg == 180:
                         tx=min(max(path[2][0]-horizon_stop_threshold,self.my_car.x_current),path[2][0]+horizon_stop_threshold)
                     else:
                         ty=min(max(path[2][1]-horizon_stop_threshold,self.my_car.y_current),path[2][1]+horizon_stop_threshold)
                     self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
-                    self.navigate_message = [self.my_path.ready_path, path[1]]  # 目标坐标和转向角度
+                    if self.if_first_run:
+                        self.if_first_run = False
+                        self.my_path.ready_path.insert(0, [self.my_car.x_current, self.my_car.y_current+30.0])
+                    path = self.my_path.ready_path  # 获取规划好的路径
+                    self.navigate_message = [path, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
             self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块
             # 测试

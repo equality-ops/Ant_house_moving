@@ -386,7 +386,22 @@ class MoveControl:
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
                 self.if_send_orbit_command = True
             self.my_plan.reset_navigate()
-            self.current_state = SERVO
+            self.current_state = SCAN
+        elif self.current_state == SCAN:
+            if self.my_plan.if_finish_navigate:
+                self.if_finish_move = True
+                return
+            target_point = self.my_art_protocol.coordinate_receive()
+            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+                real_point = self.vision_manager.predict_point(target_point[0], target_point[1],limit_y = None)
+                if self.vision_manager.if_in_rect(real_point[0], real_point[1]):
+                    self.vision_manager.ready_servo_and_orbit(target_point, 'servo')
+                    self.vision_manager.reset_servo_angle()
+                    self.my_plan.reset_navigate()
+                    self.reset_orbit() # 重置环绕相关变量
+                    self.plan_path = []
+                    self.current_state = SERVO
+                    return
         elif self.current_state == ORBIT:
             self.vision_manager.if_send_order = False
             if counter >= 5:
@@ -450,7 +465,7 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
+            self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0])
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
@@ -460,6 +475,10 @@ class MoveControl:
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
                 return
+        elif self.current_state == SCAN:
+            NAV_T=self.navigate_buffer
+            self.my_plan.navigate([NAV_T['MAIN_P'][-1]],NAV_T['ANGLE'][0])
+            self.state_transition()
         elif self.current_state == ORBIT:
             if self.vision_manager.if_finish_orbit:
                 self.state_transition() # 退出当前状态，进入搬运状态
