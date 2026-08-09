@@ -34,7 +34,7 @@ class PlanData:
         lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
         self.fixed_point = [[35.0,-40.2], [self.center_x - lenth*2,self.center_y - lenth*2], 
-                            [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -80.0], [25.0, -60.0]]  # type: list
+                            [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -75.0], [25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
                             [self.center_x + lenth*1.5,self.center_y - lenth*1.5], [self.center_x + lenth*1.5,self.center_y + lenth*1.5]] 
@@ -363,7 +363,7 @@ class PathPlan:
         return [[p[0], p[1]] for p in path]
 # 导航规划类
 class NavigationPlan:
-    def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, angle_pid):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -382,6 +382,8 @@ class NavigationPlan:
         self.my_beep = beep
         # 注入openart串口解析对象
         self.my_art_protocol = art_protocol
+        # 注入角度环对象
+        self.angle_pid = angle_pid
 
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int  # 最小制动速度
@@ -690,11 +692,14 @@ class NavigationPlan:
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
-    def navigate(self, path = None, target_turn_angle = None):
+    def navigate(self, path = None, target_turn_angle = None, if_high_angle = False):
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
                 if target_turn_angle is not None:
+                    if if_high_angle:
+                        self.angle_pid.choose_high_angle_mode(True)
+
                     self.target_v = 0
                     self.turn_angle_target = target_turn_angle
                     # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
@@ -706,6 +711,8 @@ class NavigationPlan:
                         diff = 360.0 - diff
 
                     if diff <= 1.5:
+                        # 换回小角度的角度环模式，帮助小车稳定完成转角调整
+                        self.angle_pid.choose_high_angle_mode(False)
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True

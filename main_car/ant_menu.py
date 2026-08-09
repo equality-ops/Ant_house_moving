@@ -25,6 +25,7 @@ class Menu:
             "pwmout_limitmax": float(flash_sys.find_value("pwmout_limitmax")) if flash_sys.find_value("pwmout_limitmax") else 8000.0,
             "high_angle_pwmout_limitmax": float(flash_sys.find_value("high_angle_pwmout_limitmax")) if flash_sys.find_value("high_angle_pwmout_limitmax") else 600.0,
             "low_angle_pwmout_limitmax": float(flash_sys.find_value("low_angle_pwmout_limitmax")) if flash_sys.find_value("low_angle_pwmout_limitmax") else 200.0,
+            "high_angle_deadband": float(flash_sys.find_value("high_angle_deadband")) if flash_sys.find_value("high_angle_deadband") else 15.0,
             # A/B 设置
             "A": float(flash_sys.find_value("A")) if flash_sys.find_value("A") else 500.0,
             "B": float(flash_sys.find_value("B")) if flash_sys.find_value("B") else 200.0,
