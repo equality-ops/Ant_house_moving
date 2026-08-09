@@ -375,6 +375,8 @@ class objects_planner:
             idx=0
             self.target_objects = []
             for i in self.now_objects:
+                if i[0] == 'S' or i[0] == 'E':
+                    self.last_sandbag_idx += 1
                 if self.judge_side_in(car_side,i):
                     self.target_objects.append([idx,i[0],i[1],i[2]])#序号，物体种类，x,y
                 idx+=1
@@ -383,8 +385,6 @@ class objects_planner:
         elif self.judge_state == 2:#计算每个目标物体的评分
             side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
             if self.now_idx>=len(self.target_objects): 
-                if self.last_sandbag_idx >=0:
-                    self.target_score[self.last_sandbag_idx] += 1500
                 self.judge_state = 3
             else:
                 i = self.target_objects[self.now_idx]
@@ -393,6 +393,7 @@ class objects_planner:
                 if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=self.my_BoundaryPath.forward_push_value
                 path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
+                if (i[1] == 'S' or i[1] == 'E') and self.last_sandbag_idx == 0:score+=1000
                 if (not path) or len(path) <= 1: 
                     self.path.append([])
                     score+=10000
@@ -419,11 +420,6 @@ class objects_planner:
                     score += push_distance + push_angle*30 +distance_from_car*8
                     self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*30, distance_from_car*8))
                 self.target_score.append(score)
-                if i[1] == 'S':
-                    if self.last_sandbag_idx == -1:#前面没有沙袋
-                        self.last_sandbag_idx = self.now_idx
-                    elif self.last_sandbag_idx != -2:#前面已经有1个沙袋
-                        self.last_sandbag_idx = -2
                 self.now_idx+=1
             return False
         elif self.judge_state == 3:#选择评分最低的物体作为目标
