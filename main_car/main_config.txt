@@ -92,8 +92,8 @@ servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.3
-servo_target_y_S = 3.0
-servo_target_y_B = 5.0
+servo_target_y_S = 2.5
+servo_target_y_B = 4.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -180,7 +180,7 @@ bothway_swell_size = 13
 
 #--------------规划相关---------------------
 #直接向前推所加的分数，负数代表更愿意向前推
-FORWARD_PUSH_VALUE = 200
+FORWARD_PUSH_VALUE = 0
 #临近忽略区域大小
 NEAR_AREA = 3
 #车进入所需宽度
