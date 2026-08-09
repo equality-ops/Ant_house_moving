@@ -496,15 +496,18 @@ class MoveControl:
                 return 
         elif self.current_state == SCAN:
             if self.my_plan.if_finish_navigate:
-                self.if_finish_move = True
+                self.current_state = SERVO
+                self.vision_manager.reset_servo_angle()
+                self.my_plan.reset_navigate()
+                self.reset_orbit() # 重置环绕相关变量
+                self.plan_path = []
+                self.vision_manager.if_lost_object = True
                 return
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
-                points = self.vision_manager.calc_object_global_pos(
-                    target_point[0], target_point[1], self.vision_manager.current_servo_object)
+                points = self.vision_manager.calc_object_global_pos(target_point[0], target_point[1], self.vision_manager.current_servo_object)
                 if self.vision_manager.if_in_rect(points[0], points[1]):
-                    self.vision_manager.ready_servo_and_orbit(
-                        chr(target_point[2]), 'servo', target_point)
+                    self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
                     self.vision_manager.reset_servo_angle()
                     self.my_plan.reset_navigate()
                     self.reset_orbit() # 重置环绕相关变量
