@@ -21,8 +21,15 @@ UART_BAUDRATE = 115200
 CAMERA_PIXFORMAT = sensor.RGB565
 CAMERA_FRAMESIZE = sensor.QQVGA  # 160x120
 CAMERA_FRAMERATE = 60
-CAMERA_BRIGHTNESS = 600 
+CAMERA_BRIGHTNESS = 600
 # 白天用800，晚上用600
+
+# 模型模式/预览模型识别亮度分档（基准：启动时 l_mean 0-100，亮度600下采样）
+BRIGHTNESS_DARK_LIMIT = 35      # l_mean <=35 视为暗环境
+BRIGHTNESS_NORMAL_LIMIT = 90    # l_mean 36-90 视为正常
+BRIGHTNESS_MODEL_DARK = 1200    # 暗环境模型亮度
+BRIGHTNESS_MODEL_NORMAL = 800   # 正常环境模型亮度
+BRIGHTNESS_MODEL_BRIGHT = 400   # 亮环境模型亮度
 
 # 屏幕尺寸
 SCREEN_WIDTH = 160
@@ -767,6 +774,9 @@ frame_count = 0
 # 预览模式是否使用模型识别（收到'm'切换）
 preview_use_model = False
 
+# 模型模式/预览模型识别亮度（启动时按环境亮度分档，一次性判定）
+model_brightness = BRIGHTNESS_MODEL_NORMAL
+
 # ======================== 工具函数 ========================
 # 当前选中目标类型（由下位机通过UART指定）
 current_obj = ''
@@ -805,12 +815,12 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            sensor.set_brightness(600)
+            sensor.set_brightness(model_brightness)
             reset_all()
         elif cmd == b'A':
             current_mode = MODE_PREVIEW
             preview_use_model = False
-            sensor.set_brightness(600)
+            sensor.set_brightness(model_brightness)
             reset_all()
         elif cmd == b'R':
             current_mode = MODE_CORRECTION
@@ -841,7 +851,7 @@ def handle_uart_commands(uart):
         elif cmd == b'm':
             if current_mode == MODE_PREVIEW:
                 preview_use_model = not preview_use_model
-                sensor.set_brightness(800 if not preview_use_model else 600)
+                sensor.set_brightness(800 if not preview_use_model else model_brightness)
 
 
 def nms(objects, iou_thresh=0.3):
@@ -937,6 +947,19 @@ sensor.set_contrast(2) # 对比度
 # sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
 # sensor.set_hmirror(True)
 sensor.skip_frames(time=2000)  # 跳过初始帧，让摄像头稳定
+
+# 启动时采样环境亮度，分档设置模型模式/预览模型识别亮度（LED4已熄灭、自动增益/白平衡已关闭）
+_brightness_sum = 0
+for _ in range(5):
+    _brightness_sum += sensor.snapshot().get_statistics().l_mean()
+_env_l_mean = _brightness_sum / 5
+if _env_l_mean <= BRIGHTNESS_DARK_LIMIT:
+    model_brightness = BRIGHTNESS_MODEL_DARK
+elif _env_l_mean <= BRIGHTNESS_NORMAL_LIMIT:
+    model_brightness = BRIGHTNESS_MODEL_NORMAL
+else:
+    model_brightness = BRIGHTNESS_MODEL_BRIGHT
+
 clock = time.clock()
 
 # LCD初始化
