@@ -139,8 +139,10 @@ class TofControl:
         def choose_sensor(sensor):
             if sensor == 'left':
                 self.which_one = 'L'
+                self.tof_L.start_ranging()
             elif sensor == 'right':
                 self.which_one = 'R'
+                self.tof_R.start_ranging()
             else:
                 self.which_one = None
 
@@ -152,6 +154,8 @@ class TofControl:
 
     # 重置tof传感器信息
     def reset_tof(self):
+        self.tof_L.stop_ranging()
+        self.tof_R.stop_ranging()
         self.data_L, self.data_R = -1.0, -1.0
         self._stale_count_L, self._stale_count_R = 0, 0
         self._invalid_count = 0
@@ -167,7 +171,7 @@ class TofControl:
         # 更新传感器数据
         self.update_tof()
         if self.is_data_valid():
-            # self.my_beep.beep.low()
+            self.my_beep.beep.low()
             if self.if_init_fil == False:
                 if self.which_one == 'L':
                     self.dist_pid_L.init_filter(self.data_L)
@@ -187,7 +191,7 @@ class TofControl:
                 self.dist_pid_R.reset_pwmout()
                 self.reset_speed_weight()
         else:
-            # self.my_beep.beep.high()
+            self.my_beep.beep.high()
             # 清零输出
             self.dist_pid_L.reset_pwmout()
             self.dist_pid_R.reset_pwmout()
