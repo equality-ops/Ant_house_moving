@@ -206,8 +206,8 @@ FIELD_W = 320.0
 FIELD_H = 240.0
 
 #九宫格长宽
-SUDOKU_length_x = 34.0
-SUDOKU_width_y = 34.0
+SUDOKU_length_x = 30.0
+SUDOKU_width_y = 30.0
 
 # 不同物体的搬运速度
 move_v_max_T = 140
