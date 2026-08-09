@@ -321,8 +321,8 @@ class objects_planner:
         self.now_idx = 0
         gc.collect()
     def set_barriers(self,barriers):
-        wideness={'T':2,'S':1,'E':1,'B':0,'W':0,}
-        height={'T':2,'S':1,'E':1,'B':0,'W':0,}
+        wideness={'T':2,'S':1.5,'E':1.5,'B':1.5,'W':1.5,}
+        height={'T':2,'S':1.5,'E':1.5,'B':1.5,'W':1.5,}
         for i in self.now_objects:
             w,h=wideness[i[0]],height[i[0]]
             barriers.append([i[1],i[2],w,h])
@@ -411,7 +411,10 @@ class objects_planner:
                 dx_car = i[2] - self.my_car.x_current
                 dy_car = i[3] - self.my_car.y_current
                 distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
-                score += push_distance + push_angle*10 +distance_from_car*10
+                if i[1] != 'T':
+                    score += push_distance + push_angle*15 +distance_from_car*8
+                else:
+                    score += push_distance + push_angle*30 +distance_from_car*8
                 self.target_score.append(score)
                 if i[1] == 'S':
                     if self.last_sandbag_idx == -1:#前面没有沙袋
