@@ -549,6 +549,9 @@ class VisionManager:
         self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y
         self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
+
+        # 此时将视觉伺服速度将为0
+        self.target_rel_speed = 0.0
         
         self.current_servo_object = chr(target_point[2])
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用

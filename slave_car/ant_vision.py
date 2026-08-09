@@ -508,6 +508,9 @@ class VisionManager:
         elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:current_turn_deg = 90.0
         elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:current_turn_deg = 180.0
         elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:current_turn_deg = -90.0
+
+        # 此时将视觉伺服速度将为0
+        self.target_rel_speed = 0.0
         
         # 控制小车面向物体进行视觉伺服控制
         if object:
@@ -553,18 +556,19 @@ class VisionManager:
             self.calculate_dist(point[0], point[1])
             self.last_relative_raw_y = self.relative_raw_y
             self.last_real_servo_point = None
-        
+
     def reset_calibrate(self):
         self.if_ready_calibrate =False
         self.if_finish_calibrate =False
         self.if_gain_calibrate_angle = False    
         self.if_waiting = True
         self.if_lost_object = False
+        self.reset_last_car_pos()
         self.calibrate_buffer = []
         self.my_plan.reset_navigate()
         self.counter = 0
-        
-     # apriltag辅助校准校准控制函数
+
+    # apriltag辅助校准校准控制函数
     def apriltag_calibrate_control(self):
         if self.if_finish_calibrate == True:
             return # 已经完成视觉伺服控制，直接返回  
