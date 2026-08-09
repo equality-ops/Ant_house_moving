@@ -96,9 +96,6 @@ class MoveControl:
             self.my_car.y_current + dist_y * math.cos(now_yaw)-dist_x * math.sin(now_yaw)
         ]
 
-    def calculate_object_pos(self,point):#用扫描的一帧计算位置
-        self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
-
     # 构建搬运途径点列表
     def build_moving_point(self,point):
         current_index = self.plan_data.current_index
@@ -201,7 +198,7 @@ class MoveControl:
         elif now_side == 'D':current_turn_deg = 0.0
         else:current_turn_deg = 180
         self.angle_buffer.clear()
-        self.get_object_square_points(current_turn_deg,20)
+        self.get_object_square_points(current_turn_deg,18)
         # 初始参考偏航角就是当前小车所在方向（度数）
         current_ref_yaw_deg = current_turn_deg
         # 获取基于 current_ref_yaw_deg 作为参照方向时的相对转向角度
@@ -234,6 +231,16 @@ class MoveControl:
             if self.next_postion == 'r':self.if_first_orbit = True
             else:self.if_first_orbit = False
         elif turn_angle == 180.0:
+            if self.next_postion == 'r':
+                m_PAth = [self.surrounding_points['LD']]
+                ANGle = [angle_l0,current_ref_yaw_deg,angle_r]
+                car_postion -= 180
+                self.next_postion = 'l'
+            else:
+                m_PAth = [self.surrounding_points['RD']]
+                ANGle = [angle_r0,current_ref_yaw_deg,angle_l]
+                car_postion += 180
+                self.next_postion = 'r'
             self.if_first_orbit = True
         elif turn_angle == -90.0:
             if self.next_postion == 'r':self.if_first_orbit = False

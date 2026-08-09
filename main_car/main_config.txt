@@ -106,7 +106,7 @@ servo_pwmout_limitmax = 130
 #进入calibrate的分数值域
 calibrate_score_threshold = 10
 #是否矫正
-if_calibrate = 1
+if_calibrate = 0
 #april_tag位置
 apr_pos_L = "0,123"
 apr_pos_R = "326,123"
@@ -160,12 +160,12 @@ BEAR_cla_dis = 2.4
 
 
 #！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-
+total_objects_num = 5
 #是否返回
 IF_BACK = 0
-total_objects_num = 3
+
 #是否有障碍
-if_obstacles = 1
+if_obstacles = 0
 
 #--------------障碍相关---------------------
 #障碍物位置
