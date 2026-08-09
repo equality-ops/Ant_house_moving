@@ -564,20 +564,80 @@ class AnglePositionPID(ControlPID):
         self.high_pwmout_limitmax = self.flash_sys.find_value("high_angle_pwmout_limitmax")    # type: float
         self.low_pwmout_limitmax = self.flash_sys.find_value("low_angle_pwmout_limitmax")    # type: float
         self.pwmout_limitmax = self.high_pwmout_limitmax
-        
+
+        # 选择大角度闭环还是小角度
+        self.if_high_angle = False
+        # 角度展开：追踪连续的实际角度（跨越±180边界时累积偏移）
+        self.actual_unwrap_offset = 0.0   # type: float
+        self.prev_actual = 0.0            # type: float
+        self.effective_target = 0.0       # type: float  # 大角度模式下的展开目标值
+        self.prev_target = 0.0            # type: float  # 上一周期的target，用于检测target是否变化
+
     def compute_pid(self, target: float, actual: float):
         self.target = target
         self.actual = actual
         self.preError = self.nowError
-        self.nowError = self.target - self.actual
-        # 对误差限幅
-        if self.nowError > 180:
-            self.nowError -= 360
-        elif self.nowError < -180:
-            self.nowError += 360
-            
+
+        # 角度展开：检测IMU跨越±180边界，累积偏移量
+        actual_diff = self.actual - self.prev_actual
+        if actual_diff > 180.0:
+            self.actual_unwrap_offset -= 360.0
+        elif actual_diff < -180.0:
+            self.actual_unwrap_offset += 360.0
+        self.prev_actual = self.actual
+        actual_unwrapped = self.actual + self.actual_unwrap_offset
+
+        if not self.if_high_angle:
+            # 小角度模式：将误差归一化到 [-180, 180]
+            self.nowError = self.target - self.actual
+            if self.nowError > 180:
+                self.nowError -= 360
+            elif self.nowError < -180:
+                self.nowError += 360
+        else:
+            # 大角度模式：用展开后的连续角度计算误差，避免±180边界跳变
+            # 计算短路径误差
+            short_error = self.target - self.actual
+            if short_error > 180.0:
+                short_error -= 360.0
+            elif short_error < -180.0:
+                short_error += 360.0
+
+            if abs(short_error) <= 2.0:
+                # 死区内：已接近目标，直接用短路径收敛
+                self.nowError = short_error
+                self.effective_target = 0.0  # 下次换target时重新计算
+            else:
+                # 远路目标：选离 actual_unwrapped 较远的一侧（>180°的路径）
+                # 检测target是否变化：变了才重新计算effective_target
+                if abs(self.target - self.prev_target) > 0.5:
+                    # 找到 target 在展开坐标中离 actual_unwrapped 最近的等价位置（= 短路径）
+                    wraps = (actual_unwrapped - self.target) / 360.0
+                    # MicroPython 兼容：手动四舍五入到最近整数
+                    if wraps >= 0:
+                        wraps_int = int(wraps + 0.5)
+                    else:
+                        wraps_int = int(wraps - 0.5)
+                    closest = self.target + wraps_int * 360.0
+                    # 从 closest 向远路方向再偏移一圈
+                    if short_error > 0.0:
+                        # 短路径是 CW(+)，远路走 CCW(-)
+                        self.effective_target = closest - 360.0
+                    else:
+                        # 短路径是 CCW(-)，远路走 CW(+)
+                        self.effective_target = closest + 360.0
+                # target不变时effective_target保持锁定，靠展开角度保证连续性
+                # 用展开后的实际角度计算连续误差
+                self.nowError = self.effective_target - actual_unwrapped
+            self.prev_target = self.target
+                    
         self.integral += self.nowError
         self.derivative = self.nowError - self.preError
+        # 归一化derivative，消除大角度模式下±180°边界跳变导致的尖峰
+        if self.derivative > 180:
+            self.derivative -= 360
+        elif self.derivative < -180:
+            self.derivative += 360
 
         # 计算pwm_output
         self.pwm_output = self.kp * self.nowError + self.kd * self.derivative
@@ -585,6 +645,13 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
+    # 是否选择大角度模式
+    def choose_high_angle_mode(self, if_high_angle: bool):
+        self.if_high_angle = if_high_angle
+        if if_high_angle:
+            # 进入大角度模式时重置，下次 compute_pid 会重新计算 effective_target
+            self.effective_target = 0.0
+            self.prev_target = 0.0
 
 # 视觉伺服PD
 class ServoPID(ControlPID):

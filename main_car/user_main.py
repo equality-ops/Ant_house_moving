@@ -220,10 +220,9 @@ else:
     my_path = ant_plan.PathPlan(plan_data, my_car)
 
     # 创建规划（路径和速度）对象
-    my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
+    my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, angle_pid)
 
-
-    move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path,my_flash_sys)
+    move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path, my_flash_sys)
     gc.collect()
     # 创建视觉伺服管理对象2
     my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
@@ -336,7 +335,7 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state == NAVIGATE:
+        elif my_moving.current_state in [NAVIGATE, SCAN]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state == MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
@@ -413,6 +412,7 @@ def test_spin():
     global spin_angle, counter
     if my_state.state == READY_NAVIGATE:
         my_state.state = NAVIGATE
+        angle_pid.if_high_angle = True
     elif my_state.state == NAVIGATE:
         my_plan.navigate(target_turn_angle = spin_angle)
         if my_plan.if_finish_navigate == True:

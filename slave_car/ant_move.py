@@ -484,7 +484,7 @@ class MoveControl:
                 # 重置计数器
                 counter = 0
                 self.my_plan.reset_navigate()
-                self.vision_manager.reset_servo_angle()
+                self.my_plan.reset_navigate_angle()
                 self.reset_orbit() # 重置环绕相关变量
                 self.plan_path = []
                 self.vision_manager.if_finish_servo = False
@@ -509,6 +509,11 @@ class MoveControl:
                     self.current_state = SERVO
             return
         elif self.current_state == ORBIT:
+            # 延时200ms
+            counter += 1
+            if counter <= 20:
+                return 
+            
             if self.if_send_to_main == False:
                 # 通知主车已完成当前环绕
                 self.my_slave_protocol.send_slave_state("finish")
@@ -522,9 +527,9 @@ class MoveControl:
             if rec_path and rec_path[0] == 'M':
                 self.plan_path = self.caculate_move_path(rec_path)
                 if not self.plan_path:return
+                # 重置计数器
+                counter = 0
                 self.my_slave_protocol.send_slave_state("ready")
-                # 测试
-                self.my_beep.test()
                 self.vision_manager.if_finish_servo = False
                 self.if_send_to_main = False
                 self.my_plan.reset_navigate()

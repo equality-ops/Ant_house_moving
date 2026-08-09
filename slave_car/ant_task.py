@@ -220,6 +220,12 @@ class TaskController:
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
     
     def handle_ready_navigate(self):
+        global counter
+        if self.if_first_run:
+            counter += 1
+            if counter <= 50:
+                return
+            
         # 进入准备导航状态，做好路径规划准备和导航信息准备
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
@@ -254,8 +260,9 @@ class TaskController:
                     self.my_path.plan_path(tx, ty)  # 传入目标坐标进行路径规划
                     pathh = self.my_path.ready_path  # 获取规划好的路径
                     if self.if_first_run:
+                        counter = 0
                         self.if_first_run = False
-                        pathh.insert(0, [self.my_car.x_current, self.my_car.y_current+40.0])
+                        pathh.insert(0, [self.my_car.x_current, self.my_car.y_current+50.0])
                     self.navigate_message = [pathh, path[1]]  # 目标坐标和转向角度
             self.current_object = path[0]  # 当前物体种类
             self.my_plan.current_object = self.current_object  # 将当前物体种类传递给路径跟随模块

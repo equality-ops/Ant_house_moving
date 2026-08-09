@@ -173,9 +173,9 @@ class TaskController:
                 p = self.fixed_scan_point[self.use_scan_point][0]
                 a = self.fixed_scan_point[self.use_scan_point][1]
                 if self.use_scan_point>2:
-                    self.my_main_protocol.send_path('P',a,(p[0],240.0))
+                    self.my_main_protocol.send_path('P',a,(p[0],220.0))
                 else:
-                    self.my_main_protocol.send_path('P',a,(p[0],0.0))
+                    self.my_main_protocol.send_path('P',a,(p[0],20.0))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
@@ -225,7 +225,7 @@ class TaskController:
             score = self.need_calibrate_score - dis * 0.015
             global counter
             if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
-                if counter >=40:
+                if counter >= 10:
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
                     self.my_moving.reset_move()  # 重置搬运标志
@@ -240,7 +240,7 @@ class TaskController:
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                if counter >=40:
+                if counter >= 10:
                     counter=0
                     self.data.current_index += 1
                     self.my_plan.reset_navigate()

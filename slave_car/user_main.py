@@ -450,7 +450,7 @@ def master_control():
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state == NAVIGATE:
+        elif my_moving.current_state in [NAVIGATE, SCAN]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
         elif my_moving.current_state == MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
@@ -639,6 +639,7 @@ def time_pit2_handler(time):
 
     # 更新tof传感器信息
     # my_tof.update_tof()
+    # my_uart2.write(f"{my_state.state},{my_moving.current_state},{my_plan.if_finish_navigate},{my_moving.if_finish_move}\r\n")
     # my_uart2.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output},{my_car.speed_weight}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
     # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")

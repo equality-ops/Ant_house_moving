@@ -73,6 +73,7 @@ class MoveControl:
         self.if_start_orbit = False  # 是否开始环绕
         self.if_finish_move = False  # 是否完成搬运
         self.if_slave_ready_move = False
+        self.if_first_navigate = True # 是否第一次惯导
         self.push_postion = [0,0] #用于判断推动时所需的xy补偿
         self.plan_path = []
         self.send_point = []
@@ -370,6 +371,9 @@ class MoveControl:
     def state_transition(self):
         global counter
         if self.current_state == NAVIGATE:
+            if self.if_first_navigate:
+                self.if_first_navigate = False
+
             self.my_art_protocol.clear_uart_buffer()
             NAV_T=self.navigate_buffer
             self.vision_manager.reset_servo_angle()
@@ -465,7 +469,12 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0])
+
+            if self.if_first_navigate:
+                self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0])
+            else:
+                self.my_plan.navigate(NAV_T['MAIN_P'][:-1], NAV_T['ANGLE'][0], True)
+
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
