@@ -302,7 +302,8 @@ class BoundaryPathPlanner:
         return True
     
 class objects_planner:
-    def __init__(self, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
+    def __init__(self,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
+        self.my_write = my_write
         self.Data = plan_data
         self.my_car = car
         self.my_plan = my_plan
@@ -413,8 +414,10 @@ class objects_planner:
                 distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
                 if i[1] != 'T':
                     score += push_distance + push_angle*15 +distance_from_car*8
+                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*15, distance_from_car*8))
                 else:
                     score += push_distance + push_angle*30 +distance_from_car*8
+                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*30, distance_from_car*8))
                 self.target_score.append(score)
                 if i[1] == 'S':
                     if self.last_sandbag_idx == -1:#前面没有沙袋

@@ -190,7 +190,7 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager,my_uart3)
 
-my_obj_plan = ant_boundary_plan.objects_planner(plan_data,my_car,my_plan,move_plan)
+my_obj_plan = ant_boundary_plan.objects_planner(my_write_system,plan_data,my_car,my_plan,move_plan)
 # 任务及类
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
