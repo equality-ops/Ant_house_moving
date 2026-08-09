@@ -11,6 +11,7 @@ class BoundaryPathPlanner:
         self.SAFE_MARGIN = self.flash_sys.find_value("MOVE_SAFE_MARGIN")#四周膨胀半径
         self.near_area = self.flash_sys.find_value("NEAR_AREA")
         self.avoid_width = self.flash_sys.find_value("AVOID_WIDTH")
+        self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
         self.ready_path = []
         gc.collect()
@@ -388,7 +389,7 @@ class objects_planner:
                 i = self.target_objects[self.now_idx]
                 score = 0
                 dir,sdir=self.judge_push_direction(i[1])
-                if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=1000
+                if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=self.my_BoundaryPath.forward_push_value
                 path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
                 if (not path) or len(path) <= 1: 

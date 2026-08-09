@@ -148,7 +148,7 @@ class TaskController:
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路�?
-            p1 = [min(max(15,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
+            p1 = [min(max(20,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
             self.my_path.ready_path[-1] = self.data.fixed_point[3]
             # 最后插入一个途径点便于计�?
             self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])

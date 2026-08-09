@@ -142,15 +142,7 @@ angle_S = 40
 angle_B = 40
 
 calibrate_waiting_time = 40
-#############################################
-#惯导避障膨胀半径
-SAFE_MARGIN = 16.0
 
-# 是否检测到障碍物
-if_obstacles = 0
-
-#是否使用模型servo
-if_model = 1
 #推动内收因子
 CLAMP_FACTOR = 1.08
 NUM_CLAMP_FACTOR = 0.2
@@ -164,16 +156,20 @@ apr_pos_L = "0,123"
 apr_pos_R = "326,123"
 apr_pos_U = "163,246"
 apr_pos_D = "163,0"
+#！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+#是否使用模型servo
+if_model = 1
+# 是否需要障碍物
+if_obstacles = 0
 
+#--------------障碍相关---------------------
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
 circle = "(215, 190)"
+#惯导避障膨胀半径
+SAFE_MARGIN = 16.0
 
-# 不同物体的搬运速度
-move_v_max_T = 140
-move_v_max_S = 140
-move_v_max_B = 140
-
+#--------------场地相关---------------------
 SUDOKU_length_x = 30.0
 
 CENTER_X = 160.0
@@ -181,3 +177,8 @@ CENTER_Y = 120.0
 
 FIELD_W = 320.0
 FIELD_H = 240.0
+
+# 不同物体的搬运速度
+move_v_max_T = 140
+move_v_max_S = 140
+move_v_max_B = 140
