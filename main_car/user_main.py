@@ -27,11 +27,11 @@ import ant_vision
 gc.collect()
 import ant_task
 gc.collect()
-import ant_motor
-gc.collect()
 import ant_move
 gc.collect()
 import ant_boundary_plan
+gc.collect()
+import ant_motor
 gc.collect()
 import ant_else
 gc.collect()

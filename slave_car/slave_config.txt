@@ -123,8 +123,8 @@ tof_valid_max = 24.0
 dist_pwmout_limitmax = 60
 ###################【环绕控制】####################
 radius_T_U = 17.0
-radius_T_R = 15.0
-radius_T_L = 15.0
+radius_T_R = 14.0
+radius_T_L = 14.0
 radius_T_D = 16.0
 
 radius_S_U = 17.0
