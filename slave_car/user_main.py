@@ -118,7 +118,6 @@ tof_R = None
 if 0x29 in device_list_0:
     try:
         tof_R = VL53L4CD(i2c_1, address = 0x29)
-        tof_R.start_ranging()
     except Exception as e:
         my_beep.beep_warn()
 else:
@@ -129,7 +128,6 @@ else:
 if 0x29 in device_list_3:
     try:
         tof_L = VL53L4CD(i2c_3, address = 0x29)
-        tof_L.start_ranging()
     except Exception as e:
         my_beep.beep_warn()
         print("TOF L (I2C3) init failed:", e)

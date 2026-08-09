@@ -95,7 +95,7 @@ class VL53L4CD:
         self._write_register(0x0B, b"\x00")
         self._write_register(0x0024, b"\x05\x00")
         self.inter_measurement = 0
-        self.timing_budget = 10
+        self.timing_budget = 15
     
     @property
     def model_info(self):

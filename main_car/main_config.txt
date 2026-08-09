@@ -130,15 +130,15 @@ radius_T_R = 15.0
 radius_T_L = 15.0
 radius_T_D = 16.0
 
-radius_S_U = 17.0
-radius_S_R = 18.0
-radius_S_L = 18.0
-radius_S_D = 17.0
+radius_S_U = 16.0
+radius_S_R = 17.0
+radius_S_L = 17.0
+radius_S_D = 16.0
 
-radius_B_U = 19.0
-radius_B_R = 20.0
-radius_B_L = 20.0
-radius_B_D = 19.0
+radius_B_U = 18.0
+radius_B_R = 19.0
+radius_B_L = 19.0
+radius_B_D = 18.0
 
 angle_T = 35
 angle_S = 35
