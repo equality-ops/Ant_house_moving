@@ -199,8 +199,8 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 2.0  # 加速度计权重
-        self.ki = 0.001 # 零偏补偿权重
+        self.kp = 1.0  # 加速度计权重
+        self.ki = 0.0001 # 零偏补偿权重
 
         # 最终角度输出
         self.now_pitch = 0.0  # 俯仰角
@@ -286,16 +286,29 @@ class PoseData:
         # 继续执行归一化，将向量化为长度为 1 的单位向量给后续解算用
         ax /= norm; ay /= norm; az /= norm
         
-        # 2. 提取四元数矩阵中的理论重力方向 (机体坐标系下)
-        vx = 2 * (q1*q3 - q0*q2)
-        vy = 2 * (q0*q1 + q2*q3)
-        vz = q0*q0 - q1*q1 - q2*q2 + q3*q3
-        
-        # 3. 叉乘计算误差 (测量值与理论值的偏差)
+        # 2. 【双积分法 - 第一步】用原始陀螺仪做第一次欧拉积分（全长 dt）
+        # 得到中间四元数 q_mid，它包含了本次旋转的预测
+        qDot0_raw = 0.5 * (-q1*gx - q2*gy - q3*gz)
+        qDot1_raw = 0.5 * ( q0*gx + q2*gz - q3*gy)
+        qDot2_raw = 0.5 * ( q0*gy - q1*gz + q3*gx)
+        qDot3_raw = 0.5 * ( q0*gz + q1*gy - q2*gx)
+
+        q0_mid = q0 + qDot0_raw * self.dt
+        q1_mid = q1 + qDot1_raw * self.dt
+        q2_mid = q2 + qDot2_raw * self.dt
+        q3_mid = q3 + qDot3_raw * self.dt
+
+        # 3. 提取中间四元数矩阵中的理论重力方向 (机体坐标系下)
+        # 使用 q_mid 让重力预测与加速度测量在时间上对齐
+        vx = 2 * (q1_mid*q3_mid - q0_mid*q2_mid)
+        vy = 2 * (q0_mid*q1_mid + q2_mid*q3_mid)
+        vz = q0_mid*q0_mid - q1_mid*q1_mid - q2_mid*q2_mid + q3_mid*q3_mid
+
+        # 4. 叉乘计算误差 (测量值与理论值的偏差)
         ex = (ay*vz - az*vy)
         ey = (az*vx - ax*vz)
         ez = (ax*vy - ay*vx)
-        
+
         # --- 改进1：增加积分限幅 (Anti-Windup) ---
         # 6轴系统不修正 Yaw 的积分，始终清零
         self.e_int[2] = 0.0
@@ -305,23 +318,28 @@ class PoseData:
             I_LIMIT = 0.1  # 限制积分项最大影响
             self.e_int[0] = max(-I_LIMIT, min(self.e_int[0] + ex * self.ki, I_LIMIT))
             self.e_int[1] = max(-I_LIMIT, min(self.e_int[1] + ey * self.ki, I_LIMIT))
-        
+
         # 强制将 ez 置为 0，防止加速度计在 Z 轴上的假误差污染陀螺仪的 gz
-        ez = 0.0 
+        ez = 0.0
 
         # --- 改进2：补偿角速度 ---
         gx += current_kp * ex + self.e_int[0]
         gy += current_kp * ey + self.e_int[1]
         gz += current_kp * ez + self.e_int[2]
 
-        # 6. 一阶龙格库塔法更新四元数
-        half_dt = 0.5 * self.dt
-        q0_new = q0 + (-q1*gx - q2*gy - q3*gz) * half_dt
-        q1_new = q1 + (q0*gx + q2*gz - q3*gy) * half_dt
-        q2_new = q2 + (q0*gy - q1*gz + q3*gx) * half_dt
-        q3_new = q3 + (q0*gz + q1*gy - q2*gx) * half_dt
-        
-        # 7. 再次归一化四元数
+        # 5. 【双积分法 - 第二步】用修正后的陀螺仪做第二次欧拉积分（全长 dt）
+        # 在中间四元数 q_mid 基础上继续积分
+        qDot0_corr = 0.5 * (-q1_mid*gx - q2_mid*gy - q3_mid*gz)
+        qDot1_corr = 0.5 * ( q0_mid*gx + q2_mid*gz - q3_mid*gy)
+        qDot2_corr = 0.5 * ( q0_mid*gy - q1_mid*gz + q3_mid*gx)
+        qDot3_corr = 0.5 * ( q0_mid*gz + q1_mid*gy - q2_mid*gx)
+
+        q0_new = q0_mid + qDot0_corr * self.dt
+        q1_new = q1_mid + qDot1_corr * self.dt
+        q2_new = q2_mid + qDot2_corr * self.dt
+        q3_new = q3_mid + qDot3_corr * self.dt
+
+        # 6. 再次归一化四元数
         norm = math.sqrt(q0_new*q0_new + q1_new*q1_new + q2_new*q2_new + q3_new*q3_new)
         self.q[0] = q0_new/norm
         self.q[1] = q1_new/norm
