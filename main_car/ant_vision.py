@@ -343,26 +343,6 @@ class VisionManager:
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
-
-    def calc_object_global_pos(self, pixel_x, pixel_y, object_kind=None,mode = 'C'):
-        # 像素点 -> 车体坐标系下真实坐标
-        if object_kind:
-            self.current_servo_object = object_kind
-        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y, object_kind, mode)
-        rel_y += self.car_radius
-        # 车体坐标系下，x 为车右侧，y 为车前方
-        dist = math.sqrt(rel_x ** 2 + rel_y ** 2)
-        now_yaw = self.my_car.now_yaw * 180.0 / PI
-        rel_yaw = math.atan2(rel_x, rel_y) * 180.0 / PI
-        actual_yaw = now_yaw + rel_yaw
-        actual_yaw = (actual_yaw + 180.0) % 360.0 - 180.0
-        abs_x = dist * math.sin(actual_yaw * PI / 180.0)
-        abs_y = dist * math.cos(actual_yaw * PI / 180.0)
-        return [
-            self.my_car.x_current + abs_x,
-            self.my_car.y_current + abs_y
-        ]
-    
     # 视觉伺服控制函数
     def visual_servo_control(self):
         if self.if_finish_servo == True:

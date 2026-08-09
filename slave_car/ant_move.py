@@ -334,7 +334,8 @@ class MoveControl:
         angle_l0=(current_ref_yaw_deg + self.__angle + 180.0) % 360.0 - 180.0
         angle_r0=(current_ref_yaw_deg - self.__angle + 180.0) % 360.0 - 180.0
         self.if_to_the_top = False
-        self.get_object_square_points(current_ref_yaw_deg, 18)
+        self.now_object_pt = point
+        self.get_object_square_points(current_ref_yaw_deg, 16)
         if self.next_postion == 'r':
             sla_p = [self.surrounding_points['RD']]
             angle0 = angle_r0
@@ -355,6 +356,20 @@ class MoveControl:
             if self.next_postion == 'r':self.if_first_orbit = True
             else:self.if_first_orbit = False
         elif turn_angle == 180.0:
+            if self.next_postion == 'r':
+                sla_p = [self.surrounding_points['LD']]
+                angle0 = angle_l0
+                angle = angle_r
+                car_postion -= 180
+                self.next_postion = 'l'
+                self.my_tof.ready_tof('left',target_turn)
+            else:
+                sla_p = [self.surrounding_points['RD']]
+                angle0 = angle_r0
+                angle = angle_l
+                car_postion += 180
+                self.next_postion = 'r'
+                self.my_tof.ready_tof('right',target_turn)
             self.if_first_orbit = False
         elif turn_angle == -90.0:
             if self.next_postion == 'r':self.if_first_orbit = False
@@ -465,7 +480,7 @@ class MoveControl:
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
             # 延时500ms
-            if counter >= 50:
+            if counter >= 5:
                 # 重置计数器
                 counter = 0
                 self.my_plan.reset_navigate()
@@ -474,17 +489,25 @@ class MoveControl:
                 self.plan_path = []
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.if_lost_object = True
-                self.current_state = SERVO
+                self.current_state = SCAN
                 return 
+        elif self.current_state == SCAN:
+            if self.my_plan.if_finish_navigate:
+                self.if_finish_move = True
+                return
             target_point = self.my_art_protocol.coordinate_receive()
-            #self.my_uart.write(f"wait:{self.vision_manager.current_servo_object}, tp:{target_point}, send:{self.vision_manager.if_send_order}\n")
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
-                self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
-                self.vision_manager.reset_servo_angle()
-                self.my_plan.reset_navigate()
-                self.reset_orbit() # 重置环绕相关变量
-                self.plan_path = []
-                self.current_state = SERVO
+                points = self.vision_manager.calc_object_global_pos(
+                    target_point[0], target_point[1], self.vision_manager.current_servo_object)
+                if self.vision_manager.if_in_rect(points[0], points[1]):
+                    self.vision_manager.ready_servo_and_orbit(
+                        chr(target_point[2]), 'servo', target_point)
+                    self.vision_manager.reset_servo_angle()
+                    self.my_plan.reset_navigate()
+                    self.reset_orbit() # 重置环绕相关变量
+                    self.plan_path = []
+                    self.current_state = SERVO
+            return
         elif self.current_state == ORBIT:
             if self.if_send_to_main == False:
                 # 通知主车已完成当前环绕
@@ -545,9 +568,9 @@ class MoveControl:
                 self.vision_manager.if_finish_orbit = False
                 self.vision_manager.if_orbit_ready = False
                 self.vision_manager.reset_orbit_angle()
-                self.my_art_protocol.send_slave_state("get")
+                self.my_slave_protocol.send_slave_state("get")
                 self.current_state = ORBIT
-            elif self.my_art_protocol.get_start_signal():
+            elif self.my_slave_protocol.get_start_signal():
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.if_finish_orbit = False
                 self.vision_manager.if_orbit_ready = False
@@ -560,7 +583,7 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['SLA_P'],NAV_T['ANGLE'][0])
+            self.my_plan.navigate(NAV_T['SLA_P'][:-1],NAV_T['ANGLE'][0])
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
                 return
@@ -570,6 +593,10 @@ class MoveControl:
                 return
             NAV_T=self.navigate_buffer
             self.vision_manager.orbit_control(NAV_T['ANGLE'][2])
+        elif self.current_state == SCAN:
+            NAV_T=self.navigate_buffer
+            self.my_plan.navigate(path = [NAV_T['SLA_P'][-1]])
+            self.state_transition()
         elif self.current_state == MOVE:
             self.my_photo.update_photo_state()
             if self.my_photo.current_state == OutLine:

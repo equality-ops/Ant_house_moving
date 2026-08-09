@@ -228,7 +228,33 @@ class VisionManager:
         scale = max(0.8, min(1.0, dist / 10.0)) # 10cm外全速，近处最少降到90%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
-
+    def if_in_rect(self,x,y):
+        rect_x_min = self.my_plan.plan_data.center_rect[0][0] - 5
+        rect_x_max = self.my_plan.plan_data.center_rect[3][0] + 5
+        rect_y_min = self.my_plan.plan_data.center_rect[0][1] - 5
+        rect_y_max = self.my_plan.plan_data.center_rect[3][1] + 5
+        if x < rect_x_min or x > rect_x_max or\
+            y < rect_y_min or y > rect_y_max:
+            return False
+        return True
+    def calc_object_global_pos(self, pixel_x, pixel_y, object_kind=None):
+        # 像素点 -> 车体坐标系下真实坐标
+        if object_kind:
+            self.current_servo_object = object_kind
+        rel_x, rel_y = self.pixel_to_real_world(pixel_x, pixel_y, object_kind)
+        rel_y += 5
+        # 车体坐标系下，x 为车右侧，y 为车前方
+        dist = math.sqrt(rel_x ** 2 + rel_y ** 2)
+        now_yaw = self.my_car.now_yaw * 180.0 / PI
+        rel_yaw = math.atan2(rel_x, rel_y) * 180.0 / PI
+        actual_yaw = now_yaw + rel_yaw
+        actual_yaw = (actual_yaw + 180.0) % 360.0 - 180.0
+        abs_x = dist * math.sin(actual_yaw * PI / 180.0)
+        abs_y = dist * math.cos(actual_yaw * PI / 180.0)
+        return [
+            self.my_car.x_current + abs_x,
+            self.my_car.y_current + abs_y
+        ]
     # 物体像素点坐标解算函数
     def calculate_dist(self, x: int, y: int):
         # 将像素点坐标换算为相对坐标系下x和y方向上的实际偏移量
