@@ -256,7 +256,7 @@ class MoveControl:
         self.vision_manager.if_finish_orbit = False
 
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
-        a=self.navigate_distance
+        a=L
         if car_angle == 0:
             forward = (0, 1)
             right = (1, 0)
@@ -383,10 +383,10 @@ class MoveControl:
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
-        if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
-        elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
-        elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])   
-        else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+        if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]),ignore_center_rect=True)
+        elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]),ignore_center_rect=True)
+        elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)   
+        else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)
         sla_p = self.my_path.ready_path + sla_p
         self.navigate_buffer={
                     'SLA_P':sla_p,
@@ -477,7 +477,6 @@ class MoveControl:
         global counter
         if self.current_state == NAVIGATE:
             counter += 1
-
             if self.vision_manager.if_send_order == False:
                 self.my_order_manager.mode_target()
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
@@ -517,7 +516,6 @@ class MoveControl:
             counter += 1
             if counter <= 20:
                 return 
-            
             if self.if_send_to_main == False:
                 # 通知主车已完成当前环绕
                 self.my_slave_protocol.send_slave_state("finish")
