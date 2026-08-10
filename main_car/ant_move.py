@@ -477,9 +477,9 @@ class MoveControl:
             NAV_T=self.navigate_buffer
 
             if self.if_first_navigate:
-                self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0])
+                self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0],if_first_turn=False)
             else:
-                self.my_plan.navigate(NAV_T['MAIN_P'][:-1], NAV_T['ANGLE'][0], True)
+                self.my_plan.navigate(NAV_T['MAIN_P'][:-1], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
 
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True

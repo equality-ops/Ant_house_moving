@@ -692,7 +692,7 @@ class NavigationPlan:
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
-    def navigate(self, path = None, target_turn_angle = None, if_high_angle = False):
+    def navigate(self, path = None, target_turn_angle = None, if_high_angle = False, if_first_turn = True):
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
@@ -710,9 +710,10 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    if diff <= 1.5:
-                        # 换回小角度的角度环模式，帮助小车稳定完成转角调整
-                        self.angle_pid.choose_high_angle_mode(False)
+                    if diff <= 1.5 or if_first_turn == False:
+                        if if_first_turn:
+                            # 换回小角度的角度环模式，帮助小车稳定完成转角调整
+                            self.angle_pid.choose_high_angle_mode(False)
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True
@@ -728,11 +729,16 @@ class NavigationPlan:
                         # 如果没有目标转角，直接认为转角调整完成
                         self.if_finish_turn = True  
                         self.pre_calculate_profile(path)
-                    
                     # 没有进行转角调整也要恢复原状
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
                     return 
             else:
+                if if_high_angle and not if_first_turn:
+                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
+                    if diff > 180.0:
+                        diff = 360.0 - diff
+                    if diff <= 1.5:
+                        self.angle_pid.choose_high_angle_mode(False)
                 self.navigate_step()
         else:
             self.stop()
