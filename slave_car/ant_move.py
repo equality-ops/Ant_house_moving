@@ -593,7 +593,9 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['SLA_P'][:-1],NAV_T['ANGLE'][0])
+
+            self.my_plan.navigate(NAV_T['SLA_P'][:-1], NAV_T['ANGLE'][0], if_first_turn = False)
+
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
                 return
@@ -645,5 +647,3 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
-
-            

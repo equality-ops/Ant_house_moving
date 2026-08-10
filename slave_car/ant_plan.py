@@ -423,6 +423,7 @@ class NavigationPlan:
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
         self.if_finish_navigate = False     # type: bool  # 判断是否完成导航标志位
         self.if_near_line = False           # type: bool  # 判断是否接近边界标志位
+        self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
         self.move_state = NAVIGATE
         
         self.fit_target_yaw = 0.0
@@ -655,6 +656,16 @@ class NavigationPlan:
         # =======================================================
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         rest_dist=self.rest_dist
+
+        diff = 0.0
+        if not self.if_finish_turn:
+            # 在未完成转角调整时，持续进行转角调整
+            diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
+            if diff > 180.0:
+                diff = 360.0 - diff
+
+        if_finish_turn = (diff <= 1.5) or (self.if_first_turn)
+
         if self.move_state == MOVE: 
             rest_dist=self.fit_rest_dist
 
@@ -664,7 +675,7 @@ class NavigationPlan:
             self.plan_acc_dec() 
             # pid积分清零
             self.my_car.reset_pid_integral()
-        elif is_last_segment and rest_dist <= self.final_threshold:
+        elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
             # 重置导航标志位
@@ -678,11 +689,13 @@ class NavigationPlan:
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
-    def navigate(self, path = None, target_turn_angle = None):
+    def navigate(self, path = None, target_turn_angle = None, if_first_turn = True):
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
                 if target_turn_angle is not None:
+                    self.if_first_turn = if_first_turn
+
                     self.target_v = 0
                     self.turn_angle_target = target_turn_angle
                     # 通过角度环限幅削弱转角调整的力度，帮助小车稳定完成转角调整
@@ -693,15 +706,13 @@ class NavigationPlan:
                     if diff > 180.0:
                         diff = 360.0 - diff
 
-                    if diff <= 1.5:
+                    if diff <= 1.5 or if_first_turn == False:
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True
                         else:
                             self.if_finish_turn = True
                             self.pre_calculate_profile(path)
-                        # 恢复正常的角度环限幅
-                        self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
                 else:
                     self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI
                     if path is None:
@@ -711,7 +722,6 @@ class NavigationPlan:
                         # 如果没有目标转角，直接认为转角调整完成
                         self.if_finish_turn = True  
                         self.pre_calculate_profile(path)
-                    
                     # 没有进行转角调整也要恢复原状
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
                     return 
