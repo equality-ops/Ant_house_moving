@@ -312,19 +312,10 @@ class MoveControl:
 
     def ready_move(self, current_ref_yaw_deg, point, sp):
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
-        current_yaw_deg = self.record_angle * 180.0 / PI
-        if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: 
-            current_turn_deg = 0.0
-            now_side = 'D'
-        elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:
-            current_turn_deg = 90.0
-            now_side = 'L'
-        elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:
-            current_turn_deg = 180.0
-            now_side = 'U'
-        elif current_yaw_deg > -135.0 and current_yaw_deg <= -45.0:
-            current_turn_deg = -90.0
-            now_side = 'R'
+        if current_ref_yaw_deg > -45.0 and current_ref_yaw_deg <= 45.0: now_side = 'D'
+        elif current_ref_yaw_deg > 45.0 and current_ref_yaw_deg <= 135.0:now_side = 'L'
+        elif current_ref_yaw_deg > 135.0 or current_ref_yaw_deg <= -135.0:now_side = 'U'
+        elif current_ref_yaw_deg > -135.0 and current_ref_yaw_deg <= -45.0:now_side = 'R'
         # 初始参考偏航角就是当前小车所在方向（度数）
         turn_angle = 0.0
         turn_angle = self.judge_next_turn(sp,current_ref_yaw_deg)
@@ -390,7 +381,7 @@ class MoveControl:
         sla_p = self.my_path.ready_path + sla_p
         self.navigate_buffer={
                     'SLA_P':sla_p,
-                    'ANGLE':[angle0,current_turn_deg,angle],
+                    'ANGLE':[angle0,current_ref_yaw_deg,angle],
                 }
         self.if_get_orbit_angle=True
         self.current_state = NAVIGATE
@@ -483,12 +474,12 @@ class MoveControl:
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
             # 延时500ms
-            if counter >= 5:
+            if counter >= 0:
                 # 重置计数器
                 counter = 0
-                self.my_plan.reset_navigate()
-                self.my_plan.reset_navigate_angle()
-                self.reset_orbit() # 重置环绕相关变量
+                #self.my_plan.reset_navigate()
+                #self.my_plan.reset_navigate_angle()
+                #self.reset_orbit() # 重置环绕相关变量
                 self.plan_path = []
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.if_lost_object = True
@@ -499,6 +490,7 @@ class MoveControl:
                 self.current_state = SERVO
                 self.vision_manager.reset_servo_angle()
                 self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
                 self.reset_orbit() # 重置环绕相关变量
                 self.plan_path = []
                 self.vision_manager.if_lost_object = True
@@ -510,6 +502,7 @@ class MoveControl:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
                     self.vision_manager.reset_servo_angle()
                     self.my_plan.reset_navigate()
+                    self.my_plan.reset_navigate_angle()
                     self.reset_orbit() # 重置环绕相关变量
                     self.plan_path = []
                     self.current_state = SERVO
@@ -593,10 +586,8 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-
-            self.my_plan.navigate(NAV_T['SLA_P'][:-1], NAV_T['ANGLE'][0], if_first_turn = False)
-
-            if self.my_plan.if_finish_navigate == True:
+            self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0], if_first_turn = False)
+            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 20.0:
                 self.state_transition()
                 return
         elif self.current_state == ORBIT:

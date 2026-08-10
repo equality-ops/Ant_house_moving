@@ -282,7 +282,7 @@ class TaskController:
             self.my_plan.if_finish_navigate=True#直接退出
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入扫描状态
-   
+    
     def handle_scan(self):
         # if state == SCAN
         pass
