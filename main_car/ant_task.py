@@ -94,7 +94,8 @@ class TaskController:
                                  [[145,self.data.fixed_point[1][1]-5],0],
                                  [[190,self.data.fixed_point[1][1]-5],0],
                                  [[175,self.data.fixed_point[2][1]+5],180],
-                                 [[130,self.data.fixed_point[2][1]+5],180]]
+                                 [[130,self.data.fixed_point[2][1]+5],180],
+                                 [[self.data.fixed_point[1][0],self.data.fixed_point[1][1]],45]]
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -584,7 +585,6 @@ class TaskController:
                 if self.scan_waiting_count < 10:
                     if not self.if_send_detect_message:
                         self.scan_empty_counter=0
-                        counter = 0
                         self.if_send_detect_message = True
                         self.my_art_protocol.clear_uart_buffer()
                         self.my_order_manager.clear_knock()
@@ -608,12 +608,20 @@ class TaskController:
                     self.exit()
                     return
             self.if_end_first_scan = True
-        else:scan_point(self.scan_num)
+        else:
+            scan_point(self.scan_num)
 
     def handle_scan(self):
         global counter
         if not self.if_end_first_scan:
             if not self.if_plan_scan:
+                if self.use_scan_point == 1:
+                    self.my_path.plan_path(self.fixed_scan_point[-1][0][0],self.fixed_scan_point[-1][0][1]) 
+                    self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[-1][1]])
+                    self.planned_scan_path[0][0].insert(0,[self.my_car.x_current,self.my_car.y_current+30])
+                    self.if_plan_scan = True
+                    counter = 0
+                    return
                 if counter >= self.use_scan_point:
                     self.planned_scan_path[0][0].insert(0,[self.my_car.x_current,self.my_car.y_current+30])
                     self.if_plan_scan = True

@@ -556,7 +556,7 @@ class VisionManager:
             self.calculate_dist(point[0], point[1])
             self.last_relative_raw_y = self.relative_raw_y
             self.last_real_servo_point = None
-
+    
     def reset_calibrate(self):
         self.if_ready_calibrate =False
         self.if_finish_calibrate =False

@@ -374,7 +374,6 @@ class MoveControl:
         if self.current_state == NAVIGATE:
             if self.if_first_navigate:
                 self.if_first_navigate = False
-
             self.my_art_protocol.clear_uart_buffer()
             NAV_T=self.navigate_buffer
             self.vision_manager.reset_servo_angle()
@@ -390,7 +389,6 @@ class MoveControl:
             if self.if_send_orbit_command == False:
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
                 self.if_send_orbit_command = True
-            self.my_plan.reset_navigate()
             self.current_state = SCAN
         elif self.current_state == SCAN:
             if self.my_plan.if_finish_navigate:
@@ -475,24 +473,22 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-
             if self.if_first_navigate:
-                self.my_plan.navigate(NAV_T['MAIN_P'][:-1],NAV_T['ANGLE'][0],if_first_turn=False)
+                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
             else:
-                self.my_plan.navigate(NAV_T['MAIN_P'][:-1], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
-
+                self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
             elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15:
                 self.if_send_orbit_command = True
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
-            if self.my_plan.if_finish_navigate == True:
+            if self.my_plan.is_last_segment and self.my_plan.rest_dist <= 20.0:
                 self.state_transition()
                 return
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate([NAV_T['MAIN_P'][-1]],NAV_T['ANGLE'][0])
+            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
             self.state_transition()
         elif self.current_state == ORBIT:
             if self.vision_manager.if_finish_orbit:
