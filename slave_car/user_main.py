@@ -301,7 +301,7 @@ def voltage_detect(limit_min: float) -> None:
     print(f"The current power supply voltage is {power_voltage}!")
     if power_voltage <= limit_min:
         print(f"The power supply voltage: {power_voltage} is too low!")
-        my_beep.beep_warn()
+        my_beep.low_power_warn()
 
 # 角度环计算函数
 def angle_pid_compute():
