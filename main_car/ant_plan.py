@@ -437,9 +437,12 @@ class NavigationPlan:
         self.arrive_flag = False            # type: bool  # 判断是否到达目标点标志位
         self.if_finish_turn = False         # type: bool  # 判断是否完成转角调整标志位
         self.if_send_path = False           # type: bool  # 判断是否向从车发送路径标志位
-        self.if_finish_navigate = False              # type: bool  # 判断是否完成导航标志位
-        self.if_second_verify = False              # type: bool  # 判断是否进行第二次验证视觉
+        self.if_finish_navigate = False     # type: bool  # 判断是否完成导航标志位
+        self.if_second_verify = False       # type: bool  # 判断是否进行第二次验证视觉
+        self.if_high_angle = False          # type: bool  # 判断是否进行大角度转向
+        self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
         self.move_state = NAVIGATE
+
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
         # 打开无刷负压风扇
@@ -670,6 +673,15 @@ class NavigationPlan:
         is_last_segment = (self.aimed_point_index == len(self.path) - 2)
         rest_dist=self.rest_dist
 
+        diff = 0.0
+        if not self.if_finish_turn:
+            # 在未完成转角调整时，持续进行转角调整
+            diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
+            if diff > 180.0:
+                diff = 360.0 - diff
+
+        if_finish_turn = (diff <= 1.5) or (self.if_first_turn)
+
         if self.move_state == MOVE: 
             rest_dist=self.fit_rest_dist
         if not is_last_segment and rest_dist <= self.branch_threshold:
@@ -678,10 +690,11 @@ class NavigationPlan:
             self.plan_acc_dec() 
             # pid积分清零
             self.my_car.reset_pid_integral()
-        elif is_last_segment and rest_dist <= self.final_threshold:
+        elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:
             self.aimed_point_index += 1
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
+            self.angle_pid.choose_high_angle_mode(False)
             self.if_finish_navigate = True
             self.stop()
 
@@ -697,6 +710,9 @@ class NavigationPlan:
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
                 if target_turn_angle is not None:
+                    self.if_high_angle = if_high_angle
+                    self.if_first_turn = if_first_turn
+
                     if if_high_angle and not self.angle_pid.if_high_angle:
                         self.angle_pid.choose_high_angle_mode(True)
 
@@ -714,6 +730,7 @@ class NavigationPlan:
                         if if_first_turn:
                             # 换回小角度的角度环模式，帮助小车稳定完成转角调整
                             self.angle_pid.choose_high_angle_mode(False)
+
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True
@@ -733,12 +750,6 @@ class NavigationPlan:
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
                     return 
             else:
-                if if_high_angle and not if_first_turn:
-                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
-                    if diff > 180.0:
-                        diff = 360.0 - diff
-                    if diff <= 1.5:
-                        self.angle_pid.choose_high_angle_mode(False)
                 self.navigate_step()
         else:
             self.stop()

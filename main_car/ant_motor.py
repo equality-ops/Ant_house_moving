@@ -199,7 +199,7 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 2.0  # 加速度计权重
+        self.kp = 1.0  # 加速度计权重
         self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
