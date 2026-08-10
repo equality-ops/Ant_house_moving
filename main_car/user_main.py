@@ -426,6 +426,22 @@ def test_vision_servo():
             my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
+
+
+def test_predict_point():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_order_manager.mode_target()
+        my_state.state = NAVIGATE
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
+    elif my_state.state == NAVIGATE:
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
+            point = my_vision_manager.predict_point(target_point[0], target_point[1])
+            my_uart3.write(f"predict_point: {point}\n")
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -542,6 +558,9 @@ def time_pit3_handler(time) -> None:
 
     # 自转测试程序
     # test_spin()
+
+    # 测试预测点位是否准确
+    # test_predict_point()
 
     pass
 

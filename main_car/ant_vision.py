@@ -263,11 +263,11 @@ class VisionManager:
         if self.if_model_detect:
             MIN_Y,MAX_Y = 15.0, 120.0
             if self.current_servo_object in ['T']:
-                object_H_min,object_H_max= 5.0,6.0
+                object_H_min,object_H_max= 5.5,6.0
             elif self.current_servo_object in ['S', 'E']:
-                object_H_min,object_H_max= 6.0,7.0
+                object_H_min,object_H_max= 7.0,7.2
             elif self.current_servo_object in ['W', 'B']:
-                object_H_min,object_H_max= 5.0,6.5
+                object_H_min,object_H_max= 5.5,6.0
         else:
             MIN_Y,MAX_Y = 30.0, 120.0
             if self.current_servo_object in ['T']:
@@ -297,7 +297,7 @@ class VisionManager:
     
     # 推测目标点位并进行视觉伺服控制
     def predict_point(self, x, y,limit_y = None):
-        car_radius = 7.0
+        car_radius = 9.0
         raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
         if limit_y:
             if raw_y>limit_y: return []
