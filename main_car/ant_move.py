@@ -302,7 +302,7 @@ class MoveControl:
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
         # 经验修正值
-        correction = 2.0
+        correction = -3.0
         if current_object == 'T':
             self.my_car.y_current = self.plan_data.FIELD_H - correction
         elif current_object in ['S', 'E']:
@@ -329,12 +329,14 @@ class MoveControl:
             if self.my_car.now_yaw>-PI/2 and self.my_car.now_yaw<PI/2:swell_dir=180
             else:swell_dir=0
         else: return False
-        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 45)
+        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 55)
+        used_path = 2
         if not plan_path or len(plan_path)<=1:
             try:
+                used_path = 1
                 dx,dy = self.saved_best_path
-                dx-=self.push_postion[0]*10
-                dy-=self.push_postion[1]*10
+                # dx+=self.push_postion[0]*10
+                # dy+=self.push_postion[1]*10
                 p0 = [self.my_car.x_current,self.my_car.y_current]
                 p1 = [self.my_car.x_current+dx,self.my_car.y_current+dy]
                 if self.move_dir==0:p2 = [self.my_car.x_current+dx,260]
@@ -367,6 +369,7 @@ class MoveControl:
             p2=[plan_path[2][0]+self.push_postion[0]*now_clamp*self.twist_clamp_factor,plan_path[2][1]+self.push_postion[1]*now_clamp*self.twist_clamp_factor]
             #self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
             self.plan_path = plan_path[1:]
+        self.my_write_system.write_str(f"used path:{used_path},dx:{self.send_point[0]},dy:{self.send_point[1]},car_x:{self.my_car.x_current},car_y:{self.my_car.y_current},push_pos:{self.push_postion}\n")
         return True 
     # 状态过渡函数
     def state_transition(self):
@@ -474,7 +477,7 @@ class MoveControl:
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
             if self.if_first_navigate:
-                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
+                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
             else:
                 self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
             if self.if_send_navigate_command == False:
@@ -488,7 +491,7 @@ class MoveControl:
                 return
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
+            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
             self.state_transition()
         elif self.current_state == ORBIT:
             if self.vision_manager.if_finish_orbit:
@@ -508,6 +511,7 @@ class MoveControl:
                 self.my_photo.reset_photo()
                 self.my_beep.test()
                 self.my_plan.if_finish_navigate = True
+                self.my_write_system.write_str(f"finish_move--car_x:{self.my_car.x_current},car_y:{self.my_car.y_current}\n")
             self.my_plan.navigate(path = self.plan_path)
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()

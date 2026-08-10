@@ -466,7 +466,7 @@ class TaskController:
 
     def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
-        threshold_far = threshold_near+5
+        threshold_far = threshold_near+10
         for kind, x, y in objects:
             match_idx = -1
             for idx, (old_kind, old_x, old_y) in enumerate(merged):

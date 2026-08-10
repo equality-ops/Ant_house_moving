@@ -115,31 +115,31 @@ apriltag_threshold_y = 1.5
 ###################【tof距离控制】####################
 dist_kp = 15.0
 dist_kd = 5.0
-target_L = 13.5
-target_R = 13.5
+target_L = 15.0
+target_R = 15.0
 dist_deadzone = 0.8
 tof_valid_min = 5.0
-tof_valid_max = 30.0
-dist_pwmout_limitmax = 50
+tof_valid_max = 40.0
+dist_pwmout_limitmax = 90
 ###################【环绕控制】####################
 radius_T_U = 17.0
 radius_T_R = 14.0
 radius_T_L = 14.0
 radius_T_D = 16.0
 
-radius_S_U = 16.0
+radius_S_U = 15.0
 radius_S_R = 17.0
 radius_S_L = 17.0
-radius_S_D = 16.5
+radius_S_D = 15.5
 
-radius_B_U = 18.0
+radius_B_U = 17.0
 radius_B_R = 19.0
 radius_B_L = 19.0
-radius_B_D = 18.5
+radius_B_D = 17.5
 
-angle_T = 35
-angle_S = 35
-angle_B = 35
+angle_T = 43
+angle_S = 43
+angle_B = 43
 
 calibrate_waiting_time = 40
 
@@ -179,6 +179,6 @@ FIELD_W = 320.0
 FIELD_H = 240.0
 
 # 不同物体的搬运速度
-move_v_max_T = 140
-move_v_max_S = 140
-move_v_max_B = 140
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160

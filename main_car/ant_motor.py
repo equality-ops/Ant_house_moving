@@ -603,7 +603,7 @@ class AnglePositionPID(ControlPID):
             elif short_error < -180.0:
                 short_error += 360.0
 
-            if abs(short_error) <= 2.0:
+            if abs(short_error) <= 10.0:
                 # 死区内：已接近目标，直接用短路径收敛
                 self.nowError = short_error
                 self.effective_target = 0.0  # 下次换target时重新计算
