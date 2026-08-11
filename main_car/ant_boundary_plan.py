@@ -463,6 +463,8 @@ class objects_planner:
                 elif car_side == 'D':in_dir = [1,0]
                 else: in_dir = [-1,0]
                 def judge_side_in_nine_grid(obj,dir,k):
+                    if not obj or len(obj) < 3:
+                        return False
                     now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
                     if not now_pt:
                         return False
@@ -475,10 +477,6 @@ class objects_planner:
                         now_pt[1] += dir[1] * k
                     return True
                 def judge_side_in_nine_grid_idx(idx,dir,k):
-                    if not isinstance(idx, (list, tuple)) or len(idx) != 2:
-                        return False
-                    # Do not mutate the caller's index while scanning.
-                    idx = [idx[0], idx[1]]
                     idx[0] += dir[0] * k
                     idx[1] += dir[1] * k
                     while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
