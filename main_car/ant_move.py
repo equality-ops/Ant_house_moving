@@ -174,7 +174,7 @@ class MoveControl:
             'RDD': RDD,
         }
     # 搬运前的准备
-    def ready_move(self,point,now_side = 'D',target_side = 'D'):
+    def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
         self.now_object_pt = point[:]
@@ -228,27 +228,55 @@ class MoveControl:
             dicc = {'D':0,'L':1,'U':2,'R':3,}
             if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
                 m_PAth = [self.surrounding_points['LD']]
-                ANGle = [angle_l0,target_turn_deg,angle_l]
+                ANGle = [angle_l0,target_turn_deg+Num,angle_l]
                 car_postion += 90
                 self.next_postion = 'r'
             else:
                 m_PAth = [self.surrounding_points['RD']]
-                ANGle = [angle_r0,target_turn_deg,angle_r]
+                ANGle = [angle_r0,target_turn_deg+Num,angle_r]
                 car_postion -= 90
                 self.next_postion = 'l'
             self.if_to_the_top =True
-            if target_side =='D':
-                self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-1)
-                self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
-            elif target_side =='U':
-                self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
-                self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
-            elif target_side =='L':
-                self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
-                self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1]) 
+            if not RECT:
+                if target_side =='D':
+                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-1)
+                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
+                elif target_side =='U':
+                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
+                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
+                elif target_side =='L':
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1]) 
+                else:
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
             else:
-                self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
-                self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
+                big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
+                p_2 = RECT[0][:]
+                p_1 = m_PAth[0][:]
+                if target_side =='D': 
+                    p_2[1] = RECT[0][1]
+                    p_1[1] = RECT[0][1]
+                elif target_side =='U': 
+                    p_2[1] = RECT[1][1]
+                    p_1[1] = RECT[1][1]
+                elif target_side =='L': 
+                    p_2[0] = RECT[0][0]
+                    p_1[0] = RECT[0][0]
+                else:
+                    p_2[0] = RECT[1][0]
+                    p_1[0] = RECT[1][0]
+                if now_side =='D': 
+                    p_2[1] = big_rect[0][1]
+                elif now_side =='U': 
+                    p_2[1] = big_rect[1][1]
+                elif now_side =='L': 
+                    p_2[0] = big_rect[0][0]
+                else:
+                    p_2[0] = big_rect[1][0]
+                self.my_path.plan_path(p_2[0],p_2[1])   
+                self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
+                self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
         else:
             if self.next_postion == 'r':
@@ -292,8 +320,6 @@ class MoveControl:
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
-        
-        
         self.navigate_buffer=({
                         'MAIN_P':M_PAth,
                         'SLA_P':S_PAth,

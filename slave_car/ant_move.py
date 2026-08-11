@@ -305,10 +305,45 @@ class MoveControl:
 
     def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
-        if target_ref_yaw_deg > -45.0 and target_ref_yaw_deg <= 45.0: target_side = 'D'
-        elif target_ref_yaw_deg > 45.0 and target_ref_yaw_deg <= 135.0:target_side = 'L'
-        elif target_ref_yaw_deg > 135.0 or target_ref_yaw_deg <= -135.0:target_side = 'U'
-        elif target_ref_yaw_deg > -135.0 and target_ref_yaw_deg <= -45.0:target_side = 'R'
+        RECT = []
+        center_x = self.plan_data.center_x
+        center_y = self.plan_data.center_y
+        lenth = self.plan_data.lenth
+        if target_ref_yaw_deg > -45.0 and target_ref_yaw_deg <= 45.0: 
+            target_side = 'D'
+            if int(target_ref_yaw_deg) != 0:
+                Num = int(target_ref_yaw_deg - 0)
+                target_ref_yaw_deg = 0
+                # Num is counted from the object towards the side opposite
+                # the push direction.  Rebuild that grid point first, then
+                # project it to the current entry edge.
+                if now_side == 'L':p2 = [center_x - 1.5*lenth,point[1]-lenth*Num]
+                else:p2 = [center_x + 1.5*lenth,point[1]-lenth*Num]
+                RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]
+        elif target_ref_yaw_deg > 45.0 and target_ref_yaw_deg <= 135.0:
+            target_side = 'L'
+            if int(target_ref_yaw_deg) != 90:
+                Num = int(target_ref_yaw_deg - 90)
+                target_ref_yaw_deg = 90
+                if now_side == 'U':p2 = [point[0]-lenth*Num,center_y + 1.5*lenth]
+                else:p2 = [point[0]-lenth*Num,center_y - 1.5*lenth]
+                RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]
+        elif target_ref_yaw_deg > 135.0 or target_ref_yaw_deg <= -135.0:
+            target_side = 'U'
+            if int(target_ref_yaw_deg) != 180:
+                Num = int(target_ref_yaw_deg - 180)
+                target_ref_yaw_deg = 180
+                if now_side == 'L':p2 = [center_x - 1.5*lenth,point[1]-lenth*Num]
+                else:p2 = [center_x + 1.5*lenth,point[1]-lenth*Num]
+                RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]
+        elif target_ref_yaw_deg > -135.0 and target_ref_yaw_deg <= -45.0:
+            target_side = 'R'
+            if int(target_ref_yaw_deg) != -90:
+                Num = int(target_ref_yaw_deg + 90)
+                target_ref_yaw_deg = -90
+                if now_side == 'U':p2 = [point[0]-lenth*Num,center_y + 1.5*lenth]
+                else:p2 = [point[0]-lenth*Num,center_y - 1.5*lenth]
+                RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]            
         if now_side == 'D':current_ref_yaw_deg = 0
         elif now_side == 'L':current_ref_yaw_deg = 90.0
         elif now_side == 'R':current_ref_yaw_deg = -90.0
@@ -393,18 +428,46 @@ class MoveControl:
                 self.my_tof.ready_tof('right',target_turn)
                 car_postion += 90
             self.if_to_the_top =True
-            if now_side =='D': 
-                self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
-                self.my_path.ready_path[-1] = (sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
-            elif now_side =='U': 
-                self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
-                self.my_path.ready_path[-1] = (sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
-            elif now_side =='L': 
-                self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])   
-                self.my_path.ready_path[-1] = (min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])  
-            else: 
-                self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
-                self.my_path.ready_path[-1] = (max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+            if not RECT:
+                if now_side =='D': 
+                    self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
+                    self.my_path.ready_path[-1] = (sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
+                elif now_side =='U': 
+                    self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
+                    self.my_path.ready_path[-1] = (sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
+                elif now_side =='L': 
+                    self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])   
+                    self.my_path.ready_path[-1] = (min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])  
+                else: 
+                    self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+                    self.my_path.ready_path[-1] = (max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+            else:
+                big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
+                p_2 = RECT[0][:]
+                p_1 = sla_p[0][:]
+                if target_side =='D': 
+                    p_2[1] = RECT[0][1]
+                    p_1[1] = RECT[0][1]
+                elif target_side =='U': 
+                    p_2[1] = RECT[1][1]
+                    p_1[1] = RECT[1][1]
+                elif target_side =='L': 
+                    p_2[0] = RECT[0][0]
+                    p_1[0] = RECT[0][0]
+                else:
+                    p_2[0] = RECT[1][0]
+                    p_1[0] = RECT[1][0]
+                if now_side =='D': 
+                    p_2[1] = big_rect[0][1]
+                elif now_side =='U': 
+                    p_2[1] = big_rect[1][1]
+                elif now_side =='L': 
+                    p_2[0] = big_rect[0][0]
+                else:
+                    p_2[0] = big_rect[1][0]
+                self.my_path.plan_path(p_2[0],p_2[1])   
+                self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
+                self.my_path.ready_path.append(p_1)
             sla_p = self.my_path.ready_path + sla_p
         car_postion = 180 - (180 - car_postion) % 360
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]

@@ -308,8 +308,6 @@ class objects_planner:
         self.Data = plan_data
         self.my_car = car
         self.my_plan = my_plan
-        self.objects_information = []
-        self.objects_characters = []
         self.my_BoundaryPath = my_BoundaryPath
         self.objects_score = []
         self.barrier = []
@@ -322,6 +320,9 @@ class objects_planner:
         self.last_sandbag_idx = -1
         self.now_idx = 0
         self.run_speed = self.flash_sys.find_value("long_v_max")
+        self.nine_grid = [['','',''],
+                          ['','',''],
+                          ['','',''],]
         gc.collect()
     def set_barriers(self,barriers):
         wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
@@ -367,31 +368,138 @@ class objects_planner:
                 return False
         gc.collect()
         return True
+    def nine_grid_postion_to_idx(self, x, y=None):
+        """Return [row, col] for an exact nine-grid center, or [] if absent."""
+        if y is None:
+            if not isinstance(x, (list, tuple)) or len(x) != 2:
+                return []
+            x, y = x
+
+        center_x = self.Data.center_x
+        center_y = self.Data.center_y
+        length = self.Data.lenth
+        if length <= 0:
+            return []
+
+        col = int(round((x - center_x) / length)) + 1
+        row = int(round((y - center_y) / length)) + 1
+        if row < 0 or row > 2 or col < 0 or col > 2:
+            return []
+
+        expected_x = center_x + (col - 1) * length
+        expected_y = center_y + (row - 1) * length
+        if abs(x - expected_x) > 1e-6 or abs(y - expected_y) > 1e-6:
+            return []
+        return [row, col]
+
+    def nine_grid_idx_to_postion(self, idx, col=None):
+        """Return [x, y] for a [row, col] index, or [] if the index is invalid."""
+        if col is None:
+            if not isinstance(idx, (list, tuple)) or len(idx) != 2:
+                return []
+            row, col = idx
+        else:
+            row = idx
+
+        if not isinstance(row, int) or not isinstance(col, int):
+            return []
+        if row < 0 or row > 2 or col < 0 or col > 2:
+            return []
+
+        center_x = self.Data.center_x
+        center_y = self.Data.center_y
+        length = self.Data.lenth
+        if length <= 0:
+            return []
+        return [center_x + (col - 1) * length,
+                center_y + (row - 1) * length]
+
+    def generate_nine_grid(self):
+        """Fill the 3x3 grid with object kinds from snapped object coordinates."""
+        self.nine_grid = [['', '', ''], ['', '', ''], ['', '', '']]
+        for obj in self.now_objects:
+            if not obj or len(obj) < 3:
+                continue
+            idx = self.nine_grid_postion_to_idx(obj[1], obj[2])
+            if idx:
+                self.nine_grid[idx[0]][idx[1]] = obj[0]
+        return self.nine_grid
+
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
             self.now_objects = objects[:]
             self.set_barriers(self.barrier)#将物体转化为障碍形式并存储在self.barrier中
+            self.generate_nine_grid()
             self.judge_state = 1
             return False
         elif self.judge_state == 1:#筛选出能直接搬运的物体
             idx=0
             self.target_objects = []
-            for i in self.now_objects:
-                if i[0] == 'S' or i[0] == 'E':
+            
+            for target in self.now_objects:
+                could_select = True
+                if target[0] == 'S' or target[0] == 'E':
+                    push_dir = [0,-1]#推动正方向
                     self.last_sandbag_idx += 1
-                    if car_side != 'R' and car_side != 'L':
-                        if self.judge_side_in('R',i):
-                            self.target_objects.append([idx,i[0],i[1],i[2],'R'])#序号，物体种类，x,y,目标边
-                elif i[0] == 'T':
-                    if car_side != 'D' and car_side != 'U':
-                        if self.judge_side_in('D',i):
-                            self.target_objects.append([idx,i[0],i[1],i[2],'D'])#序号，物体种类，x,y,目标边
+                    target_side = 'R'
+                    if car_side == 'R' or car_side == 'L':could_select = False
+                elif target[0] == 'T':
+                    push_dir = [1,0]#推动正方向
+                    target_side = 'D'
+                    if car_side == 'D' or car_side == 'U':could_select = False
                 else:
-                    if car_side != 'L' and car_side != 'R':
-                        if self.judge_side_in('L',i):
-                            self.target_objects.append([idx,i[0],i[1],i[2],'L'])#序号，物体种类，x,y,目标边
-                if self.judge_side_in(car_side,i):
-                    self.target_objects.append([idx,i[0],i[1],i[2],car_side])#序号，物体种类，x,y,目标边
+                    push_dir = [0,1]#推动正方向
+                    target_side = 'L'
+                    if car_side == 'L' or car_side == 'R':could_select = False
+                if car_side == 'L':in_dir = [0,1]#进入正方向
+                elif car_side == 'R':in_dir = [0,-1]
+                elif car_side == 'D':in_dir = [1,0]
+                else: in_dir = [-1,0]
+                def judge_side_in_nine_grid(obj,dir,k):
+                    now_pt = self.nine_grid_postion_to_idx(obj[2],obj[3])
+                    now_pt[0] += dir[0] * k
+                    now_pt[1] += dir[1] * k
+                    while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
+                        if self.nine_grid[now_pt[0]][now_pt[1]] != '':
+                            return False
+                        now_pt[0] += dir[0] * k
+                        now_pt[1] += dir[1] * k
+                    return True
+                def find_nine_grid_blank(obj,push_dir,in_dir):
+                    now_pt = self.nine_grid_postion_to_idx(obj[2],obj[3])
+                    if not now_pt:
+                        return [None, 0]
+                    i = now_pt[:]
+                    i[0] -= push_dir[0]
+                    i[1] -= push_dir[1]
+                    num = 0
+                    k = push_dir[0] + push_dir[1]
+                    use_big_rect = True
+                    while i[0] < 3 and i[0] >= 0 and i[1] < 3 and i[1] >= 0:
+                        if self.nine_grid[i[0]][i[1]] != '':
+                            use_big_rect = False
+                            break
+                        num += k
+                        if judge_side_in_nine_grid(obj,in_dir,-1):
+                            # in_dir uses [row, col], while world coordinates use [x, y].
+                            target_edge = [self.Data.center_x-in_dir[1]*1.5*self.Data.lenth,
+                                           self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
+                            p2 = self.nine_grid_idx_to_postion(i)
+                            if in_dir[0] == 0:p2 = [target_edge[0],p2[1]]
+                            else:p2 = [p2[0],target_edge[1]]
+                            now_xy = self.nine_grid_idx_to_postion(now_pt)
+                            return [[[min(now_xy[0],p2[0]),min(now_xy[1],p2[1])],[max(now_xy[0],p2[0]),max(now_xy[1],p2[1])]],num]
+                        i[0] -= push_dir[0]
+                        i[1] -= push_dir[1]
+                    if use_big_rect:return [[],0]
+                    else :return [None,0]
+                if judge_side_in_nine_grid(target,in_dir,-1):
+                    self.target_objects.append([idx,target[0],target[1],target[2],car_side,[],0])#序号，物体种类，x,y,目标边,空表示用原矩形
+                if not judge_side_in_nine_grid(target,push_dir,1):could_select = False
+                if could_select:
+                    rect,num = find_nine_grid_blank(target,push_dir,in_dir)
+                    if rect != None:
+                        self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])#序号，物体种类，x,y,目标边
                 idx+=1
             self.judge_state = 2
             return False
@@ -404,23 +512,26 @@ class objects_planner:
                 score = 0
                 dir,sdir=self.judge_push_direction(i[1])
                 if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=self.my_BoundaryPath.forward_push_value
-
                 # 根据物体的种类调整目标点的位置，S和E向前移动10，B和W向后移动10，T向上移动10
+                sx,sy = i[2],i[3]
                 if i[1] in ['S', 'E']:  
-                    i[2] += 10.0
+                    sx += 10.0
                 elif i[1] in ['B', 'W']:
-                    i[2] -= 10.0
+                    sx -= 10.0
                 elif i[1] in ['T']:
-                    i[3] -= 10.0 
-
-                path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
+                    sy -= 10.0 
+                
+                if car_side == i[4]:
+                    path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
+                else:
+                    has_planned = False
+                    for j in range(self.now_idx):
+                        if i[0] == self.target_objects[j][0]:
+                            path = [[i[2],i[3]]]+self.path[j]
+                            has_planned = True
+                    if not has_planned:
+                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
-                #旋转加分
-                if (i[1] == 'S' or i[1] == 'E'):
-                    if car_side !='R':score+=1000
-                    if self.last_sandbag_idx == 0:score+=1000
-                elif (i[1] == 'T') and car_side !='D':score+=1000
-                elif car_side !='L':score+=1000
                 if (not path) or len(path) <= 1: 
                     self.path.append([])
                     score+=10000
@@ -432,10 +543,16 @@ class objects_planner:
                         p_,p__,p___=path[0],path[1],path[2]
                         push_distance = self.calculate_distance(p_,p__)+self.calculate_distance(p__,p___)
                     push_yaw = math.atan2(p__[0] - p_[0], p__[1] - p_[1]) * 180.0 / math.pi
-                    self.path.append(path[1])
+                    self.path.append(path[1:])
                     push_angle = abs(push_yaw - dir)
                     if push_angle > 180:
                         push_angle = 360 - push_angle
+                #旋转加分
+                if (i[1] == 'S' or i[1] == 'E'):
+                    if car_side !='R':score+=1000
+                    if self.last_sandbag_idx == 0:score+=1000
+                elif (i[1] == 'T') and car_side !='D':score+=1000
+                elif car_side !='L':score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
                     if i[1] == 'T': 
@@ -447,29 +564,21 @@ class objects_planner:
                     dy_car = i[3] - self.my_car.y_current
                     distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
                 else:
-                    P = {'D':((self.Data.center_rect[0][0]+self.Data.center_rect[3][0])/2,self.Data.center_rect[0][1]),
-                         'L':(self.Data.center_rect[0][0],(self.Data.center_rect[0][1]+self.Data.center_rect[3][1])/2),
-                         'U':((self.Data.center_rect[0][0]+self.Data.center_rect[3][0])/2,self.Data.center_rect[3][1]),
-                         'R':(self.Data.center_rect[3][0],(self.Data.center_rect[0][1]+self.Data.center_rect[3][1])/2),}
+                    RECT = i[5]
+                    if not RECT:#使用大矩阵
+                        RECT = [self.Data.center_rect[0],self.Data.center_rect[3]]
+                    P = {'D':((RECT[0][0]+RECT[1][0])/2,RECT[0][1]),
+                         'L':(RECT[0][0],(RECT[0][1]+RECT[1][1])/2),
+                         'U':((RECT[0][0]+RECT[1][0])/2,RECT[1][1]),
+                         'R':(RECT[1][0],(RECT[0][1]+RECT[1][1])/2),}
                     x1 = i[2] - P[i[4]][0]
                     x2 = self.my_car.x_current - P[i[4]][0]
                     y1 = i[3] - P[i[4]][1]
                     y2 = self.my_car.y_current - P[i[4]][1]
                     distance_from_car = math.sqrt(x1 * x1 + y1 * y1) + math.sqrt(x2 * x2 + y2 * y2)
                 dis_score = 9.69*180/self.run_speed
-                if i[1] != 'T':
-                    score += push_distance + push_angle*push_angle +distance_from_car*dis_score
-                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
-                else:
-                    score += push_distance + push_angle*push_angle*2 +distance_from_car*8
-                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle*2, distance_from_car*dis_score))
-
-                
-                dx_car = i[2] - self.my_car.x_current
-                dy_car = i[3] - self.my_car.y_current
-                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
-                score += push_distance + push_angle ** 2+distance_from_car*8
-                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*15, distance_from_car*8))
+                score += push_distance + push_angle*push_angle +distance_from_car*dis_score
+                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
                 self.target_score.append(score)
                 self.now_idx+=1
             return False
@@ -479,11 +588,11 @@ class objects_planner:
                 if self.target_score[i] == min(self.target_score):
                     self.plan_target = self.target_objects[i]
                     if self.path[i]:
-                        dx = self.path[i][0] - self.plan_target[2]
-                        dy = self.path[i][1] - self.plan_target[3]
+                        dx = self.path[i][0][0] - self.plan_target[2]
+                        dy = self.path[i][0][1] - self.plan_target[3]
                         self.best_path = [dx,dy]
                 if self.path[i]:
-                    new_path.append(self.path[i])
+                    new_path.append(self.path[i][0])
             self.path = new_path
             return True
         gc.collect()
