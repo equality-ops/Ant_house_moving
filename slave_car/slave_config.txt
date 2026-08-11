@@ -41,7 +41,7 @@ angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.1
 high_angle_pwmout_limitmax = 450
-low_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
 A = 180
 # B大致为最大静差的1.5倍
@@ -90,7 +90,7 @@ servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.3
-servo_target_y_S = 2.5
+servo_target_y_S = 2.0
 servo_target_y_B = 4.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
@@ -120,7 +120,7 @@ target_R = 15.0
 dist_deadzone = 0.8
 tof_valid_min = 5.0
 tof_valid_max = 40.0
-dist_pwmout_limitmax = 90
+dist_pwmout_limitmax = 120
 ###################【环绕控制】####################
 radius_T_U = 17.0
 radius_T_R = 14.0
@@ -132,13 +132,13 @@ radius_S_R = 17.0
 radius_S_L = 17.0
 radius_S_D = 15.5
 
-radius_B_U = 17.0
+radius_B_U = 16.0
 radius_B_R = 19.0
 radius_B_L = 19.0
-radius_B_D = 17.5
+radius_B_D = 16.5
 
 angle_T = 43
-angle_S = 43
+angle_S = 42
 angle_B = 43
 
 calibrate_waiting_time = 40
@@ -159,9 +159,11 @@ apr_pos_D = "163,0"
 #！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
 #是否使用模型servo
 if_model = 1
+# 是否先转角后惯导
+if_first_turn = 1
+
 # 是否需要障碍物
 if_obstacles = 0
-
 #--------------障碍相关---------------------
 #障碍物位置
 cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"

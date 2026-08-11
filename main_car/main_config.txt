@@ -41,7 +41,7 @@ angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
 gkd = -0.1
 high_angle_pwmout_limitmax = 450
-low_angle_pwmout_limitmax = 400
+low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
 A = 180
 # B大致为最大静差的1.5倍
@@ -92,7 +92,7 @@ servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.3
-servo_target_y_S = 2.5
+servo_target_y_S = 2.0
 servo_target_y_B = 4.5
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
@@ -135,13 +135,13 @@ radius_S_R = 17.0
 radius_S_L = 17.0
 radius_S_D = 15.0
 
-radius_B_U = 17.0
+radius_B_U = 16.0
 radius_B_R = 19.0
 radius_B_L = 19.0
-radius_B_D = 17.0
+radius_B_D = 16.0
 
 angle_T = 43
-angle_S = 43
+angle_S = 42
 angle_B = 43
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
@@ -159,7 +159,8 @@ BEAR_cla_dis = 2.4
 total_objects_num = 5
 #是否返回
 IF_BACK = 0
-
+#是否先转角后惯导
+if_first_turn = 1
 #是否有障碍
 if_obstacles = 0
 
@@ -178,7 +179,7 @@ bothway_swell_size = 10.0
 
 #--------------规划相关---------------------
 #直接向前推所加的分数，负数代表更愿意向前推
-FORWARD_PUSH_VALUE = -1000
+FORWARD_PUSH_VALUE = 0
 #临近忽略区域大小
 NEAR_AREA = 3
 #车进入所需宽度
@@ -192,7 +193,7 @@ if_model = 1
 #是否使用模型scan
 if_model_detect = 1
 #扫描帧数
-scan_num = 5
+scan_num = 6
 
 #--------------场地相关---------------------
 CENTER_X = 160.0
