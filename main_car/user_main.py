@@ -91,7 +91,7 @@ my_uart2 = UART(1)
 my_uart2.init(115200)
 
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
@@ -190,7 +190,7 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager,my_uart3)
 
-my_obj_plan = ant_boundary_plan.objects_planner(my_write_system,plan_data,my_car,my_plan,move_plan)
+my_obj_plan = ant_boundary_plan.objects_planner(my_flash_sys,my_write_system,plan_data,my_car,my_plan,move_plan)
 # 任务及类
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
@@ -426,22 +426,6 @@ def test_vision_servo():
             my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
-
-
-def test_predict_point():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_order_manager.mode_target()
-        my_state.state = NAVIGATE
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-    elif my_state.state == NAVIGATE:
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
-            point = my_vision_manager.predict_point(target_point[0], target_point[1])
-            my_uart3.write(f"predict_point: {point}\n")
-
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -559,9 +543,6 @@ def time_pit3_handler(time) -> None:
     # 自转测试程序
     # test_spin()
 
-    # 测试预测点位是否准确
-    # test_predict_point()
-
     pass
 
 
@@ -578,7 +559,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-    # my_uart2.write(f"{my_state.state},{my_moving.current_state}\r\n")
+
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
@@ -586,7 +567,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
-    # my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")

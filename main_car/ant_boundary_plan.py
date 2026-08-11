@@ -466,7 +466,7 @@ class objects_planner:
                         now_pt[1] += dir[1] * k
                     return True
                 def find_nine_grid_blank(obj,push_dir,in_dir):
-                    now_pt = self.nine_grid_postion_to_idx(obj[2],obj[3])
+                    now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
                     if not now_pt:
                         return [None, 0]
                     i = now_pt[:]

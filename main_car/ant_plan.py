@@ -31,13 +31,13 @@ class PlanData:
         # fixed_point[3]为主车返回点, [4]为从车返回点
         self.center_x = self.flash_sys.find_value("CENTER_X")
         self.center_y = self.flash_sys.find_value("CENTER_Y")
-        lenth = self.flash_sys.find_value("SUDOKU_length_x")
+        self.lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
-        self.fixed_point = [[35.0,-40.2], [self.center_x - lenth*2,self.center_y - lenth*2], 
-                            [self.center_x + lenth*2,self.center_y + lenth*2], [25.0, -75.0], [25.0, -50.0]]  # type: list
+        self.fixed_point = [[35.0,-40.2], [self.center_x - self.lenth*2,self.center_y - self.lenth*2], 
+                            [self.center_x + self.lenth*2,self.center_y + self.lenth*2], [25.0, -75.0], [25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
-        self.center_rect = [[self.center_x - lenth*1.5,self.center_y - lenth*1.5], [self.center_x - lenth*1.5,self.center_y + lenth*1.5], 
-                            [self.center_x + lenth*1.5,self.center_y - lenth*1.5], [self.center_x + lenth*1.5,self.center_y + lenth*1.5]] 
+        self.center_rect = [[self.center_x - self.lenth*1.5,self.center_y - self.lenth*1.5], [self.center_x - self.lenth*1.5,self.center_y + self.lenth*1.5], 
+                            [self.center_x + self.lenth*1.5,self.center_y - self.lenth*1.5], [self.center_x + self.lenth*1.5,self.center_y + self.lenth*1.5]] 
         # 路径规划相关常量
         self.FIELD_W = self.flash_sys.find_value("FIELD_W")  # 地图宽度
         self.FIELD_H = self.flash_sys.find_value("FIELD_H")  # 地图高度
