@@ -91,10 +91,10 @@ class TaskController:
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
         self.need_calibrate_score = 0
         self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
-                                 [[145,self.data.fixed_point[1][1]-5],0],
-                                 [[190,self.data.fixed_point[1][1]-5],0],
-                                 [[175,self.data.fixed_point[2][1]+5],180],
-                                 [[130,self.data.fixed_point[2][1]+5],180],
+                                 [[145,self.data.fixed_point[1][1]],0],
+                                 [[190,self.data.fixed_point[1][1]],0],
+                                 [[175,self.data.fixed_point[2][1]],180],
+                                 [[130,self.data.fixed_point[2][1]],180],
                                  [[self.data.fixed_point[1][0],self.data.fixed_point[1][1]],45]]
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         

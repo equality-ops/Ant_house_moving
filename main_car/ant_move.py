@@ -238,18 +238,19 @@ class MoveControl:
                 self.next_postion = 'l'
             self.if_to_the_top =True
             if not RECT:
+                therhold = 7
                 if target_side =='D':
                     self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-1)
-                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1])
+                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
                 elif target_side =='U':
                     self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
-                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1])
+                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
                 elif target_side =='L':
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1])   
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1]) 
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1]) 
                 else:
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1])
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
                 p_2 = RECT[0][:]
