@@ -465,6 +465,15 @@ class objects_planner:
                         now_pt[0] += dir[0] * k
                         now_pt[1] += dir[1] * k
                     return True
+                def judge_side_in_nine_grid_idx(idx,dir,k):
+                    idx[0] += dir[0] * k
+                    idx[1] += dir[1] * k
+                    while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
+                        if self.nine_grid[idx[0]][idx[1]] != '':
+                            return False
+                        idx[0] += dir[0] * k
+                        idx[1] += dir[1] * k
+                    return True
                 def find_nine_grid_blank(obj,push_dir,in_dir):
                     now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
                     if not now_pt:
@@ -480,7 +489,7 @@ class objects_planner:
                             use_big_rect = False
                             break
                         num += k
-                        if judge_side_in_nine_grid(obj,in_dir,-1):
+                        if judge_side_in_nine_grid_idx(i,in_dir,-1):
                             # in_dir uses [row, col], while world coordinates use [x, y].
                             target_edge = [self.Data.center_x-in_dir[1]*1.5*self.Data.lenth,
                                            self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
