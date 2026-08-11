@@ -379,8 +379,8 @@ class MoveControl:
 
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
-        angle_l0=(current_ref_yaw_deg + self.__angle + 180.0) % 360.0 - 180.0
-        angle_r0=(current_ref_yaw_deg - self.__angle + 180.0) % 360.0 - 180.0
+        angle_l0=(target_ref_yaw_deg + self.__angle + 180.0) % 360.0 - 180.0
+        angle_r0=(target_ref_yaw_deg - self.__angle + 180.0) % 360.0 - 180.0
         self.if_to_the_top = False
         self.now_object_pt = point
         self.get_object_square_points(target_ref_yaw_deg, 16)
