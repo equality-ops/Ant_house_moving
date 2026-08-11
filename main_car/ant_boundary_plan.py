@@ -520,14 +520,13 @@ class objects_planner:
                     sx -= 10.0
                 elif i[1] in ['T']:
                     sy -= 10.0 
-                
                 if car_side == i[4]:
                     path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
                 else:
                     has_planned = False
                     for j in range(self.now_idx):
                         if i[0] == self.target_objects[j][0]:
-                            path = [[i[2],i[3]]]+self.path[j]
+                            path = [[sx,sy]]+self.path[j]
                             has_planned = True
                     if not has_planned:
                         path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
@@ -549,10 +548,10 @@ class objects_planner:
                         push_angle = 360 - push_angle
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
-                    if car_side !='R':score+=1000
+                    if i[4] !='R':score+=1000
                     if self.last_sandbag_idx == 0:score+=1000
-                elif (i[1] == 'T') and car_side !='D':score+=1000
-                elif car_side !='L':score+=1000
+                elif (i[1] == 'T') and i[4] !='D':score+=1000
+                elif i[4] !='L':score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
                     if i[1] == 'T': 
