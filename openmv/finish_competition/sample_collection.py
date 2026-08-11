@@ -18,10 +18,7 @@ sensor.set_auto_gain(False)  # 关闭自动增益
 sensor.set_auto_whitebal(False)  # 关闭自动白平衡
 sensor.set_brightness(600)
 sensor.set_contrast(2) # 对比度
-sensor.set_vflip(True)
-sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
-sensor.set_hmirror(True)
-sensor.skip_frames(time=200)  # 跳过初始帧，让摄像头稳定
+sensor.skip_frames(time=2000)  # 跳过初始帧，让摄像头稳定
 clock = time.clock()
 
 
