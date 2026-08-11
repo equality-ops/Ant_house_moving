@@ -446,18 +446,18 @@ class MoveControl:
                 car_postion += 90
             self.if_to_the_top =True
             if not RECT:
-                if now_side =='D': 
-                    self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
-                    self.my_path.ready_path[-1] = (sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
-                elif now_side =='U': 
-                    self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
-                    self.my_path.ready_path[-1] = (sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
-                elif now_side =='L': 
-                    self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])   
-                    self.my_path.ready_path[-1] = (min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])  
+                if target_side =='D':
+                    self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[0][1]-1)
+                    self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[0][1])
+                elif target_side =='U':
+                    self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[3][1])
+                    self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[3][1])
+                elif target_side =='L':
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],sla_p[0][1])
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0],sla_p[0][1])
                 else: 
-                    self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
-                    self.my_path.ready_path[-1] = (max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],sla_p[0][1])
+                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0],sla_p[0][1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
                 p_2 = RECT[0][:]
