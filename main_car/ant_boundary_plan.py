@@ -420,7 +420,7 @@ class objects_planner:
         for obj in self.now_objects:
             if not obj or len(obj) < 3:
                 continue
-            idx = self.nine_grid_postion_to_idx(obj[1], obj[2])
+            idx = self.nine_grid_postion_to_idx(obj[1],obj[2])
             if idx:
                 self.nine_grid[idx[0]][idx[1]] = obj[0]
         return self.nine_grid
@@ -456,7 +456,7 @@ class objects_planner:
                 elif car_side == 'D':in_dir = [1,0]
                 else: in_dir = [-1,0]
                 def judge_side_in_nine_grid(obj,dir,k):
-                    now_pt = self.nine_grid_postion_to_idx(obj[2],obj[3])
+                    now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
                     now_pt[0] += dir[0] * k
                     now_pt[1] += dir[1] * k
                     while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
