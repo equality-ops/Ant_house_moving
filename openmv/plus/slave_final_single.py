@@ -24,13 +24,6 @@ CAMERA_FRAMERATE = 60
 CAMERA_BRIGHTNESS = 600
 # 白天用800，晚上用600
 
-# 模型模式亮度分档（基准：启动时 l_mean 0-100，亮度600下采样）
-BRIGHTNESS_DARK_LIMIT = 35      # l_mean <=35 视为暗环境
-BRIGHTNESS_NORMAL_LIMIT = 90    # l_mean 36-90 视为正常
-BRIGHTNESS_MODEL_DARK = 1200    # 暗环境模型亮度
-BRIGHTNESS_MODEL_NORMAL = 800   # 正常环境模型亮度
-BRIGHTNESS_MODEL_BRIGHT = 400   # 亮环境模型亮度
-
 # 屏幕尺寸
 SCREEN_WIDTH = 160
 SCREEN_HEIGHT = 120
@@ -588,9 +581,6 @@ GC_INTERVAL = 30
 # GC帧计数器
 frame_count = 0
 
-# 模型模式亮度（启动时按环境亮度分档，一次性判定）
-model_brightness = BRIGHTNESS_MODEL_NORMAL
-
 # ======================== 工具函数 ========================
 # 当前选中目标类型（由下位机通过UART指定）
 current_obj = ''
@@ -627,7 +617,7 @@ def handle_uart_commands(uart):
             reset_all()
         elif cmd == b'M':
             current_mode = MODE_MODEL
-            sensor.set_brightness(model_brightness)
+            sensor.set_brightness(600)
             reset_all()
         elif cmd == b'R':
             current_mode = MODE_CORRECTION
@@ -742,18 +732,6 @@ sensor.set_auto_whitebal(False)
 sensor.set_brightness(CAMERA_BRIGHTNESS)
 sensor.set_contrast(2)
 sensor.skip_frames(time=200)
-
-# 启动时采样环境亮度，分档设置模型模式亮度（LED4已熄灭、自动增益/白平衡已关闭）
-_brightness_sum = 0
-for _ in range(5):
-    _brightness_sum += sensor.snapshot().get_statistics().l_mean()
-_env_l_mean = _brightness_sum / 5
-if _env_l_mean <= BRIGHTNESS_DARK_LIMIT:
-    model_brightness = BRIGHTNESS_MODEL_DARK
-elif _env_l_mean <= BRIGHTNESS_NORMAL_LIMIT:
-    model_brightness = BRIGHTNESS_MODEL_NORMAL
-else:
-    model_brightness = BRIGHTNESS_MODEL_BRIGHT
 
 clock = time.clock()
 
