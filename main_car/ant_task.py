@@ -242,15 +242,12 @@ class TaskController:
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                if counter >= 10:
-                    counter = 0
-                    self.data.current_index += 1
-                    self.my_plan.reset_navigate()
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = READY_NAVIGATE
-                    self.my_moving.reset_move()  # 重置搬运标志
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-                else:counter +=1
+                self.data.current_index += 1
+                self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = READY_NAVIGATE
+                self.my_moving.reset_move()  # 重置搬运标志
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状?
         elif state == CALIBRATE:
             if not self.my_vision.if_lost_object:
                 self.need_calibrate_score = 1.5#将need_score降低为1.5

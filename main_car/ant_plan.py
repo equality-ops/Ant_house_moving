@@ -441,6 +441,7 @@ class NavigationPlan:
         self.if_second_verify = False       # type: bool  # 判断是否进行第二次验证视觉
         self.if_high_angle = False          # type: bool  # 判断是否进行大角度转向
         self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
+        self.if_push_T = False              # type: bool  # 判断是否搬运网球
         self.move_state = NAVIGATE
 
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
@@ -578,7 +579,7 @@ class NavigationPlan:
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
         if self.move_state == MOVE:
-            near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
+            near_line_threshold = 25.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
             elif self.my_car.y_current <= near_line_threshold and self.keep_x_or_y_v == False:
@@ -592,7 +593,14 @@ class NavigationPlan:
             # 使用平方映射，使得减速更加剧烈，在较远处就开始显著降速
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
-            v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+
+            move_v_max = self.move_v_max
+        
+            if self.if_push_T and self.aimed_point_index >= 1:
+                move_v_max *= 1.2
+
+            v_target = self.find_line_v_max + (move_v_max - self.find_line_v_max) * ratio
+
             return v_target
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             '''if self.keep_x_or_y_v == True:
@@ -684,6 +692,7 @@ class NavigationPlan:
 
         if self.move_state == MOVE: 
             rest_dist=self.fit_rest_dist
+            
         if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
@@ -695,6 +704,7 @@ class NavigationPlan:
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
             self.angle_pid.choose_high_angle_mode(False)
+            self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
             self.if_finish_navigate = True
             self.stop()
 
@@ -730,6 +740,7 @@ class NavigationPlan:
                         if if_first_turn:
                             # 换回小角度的角度环模式，帮助小车稳定完成转角调整
                             self.angle_pid.choose_high_angle_mode(False)
+                            self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
                         # 若不传入路径则当前导航已完成
                         if path is None:
@@ -760,6 +771,7 @@ class NavigationPlan:
     # 重置导航及速度规划相关标志位
     def reset_navigate(self):
         self.target_v = 0.0
+        self.if_push_T = False
         self.if_finish_turn = False
         self.if_finish_navigate = False
         self.finished_dist = 0.0
@@ -768,6 +780,7 @@ class NavigationPlan:
         self.dec_start_v = 0.0
         self.path.clear()
         self.angle_pid.choose_high_angle_mode(False)
+        self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.high_pwmout_limitmax
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):

@@ -44,6 +44,21 @@ class beep:
             return 
         elif self.beep_state == BEEP_ON:
             return
+
+    # 未找到tof报警函数
+    def failure_to_find_tof(self) -> None:
+        if self.beep_state == BEEP_OFF:
+            self.beep_state = BEEP_ON
+            for i in range(2):
+                time.sleep_ms(50)
+                self.beep.high()
+                time.sleep_ms(300)
+                self.beep.low()
+                time.sleep_ms(100)
+                self.beep_state = BEEP_OFF
+            return 
+        elif self.beep_state == BEEP_ON:
+            return
         
     # 按键测试函数(响一声，持续80ms)
     def key_test(self) -> None:

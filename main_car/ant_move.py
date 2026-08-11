@@ -19,7 +19,7 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
-    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart):
+    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart, angle_pid):
         self.my_write_system = my_write_system
         self.my_beep = beep
         self.my_photo = photo
@@ -34,6 +34,7 @@ class MoveControl:
         self.my_order_manager = order_manager
         self.move_plan = move_plan
         self.my_uart = my_uart
+        self.angle_pid = angle_pid
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
         self.flash_sys = flash_sys
@@ -48,6 +49,7 @@ class MoveControl:
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
+        self.if_first_turn = self.flash_sys.find_value("if_first_turn") # 是否边走边转
         self.surrounding_points = {
             'LU': [],
             'LD': [],
@@ -403,7 +405,7 @@ class MoveControl:
                 self.vision_manager.if_lost_object = True
                 return
             target_point = self.my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and self.angle_pid.if_finish_turn():
                 real_point = self.vision_manager.predict_point(target_point[0], target_point[1],limit_y = None)
                 if self.vision_manager.if_in_rect(real_point[0], real_point[1]):
                     self.vision_manager.ready_servo_and_orbit(target_point, 'servo')
@@ -426,6 +428,11 @@ class MoveControl:
                         self.my_plan.reset_navigate()
                         self.my_plan.move_state = MOVE
                         self.current_state = MOVE
+
+                        # 如果当前伺服物体存在，则设置 my_plan 的 if_push_T 标志为 True
+                        if self.vision_manager.current_servo_object == 'T':
+                            self.my_plan.if_push_T = True
+
                         self.vision_manager.if_finish_servo = False
                 else:
                     if order == "finish":
@@ -477,9 +484,9 @@ class MoveControl:
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
             if self.if_first_navigate:
-                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
+                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=self.if_first_turn)
             else:
-                self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
+                self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=self.if_first_turn)
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
@@ -491,7 +498,7 @@ class MoveControl:
                 return
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
+            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=self.if_first_turn)
             self.state_transition()
         elif self.current_state == ORBIT:
             if self.vision_manager.if_finish_orbit:

@@ -28,7 +28,7 @@ class PhotoControl:
         current_state = self.my_photo.value()
         if current_state == 1 and self.current_state == InField:
             self.on_line_times += 1
-            if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
+            if self.on_line_times >= 2:  # 连续2次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
                 self.current_state = OnLine
         else:
@@ -579,7 +579,9 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
-
+    # 判断小车是否完成转角
+    def if_finish_turn(self):
+        return abs(self.nowError) < 2.0
 # 视觉伺服PD
 class ServoPID(ControlPID):
     def __init__(self, flash_sys):

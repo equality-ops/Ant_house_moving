@@ -121,9 +121,9 @@ if 0x29 in device_list_0:
     try:
         tof_R = VL53L4CD(i2c_1, address = 0x29)
     except Exception as e:
-        my_beep.beep_warn()
+        my_beep.failure_to_find_tof()
 else:
-    my_beep.beep_warn()
+    my_beep.failure_to_find_tof()
     print("TOF R (I2C1) not found! Please check wiring and XSHUT pull-up.")
 
 # 初始化传感器 3 (I2C3)
@@ -131,10 +131,10 @@ if 0x29 in device_list_3:
     try:
         tof_L = VL53L4CD(i2c_3, address = 0x29)
     except Exception as e:
-        my_beep.beep_warn()
+        my_beep.failure_to_find_tof()
         print("TOF L (I2C3) init failed:", e)
 else:
-    my_beep.beep_warn()
+    my_beep.failure_to_find_tof()
     print("TOF L (I2C3) not found! Please check wiring and XSHUT pull-up.")
 
 
@@ -268,7 +268,7 @@ my_tof = ant_move.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L,
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof)
+my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof, angle_pid)
 # 任务及类
 my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 

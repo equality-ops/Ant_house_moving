@@ -394,13 +394,12 @@ class objects_planner:
 
                 # 根据物体的种类调整目标点的位置，S和E向前移动10，B和W向后移动10，T向上移动10
                 if i[1] in ['S', 'E']:  
-                    i[2] += 10.0
+                    path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2] + 10.0, i[3], skip_idx=i[0])
                 elif i[1] in ['B', 'W']:
-                    i[2] -= 10.0
+                    path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2] - 10.0, i[3], skip_idx=i[0])
                 elif i[1] in ['T']:
-                    i[3] -= 10.0 
-
-                path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
+                    path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3] - 10.0, skip_idx=i[0])
+                
                 push_distance,push_angle= 1000,90
                 if (i[1] == 'S' or i[1] == 'E') and self.last_sandbag_idx == 0:score+=1000
                 if (not path) or len(path) <= 1: 
@@ -420,7 +419,7 @@ class objects_planner:
                         push_angle = 360 - push_angle
 
                 # 大角度搬运路径加分
-                if abs(push_angle) > 55: 
+                if abs(push_angle) > 60: 
                     if i[1] == 'T': 
                         score+=10000
                     else:
@@ -430,7 +429,7 @@ class objects_planner:
                 dy_car = i[3] - self.my_car.y_current
                 distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
                 score += push_distance + push_angle ** 2+distance_from_car*8
-                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*15, distance_from_car*8))
+                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle**2, distance_from_car*8))
                 self.target_score.append(score)
                 self.now_idx+=1
             return False

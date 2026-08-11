@@ -518,7 +518,7 @@ class VisionManager:
 
             # 环绕速度规划：对称梯形速度曲线 —— 启动时线性加速，结束时线性减速
             accel_range = min(15.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
-            decel_range = min(25.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            decel_range = min(40.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
             traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
             if traveled < accel_range:
                 # 启动阶段：三次 ease-out，起步快、过渡平滑

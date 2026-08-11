@@ -28,7 +28,7 @@ class PhotoControl:
         current_state = self.my_photo.value()
         if current_state == 1 and self.current_state == InField:
             self.on_line_times += 1
-            if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
+            if self.on_line_times >= 2:  # 连续2次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
                 self.current_state = OnLine
         else:
@@ -199,7 +199,7 @@ class PoseData:
 
         # 算法参数 (根据你的 4ms 采样周期设置)
         self.dt = 0.004 
-        self.kp = 1.0  # 加速度计权重
+        self.kp = 0.5  # 加速度计权重
         self.ki = 0.001 # 零偏补偿权重
 
         # 最终角度输出
@@ -653,6 +653,10 @@ class AnglePositionPID(ControlPID):
             self.effective_target = 0.0
             self.prev_target = 0.0
 
+    # 判断小车是否完成转角
+    def if_finish_turn(self):
+        return abs(self.nowError) < 2.0
+    
 # 视觉伺服PD
 class ServoPID(ControlPID):
     def __init__(self, flash_sys):
