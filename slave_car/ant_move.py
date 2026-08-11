@@ -22,7 +22,7 @@ RETREAT = const(10)       # 后退状态
 OutLine = const(1)
 
 class TofControl:
-    def __init__(self, flash_sys, beep, tof_L, tof_R, car, plan, dist_pid_L, dist_pid_R):
+    def __init__(self, flash_sys, beep, car, plan, dist_pid_L, dist_pid_R, tof_L = None, tof_R = None):
         self.flash_sys = flash_sys
         self.my_beep = beep
         self.tof_L = tof_L
@@ -51,6 +51,12 @@ class TofControl:
 
     # 更新tof传感器信息
     def update_tof(self):
+        # 如果没有初始化tof成功则直接退出
+        if self.tof_L is None and self.which_one == 'L':
+            return
+        if self.tof_R is None and self.which_one == 'R':
+            return
+
         # 读取左传感器
         if self.tof_L and self.tof_L.data_ready:
             dist_L = self.tof_L.distance - self.bias_L
@@ -132,10 +138,12 @@ class TofControl:
         def choose_sensor(sensor):
             if sensor == 'left':
                 self.which_one = 'L'
-                self.tof_L.start_ranging()
+                if self.tof_L:
+                    self.tof_L.start_ranging()
             elif sensor == 'right':
                 self.which_one = 'R'
-                self.tof_R.start_ranging()
+                if self.tof_R:
+                    self.tof_R.start_ranging()
             else:
                 self.which_one = None
 
@@ -147,8 +155,11 @@ class TofControl:
 
     # 重置tof传感器信息
     def reset_tof(self):
-        self.tof_L.stop_ranging()
-        self.tof_R.stop_ranging()
+        if self.tof_L:
+            self.tof_L.stop_ranging()
+        if self.tof_R:
+            self.tof_R.stop_ranging()
+
         self.data_L, self.data_R = -1.0, -1.0
         self._stale_count_L, self._stale_count_R = 0, 0
         self._invalid_count = 0
@@ -161,6 +172,12 @@ class TofControl:
         
     # 距离控制主函数
     def dist_control(self):
+        # 如果没有初始化tof成功则直接退出
+        if self.tof_L is None and self.which_one == 'L':
+            return
+        if self.tof_R is None and self.which_one == 'R':
+            return
+        
         # 更新传感器数据
         self.update_tof()
         if self.is_data_valid():

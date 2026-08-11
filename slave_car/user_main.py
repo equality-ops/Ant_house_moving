@@ -262,12 +262,7 @@ my_path = ant_plan.PathPlan(plan_data, my_car)
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
 
-# 如果两个传感器都没找到 直接退出
-if tof_L is None and tof_R is None:
-    my_beep.beep_warn()
-    print("No VL53L4CD detected. Test aborted.")
-elif tof_L and tof_R:
-    my_tof = ant_move.TofControl(my_flash_sys, my_beep, tof_L, tof_R, my_car, my_plan, dist_pid_L, dist_pid_R)
+my_tof = ant_move.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L, dist_pid_R, tof_L, tof_R)
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)

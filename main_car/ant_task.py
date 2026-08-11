@@ -219,7 +219,7 @@ class TaskController:
             elif self.current_object == 'S' or self.current_object == 'E':self.last_side = 'L'
             elif self.current_object == 'W' or self.current_object == 'B':self.last_side = 'R'
             else:
-                self.my_plan.reset_navigate_angle()
+                self.my_plan.reset_naviself.if_finish_movegate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
             dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
