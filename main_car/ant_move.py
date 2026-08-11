@@ -507,6 +507,7 @@ class MoveControl:
         elif self.current_state == ADJUST:
             pass
         elif self.current_state == MOVE:
+            self.my_photo.reset_photo()
             self.if_finish_move = True
             self.my_plan.move_state = NAVIGATE
             self.current_state = NAVIGATE
