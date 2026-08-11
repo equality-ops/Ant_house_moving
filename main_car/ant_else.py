@@ -546,7 +546,6 @@ class LinkProtocol:
     # 向从车发送开始信�?
     def send_start(self):
         self.my_uart3.write('S'.encode('utf-8'))
-
     def get_slave_state(self):
         """
         解析从车状态包 (非阻�?

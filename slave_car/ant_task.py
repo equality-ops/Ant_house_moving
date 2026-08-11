@@ -64,6 +64,7 @@ class TaskController:
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
+        self.last_side = 'D'
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
         self.current_pushed_num = 0
@@ -99,7 +100,7 @@ class TaskController:
         elif state == MOVE:
             num_compensation = self.current_pushed_num * self.num_clamp_factor
             self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
-            self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object)
+            self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object,now_side = self.last_side)
             self.current_pushed_num += 1
             pass
         elif state == CALIBRATE:
@@ -187,14 +188,17 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
-                self.my_moving.if_finish_move = False  # 重置搬运完成标志
-                self.my_plan.reset_navigate_angle()
-                self.my_plan.reset_navigate()
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-                if self.my_moving.current_state != NAVIGATE:
-                    self.my_state.state = RETURN  # 直接切换到校准状态
-                    return
-                self.my_state.state = RETREAT  # 直接切换到校准状态
+            self.my_moving.if_finish_move = False  # 重置搬运完成标志
+            self.my_plan.reset_navigate_angle()
+            self.my_plan.reset_navigate()
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            if self.current_object == 'T':self.last_side = 'U'
+            elif self.current_object in ['S','E']:self.last_side = 'L'
+            else:self.last_side = 'R'
+            if self.my_moving.current_state != NAVIGATE:
+                self.my_state.state = RETURN  # 直接切换到校准状态
+                return
+            self.my_state.state = RETREAT  # 直接切换到校准状态
         elif state == CALIBRATE:
             # 退出校准状态，完成校准后进行必要的状态更新
             self.my_vision.reset_calibrate()  # 重置校准标志

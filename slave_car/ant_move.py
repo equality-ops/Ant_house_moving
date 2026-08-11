@@ -303,16 +303,20 @@ class MoveControl:
             if cy > 0:return 0.0  # 车头前方
             else:return 180.0  # 车尾后方
 
-    def ready_move(self, current_ref_yaw_deg, point, sp):
+    def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
-        if current_ref_yaw_deg > -45.0 and current_ref_yaw_deg <= 45.0: now_side = 'D'
-        elif current_ref_yaw_deg > 45.0 and current_ref_yaw_deg <= 135.0:now_side = 'L'
-        elif current_ref_yaw_deg > 135.0 or current_ref_yaw_deg <= -135.0:now_side = 'U'
-        elif current_ref_yaw_deg > -135.0 and current_ref_yaw_deg <= -45.0:now_side = 'R'
+        if target_ref_yaw_deg > -45.0 and target_ref_yaw_deg <= 45.0: target_side = 'D'
+        elif target_ref_yaw_deg > 45.0 and target_ref_yaw_deg <= 135.0:target_side = 'L'
+        elif target_ref_yaw_deg > 135.0 or target_ref_yaw_deg <= -135.0:target_side = 'U'
+        elif target_ref_yaw_deg > -135.0 and target_ref_yaw_deg <= -45.0:target_side = 'R'
+        if now_side == 'D':current_ref_yaw_deg = 0
+        elif now_side == 'L':current_ref_yaw_deg = 90.0
+        elif now_side == 'R':current_ref_yaw_deg = -90.0
+        else: current_ref_yaw_deg = 180
         # 初始参考偏航角就是当前小车所在方向（度数）
         turn_angle = 0.0
-        turn_angle = self.judge_next_turn(sp,current_ref_yaw_deg)
-        target_turn = current_ref_yaw_deg + turn_angle
+        turn_angle = self.judge_next_turn(sp,target_ref_yaw_deg)
+        target_turn = target_ref_yaw_deg + turn_angle
         # 角度限幅到 [-180, 180)
         target_turn = (target_turn + 180.0) % 360.0 - 180.0
         car_postion = target_turn
@@ -323,55 +327,86 @@ class MoveControl:
         angle_r0=(current_ref_yaw_deg - self.__angle + 180.0) % 360.0 - 180.0
         self.if_to_the_top = False
         self.now_object_pt = point
-        self.get_object_square_points(current_ref_yaw_deg, 16)
-        if self.next_postion == 'r':
-            sla_p = [self.surrounding_points['RD']]
-            angle0 = angle_r0
-            angle = angle_r
-            self.next_postion = 'l'
-            self.my_tof.ready_tof('left',target_turn)
-            car_postion -= 90
-        else:
-            sla_p = [self.surrounding_points['LD']]
-            angle0 = angle_l0
-            angle = angle_l
-            self.next_postion = 'r'
-            self.my_tof.ready_tof('right',target_turn)
-            car_postion += 90
-        if turn_angle == 0.0:
-            self.if_to_the_top =True
-        elif turn_angle == 90.0:
-            if self.next_postion == 'r':self.if_first_orbit = True
-            else:self.if_first_orbit = False
-        elif turn_angle == 180.0:
+        self.get_object_square_points(target_ref_yaw_deg, 16)
+        if now_side == target_side:
             if self.next_postion == 'r':
-                sla_p = [self.surrounding_points['LD']]
-                angle0 = angle_l0
-                angle = angle_r
-                car_postion -= 180
-                self.next_postion = 'l'
-                self.my_tof.ready_tof('left',target_turn)
-            else:
                 sla_p = [self.surrounding_points['RD']]
                 angle0 = angle_r0
+                angle = angle_r
+                self.next_postion = 'l'
+                self.my_tof.ready_tof('left',target_turn)
+                car_postion -= 90
+            else:
+                sla_p = [self.surrounding_points['LD']]
+                angle0 = angle_l0
                 angle = angle_l
-                car_postion += 180
                 self.next_postion = 'r'
                 self.my_tof.ready_tof('right',target_turn)
-            self.if_first_orbit = False
-        elif turn_angle == -90.0:
-            if self.next_postion == 'r':self.if_first_orbit = False
-            else:self.if_first_orbit = True
+                car_postion += 90
+            if turn_angle == 0.0:
+                self.if_to_the_top =True
+            elif turn_angle == 90.0:
+                if self.next_postion == 'r':self.if_first_orbit = True
+                else:self.if_first_orbit = False
+            elif turn_angle == 180.0:
+                if self.next_postion == 'r':
+                    sla_p = [self.surrounding_points['LD']]
+                    angle0 = angle_l0
+                    angle = angle_r
+                    car_postion -= 180
+                    self.next_postion = 'l'
+                    self.my_tof.ready_tof('left',target_turn)
+                else:
+                    sla_p = [self.surrounding_points['RD']]
+                    angle0 = angle_r0
+                    angle = angle_l
+                    car_postion += 180
+                    self.next_postion = 'r'
+                    self.my_tof.ready_tof('right',target_turn)
+                self.if_first_orbit = False
+            elif turn_angle == -90.0:
+                if self.next_postion == 'r':self.if_first_orbit = False
+                else:self.if_first_orbit = True
+            if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]),ignore_center_rect=True)
+            elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]),ignore_center_rect=True)
+            elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)   
+            else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)
+            sla_p = self.my_path.ready_path + sla_p
+        else:
+            dicc = {'D':0,'L':1,'U':2,'R':3,}
+            if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到右侧
+                sla_p = [self.surrounding_points['RD']]
+                angle0 = angle_r0
+                angle = angle_r
+                self.next_postion = 'l'
+                self.my_tof.ready_tof('left',target_turn)
+                car_postion -= 90                
+            else:
+                sla_p = [self.surrounding_points['LD']]
+                angle0 = angle_l0
+                angle = angle_l
+                self.next_postion = 'r'
+                self.my_tof.ready_tof('right',target_turn)
+                car_postion += 90
+            self.if_to_the_top =True
+            if now_side =='D': 
+                self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
+                self.my_path.ready_path[-1] = (sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]))
+            elif now_side =='U': 
+                self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
+                self.my_path.ready_path[-1] = (sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]))
+            elif now_side =='L': 
+                self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])   
+                self.my_path.ready_path[-1] = (min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1])  
+            else: 
+                self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+                self.my_path.ready_path[-1] = (max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1])
+            sla_p = self.my_path.ready_path + sla_p
         car_postion = 180 - (180 - car_postion) % 360
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
-        if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]),ignore_center_rect=True)
-        elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]),ignore_center_rect=True)
-        elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)   
-        else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)
-        sla_p = self.my_path.ready_path + sla_p
         self.navigate_buffer={
                     'SLA_P':sla_p,
                     'ANGLE':[angle0,current_ref_yaw_deg,angle],
@@ -580,7 +615,7 @@ class MoveControl:
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
             self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0], if_first_turn = False)
-            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 20.0:
+            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
                 self.state_transition()
                 return
         elif self.current_state == ORBIT:

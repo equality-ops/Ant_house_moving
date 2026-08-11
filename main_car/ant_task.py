@@ -314,7 +314,7 @@ class TaskController:
                         self.current_object=target[1]
                         self.my_plan.current_object = self.current_object
                         self.my_vision.current_servo_object = self.current_object
-                        rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side)
+                        rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side,target_side = target[4])
                         # self.my_uart.write(f"car_position:{self.my_moving.push_postion}\n")
                         #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
                         if rm:

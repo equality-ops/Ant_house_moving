@@ -302,7 +302,8 @@ class BoundaryPathPlanner:
         return True
     
 class objects_planner:
-    def __init__(self,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
+    def __init__(self,my_flash_sys,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
+        self.flash_sys = my_flash_sys
         self.my_write = my_write
         self.Data = plan_data
         self.my_car = car
@@ -320,6 +321,7 @@ class objects_planner:
         self.judge_state = 0#0:未开始，1:正在进行，2:已结束
         self.last_sandbag_idx = -1
         self.now_idx = 0
+        self.run_speed = self.flash_sys.find_value("long_v_max")
         gc.collect()
     def set_barriers(self,barriers):
         wideness={'T':2.5,'S':2.5,'E':2.5,'B':2,'W':2,}
@@ -377,8 +379,19 @@ class objects_planner:
             for i in self.now_objects:
                 if i[0] == 'S' or i[0] == 'E':
                     self.last_sandbag_idx += 1
+                    if car_side != 'R' and car_side != 'L':
+                        if self.judge_side_in('R',i):
+                            self.target_objects.append([idx,i[0],i[1],i[2],'R'])#序号，物体种类，x,y,目标边
+                elif i[0] == 'T':
+                    if car_side != 'D' and car_side != 'U':
+                        if self.judge_side_in('D',i):
+                            self.target_objects.append([idx,i[0],i[1],i[2],'D'])#序号，物体种类，x,y,目标边
+                else:
+                    if car_side != 'L' and car_side != 'R':
+                        if self.judge_side_in('L',i):
+                            self.target_objects.append([idx,i[0],i[1],i[2],'L'])#序号，物体种类，x,y,目标边
                 if self.judge_side_in(car_side,i):
-                    self.target_objects.append([idx,i[0],i[1],i[2]])#序号，物体种类，x,y
+                    self.target_objects.append([idx,i[0],i[1],i[2],car_side])#序号，物体种类，x,y,目标边
                 idx+=1
             self.judge_state = 2
             return False
@@ -393,7 +406,12 @@ class objects_planner:
                 if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=self.my_BoundaryPath.forward_push_value
                 path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
-                if (i[1] == 'S' or i[1] == 'E') and self.last_sandbag_idx == 0:score+=1000
+                #旋转加分
+                if (i[1] == 'S' or i[1] == 'E'):
+                    if car_side !='R':score+=1000
+                    if self.last_sandbag_idx == 0:score+=1000
+                elif (i[1] == 'T') and car_side !='D':score+=1000
+                elif car_side !='L':score+=1000
                 if (not path) or len(path) <= 1: 
                     self.path.append([])
                     score+=10000
@@ -410,15 +428,27 @@ class objects_planner:
                     if push_angle > 180:
                         push_angle = 360 - push_angle
                 if abs(push_angle) > 45: score+=5000
-                dx_car = i[2] - self.my_car.x_current
-                dy_car = i[3] - self.my_car.y_current
-                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
-                if i[1] != 'T':
-                    score += push_distance + push_angle*15 +distance_from_car*8
-                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*15, distance_from_car*8))
+                if car_side == i[4]:
+                    dx_car = i[2] - self.my_car.x_current
+                    dy_car = i[3] - self.my_car.y_current
+                    distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
                 else:
-                    score += push_distance + push_angle*30 +distance_from_car*8
-                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*30, distance_from_car*8))
+                    P = {'D':((self.Data.center_rect[0][0]+self.Data.center_rect[3][0])/2,self.Data.center_rect[0][1]),
+                         'L':(self.Data.center_rect[0][0],(self.Data.center_rect[0][1]+self.Data.center_rect[3][1])/2),
+                         'U':((self.Data.center_rect[0][0]+self.Data.center_rect[3][0])/2,self.Data.center_rect[3][1]),
+                         'R':(self.Data.center_rect[3][0],(self.Data.center_rect[0][1]+self.Data.center_rect[3][1])/2),}
+                    x1 = i[2] - P[i[4]][0]
+                    x2 = self.my_car.x_current - P[i[4]][0]
+                    y1 = i[3] - P[i[4]][1]
+                    y2 = self.my_car.y_current - P[i[4]][1]
+                    distance_from_car = math.sqrt(x1 * x1 + y1 * y1) + math.sqrt(x2 * x2 + y2 * y2)
+                dis_score = 9.69*180/self.run_speed
+                if i[1] != 'T':
+                    score += push_distance + push_angle*push_angle +distance_from_car*dis_score
+                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
+                else:
+                    score += push_distance + push_angle*push_angle*2 +distance_from_car*8
+                    self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle*2, distance_from_car*dis_score))
                 self.target_score.append(score)
                 self.now_idx+=1
             return False
