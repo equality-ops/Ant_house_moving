@@ -649,20 +649,13 @@ class MoveControl:
         elif self.current_state == MOVE:
             if self.my_plan.if_near_line or self.my_plan.if_finish_navigate:
                 self.my_tof.reset_tof()
+                self.my_photo.reset_photo()
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False
                 self.if_finish_move = True
                 self.my_plan.fitting_path_ = []
                 self.my_plan.move_state = NAVIGATE
-                self.current_state = NAVIGATE
-            else:
-                target_point = self.my_art_protocol.coordinate_receive()
-                if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and\
-                target_point[1] >= 30.0:
-                    self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',target_point)
-                    self.vision_manager.reset_servo_angle()
-                    self.my_plan.reset_navigate()  # 重置导航相关变量
-                    self.current_state = SERVO
+                self.current_state = NAVIGATE  
         elif self.current_state == ADJUST:
             pass
         elif self.current_state == SERVO:

@@ -551,7 +551,7 @@ class objects_planner:
                     if i[4] !='R':score+=1000
                     if self.last_sandbag_idx == 0:score+=1000
                 elif (i[1] == 'T') and i[4] !='D':score+=1000
-                elif i[4] !='L':score+=1000
+                elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
                     if i[1] == 'T': 
