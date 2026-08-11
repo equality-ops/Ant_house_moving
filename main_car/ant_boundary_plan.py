@@ -328,6 +328,10 @@ class objects_planner:
         wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
         height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
         for i in self.now_objects:
+            # Vision results can occasionally be incomplete.  Ignore malformed
+            # entries here instead of indexing into them and crashing the task.
+            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in wideness:
+                continue
             w,h=wideness[i[0]],height[i[0]]
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
@@ -427,7 +431,10 @@ class objects_planner:
 
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
-            self.now_objects = objects[:]
+            # Keep only records with the fields used by the planner.  A partial
+            # detection must not make the state machine fail during indexing.
+            self.now_objects = [obj for obj in (objects or [])
+                                if isinstance(obj, (list, tuple)) and len(obj) >= 3]
             self.set_barriers(self.barrier)#将物体转化为障碍形式并存储在self.barrier中
             self.generate_nine_grid()
             self.judge_state = 1
@@ -457,6 +464,8 @@ class objects_planner:
                 else: in_dir = [-1,0]
                 def judge_side_in_nine_grid(obj,dir,k):
                     now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
+                    if not now_pt:
+                        return False
                     now_pt[0] += dir[0] * k
                     now_pt[1] += dir[1] * k
                     while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
@@ -466,6 +475,10 @@ class objects_planner:
                         now_pt[1] += dir[1] * k
                     return True
                 def judge_side_in_nine_grid_idx(idx,dir,k):
+                    if not isinstance(idx, (list, tuple)) or len(idx) != 2:
+                        return False
+                    # Do not mutate the caller's index while scanning.
+                    idx = [idx[0], idx[1]]
                     idx[0] += dir[0] * k
                     idx[1] += dir[1] * k
                     while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
