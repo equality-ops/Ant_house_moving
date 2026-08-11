@@ -42,6 +42,7 @@ else:
     gc.collect()
     # 引入 VL53L4CD 驱动
     from vl53l4cd import VL53L4CD
+    import os
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
@@ -94,6 +95,7 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 my_uart2 = UART(1)
 my_uart2.init(115200)
+os.dupterm(my_uart2)
 
 # ------------------------------------------------------------------------------
 #   初始化 I2C 总线
@@ -301,7 +303,7 @@ def voltage_detect(limit_min: float) -> None:
     print(f"The current power supply voltage is {power_voltage}!")
     if power_voltage <= limit_min:
         print(f"The power supply voltage: {power_voltage} is too low!")
-        my_beep.beep_warn()
+        my_beep.low_power_warn()
 
 # 角度环计算函数
 def angle_pid_compute():

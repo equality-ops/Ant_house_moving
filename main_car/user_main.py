@@ -223,7 +223,7 @@ def voltage_detect(limit_min: float) -> None:
     print(f"The current power supply voltage is {power_voltage}!")
     if power_voltage <= limit_min:
         print(f"The power supply voltage: {power_voltage} is too low!")
-        my_beep.beep_warn()
+        my_beep.low_power_warn()
 
 # 角度环计算函数
 def angle_pid_compute():
@@ -426,6 +426,22 @@ def test_vision_servo():
             my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
+
+
+def test_predict_point():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_order_manager.mode_target()
+        my_state.state = NAVIGATE
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
+    elif my_state.state == NAVIGATE:
+        target_point = my_art_protocol.coordinate_receive()
+        if target_point:
+            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
+            point = my_vision_manager.predict_point(target_point[0], target_point[1])
+            my_uart3.write(f"predict_point: {point}\n")
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -543,6 +559,9 @@ def time_pit3_handler(time) -> None:
     # 自转测试程序
     # test_spin()
 
+    # 测试预测点位是否准确
+    # test_predict_point()
+
     pass
 
 
@@ -559,7 +578,7 @@ def time_pit2_handler(time):
         key = my_menu.read_key()
         my_menu.handle_key_from_interrupt(key)
     """
-
+    # my_uart2.write(f"{my_state.state},{my_moving.current_state}\r\n")
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
@@ -567,7 +586,7 @@ def time_pit2_handler(time):
     # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
     # my_uart3.write(f"{my_vision_manager.if_lost_object}\r\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
+    # my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")

@@ -767,6 +767,7 @@ class NavigationPlan:
         self.dec_counter = 0
         self.dec_start_v = 0.0
         self.path.clear()
+        self.angle_pid.choose_high_angle_mode(False)
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):

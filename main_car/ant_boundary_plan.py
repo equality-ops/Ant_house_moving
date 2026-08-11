@@ -324,8 +324,8 @@ class objects_planner:
         self.run_speed = self.flash_sys.find_value("long_v_max")
         gc.collect()
     def set_barriers(self,barriers):
-        wideness={'T':2.5,'S':2.5,'E':2.5,'B':2,'W':2,}
-        height={'T':2.5,'S':2.5,'E':2.5,'B':2,'W':2,}
+        wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+        height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
         for i in self.now_objects:
             w,h=wideness[i[0]],height[i[0]]
             barriers.append([i[1],i[2],w,h])
@@ -404,6 +404,15 @@ class objects_planner:
                 score = 0
                 dir,sdir=self.judge_push_direction(i[1])
                 if dir < side_to_dir[car_side]+0.1 and dir > side_to_dir[car_side]-0.1:score+=self.my_BoundaryPath.forward_push_value
+
+                # 根据物体的种类调整目标点的位置，S和E向前移动10，B和W向后移动10，T向上移动10
+                if i[1] in ['S', 'E']:  
+                    i[2] += 10.0
+                elif i[1] in ['B', 'W']:
+                    i[2] -= 10.0
+                elif i[1] in ['T']:
+                    i[3] -= 10.0 
+
                 path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
                 push_distance,push_angle= 1000,90
                 #旋转加分
@@ -427,7 +436,12 @@ class objects_planner:
                     push_angle = abs(push_yaw - dir)
                     if push_angle > 180:
                         push_angle = 360 - push_angle
-                if abs(push_angle) > 45: score+=5000
+                # 大角度搬运路径加分
+                if abs(push_angle) > 55: 
+                    if i[1] == 'T': 
+                        score+=10000
+                    else:
+                        score+=5000
                 if car_side == i[4]:
                     dx_car = i[2] - self.my_car.x_current
                     dy_car = i[3] - self.my_car.y_current
@@ -449,6 +463,13 @@ class objects_planner:
                 else:
                     score += push_distance + push_angle*push_angle*2 +distance_from_car*8
                     self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle*2, distance_from_car*dis_score))
+
+                
+                dx_car = i[2] - self.my_car.x_current
+                dy_car = i[3] - self.my_car.y_current
+                distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
+                score += push_distance + push_angle ** 2+distance_from_car*8
+                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*15, distance_from_car*8))
                 self.target_score.append(score)
                 self.now_idx+=1
             return False

@@ -76,7 +76,7 @@ fixed_high_level_us = 1260
 ###################【速度规划】####################
 min_start_v = 40
 long_v_max = 180
-find_line_v_max = 100
+find_line_v_max = 60
 acc_normal_coef = 0.03
 dec_coef = 0.08
 scan_rate = 1.0
@@ -130,19 +130,19 @@ radius_T_R = 15.0
 radius_T_L = 15.0
 radius_T_D = 16.0
 
-radius_S_U = 16.0
+radius_S_U = 15.0
 radius_S_R = 17.0
 radius_S_L = 17.0
-radius_S_D = 16.0
+radius_S_D = 15.0
 
-radius_B_U = 18.0
+radius_B_U = 17.0
 radius_B_R = 19.0
 radius_B_L = 19.0
-radius_B_D = 18.0
+radius_B_D = 17.0
 
-angle_T = 35
-angle_S = 35
-angle_B = 35
+angle_T = 43
+angle_S = 43
+angle_B = 43
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
@@ -154,8 +154,6 @@ NUM_CLAMP_FACTOR = 0.2
 TENNIS_cla_dis = 2.1
 SANDBAG_cla_dis = 2.5
 BEAR_cla_dis = 2.4
-
-
 
 #！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
 total_objects_num = 5
@@ -172,11 +170,11 @@ circle = "(215, 190)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径
-MOVE_SAFE_MARGIN = 11.0
+MOVE_SAFE_MARGIN = 15.0
 #单侧膨胀长度
-sigal_swell_size = 25
+sigal_swell_size = 19.0
 #双侧膨胀长度
-bothway_swell_size = 13
+bothway_swell_size = 10.0
 
 #--------------规划相关---------------------
 #直接向前推所加的分数，负数代表更愿意向前推
@@ -208,6 +206,6 @@ SUDOKU_length_x = 30.0
 SUDOKU_width_y = 30.0
 
 # 不同物体的搬运速度
-move_v_max_T = 140
-move_v_max_S = 140
-move_v_max_B = 140
+move_v_max_T = 160
+move_v_max_S = 160
+move_v_max_B = 160

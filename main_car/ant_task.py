@@ -384,13 +384,14 @@ class TaskController:
             # 更新当前物体种类，便于选择物体高度
             self.my_vision.current_servo_object = kind
             if self.use_scan_point>2:  
-                if angle == 180:limit_y = 50
+                if angle == 180: limit_y = 50
                 else:limit_y = 78
             else: limit_y = None
-            real_point = self.my_vision.predict_point(x, y,limit_y = limit_y)
+            real_point = self.my_vision.predict_point(x, y, limit_y = limit_y)
             if not real_point: continue
-            if not self.my_vision.if_in_rect(real_point[0],real_point[1]):continue
+            if not self.my_vision.if_in_rect(real_point[0],real_point[1]): continue
             real_ob_info.append((kind,real_point[0], real_point[1]))
+
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
     
@@ -465,7 +466,7 @@ class TaskController:
 
     def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
-        threshold_far = threshold_near+5
+        threshold_far = threshold_near+10
         for kind, x, y in objects:
             match_idx = -1
             for idx, (old_kind, old_x, old_y) in enumerate(merged):
