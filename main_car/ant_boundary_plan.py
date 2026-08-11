@@ -477,6 +477,9 @@ class objects_planner:
                         now_pt[1] += dir[1] * k
                     return True
                 def judge_side_in_nine_grid_idx(idx,dir,k):
+                    if not idx or len(idx) < 2:
+                        return False
+                    idx = idx[:]
                     idx[0] += dir[0] * k
                     idx[1] += dir[1] * k
                     while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
