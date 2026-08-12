@@ -58,6 +58,7 @@ class MoveControl:
             'RDD': [],
         }
         self.if_first_orbit = False
+        self.slave_message_delay = 0
         self.now_barriar = []
         self.moving_point = []   # 搬运途径点
         self.angle_buffer = []   # 角度缓冲区
@@ -176,6 +177,7 @@ class MoveControl:
         }
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
+        self.slave_message_delay = 0
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
         self.now_object_pt = point[:]
@@ -228,11 +230,15 @@ class MoveControl:
         if self.if_change_side:
             dicc = {'D':0,'L':1,'U':2,'R':3,}
             if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
+                if self.next_postion == 'r':
+                    self.slave_message_delay = 15
                 m_PAth = [self.surrounding_points['LD']]
                 ANGle = [angle_l0,target_turn_deg+Num,angle_l]
                 car_postion += 90
                 self.next_postion = 'r'
             else:
+                if self.next_postion == 'l':
+                    self.slave_message_delay = 15
                 m_PAth = [self.surrounding_points['RD']]
                 ANGle = [angle_r0,target_turn_deg+Num,angle_r]
                 car_postion -= 90
@@ -551,7 +557,7 @@ class MoveControl:
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
-            elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15:
+            elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15+self.slave_message_delay:
                 self.if_send_orbit_command = True
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
             if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
