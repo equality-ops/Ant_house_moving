@@ -599,9 +599,11 @@ class TaskController:
                     self.if_plan_scan = True
                     counter = 0
                     return
+                print(f"{self.fixed_scan_point[counter+1][0]}")
                 self.my_path.plan_path(self.fixed_scan_point[counter+1][0][0],self.fixed_scan_point[counter+1][0][1],start_point = self.fixed_scan_point[counter][0]) 
-                self.my_path.ready_path[-1] = self.fixed_scan_point[-counter+1][0]
+                self.my_path.ready_path[-1] = self.fixed_scan_point[counter+1][0]
                 self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[counter+1][1]])
+                print(f"{self.planned_scan_path}")
                 counter+=1
             else:self.first_scan()
         else:self.exit()

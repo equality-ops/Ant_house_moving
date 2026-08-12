@@ -32,11 +32,13 @@ class PlanData:
         self.center_x = self.flash_sys.find_value("CENTER_X")
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         self.lenth = self.flash_sys.find_value("SUDOKU_length_x")
-        self.fixed_point = [[15.0, -40.2], [self.center_x - self.lenth*2,self.center_y - self.lenth*2], 
-                            [self.center_x + self.lenth*2,self.center_y + self.lenth*2],[25.0, -50.0]]  # type: list
+
+        rate = 1.5
+        self.fixed_point = [[15.0, -40.2], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
+                            [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate],[25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
-        self.center_rect = [[self.center_x - self.lenth*1.5,self.center_y - self.lenth*1.5], [self.center_x - self.lenth*1.5,self.center_y + self.lenth*1.5], 
-                            [self.center_x + self.lenth*1.5,self.center_y - self.lenth*1.5], [self.center_x + self.lenth*1.5,self.center_y + self.lenth*1.5]] 
+        self.center_rect = [[self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x - self.lenth*rate,self.center_y + self.lenth*rate], 
+                            [self.center_x + self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate]] 
 
         # 路径规划相关常量
         self.FIELD_W = self.flash_sys.find_value("FIELD_W")  # 地图宽度
@@ -47,7 +49,7 @@ class PlanData:
         self.INF = 1000000000.0  # 无穷大
         self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")# 小车安全裕量 (质点膨胀半径)
 
-        self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, 90.0, 90.0)  # 中心禁区矩形障碍物（已膨胀）
+        self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, self.lenth*rate*2, self.lenth*rate*2)  # 中心禁区矩形障碍物（已膨胀）
         self.if_obstacles = self.flash_sys.find_value("if_obstacles")
         if self.if_obstacles == 1:
             self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
