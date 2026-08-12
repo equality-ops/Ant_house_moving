@@ -18,16 +18,15 @@ gc.collect()
 my_uart_debug = UART(7)
 my_uart_debug.init(115200)
 gc.collect()
-
 import ant_task
-gc.collect()
-import ant_vision
-gc.collect()
-import ant_plan
 gc.collect()
 import ant_move
 gc.collect()
 import ant_boundary_plan
+gc.collect()
+import ant_vision
+gc.collect()
+import ant_plan
 gc.collect()
 import ant_motor
 gc.collect()
