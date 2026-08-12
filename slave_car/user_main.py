@@ -268,7 +268,7 @@ my_tof = ant_move.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L,
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
-my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof)
+my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_uart2, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof)
 # 任务及类
 my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol)
 
@@ -519,13 +519,15 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     task_machine()
-    
-    # 全向定位测试程序
+
     """
+    # 全向定位测试程序
     if my_state.state == READY_NAVIGATE:
         my_state.state = NAVIGATE
         my_car.x_current = 0.0
         my_car.y_current = 0.0
+        my_path.plan_path(240.0, 220.0)
+        print(f"{my_path.ready_path}")
     elif my_state.state == NAVIGATE:
         # my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle= -30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])

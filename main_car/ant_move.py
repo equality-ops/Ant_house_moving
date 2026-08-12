@@ -578,7 +578,7 @@ class MoveControl:
                 self.my_photo.reset_photo()
                 self.my_beep.test()
                 self.my_plan.if_finish_navigate = True
-                self.my_write_system.write_str(f"finish_move--car_x:{self.my_car.x_current},car_y:{self.my_car.y_current}\n")
+                
             self.my_plan.navigate(path = self.plan_path)
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()

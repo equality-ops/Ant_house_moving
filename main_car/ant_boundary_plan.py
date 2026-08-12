@@ -545,7 +545,7 @@ class objects_planner:
                             path = [[sx,sy]]+self.path[j]
                             has_planned = True
                     if not has_planned:
-                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, i[2], i[3], skip_idx=i[0])
+                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
                 push_distance,push_angle= 1000,90
                 if (not path) or len(path) <= 1: 
                     self.path.append([])
@@ -603,8 +603,15 @@ class objects_planner:
                 if self.target_score[i] == min(self.target_score):
                     self.plan_target = self.target_objects[i]
                     if self.path[i]:
-                        dx = self.path[i][0][0] - self.plan_target[2]
-                        dy = self.path[i][0][1] - self.plan_target[3]
+                        raw_x, raw_y = self.plan_target[2], self.plan_target[3]
+                        if self.plan_target[1] in ['S', 'E']:
+                            raw_x += 10.0
+                        elif self.plan_target[1] in ['B', 'W']:
+                            raw_x -= 10.0
+                        elif self.plan_target[1] == 'T':
+                            raw_y -= 10.0
+                        dx = self.path[i][0][0] - raw_x
+                        dy = self.path[i][0][1] - raw_y
                         self.best_path = [dx,dy]
                 if self.path[i]:
                     new_path.append(self.path[i][0])

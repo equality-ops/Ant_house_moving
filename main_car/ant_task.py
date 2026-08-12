@@ -291,75 +291,7 @@ class TaskController:
                 self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
     def handle_ready_navigate(self):
-        if not self.if_end_first_scan:
-            self.exit()
-            return
-        if not self.if_choose_object:
-            if self.now_objects:
-                if self.object_plan.judge_object_character(self.now_objects,self.last_side):
-                    target = self.object_plan.plan_target
-                    self.if_end_first_scan = True
-                    self.my_write_system.write_str(f"final_objects:{self.now_objects}\n")
-                    self.my_write_system.write_str(f"target{self.object_plan.target_objects}\n")
-                    self.my_write_system.write_str(f"path{self.object_plan.path}\n")
-                    self.my_write_system.write_str(f"score{self.object_plan.target_score}\n")
-                    if not target:
-                        #self.my_uart.write("False\n")
-                        self.exit()
-                    else:
-                        self.object_plan.barrier.pop(target[0])
-                        self.now_objects.pop(target[0])
-                        self.my_moving.now_barriar=self.object_plan.barrier[:]
-                        #self.my_uart.write(f"barriar{self.my_moving.now_barriar}\n")
-                        self.current_object=target[1]
-                        self.my_plan.current_object = self.current_object
-                        self.my_vision.current_servo_object = self.current_object
-                        rm = self.my_moving.ready_move([target[2],target[3]],now_side = self.last_side,target_side = target[4],RECT = target[5],Num = target[6])
-                        # self.my_uart.write(f"car_position:{self.my_moving.push_postion}\n")
-                        #self.my_uart.write(f"rm:{rm},nav_n:{len(self.my_moving.navigate_buffer)}\n")
-                        if rm:
-                            self.my_moving.saved_best_path =self.object_plan.best_path
-                            num_compensation = self.data.current_index * self.num_clamp_factor
-                            self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
-                            self.if_choose_object = True
-                            self.my_plan.reset_navigate()
-                        else:self.exit()
-            else:self.exit()
-        else:
-            if self.data.current_index >= self.data.total_objects_num:
-                self.my_state.state = RETURN
-                self.if_transitioning = True
-                return
-            # 进入准备导航状态，做好路径规划准备和导航信息准�?
-            slave_stop_threshold = 25.0
-            planned_path = self.my_moving.navigate_buffer['MAIN_P']
-            insert_point = []
-            if self.last_side == "L":
-                target_angle = 90.0
-                self.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]
-                if self.if_first_round:self.if_first_round = False
-                else:insert_point = [self.my_car.x_current+15,self.my_car.y_current]
-            elif self.last_side == "R":
-                target_angle = -90.0
-                self.slave_navigate_message = [[planned_path[-2][0] + slave_stop_threshold,planned_path[-2][1]], target_angle]
-                if self.if_first_round:self.if_first_round = False
-                else:insert_point = [self.my_car.x_current-15,self.my_car.y_current]
-            elif self.last_side == "U":
-                target_angle = 180.0
-                self.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] + slave_stop_threshold], target_angle]
-                if self.if_first_round:self.if_first_round = False
-                else:insert_point = [self.my_car.x_current,self.my_car.y_current-15]
-            else:
-                target_angle = 0.0
-                self.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] - slave_stop_threshold], target_angle]
-                if self.if_first_round:self.if_first_round = False
-                else:insert_point = [self.my_car.x_current,self.my_car.y_current+15]
-            # 进行路径规划
-            self.my_moving.slave_massage['path'] = self.slave_navigate_message [0]
-            self.my_moving.slave_massage['angle'] = self.slave_navigate_message [1]
-            if insert_point:planned_path = [insert_point] + planned_path
-            self.my_moving.navigate_buffer['MAIN_P'] = planned_path
-            self.exit()  # 退出当前状态，进入导航状�?
+        pass
 
     def handle_navigate(self):
         # if state == NAVIGATE
