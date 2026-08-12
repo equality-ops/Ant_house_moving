@@ -209,7 +209,7 @@ class TofControl:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, flash_sys, beep, photo, uart, uart_debug, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager, tof):
+    def __init__(self, flash_sys, beep, photo, uart, uart_debug, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager, tof, angle_pid):
         self.my_beep = beep
         self.my_photo = photo
         self.my_uart = uart
@@ -225,6 +225,7 @@ class MoveControl:
         self.my_order_manager = order_manager
         self.flash_sys = flash_sys
         self.my_tof = tof
+        self.angle_pid = angle_pid
         self.next_orbit_angle = 0.0  # 下一环绕角度
         self.move_pt_buffer = []     # 搬运目标点缓冲区
         self.next_point = []     # 下一目标点
@@ -610,7 +611,7 @@ class MoveControl:
                 self.vision_manager.if_lost_object = True
                 return
             target_point = self.my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and self.angle_pid.if_finish_turn():
                 points = self.vision_manager.calc_object_global_pos(target_point[0], target_point[1], self.vision_manager.current_servo_object)
                 if self.vision_manager.if_in_rect(points[0], points[1]):
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)

@@ -579,7 +579,9 @@ class AnglePositionPID(ControlPID):
         # pwm_output限幅
         self.pwm_output = max(-self.pwmout_limitmax, min(self.pwm_output, self.pwmout_limitmax))
 
-
+    # 判断小车是否完成转角
+    def if_finish_turn(self):
+        return abs(self.nowError) < 2.0
 # 视觉伺服PD
 class ServoPID(ControlPID):
     def __init__(self, flash_sys):
