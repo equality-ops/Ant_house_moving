@@ -83,8 +83,9 @@ class PathPlan:
 
     # 路径规划主函数
     def plan_path(self, x1, y1, ignore_center_rect=False):
-        circles = self.Data.circle
-        rects = self.Data.rectangles
+        # 获取当前障碍物列表（切片）
+        circles = self.Data.circle[:]
+        rects = self.Data.rectangles[:]
 
         # 如果特定状态激活，将原有的中心区域矩形障碍物移除
         # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的

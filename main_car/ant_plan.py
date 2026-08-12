@@ -18,7 +18,7 @@ STOP = const(9)           # 停止状态
 class StateMachine:
     def __init__(self):        
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
-        self.state = READY_NAVIGATE  # 初始状态为准备导航状态
+        self.state = None  # 初始状态为准备导航状态
         gc.collect()
 
 # 路径和速度规划相关常量

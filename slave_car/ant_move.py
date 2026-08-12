@@ -209,10 +209,11 @@ class TofControl:
 
 # 搬运控制类
 class MoveControl:
-    def __init__(self, flash_sys, beep, photo, uart, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager, tof):
+    def __init__(self, flash_sys, beep, photo, uart, uart_debug, car, plan, path_plan, plan_data, vision_manager, state, slave_protocol, art_protocol, order_manager, tof):
         self.my_beep = beep
         self.my_photo = photo
         self.my_uart = uart
+        self.uart_debug = uart_debug
         self.vision_manager = vision_manager
         self.my_plan = plan
         self.my_path = path_plan

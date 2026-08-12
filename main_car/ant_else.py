@@ -198,6 +198,8 @@ class flash_system:
 
         if error_flag:
             self.beep.beep_warn()
+
+# 日志系统
 class write_system:
     def __init__(self, beep, file_path: str):
         # 注入蜂鸣器对象，用于警报
@@ -206,6 +208,7 @@ class write_system:
         # 传入文件路径
         self.file_path = file_path  # type: str
         gc.collect()
+
     def write_str(self, line: str) -> None:
         try:
             with open(self.file_path, 'a') as f:
@@ -214,7 +217,7 @@ class write_system:
                     f.write("\n")
         except Exception as e:
             print(f"Error: Failed to write to {self.file_path}: {e}")
-            self.beep.beep_warn()
+
     def init_write(self) -> None:
         self.num = 1
         try:
@@ -234,7 +237,6 @@ class write_system:
                 f.write(f"This is the {self.num}th log of the main car.\n")
         except Exception as e:
             print(f"Error: Failed to write to {self.file_path}: {e}")
-            self.beep.beep_warn()
 
 class beep:
     __slots__ = ('beep', 'beep_state')

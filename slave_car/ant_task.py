@@ -131,7 +131,7 @@ class TaskController:
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
             # 退出导航状态，停止路径跟随
-            if self.current_object == 'P':
+            if self.current_object in ['P', 'M']:
                 self.my_plan.reset_navigate_angle()  # 重置导航角度
                 self.my_plan.reset_navigate()  # 重置导航标志
                 self.my_state.state = READY_NAVIGATE
@@ -157,7 +157,7 @@ class TaskController:
                 self.my_vision.calibrate_buffer = [[self.pt_buffer[0]],self.pt_buffer[1]]
                 self.my_state.state = CALIBRATE
                 self.if_transitioning=True
-            else:
+            elif self.current_object in ['T', 'S', 'E', 'W', 'B']:
                 #target_point = self.my_art_protocol.coordinate_receive()
                 #if target_point and chr(target_point[2]) == self.current_object:
                 # 计数器清零
