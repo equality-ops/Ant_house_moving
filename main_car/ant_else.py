@@ -208,8 +208,8 @@ class write_system:
         # 传入文件路径
         self.file_path = file_path  # type: str
         # 循环队列缓冲区
-        self.buffer_size = 100       # 缓冲区最大条目数
-        self.max_line_len = 500      # 单行最大字符数
+        self.buffer_size = 50       # 缓冲区最大条目数
+        self.max_line_len = 200      # 单行最大字符数
         self.buffer = [''] * self.buffer_size
         self.head = 0                # 写入位置（队尾）
         self.tail = 0                # 读取位置（队头）

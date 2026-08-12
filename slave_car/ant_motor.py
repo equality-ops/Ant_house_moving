@@ -582,6 +582,7 @@ class AnglePositionPID(ControlPID):
     # 判断小车是否完成转角
     def if_finish_turn(self):
         return abs(self.nowError) < 2.0
+    
 # 视觉伺服PD
 class ServoPID(ControlPID):
     def __init__(self, flash_sys):
