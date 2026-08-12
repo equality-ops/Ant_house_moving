@@ -207,60 +207,54 @@ class write_system:
         self.num = 1
         # 传入文件路径
         self.file_path = file_path  # type: str
-        # 循环队列缓冲区
-        self.buffer_size = 50       # 缓冲区最大条目数
-        self.max_line_len = 200      # 单行最大字符数
-        self.buffer = [''] * self.buffer_size
-        self.head = 0                # 写入位置（队尾）
-        self.tail = 0                # 读取位置（队头）
-        self.count = 0               # 当前缓冲区中的条目数
+        # 环形字节缓冲区：一次性预分配固定内存，写入过程零动态分配，避免内存碎片
+        self.buf_size = 4096        # 缓冲区字节上限（可调）
+        self.buf = bytearray(self.buf_size)
+        self.head = 0               # 已写入的有效字节数（数据始终从 buf[0] 连续存放）
         gc.collect()
+
     def write_str(self, line: str):
-        """将一行日志写入循环队列缓冲区，缓冲区满时覆盖最旧的数据"""
-        if len(line) > self.max_line_len:
-            print('line too long\n')
-            return
+        """将一行日志写入缓冲区；空间不足时丢弃最旧的一行（循环队列语义）"""
         if not line.endswith("\n"):
             line += '\n'
-        if self.count == self.buffer_size:
-            # 缓冲区已满，覆盖最旧的条目
-            self.tail = (self.tail + 1) % self.buffer_size
-            self.count -= 1
-        self.buffer[self.head] = line
-        self.head = (self.head + 1) % self.buffer_size
-        self.count += 1
-    def write_in(self) -> None:
-        """将循环队列缓冲区中的所有内容一次性刷入文件"""
-        if self.count == 0:
-            return
-        # 从 tail 到 head 按顺序收集所有条目
-        parts = []
-        idx = self.tail
-        for _ in range(self.count):
-            parts.append(self.buffer[idx])
-            idx = (idx + 1) % self.buffer_size
-        pending = ''.join(parts)
-
-        # 先写入文件，成功后再清除缓冲区
         try:
-            with open(self.file_path, 'a') as f:
-                f.write(pending)
+            data = line.encode('utf-8')
+        except Exception:
+            return
+        n = len(data)
+
+        # 单行超过整个缓冲区：只保留末尾部分
+        if n > self.buf_size:
+            data = data[n - self.buf_size:]
+            n = self.buf_size
+
+        # 空间不足时，丢弃最旧的一行（从开头找第一个换行符）
+        while self.head + n > self.buf_size:
+            drop = 1
+            while drop < self.head and self.buf[drop - 1] != 10:  # 10 == ord('\n')
+                drop += 1
+            # 前移剩余数据，腾出 drop 字节空间
+            for i in range(drop, self.head):
+                self.buf[i - drop] = self.buf[i]
+            self.head -= drop
+
+        # 追加新数据
+        for i in range(n):
+            self.buf[self.head + i] = data[i]
+        self.head += n
+
+    def write_in(self) -> None:
+        """将缓冲区中的所有内容一次性刷入文件"""
+        if self.head == 0:
+            return
+        try:
+            with open(self.file_path, 'ab') as f:
+                f.write(self.buf[0:self.head])
         except Exception as e:
             # 写入失败，缓冲区数据原封不动，下次 write_in 会重试
             print(f"Error: Failed to write to {self.file_path}: {e}")
             return
-
-        # 写入成功，清除已刷出的条目
-        # 注意：写入期间可能有新的 write_str 调用添加了新条目，
-        # 因此只清除我们已收集的部分，保留新添加的
-        written = len(parts)
-        if self.count >= written:
-            self.tail = (self.tail + written) % self.buffer_size
-            self.count -= written
-        else:
-            # 异常保护：count 不应小于 written，若出现则全清
-            self.tail = self.head
-            self.count = 0
+        self.head = 0
     def init_write(self) -> None:
         self.num = 1
         try:

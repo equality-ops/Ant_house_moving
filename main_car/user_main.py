@@ -3,6 +3,7 @@ import gc
 import time
 import os
 from micropython import const
+
 gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
@@ -609,6 +610,9 @@ pit2_start()
 
 while True:
     if my_state.state == READY_NAVIGATE:
+        # 在规划前进行清空缓冲区
+        gc.collect()
+
         if my_task.if_transitioning:
             my_task.enter()
         if not my_task.if_end_first_scan:
@@ -621,6 +625,8 @@ while True:
         if not my_task.if_choose_object:
             if my_task.now_objects:
                 if my_task.object_plan.judge_object_character(my_task.now_objects, my_task.last_side):
+                    gc.collect()
+                     
                     target = my_task.object_plan.plan_target
                     my_task.if_end_first_scan = True
                     my_task.my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")

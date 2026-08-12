@@ -568,10 +568,10 @@ class TaskController:
                     for i in range(len(self.now_objects)):
                         self.my_beep.test()
                         time.sleep_ms(300)
-                    self.my_write_system.write_str(f"final_objects:{self.now_objects}\n")
-                    self.my_write_system.write_str(f"target{self.object_plan.target_objects}\n")
-                    self.my_write_system.write_str(f"path{self.object_plan.path}\n")
-                    self.my_write_system.write_str(f"score{self.object_plan.target_score}\n")
+                    self.my_write_system.write_str(f"final_objects:{len(self.now_objects)}\n")
+                    self.my_write_system.write_str(f"target{len(self.object_plan.target_objects)}\n")
+                    self.my_write_system.write_str(f"path{len(self.object_plan.path)}\n")
+                    self.my_write_system.write_str(f"score{len(self.object_plan.target_score)}\n")
                     self.exit()
                     return
             self.if_end_first_scan = True
