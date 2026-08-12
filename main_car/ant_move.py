@@ -19,7 +19,7 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
-    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart):
+    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart, angle_pid):
         self.my_write_system = my_write_system
         self.my_beep = beep
         self.my_photo = photo
@@ -34,6 +34,7 @@ class MoveControl:
         self.my_order_manager = order_manager
         self.move_plan = move_plan
         self.my_uart = my_uart
+        self.angle_pid = angle_pid
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
         self.flash_sys = flash_sys
@@ -466,7 +467,7 @@ class MoveControl:
                 self.vision_manager.if_lost_object = True
                 return
             target_point = self.my_art_protocol.coordinate_receive()
-            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+            if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and self.angle_pid.if_finish_turn():
                 real_point = self.vision_manager.predict_point(target_point[0], target_point[1],limit_y = None)
                 if self.vision_manager.if_in_rect(real_point[0], real_point[1]):
                     self.vision_manager.ready_servo_and_orbit(target_point, 'servo')

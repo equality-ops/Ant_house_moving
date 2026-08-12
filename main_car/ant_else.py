@@ -207,29 +207,53 @@ class write_system:
         self.num = 1
         # 传入文件路径
         self.file_path = file_path  # type: str
-        self.write_buffer = ''
+        # 循环队列缓冲区
+        self.buffer_size = 100       # 缓冲区最大条目数
+        self.max_line_len = 500      # 单行最大字符数
+        self.buffer = [''] * self.buffer_size
+        self.head = 0                # 写入位置（队尾）
+        self.tail = 0                # 读取位置（队头）
+        self.count = 0               # 当前缓冲区中的条目数
         gc.collect()
     def write_str(self, line: str):
-        if len(line)+len(self.write_buffer)>100000:
-            print('too long\n')
-        else:
-            if not line.endswith("\n"):
-                line+='\n'
-            self.write_buffer += line
-    def write_in(self)-> None:
-        if len(self.write_buffer) > 0:
-            # Detach the current batch before Flash I/O.  A timer callback can
-            # append new log text while this batch is being written; that text
-            # stays in write_buffer for the next main-loop iteration.
-            pending = self.write_buffer
-            self.write_buffer = ''
-            try:
-                with open(self.file_path, 'a') as f:
-                    f.write(pending)
-            except Exception as e:
-                # Keep the failed batch and anything queued during the write.
-                self.write_buffer = pending + self.write_buffer
-                print(f"Error: Failed to write to {self.file_path}: {e}")
+        """将一行日志写入循环队列缓冲区，缓冲区满时覆盖最旧的数据"""
+        if len(line) > self.max_line_len:
+            print('line too long\n')
+            return
+        if not line.endswith("\n"):
+            line += '\n'
+        if self.count == self.buffer_size:
+            # 缓冲区已满，覆盖最旧的条目
+            self.tail = (self.tail + 1) % self.buffer_size
+            self.count -= 1
+        self.buffer[self.head] = line
+        self.head = (self.head + 1) % self.buffer_size
+        self.count += 1
+    def write_in(self) -> None:
+        """将循环队列缓冲区中的所有内容一次性刷入文件"""
+        if self.count == 0:
+            return
+        # 从 tail 到 head 按顺序收集所有条目
+        parts = []
+        idx = self.tail
+        for _ in range(self.count):
+            parts.append(self.buffer[idx])
+            idx = (idx + 1) % self.buffer_size
+        pending = ''.join(parts)
+        # 清空缓冲区
+        self.tail = self.head
+        self.count = 0
+        try:
+            with open(self.file_path, 'a') as f:
+                f.write(pending)
+        except Exception as e:
+            # 写入失败，恢复数据到缓冲区
+            for i, line in enumerate(parts):
+                pos = (self.tail + i) % self.buffer_size
+                self.buffer[pos] = line
+            self.count = len(parts)
+            self.head = (self.tail + self.count) % self.buffer_size
+            print(f"Error: Failed to write to {self.file_path}: {e}")
     def init_write(self) -> None:
         self.num = 1
         try:
