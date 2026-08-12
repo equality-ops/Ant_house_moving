@@ -97,7 +97,6 @@ class BoundaryPathPlanner:
             rect = raw_rects[rect_idx]
             if len(rect) >= 4:
                 rects.append(swell_rect(rect,swell_angle))
-        gc.collect()
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
@@ -107,7 +106,6 @@ class BoundaryPathPlanner:
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
         if x is None or y is None:x,y=self.my_car.x_current,self.my_car.y_current
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
-        gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
         if limit_angle:
             def calculate_angle(path,angle):
@@ -123,7 +121,6 @@ class BoundaryPathPlanner:
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
-        gc.collect()
         return path_right
 
     def _plan_one_turn_with_avoid(self, direction, avoid_dir,x,y):
@@ -165,7 +162,6 @@ class BoundaryPathPlanner:
                     continue
                 if self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
                     return self.my_plan._path_to_list([start, p, self._project_to_boundary(p, direction)])
-        gc.collect()
         return []
 
     def _insert_sorted_node(self, nodes, side_dist, p):
@@ -346,7 +342,6 @@ class objects_planner:
         self.target_score = []
         self.plan_target = []
         self.now_idx = 0
-        gc.collect()
     def judge_side_in(self,side,now_object):
         def _if_p_block_p(p,p_):
             avoid_width = self.my_BoundaryPath.avoid_width
@@ -368,9 +363,7 @@ class objects_planner:
             i=now_object
             if i == j:continue
             if _if_p_block_p([i[1],i[2]],[j[1],j[2]]):
-                gc.collect()
                 return False
-        gc.collect()
         return True
     def nine_grid_postion_to_idx(self, x, y=None):
         """Return [row, col] for an exact nine-grid center, or [] if absent."""
@@ -617,7 +610,6 @@ class objects_planner:
                     new_path.append(self.path[i][0])
             self.path = new_path
             return True
-        gc.collect()
     def find_target(self):
         if self.objects_score:
             Target = self.objects_score[0]

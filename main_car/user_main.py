@@ -89,7 +89,7 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 my_uart2 = UART(1)
 my_uart2.init(115200)
-
+os.dupterm(my_uart2)
 """电机初始化"""
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
@@ -614,5 +614,5 @@ while True:
         print("Test program stop.")
         gc.collect()
         break
-
+    my_write_system.write_in()
     gc.collect()

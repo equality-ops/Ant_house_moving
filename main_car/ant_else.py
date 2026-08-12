@@ -205,16 +205,30 @@ class write_system:
         self.num = 1
         # 传入文件路径
         self.file_path = file_path  # type: str
+        self.write_buffer = ''
         gc.collect()
-    def write_str(self, line: str) -> None:
-        try:
-            with open(self.file_path, 'a') as f:
-                f.write(line)
-                if not line.endswith("\n"):
-                    f.write("\n")
-        except Exception as e:
-            print(f"Error: Failed to write to {self.file_path}: {e}")
-            self.beep.beep_warn()
+    def write_str(self, line: str):
+        if len(line)+len(self.write_buffer)>100:
+            print('too long\n')
+        else:
+            if not line.endswith("\n"):
+                line+='\n'
+            self.write_buffer += line
+    def write_in(self)-> None:
+        if len(self.write_buffer) > 0:
+            # Detach the current batch before Flash I/O.  A timer callback can
+            # append new log text while this batch is being written; that text
+            # stays in write_buffer for the next main-loop iteration.
+            pending = self.write_buffer
+            self.write_buffer = ''
+            try:
+                with open(self.file_path, 'a') as f:
+                    f.write(pending)
+            except Exception as e:
+                # Keep the failed batch and anything queued during the write.
+                self.write_buffer = pending + self.write_buffer
+                print(f"Error: Failed to write to {self.file_path}: {e}")
+                self.beep.beep_warn()
     def init_write(self) -> None:
         self.num = 1
         try:
