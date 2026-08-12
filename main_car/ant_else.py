@@ -240,20 +240,27 @@ class write_system:
             parts.append(self.buffer[idx])
             idx = (idx + 1) % self.buffer_size
         pending = ''.join(parts)
-        # 清空缓冲区
-        self.tail = self.head
-        self.count = 0
+
+        # 先写入文件，成功后再清除缓冲区
         try:
             with open(self.file_path, 'a') as f:
                 f.write(pending)
         except Exception as e:
-            # 写入失败，恢复数据到缓冲区
-            for i, line in enumerate(parts):
-                pos = (self.tail + i) % self.buffer_size
-                self.buffer[pos] = line
-            self.count = len(parts)
-            self.head = (self.tail + self.count) % self.buffer_size
+            # 写入失败，缓冲区数据原封不动，下次 write_in 会重试
             print(f"Error: Failed to write to {self.file_path}: {e}")
+            return
+
+        # 写入成功，清除已刷出的条目
+        # 注意：写入期间可能有新的 write_str 调用添加了新条目，
+        # 因此只清除我们已收集的部分，保留新添加的
+        written = len(parts)
+        if self.count >= written:
+            self.tail = (self.tail + written) % self.buffer_size
+            self.count -= written
+        else:
+            # 异常保护：count 不应小于 written，若出现则全清
+            self.tail = self.head
+            self.count = 0
     def init_write(self) -> None:
         self.num = 1
         try:

@@ -614,6 +614,10 @@ while True:
         if not my_task.if_end_first_scan:
             my_task.exit()
             continue
+
+        # 在该模式下进行写入操作
+        my_write_system.write_in()
+
         if not my_task.if_choose_object:
             if my_task.now_objects:
                 if my_task.object_plan.judge_object_character(my_task.now_objects, my_task.last_side):
@@ -679,7 +683,5 @@ while True:
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态
-
-        my_write_system.write_in()
     
     gc.collect()
