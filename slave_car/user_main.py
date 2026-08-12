@@ -121,9 +121,9 @@ if 0x29 in device_list_0:
     try:
         tof_R = VL53L4CD(i2c_1, address = 0x29)
     except Exception as e:
-        my_beep.beep_warn()
+        my_beep.failure_to_find_tof()
 else:
-    my_beep.beep_warn()
+    my_beep.failure_to_find_tof()
     print("TOF R (I2C1) not found! Please check wiring and XSHUT pull-up.")
 
 # 初始化传感器 3 (I2C3)
@@ -131,10 +131,10 @@ if 0x29 in device_list_3:
     try:
         tof_L = VL53L4CD(i2c_3, address = 0x29)
     except Exception as e:
-        my_beep.beep_warn()
+        my_beep.failure_to_find_tof()
         print("TOF L (I2C3) init failed:", e)
 else:
-    my_beep.beep_warn()
+    my_beep.failure_to_find_tof()
     print("TOF L (I2C3) not found! Please check wiring and XSHUT pull-up.")
 
 

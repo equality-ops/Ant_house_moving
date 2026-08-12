@@ -550,6 +550,7 @@ class TaskController:
             if not self.if_plan_scan:
                 if self.use_scan_point == 1:
                     self.my_path.plan_path(self.fixed_scan_point[-1][0][0],self.fixed_scan_point[-1][0][1]) 
+                    self.my_path.ready_path[-1] = self.fixed_scan_point[-1][0]
                     self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[-1][1]])
                     self.planned_scan_path[0][0].insert(0,[self.my_car.x_current,self.my_car.y_current+30])
                     self.if_plan_scan = True
@@ -561,6 +562,7 @@ class TaskController:
                     counter = 0
                     return
                 self.my_path.plan_path(self.fixed_scan_point[counter+1][0][0],self.fixed_scan_point[counter+1][0][1],start_point = self.fixed_scan_point[counter][0]) 
+                self.my_path.ready_path[-1] = self.fixed_scan_point[-counter+1][0]
                 self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[counter+1][1]])
                 counter+=1
             else:self.first_scan()

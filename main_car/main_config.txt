@@ -1,4 +1,4 @@
-# 修改时间 8.9   18:49
+# 修改时间 8.12   20:59
 
 ###################【PID参数】####################
 # speed等于180时
@@ -91,9 +91,9 @@ servo_kd_normal_x = 5.0
 servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
-servo_target_y_T = 2.3
+servo_target_y_T = 2.0
 servo_target_y_S = 2.0
-servo_target_y_B = 4.5
+servo_target_y_B = 3.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.0
 finish_threshold_y = 1.0
@@ -141,7 +141,7 @@ radius_B_L = 19.0
 radius_B_D = 16.0
 
 angle_T = 43
-angle_S = 42
+angle_S = 46
 angle_B = 43
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"

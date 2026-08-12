@@ -210,7 +210,7 @@ class write_system:
         self.write_buffer = ''
         gc.collect()
     def write_str(self, line: str):
-        if len(line)+len(self.write_buffer)>100:
+        if len(line)+len(self.write_buffer)>100000:
             print('too long\n')
         else:
             if not line.endswith("\n"):

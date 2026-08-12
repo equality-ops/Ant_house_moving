@@ -560,7 +560,7 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     """
 
-    my_uart2.write(f"{my_state.state}\r\n")
+    # my_uart2.write(f"{my_state.state}\r\n")
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
@@ -680,5 +680,7 @@ while True:
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态
-    my_write_system.write_in()
+
+        my_write_system.write_in()
+    
     gc.collect()
