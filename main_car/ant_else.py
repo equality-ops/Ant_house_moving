@@ -230,7 +230,6 @@ class write_system:
                 # Keep the failed batch and anything queued during the write.
                 self.write_buffer = pending + self.write_buffer
                 print(f"Error: Failed to write to {self.file_path}: {e}")
-                self.beep.beep_warn()
     def init_write(self) -> None:
         self.num = 1
         try:

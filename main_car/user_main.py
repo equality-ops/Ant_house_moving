@@ -612,7 +612,6 @@ while True:
     if my_state.state == READY_NAVIGATE:
         if my_task.if_transitioning:
             my_task.enter()
-
         if not my_task.if_end_first_scan:
             my_task.exit()
             continue
@@ -681,5 +680,5 @@ while True:
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态
-    my_write_system.write_in()        
+    my_write_system.write_in()
     gc.collect()
