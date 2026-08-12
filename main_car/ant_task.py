@@ -21,6 +21,24 @@ object_to_line_dict = {
 }
 counter = 0 
 class TaskController:
+    __slots__ = (
+        'my_write_system', 'my_beep', 'my_path', 'my_uart', 'my_plan',
+        'my_vision', 'my_state', 'my_car', 'my_moving', 'data',
+        'my_order_manager', 'my_art_protocol', 'my_main_protocol',
+        'object_plan', 'uart_debug', 'my_flash_system', 'handlers',
+        'scan_empty_counter', 'if_rogue_plan', 'navigate_message',
+        'slave_navigate_message', 'current_object', 'need_calibrate_score',
+        'now_objects', 'if_transitioning', 'if_send_path', 'detected_num',
+        'if_send_detect_message', 'if_model_detect', 'SUDOKU_length_x',
+        'SUDOKU_width_y', 'use_scan_point', 'num_clamp_factor', 'if_back',
+        'calibrate_score_threshold', 'scan_num', 'clamp_distance',
+        'last_side', 'retreat_message', 'scan_waiting_count',
+        'ap_slave_buffer', 'april_tag_list', 'planned_scan_path',
+        'if_plan_scan', 'if_end_first_scan', 'if_first_round',
+        'if_choose_object', 'fixed_scan_point', 'object_kind_counts',
+        'dangerous_object_kinds',
+    )
+
     def __init__(self,my_write_system,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
         # 注入对象
         self.my_write_system = my_write_system

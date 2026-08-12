@@ -19,6 +19,24 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
+    __slots__ = (
+        'my_write_system', 'my_beep', 'my_photo', 'vision_manager',
+        'my_plan', 'my_path', 'plan_data', 'my_car', 'my_state',
+        'my_main_protocol', 'my_art_protocol', 'my_order_manager',
+        'move_plan', 'my_uart', 'angle_pid', 'now_object_pt',
+        'record_angle', 'flash_sys', 'navigate_buffer',
+        'navigate_distance', '_MoveControl__angle', 'angle_T', 'angle_S',
+        'angle_B', 'twist_clamp_factor', 'surrounding_points',
+        'if_first_orbit', 'slave_message_delay', 'now_barriar',
+        'moving_point', 'angle_buffer', 'next_point', 'adjust_point',
+        'moving_idx', 'move_dir', 'if_to_the_top', 'num_send_orbit_point',
+        'if_change_side', 'next_postion', 'clamp_distance', 'current_state',
+        'if_send_orbit_command', 'if_send_navigate_command',
+        'if_start_orbit', 'if_finish_move', 'if_slave_ready_move',
+        'if_first_navigate', 'push_postion', 'plan_path', 'send_point',
+        'saved_best_path', 'slave_massage',
+    )
+
     def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart, angle_pid):
         self.my_write_system = my_write_system
         self.my_beep = beep
@@ -44,7 +62,7 @@ class MoveControl:
                         'ANGLE':0,
                     })
         self.navigate_distance=20
-        self.__angle=30
+        self.__angle=30  # type: ignore[reportAttributeAccessIssue]
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
@@ -195,9 +213,9 @@ class MoveControl:
         self.moving_idx = 0
         # 构建搬运途径点列表
         self.build_moving_point(point)
-        if self.vision_manager.current_servo_object in ['S','E']:self.__angle = self.angle_S
-        elif self.vision_manager.current_servo_object == 'T':self.__angle = self.angle_T
-        else:self.__angle = self.angle_B
+        if self.vision_manager.current_servo_object in ['S','E']:self.__angle = self.angle_S  # type: ignore[reportAttributeAccessIssue]
+        elif self.vision_manager.current_servo_object == 'T':self.__angle = self.angle_T  # type: ignore[reportAttributeAccessIssue]
+        else:self.__angle = self.angle_B  # type: ignore[reportAttributeAccessIssue]
         # 记录小车当前角度
         if now_side == 'L':current_turn_deg = 90.0
         elif now_side == 'R':current_turn_deg = -90.0

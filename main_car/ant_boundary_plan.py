@@ -12,6 +12,11 @@ _RECT_POOL = array('f', [0.0] * (_RECT_POOL_CAPACITY * _RECT_POOL_STRIDE))
 
 side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
 class BoundaryPathPlanner:
+    __slots__ = ('Data', 'my_car', 'my_plan', 'flash_sys', 'sigal_swell_size', 'bothway_swell_size',
+                 'SAFE_MARGIN', 'near_area', 'avoid_width', 'forward_push_value', 'rects', 'ready_path',
+                 '_all_rects_work', '_forward_rects_work', '_node_dist_work', '_node_point_work',
+                 '_fixed_barrier_cache')
+
     def __init__(self, plan_data, car, my_plan,flash_sys):
         self.Data = plan_data
         self.my_car = car
@@ -455,6 +460,11 @@ class BoundaryPathPlanner:
 obj_wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
 obj_height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
 class objects_planner:
+    __slots__ = ('flash_sys', 'my_write', 'Data', 'my_car', 'my_plan', 'my_BoundaryPath',
+                 'objects_score', 'barrier', 'now_objects', 'target_score', 'plan_target', 'path',
+                 'best_path', 'judge_state', 'last_sandbag_idx', 'now_idx', 'run_speed', 'nine_grid',
+                 'target_objects')
+
     def __init__(self,my_flash_sys,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.flash_sys = my_flash_sys
         self.my_write = my_write

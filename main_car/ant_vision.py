@@ -23,6 +23,36 @@ counter = 0
 # 视觉伺服控制类(PD控制器)
 # 视觉伺服控制类(PD控制器)
 class VisionManager:
+    __slots__ = (
+        'flash_sys', 'pose_data', 'angle_pid', 'servo_pid', 'my_beep',
+        'sin_servo_fil', 'cos_servo_fil', 'my_uart3', 'my_car',
+        'my_art_protocol', 'my_order_manager', 'my_plan', 'my_state',
+        'current_servo_object', 'servo_lost_count', 'failed_servo_count',
+        'final_dist_x', 'final_dist_y', 'servo_stage', 'finish_threshold_x',
+        'finish_threshold_y', 'target_rel_speed_x', 'target_rel_speed_y',
+        'max_rel_speed', 'min_rel_speed', 'if_model_detect', 'target_point',
+        'target_rel_speed', 'target_rel_yaw', 'target_rel_turn_angle',
+        'relative_raw_x', 'relative_raw_y', 'last_relative_raw_y',
+        'relative_actual_x', 'relative_actual_y', 'actual_dist',
+        'absolute_actual_x', 'absolute_actual_y', 'real_servo_point',
+        'last_car_x', 'last_car_y', 'orbit_center_x', 'orbit_center_y',
+        'orbit_radius', 'orbit_speed', 'orbit_yaw', 'orbit_turn_angle',
+        'current_dis', 'target_angle', 'orbit_v_max', 'orbit_v_min',
+        'object_radius', 'orbit_angle', 'record_angle', 'radius_T_U',
+        'radius_T_R', 'radius_T_L', 'radius_T_D', 'radius_S_U', 'radius_S_R',
+        'radius_S_L', 'radius_S_D', 'radius_B_U', 'radius_B_R', 'radius_B_L',
+        'radius_B_D', 'angle_T', 'angle_S', 'angle_B', 'direct',
+        'correct_dist', 'apriltage_postion', 'apriltag_threshold_x',
+        'apriltag_threshold_y', 'calibrate_times', 'if_gain_calibrate_angle',
+        'if_ready_calibrate', 'if_finish_calibrate', 'calibrate_waiting_time',
+        'car_position', 'rel_pos_to_apriltag', 'if_waiting', 'counter',
+        'calibrate_buffer', 'lost_path', 'angle_buffer', 'angle_temp',
+        'direction', 'last_real_servo_point', 'if_send_order',
+        'if_lost_object', 'if_finish_servo', 'if_orbit_ready',
+        'if_finish_orbit', 'car_radius', 'H_matrix', 'analysed_objects',
+        'total_orbit_angle',
+    )
+
     def __init__(self, flash_sys, beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, car, protocol, order_manager, plan, state):
         # 注入flash系统对象
         self.flash_sys = flash_sys
