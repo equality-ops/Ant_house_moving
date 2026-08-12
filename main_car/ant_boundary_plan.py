@@ -14,6 +14,10 @@ class BoundaryPathPlanner:
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
         self.ready_path = []
+        # Fixed field obstacles do not change during a transport decision.
+        # Cache their expanded polygons to avoid repeated allocations in
+        # every plan_move() call.
+        self._fixed_barrier_cache = {}
         gc.collect()
 
     def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
@@ -86,35 +90,52 @@ class BoundaryPathPlanner:
                 half_w = float(obj[2]) / 2.0 + safe_margin
                 half_h = float(obj[3]) / 2.0 + safe_margin
                 rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
-        for circle in circles:
-            if len(circle) >= 2:
-                cx, cy = float(circle[0]), float(circle[1])
-                rects.append(swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle))
-        rect_count = len(raw_rects)
-        for rect_idx in range(rect_count):
-            if rect_idx == rect_count - 1:
-                continue
-            rect = raw_rects[rect_idx]
-            if len(rect) >= 4:
-                rects.append(swell_rect(rect,swell_angle))
+        cache_key = (swell_angle,
+                     direction if swell_angle == 1 or swell_angle == -1 else None)
+        fixed_rects = self._fixed_barrier_cache.get(cache_key)
+        if fixed_rects is None:
+            fixed_rects = []
+            for circle in circles:
+                if len(circle) >= 2:
+                    cx, cy = float(circle[0]), float(circle[1])
+                    fixed_rects.append(swell_rect(make_rect(
+                        cx, cy, circle_r + safe_margin, circle_r + safe_margin),
+                        swell_angle))
+            rect_count = len(raw_rects)
+            for rect_idx in range(rect_count):
+                if rect_idx == rect_count - 1:
+                    continue
+                rect = raw_rects[rect_idx]
+                if len(rect) >= 4:
+                    fixed_rects.append(swell_rect(rect, swell_angle))
+            self._fixed_barrier_cache[cache_key] = fixed_rects
+        rects.extend(fixed_rects)
         return rects
     def _filter_forward_rects(self, rects, start, direction):
         x, y = start
         result = []
         for rect in rects:
-            xs = [p[0] for p in rect]
-            ys = [p[1] for p in rect]
-            if direction == 0 and max(ys) >= y:
+            min_x = max_x = rect[0][0]
+            min_y = max_y = rect[0][1]
+            for p in rect[1:]:
+                if p[0] < min_x: min_x = p[0]
+                elif p[0] > max_x: max_x = p[0]
+                if p[1] < min_y: min_y = p[1]
+                elif p[1] > max_y: max_y = p[1]
+            if direction == 0 and max_y >= y:
                 result.append(rect)
-            elif direction == 180 and min(ys) <= y:
+            elif direction == 180 and min_y <= y:
                 result.append(rect)
-            elif direction == 90 and max(xs) >= x:
+            elif direction == 90 and max_x >= x:
                 result.append(rect)
-            elif direction == -90 and min(xs) <= x:
+            elif direction == -90 and min_x <= x:
                 result.append(rect)
         return result
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
-        self.rects = self._filter_forward_rects(self.special_swell_barriers(objects, swell_dir,skip_idx, direction),[x,y],direction)
+        if x is None or y is None:
+            x, y = self.my_car.x_current, self.my_car.y_current
+        all_rects = self.special_swell_barriers(objects, swell_dir, skip_idx, direction)
+        self.rects = self._filter_forward_rects(all_rects, (x, y), direction)
         self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
