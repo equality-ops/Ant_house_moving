@@ -327,13 +327,17 @@ class TaskController:
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
     
-    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y,
+    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y, maxNum,
                                   grid_center_x=160.0, grid_center_y=120.0):
-        """Snap detected objects to unique centers of a 3x3 grid."""
+        """Snap objects to unique grid centers while removing unsafe conflicts."""
         if not objects:
+            self.object_kind_counts = {}
+            self.dangerous_object_kinds = set()
             return []
         if cell_x <= 0 or cell_y <= 0:
             raise ValueError("cell_x and cell_y must be greater than zero")
+        if maxNum < 0:
+            raise ValueError("maxNum must not be negative")
 
         grid_centers = []
         for row in (-1, 0, 1):
@@ -341,9 +345,7 @@ class TaskController:
                 grid_centers.append((grid_center_x + col * cell_x,
                                      grid_center_y + row * cell_y))
 
-        # Reliable detections claim a cell first; conflicts use the nearest
-        # unoccupied cell instead of producing duplicate grid positions.
-        candidates = []
+        # Keep the original index so results remain in detection order.
         valid_objects = []
         for original_idx, obj in enumerate(objects):
             try:
@@ -353,20 +355,50 @@ class TaskController:
             except:
                 continue
 
+            nearest_center_idx = 0
             nearest_dist2 = float('inf')
-            for center_x, center_y in grid_centers:
+            for center_idx, (center_x, center_y) in enumerate(grid_centers):
                 dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
                 if dist2 < nearest_dist2:
                     nearest_dist2 = dist2
-            valid_idx = len(valid_objects)
-            valid_objects.append((original_idx, kind, obj_x, obj_y))
-            candidates.append((nearest_dist2, valid_idx))
+                    nearest_center_idx = center_idx
+            valid_objects.append((original_idx, kind, obj_x, obj_y,
+                                  nearest_center_idx, nearest_dist2))
 
+        kind_counts = {}
+        for _, kind, _, _, _, _ in valid_objects:
+            kind_counts[kind] = kind_counts.get(kind, 0) + 1
+        dangerous_kinds = set()
+        for kind, count in kind_counts.items():
+            if count > maxNum:
+                dangerous_kinds.add(kind)
+        self.object_kind_counts = kind_counts
+        self.dangerous_object_kinds = dangerous_kinds
+
+        # First group detections by their natural nearest cell.  A dangerous
+        # kind is removed only when it conflicts with another detection in the
+        # same cell; a lone detection remains usable.
+        grouped = [[] for _ in grid_centers]
+        for valid_idx, obj in enumerate(valid_objects):
+            grouped[obj[4]].append(valid_idx)
+
+        kept = []
+        for group in grouped:
+            if len(group) > 1:
+                group = [valid_idx for valid_idx in group
+                         if valid_objects[valid_idx][1] not in dangerous_kinds]
+            kept.extend(group)
+
+        # Stable nearest-first assignment: objects that are closest to their
+        # intended cell get first choice; unresolved conflicts move to the
+        # nearest still-free cell.
+        candidates = [(valid_objects[valid_idx][5], valid_idx)
+                      for valid_idx in kept]
         candidates.sort(key=lambda item: item[0])
         occupied = [False] * len(grid_centers)
-        assignments = [-1] * len(valid_objects)
+        assignments = {}
         for _, valid_idx in candidates:
-            _, _, obj_x, obj_y = valid_objects[valid_idx]
+            _, _, obj_x, obj_y, _, _ = valid_objects[valid_idx]
             best_center_idx = -1
             best_dist2 = float('inf')
             for center_idx, (center_x, center_y) in enumerate(grid_centers):
@@ -377,19 +409,18 @@ class TaskController:
                     best_dist2 = dist2
                     best_center_idx = center_idx
 
-            # Inputs beyond nine cannot all have unique grid positions.
+            # There are only nine legal cells.  Extra detections cannot be
+            # represented without creating a duplicate grid position, so drop
+            # them instead of silently reusing an occupied cell.
             if best_center_idx < 0:
-                for center_idx, (center_x, center_y) in enumerate(grid_centers):
-                    dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
-                    if dist2 < best_dist2:
-                        best_dist2 = dist2
-                        best_center_idx = center_idx
-            else:
-                occupied[best_center_idx] = True
+                continue
+            occupied[best_center_idx] = True
             assignments[valid_idx] = best_center_idx
 
         snapped = []
-        for valid_idx, (original_idx, kind, _, _) in enumerate(valid_objects):
+        for valid_idx, (original_idx, kind, _, _, _, _) in enumerate(valid_objects):
+            if valid_idx not in assignments:
+                continue
             center_x, center_y = grid_centers[assignments[valid_idx]]
             snapped.append((original_idx, kind, center_x, center_y))
         snapped.sort(key=lambda item: item[0])
@@ -528,7 +559,10 @@ class TaskController:
                 else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
-            self.now_objects = self.snap_objects_to_nine_grid(self.now_objects,self.SUDOKU_length_x,self.SUDOKU_width_y,grid_center_x=self.data.center_x,grid_center_y=self.data.center_y)
+            self.now_objects = self.snap_objects_to_nine_grid(
+                self.now_objects, self.SUDOKU_length_x, self.SUDOKU_width_y,
+                maxNum=1, grid_center_x=self.data.center_x,
+                grid_center_y=self.data.center_y)
             if self.if_back:
                 if len(self.now_objects) != self.data.total_objects_num:
                     for i in range(len(self.now_objects)):
