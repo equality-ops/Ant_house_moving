@@ -22,6 +22,8 @@ BEEP_OFF = const(0)
 BEEP_ON = const(1)
 ##############################【flash系统操作�?#############################
 class flash_system:
+    __slots__ = ('beep', 'file_path', 'config')
+
     def __init__(self, beep, file_path: str):
         # 注入蜂鸣器对象，用于警报
         self.beep = beep
@@ -201,6 +203,8 @@ class flash_system:
 
 # 日志系统
 class write_system:
+    __slots__ = ('beep', 'num', 'file_path', 'buf_size', 'buf', 'head')
+
     def __init__(self, beep, file_path: str):
         # 注入蜂鸣器对象，用于警报
         self.beep = beep
@@ -341,6 +345,8 @@ class beep:
 ##############################【uart串口解析数据�?#############################
 # 指令管理�?
 class order_manager:
+    __slots__ = ('flash_sys', 'my_uart', 'if_calibrate', 'if_model')
+
     def __init__(self, flash_sys :flash_system, uart):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -388,6 +394,10 @@ class order_manager:
         
 # 状态机解析串口数据�?
 class UARTProtocol:
+    __slots__ = ('my_uart', 'state_coordinate', 'state_apriltag', 'coordinate_buffer', 'apriltag_buffer',
+                 'byte_count', 'object_species', 'state_detect_all_objects', 'detect_buffer',
+                 'object_buffer', 'state_object')
+
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart
@@ -536,6 +546,8 @@ class UARTProtocol:
 
 # 主从机通信�?
 class LinkProtocol:
+    __slots__ = ('my_uart3', 'raw_buffer', 'max_buf', 'start_idx', 'end_idx')
+
     def __init__(self, uart3):
         # 注入串口对象
         self.my_uart3 = uart3
@@ -635,6 +647,8 @@ class LinkProtocol:
 
 # 主辅助车通信�?
 class AssistLinkProtocol:
+    __slots__ = ('my_uart', 'raw_buffer', 'max_buf', 'start_idx', 'end_idx')
+
     def __init__(self, uart):
         # 注入串口对象
         self.my_uart = uart

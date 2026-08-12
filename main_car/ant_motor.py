@@ -13,6 +13,8 @@ OutLine = const(1)
 
 # 光电管控制类
 class PhotoControl:
+    __slots__ = ('flash_sys', 'my_beep', 'my_photo', 'photo_state', 'current_state', 'on_line_times')
+
     def __init__(self, flash_sys, beep, photo) -> None:
         self.flash_sys = flash_sys
         self.my_beep = beep
@@ -44,6 +46,8 @@ class PhotoControl:
 
 # 无刷风扇控制类
 class FanControl:
+    __slots__ = ('flash_sys', 'my_fan', 'my_state', 'fan_signal_limit', 'if_fan', 'fixed_high_level_us')
+
     def __init__(self, flash_sys, fan , state):
         self.flash_sys = flash_sys
         self.my_fan = fan
@@ -75,6 +79,14 @@ class FanControl:
         self.my_fan.highlevel_us(1000)
 
 class PID_data:
+    __slots__ = ('flash_sys',
+                 'ul_high_kp', 'ul_high_ki', 'ul_high_kd', 'ur_high_kp', 'ur_high_ki', 'ur_high_kd',
+                 'md_high_kp', 'md_high_ki', 'md_high_kd',
+                 'ul_mid_kp', 'ul_mid_ki', 'ul_mid_kd', 'ur_mid_kp', 'ur_mid_ki', 'ur_mid_kd',
+                 'md_mid_kp', 'md_mid_ki', 'md_mid_kd',
+                 'ul_low_kp', 'ul_low_ki', 'ul_low_kd', 'ur_low_kp', 'ur_low_ki', 'ur_low_kd',
+                 'md_low_kp', 'md_low_ki', 'md_low_kd')
+
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -113,6 +125,8 @@ class PID_data:
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
+    __slots__ = ('filter_size', 'index', 'last_value', 'buffer')
+
     # 构造对象时传入滤波窗口大小
     def __init__(self, filter_size: int):
         self.filter_size = filter_size
@@ -133,6 +147,8 @@ class SlipAveragingFilter:
     
 # 一维卡尔曼滤波器
 class KalmanFilter:
+    __slots__ = ('P', 'Q', 'R', 'Output')
+
     def __init__(self, P=1.0, Q=0.01, R=0.1, initial_output=0.0):
         self.P = P
         self.Q = Q
@@ -149,6 +165,13 @@ class KalmanFilter:
         return self.Output    
     
 class PoseData:
+    __slots__ = ('flash_sys', 'my_uart2', 'imu', 'encoder_ul', 'encoder_ur', 'encoder_md',
+                 'acc_x_filter', 'acc_y_filter', 'acc_z_filter', 'diff_filter_gyroz', 'imu_data',
+                 'encoder_data_ul', 'encoder_data_ur', 'encoder_data_md', 'gyro_z_supply',
+                 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'gyro_z_gkd',
+                 'gyro_x_bias', 'gyro_y_bias', 'gyro_z_bias', 'q', 'e_int', 'last_update_time',
+                 'dt', 'kp', 'ki', 'now_pitch', 'now_roll', 'now_yaw')
+
     def __init__(self, flash_sys, my_uart2, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -466,11 +489,18 @@ class PoseData:
 # 定义一个抽象类用于顶层设计
 # 该类能够存储pid参数并计算得到当前应该输出的pwm值
 class ControlPID:
+    __slots__ = ()
+
     def compute_pid(self, target: int, actual: int) -> None:
         pass
 
 # 速度环位置式PID
 class SpeedPositionPID(ControlPID):
+    __slots__ = ('flash_sys', 'kp', 'ki', 'kd', 'kv', 'target', 'actual', 'nowError', 'preError',
+                 'integral', 'derivative', 'pwm_output', '_SpeedPositionPID__integral_limitmax',
+                 '_SpeedPositionPID__pwmout_limitmax', 'diff_filter', '_SpeedPositionPID__A',
+                 '_SpeedPositionPID__B')
+
     def __init__(self, flash_sys, diff_filter: SlipAveragingFilter):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -486,12 +516,12 @@ class SpeedPositionPID(ControlPID):
         self.integral = 0   # type: float
         self.derivative = 0 # type: float
         self.pwm_output = 0 # type: float
-        self.__integral_limitmax = self.flash_sys.find_value("integral_limitmax")      # type: float
-        self.__pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")          # type: float
+        self.__integral_limitmax = self.flash_sys.find_value("integral_limitmax")      # type: float  # type: ignore[reportAttributeAccessIssue]
+        self.__pwmout_limitmax = self.flash_sys.find_value("pwmout_limitmax")          # type: float  # type: ignore[reportAttributeAccessIssue]
         # 注入微分项滤波器对象
         self.diff_filter = diff_filter
-        self.__A = self.flash_sys.find_value("A")      # type: float # 变速积分误差阈值上限
-        self.__B = self.flash_sys.find_value("B")      # type: float # 变速积分误差阈值下限
+        self.__A = self.flash_sys.find_value("A")      # type: float # 变速积分误差阈值上限  # type: ignore[reportAttributeAccessIssue]
+        self.__B = self.flash_sys.find_value("B")      # type: float # 变速积分误差阈值下限  # type: ignore[reportAttributeAccessIssue]
 
     def set_pid_params(self, kp: float, ki: float, kd: float) -> None:
         self.kp = kp
@@ -548,6 +578,11 @@ class SpeedPositionPID(ControlPID):
 
 # 角度环PID
 class AnglePositionPID(ControlPID):
+    __slots__ = ('flash_sys', 'kp', 'kd', 'angle_normal_kp', 'target', 'actual', 'nowError',
+                 'preError', 'integral', 'derivative', 'pwm_output', 'high_pwmout_limitmax',
+                 'low_pwmout_limitmax', 'pwmout_limitmax', 'if_high_angle', 'actual_unwrap_offset',
+                 'prev_actual', 'effective_target', 'prev_target')
+
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -659,6 +694,14 @@ class AnglePositionPID(ControlPID):
 
 # 视觉伺服PD
 class ServoPID(ControlPID):
+    __slots__ = ('flash_sys', 'servo_kp_normal_x', 'servo_kd_normal_x', 'servo_kp_normal_y',
+                 'servo_kd_normal_y', 'servo_kp_calibrate_x', 'servo_kd_calibrate_x',
+                 'servo_kp_calibrate_y', 'servo_kd_calibrate_y', 'servo_kp_x', 'servo_kp_y',
+                 'servo_kd_x', 'servo_kd_y', 'target_x', 'actual_x', 'target_y', 'actual_y',
+                 'target_y_A', 'target_y_T', 'target_y_S', 'target_y_B', 'nowError_x', 'preError_x',
+                 'nowError_y', 'preError_y', 'derivative_x', 'derivative_y', 'pwm_output_x',
+                 'pwm_output_y', '_ServoPID__pwmout_limitmax')
+
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
@@ -692,7 +735,7 @@ class ServoPID(ControlPID):
         self.derivative_y = 0 # type: float
         self.pwm_output_x = 0 # type: int
         self.pwm_output_y = 0 # type: int
-        self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int
+        self.__pwmout_limitmax = self.flash_sys.find_value("servo_pwmout_limitmax")    # type: int  # type: ignore[reportAttributeAccessIssue]
     
         gc.collect()  # 主动触发垃圾回收，释放内存
 
@@ -717,6 +760,12 @@ class ServoPID(ControlPID):
 
 # 小车姿态控制
 class CarPose:
+    __slots__ = ('flash_sys', 'my_state', 'pose_data', 'car_yaw_filter', 'angle_pid',
+                 'motor_ul_pid', 'motor_ur_pid', 'motor_md_pid', 'motor_ul', 'motor_ur', 'motor_md',
+                 'last_car_speed_x', 'last_car_speed_y', 'car_speed_x', 'car_speed_y',
+                 'turn_angle_target', 'speed_conversion_gamma', 'gkd', 'speed_fuse_ratio',
+                 'alpha_x', 'alpha_y', 'x_current', 'y_current', 'now_yaw', 'last_gyro_z', 'last_time')
+
     def __init__(self, flash_sys, state_machine, pose_data: PoseData, car_yaw_filter: SlipAveragingFilter, angle_pid: AnglePositionPID,
                 motor_ul_pid: SpeedPositionPID, motor_ur_pid: SpeedPositionPID, motor_md_pid: SpeedPositionPID, motor_ul, motor_ur, motor_md):
         # 注入flash系统对象

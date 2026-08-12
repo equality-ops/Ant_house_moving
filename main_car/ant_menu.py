@@ -14,7 +14,19 @@ import time
 import os
 
 class Menu:
-    def __init__(self, flash_sys, beep, lcd, enc_rotation, key_data, key_handler):   
+    __slots__ = (
+        'config', 'param_short_name', 'flash_sys', 'beep', 'lcd',
+        'enc_rotation', 'key_data', 'key_handler', 'key_index_map',
+        'change_page_to', 'Current_line', 'Start_line', 'End_line',
+        'step_values', 'current_step_index', 'LineSpacing', 'LCD_WIDTH',
+        'TITLE_X', 'ARROW_X', 'CLEAR_SPACES', 'enc_rot_debounce_ms',
+        'enc_rot_last_trigger_time', 'enc_pulse_threshold',
+        'is_param_selected', 'selected_line', 'COLOR_WHITE', 'COLOR_RED',
+        'last_change_page_to', 'current_key', 'need_refresh',
+        'page_line_map', 'save_line_map', 'page_configs', 'page_meta',
+    )
+
+    def __init__(self, flash_sys, beep, lcd, enc_rotation, key_data, key_handler):
         # 所有参数强制转为浮点数，避免类型错误
         self.config = {
             # PID 参数

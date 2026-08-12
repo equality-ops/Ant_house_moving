@@ -16,7 +16,9 @@ STOP = const(9)           # 停止状态
 
 # 状态机
 class StateMachine:
-    def __init__(self):        
+    __slots__ = ('if_move_easy_object', 'state')
+
+    def __init__(self):
         self.if_move_easy_object = False   # 是否搬运过易搬运物体的标志位（搬运过易搬运物体后在返回起点时不避开矩形区域）
         self.state = None  # 初始状态为准备导航状态
         gc.collect()
@@ -92,6 +94,8 @@ class PlanData:
         ]
 # 路径规划类
 class PathPlan:
+    __slots__ = ('Data', 'my_car', 'ready_path')
+
     def __init__(self, plan_data: PlanData, car):
         self.Data = plan_data
         self.my_car = car
@@ -370,6 +374,19 @@ class PathPlan:
         return [[p[0], p[1]] for p in path]
 # 导航规划类
 class NavigationPlan:
+    __slots__ = ('flash_sys', 'plan_data', 'my_fan', 'my_car', 'my_state', 'my_uart3', 'my_order_manager',
+                 'my_beep', 'my_art_protocol', 'angle_pid',
+                 'min_start_v', 'long_v_max', 'acc_coef', 'acc_normal_coef', 'dec_coef', 'scan_rate',
+                 'move_v_max', 'find_line_v_max', 'move_v_max_T', 'move_v_max_S', 'move_v_max_B',
+                 'waypoint_v', 'dec_counter', 'dec_start_v',
+                 'target_x', 'target_y', 'target_v', 'v_peak', 'target_yaw', 'fit_target_yaw', 'turn_angle_target',
+                 'final_threshold', 'branch_threshold', 'finished_dist', 'rest_dist', 'usable_len',
+                 'segment_start_dist', 'd_acc', 'd_dec',
+                 'error_x_T', 'error_x_S', 'error_x_B', 'error_x',
+                 'aimed_point_index', 'path', 'keep_x_or_y_v', 'fitting_path_', 'fit_rest_dist',
+                 'arrive_flag', 'if_finish_turn', 'if_send_path', 'if_finish_navigate', 'if_second_verify',
+                 'if_high_angle', 'if_first_turn', 'move_state', 'if_finish_plan')
+
     def __init__(self, flash_sys, plan_data: PlanData, fan, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, angle_pid):
         # 注入flash系统对象
         self.flash_sys = flash_sys
