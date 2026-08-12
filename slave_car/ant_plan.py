@@ -33,7 +33,7 @@ class PlanData:
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         self.lenth = self.flash_sys.find_value("SUDOKU_length_x")
 
-        rate = 1.5
+        rate = 1.8
         self.fixed_point = [[15.0, -40.2], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate],[25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域

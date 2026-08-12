@@ -171,7 +171,9 @@ class BoundaryPathPlanner:
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
         if x is None or y is None:x,y=self.my_car.x_current,self.my_car.y_current
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
+        gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
+        gc.collect()
         if limit_angle:
             path_left = self._limit_path_angle(path_left, direction, limit_angle)
             path_right = self._limit_path_angle(path_right, direction, limit_angle)

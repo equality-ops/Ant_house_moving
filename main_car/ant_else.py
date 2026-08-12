@@ -208,12 +208,13 @@ class write_system:
         # 传入文件路径
         self.file_path = file_path  # type: str
         # 环形字节缓冲区：一次性预分配固定内存，写入过程零动态分配，避免内存碎片
-        self.buf_size = 4096        # 缓冲区字节上限（可调）
+        self.buf_size = 1024        # 缓冲区字节上限（可调）
         self.buf = bytearray(self.buf_size)
         self.head = 0               # 已写入的有效字节数（数据始终从 buf[0] 连续存放）
         gc.collect()
 
     def write_str(self, line: str):
+        return
         """将一行日志写入缓冲区；空间不足时丢弃最旧的一行（循环队列语义）"""
         if not line.endswith("\n"):
             line += '\n'
@@ -244,6 +245,7 @@ class write_system:
         self.head += n
 
     def write_in(self) -> None:
+        return
         """将缓冲区中的所有内容一次性刷入文件"""
         if self.head == 0:
             return
