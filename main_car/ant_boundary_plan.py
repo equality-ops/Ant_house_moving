@@ -98,9 +98,23 @@ class BoundaryPathPlanner:
             if len(rect) >= 4:
                 rects.append(swell_rect(rect,swell_angle))
         return rects
-
+    def _filter_forward_rects(self, rects, start, direction):
+        x, y = start
+        result = []
+        for rect in rects:
+            xs = [p[0] for p in rect]
+            ys = [p[1] for p in rect]
+            if direction == 0 and max(ys) >= y:
+                result.append(rect)
+            elif direction == 180 and min(ys) <= y:
+                result.append(rect)
+            elif direction == 90 and max(xs) >= x:
+                result.append(rect)
+            elif direction == -90 and min(xs) <= x:
+                result.append(rect)
+        return result
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
-        self.rects = self.special_swell_barriers(objects, swell_dir,skip_idx, direction)
+        self.rects = self._filter_forward_rects(self.special_swell_barriers(objects, swell_dir,skip_idx, direction),[x,y],direction)
         self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
@@ -342,6 +356,7 @@ class objects_planner:
         self.target_score = []
         self.plan_target = []
         self.now_idx = 0
+        gc.collect()
     def judge_side_in(self,side,now_object):
         def _if_p_block_p(p,p_):
             avoid_width = self.my_BoundaryPath.avoid_width
@@ -421,7 +436,60 @@ class objects_planner:
             if idx:
                 self.nine_grid[idx[0]][idx[1]] = obj[0]
         return self.nine_grid
-
+    def judge_side_in_nine_grid(self,obj,dir,k):
+        if not obj or len(obj) < 3:
+            return False
+        now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
+        if not now_pt:
+            return False
+        now_pt[0] += dir[0] * k
+        now_pt[1] += dir[1] * k
+        while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
+            if self.nine_grid[now_pt[0]][now_pt[1]] != '':
+                return False
+            now_pt[0] += dir[0] * k
+            now_pt[1] += dir[1] * k
+        return True
+    def judge_side_in_nine_grid_idx(self,idx,dir,k):
+        if not idx or len(idx) < 2:
+            return False
+        idx = idx[:]
+        idx[0] += dir[0] * k
+        idx[1] += dir[1] * k
+        while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
+            if self.nine_grid[idx[0]][idx[1]] != '':
+                return False
+            idx[0] += dir[0] * k
+            idx[1] += dir[1] * k
+        return True
+    def find_nine_grid_blank(self,obj,push_dir,in_dir):
+        now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
+        if not now_pt:
+            return [None, 0]
+        i = now_pt[:]
+        i[0] -= push_dir[0]
+        i[1] -= push_dir[1]
+        num = 0
+        k = push_dir[0] + push_dir[1]
+        use_big_rect = True
+        while i[0] < 3 and i[0] >= 0 and i[1] < 3 and i[1] >= 0:
+            if self.nine_grid[i[0]][i[1]] != '':
+                use_big_rect = False
+                break
+            num += k
+            if self.judge_side_in_nine_grid_idx(i,in_dir,-1):
+                # in_dir uses [row, col], while world coordinates use [x, y].
+                target_edge = [self.Data.center_x-in_dir[1]*1.5*self.Data.lenth,
+                                self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
+                p2 = self.nine_grid_idx_to_postion(i)
+                if in_dir[0] == 0:p2 = [target_edge[0],p2[1]]
+                else:p2 = [p2[0],target_edge[1]]
+                now_xy = self.nine_grid_idx_to_postion(now_pt)
+                return [[[min(now_xy[0],p2[0]),min(now_xy[1],p2[1])],[max(now_xy[0],p2[0]),max(now_xy[1],p2[1])]],num]
+            i[0] -= push_dir[0]
+            i[1] -= push_dir[1]
+        if use_big_rect:return [[],0]
+        else :return [None,0]
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
             # Keep only records with the fields used by the planner.  A partial
@@ -435,7 +503,6 @@ class objects_planner:
         elif self.judge_state == 1:#筛选出能直接搬运的物体
             idx=0
             self.target_objects = []
-            
             for target in self.now_objects:
                 could_select = True
                 if target[0] == 'S' or target[0] == 'E':
@@ -455,65 +522,12 @@ class objects_planner:
                 elif car_side == 'R':in_dir = [0,-1]
                 elif car_side == 'D':in_dir = [1,0]
                 else: in_dir = [-1,0]
-                def judge_side_in_nine_grid(obj,dir,k):
-                    if not obj or len(obj) < 3:
-                        return False
-                    now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
-                    if not now_pt:
-                        return False
-                    now_pt[0] += dir[0] * k
-                    now_pt[1] += dir[1] * k
-                    while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
-                        if self.nine_grid[now_pt[0]][now_pt[1]] != '':
-                            return False
-                        now_pt[0] += dir[0] * k
-                        now_pt[1] += dir[1] * k
-                    return True
-                def judge_side_in_nine_grid_idx(idx,dir,k):
-                    if not idx or len(idx) < 2:
-                        return False
-                    idx = idx[:]
-                    idx[0] += dir[0] * k
-                    idx[1] += dir[1] * k
-                    while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
-                        if self.nine_grid[idx[0]][idx[1]] != '':
-                            return False
-                        idx[0] += dir[0] * k
-                        idx[1] += dir[1] * k
-                    return True
-                def find_nine_grid_blank(obj,push_dir,in_dir):
-                    now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
-                    if not now_pt:
-                        return [None, 0]
-                    i = now_pt[:]
-                    i[0] -= push_dir[0]
-                    i[1] -= push_dir[1]
-                    num = 0
-                    k = push_dir[0] + push_dir[1]
-                    use_big_rect = True
-                    while i[0] < 3 and i[0] >= 0 and i[1] < 3 and i[1] >= 0:
-                        if self.nine_grid[i[0]][i[1]] != '':
-                            use_big_rect = False
-                            break
-                        num += k
-                        if judge_side_in_nine_grid_idx(i,in_dir,-1):
-                            # in_dir uses [row, col], while world coordinates use [x, y].
-                            target_edge = [self.Data.center_x-in_dir[1]*1.5*self.Data.lenth,
-                                           self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
-                            p2 = self.nine_grid_idx_to_postion(i)
-                            if in_dir[0] == 0:p2 = [target_edge[0],p2[1]]
-                            else:p2 = [p2[0],target_edge[1]]
-                            now_xy = self.nine_grid_idx_to_postion(now_pt)
-                            return [[[min(now_xy[0],p2[0]),min(now_xy[1],p2[1])],[max(now_xy[0],p2[0]),max(now_xy[1],p2[1])]],num]
-                        i[0] -= push_dir[0]
-                        i[1] -= push_dir[1]
-                    if use_big_rect:return [[],0]
-                    else :return [None,0]
-                if judge_side_in_nine_grid(target,in_dir,-1):
+                
+                if self.judge_side_in_nine_grid(target,in_dir,-1):
                     self.target_objects.append([idx,target[0],target[1],target[2],car_side,[],0])#序号，物体种类，x,y,目标边,空表示用原矩形
-                if not judge_side_in_nine_grid(target,push_dir,1):could_select = False
+                if not self.judge_side_in_nine_grid(target,push_dir,1):could_select = False
                 if could_select:
-                    rect,num = find_nine_grid_blank(target,push_dir,in_dir)
+                    rect,num = self.find_nine_grid_blank(target,push_dir,in_dir)
                     if rect != None:
                         self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])#序号，物体种类，x,y,目标边
                 idx+=1
@@ -521,8 +535,7 @@ class objects_planner:
             return False
         elif self.judge_state == 2:#计算每个目标物体的评分
             side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
-            if self.now_idx>=len(self.target_objects): 
-                self.judge_state = 3
+            if self.now_idx>=len(self.target_objects): self.judge_state = 3
             else:
                 i = self.target_objects[self.now_idx]
                 score = 0
@@ -544,6 +557,7 @@ class objects_planner:
                         if i[0] == self.target_objects[j][0]:
                             path = [[sx,sy]]+self.path[j]
                             has_planned = True
+                            break
                     if not has_planned:
                         path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
                 push_distance,push_angle= 1000,90
