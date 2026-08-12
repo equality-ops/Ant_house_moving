@@ -245,7 +245,6 @@ class write_system:
         self.head += n
 
     def write_in(self) -> None:
-        return
         """将缓冲区中的所有内容一次性刷入文件"""
         if self.head == 0:
             return
