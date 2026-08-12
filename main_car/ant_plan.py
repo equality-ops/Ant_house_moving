@@ -23,6 +23,12 @@ class StateMachine:
 
 # 路径和速度规划相关常量
 class PlanData:
+    # 使用 __slots__ 去除 __dict__，减少对象创建时的内存浪费；需列出 __init__ 中赋值的全部实例属性
+    __slots__ = ['flash_sys', 'center_x', 'center_y', 'lenth', 'center_rect_center', 'fixed_point', 'center_rect',
+                 'FIELD_W', 'FIELD_H', 'OBSTACLE_R', 'CUBE_LENTH', 'CUBE_WIDE', 'INF', 'SAFE_MARGIN',
+                 'rectangle_obstacles', 'if_obstacles', 'cube', 'circle', 'rectangles',
+                 'if_rogue_plan', 'rogue_planning', 'current_index', 'total_objects_num']
+
     def __init__(self, flash_sys):
         # 注入flash系统对象
         self.flash_sys = flash_sys
