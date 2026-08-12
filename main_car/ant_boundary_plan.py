@@ -1,5 +1,6 @@
 import math
 import gc
+side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
 class BoundaryPathPlanner:
     def __init__(self, plan_data, car, my_plan,flash_sys):
         self.Data = plan_data
@@ -12,10 +13,15 @@ class BoundaryPathPlanner:
         self.near_area = self.flash_sys.find_value("NEAR_AREA")
         self.avoid_width = self.flash_sys.find_value("AVOID_WIDTH")
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
-        self.rects = []
+        # The camera protocol permits at most 16 detections.  Reserve every
+        # polygon slot once so plan_move only overwrites coordinates.
+        fixed_count = len(self.Data.circle) + max(0, len(self.Data.rectangles) - 1)
+        self._rect_capacity = 16 + fixed_count
+        self.rects = [[[0.0, 0.0] for _ in range(4)]
+                      for _ in range(self._rect_capacity)]
+        self.rects_length = 0
+        self.rects_lenth = 0  # Backward-compatible spelling used by callers.
         self.ready_path = []
-        self._all_rects_work = []
-        self._forward_rects_work = []
         self._node_dist_work = []
         self._node_point_work = []
         # Fixed field obstacles do not change during a transport decision.
@@ -56,6 +62,58 @@ class BoundaryPathPlanner:
         out.append([(min_x, min_y), (max_x, min_y),
                     (max_x, max_y), (min_x, max_y)])
 
+    def _write_axis_rect(self, slot, cx, cy, half_w, half_h,
+                         swell_angle, swell_size, direction):
+        """Overwrite one preallocated axis-aligned rectangle slot."""
+        min_x = cx - half_w
+        max_x = cx + half_w
+        min_y = cy - half_h
+        max_y = cy + half_h
+        if swell_angle == -90:
+            min_x -= swell_size
+        elif swell_angle == 0:
+            max_y += swell_size
+        elif swell_angle == 90:
+            max_x += swell_size
+        elif swell_angle == 180:
+            min_y -= swell_size
+        elif swell_angle == 1 or swell_angle == -1:
+            _, right = self._forward_right(self._normalize_dir(direction))
+            if right[0] != 0:
+                min_x -= swell_size
+                max_x += swell_size
+            else:
+                min_y -= swell_size
+                max_y += swell_size
+        rect = self.rects[slot]
+        rect[0][0], rect[0][1] = min_x, min_y
+        rect[1][0], rect[1][1] = max_x, min_y
+        rect[2][0], rect[2][1] = max_x, max_y
+        rect[3][0], rect[3][1] = min_x, max_y
+
+    def _rect_is_forward(self, rect, x, y, direction):
+        min_x = max_x = rect[0][0]
+        min_y = max_y = rect[0][1]
+        for point_idx in range(1, 4):
+            p = rect[point_idx]
+            if p[0] < min_x: min_x = p[0]
+            elif p[0] > max_x: max_x = p[0]
+            if p[1] < min_y: min_y = p[1]
+            elif p[1] > max_y: max_y = p[1]
+        if direction == 0:
+            return max_y >= y
+        if direction == 180:
+            return min_y <= y
+        if direction == 90:
+            return max_x >= x
+        return min_x <= x
+
+    def _copy_cached_rect(self, slot, source):
+        target = self.rects[slot]
+        for point_idx in range(4):
+            target[point_idx][0] = source[point_idx][0]
+            target[point_idx][1] = source[point_idx][1]
+
     def _swell_rect(self, rect, swell_angle, swell_size, direction):
         """Expand a configured rectangle while preserving its point ordering."""
         out = []
@@ -92,7 +150,8 @@ class BoundaryPathPlanner:
             out.append((x, y))
         return out
 
-    def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
+    def special_swell_barriers(self, objects_, swell_angle, start,
+                               skip_idx=None, direction=None):
         if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
         else:swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
@@ -100,10 +159,8 @@ class BoundaryPathPlanner:
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
-        # Reuse planner-owned containers; only the per-call dynamic polygons
-        # need to be allocated.
-        rects = self._all_rects_work
-        rects.clear()
+        start_x, start_y = start
+        rect_count = 0
 
         for obj_idx in range(len(objects)):
             if skip_idx is not None and obj_idx == skip_idx:
@@ -113,9 +170,13 @@ class BoundaryPathPlanner:
                 cx, cy = float(obj[0]), float(obj[1])
                 half_w = float(obj[2]) / 2.0 + safe_margin
                 half_h = float(obj[3]) / 2.0 + safe_margin
-                self._append_swelled_axis_rect(
-                    rects, cx, cy, half_w, half_h, swell_angle,
-                    swell_size, direction)
+                if rect_count >= self._rect_capacity:
+                    break
+                self._write_axis_rect(rect_count, cx, cy, half_w, half_h,
+                                      swell_angle, swell_size, direction)
+                if self._rect_is_forward(self.rects[rect_count], start_x,
+                                         start_y, direction):
+                    rect_count += 1
         cache_key = (swell_angle,
                      direction if swell_angle == 1 or swell_angle == -1 else None)
         fixed_rects = self._fixed_barrier_cache.get(cache_key)
@@ -128,44 +189,29 @@ class BoundaryPathPlanner:
                         fixed_rects, cx, cy, circle_r + safe_margin,
                         circle_r + safe_margin, swell_angle, swell_size,
                         direction)
-            rect_count = len(raw_rects)
-            for rect_idx in range(rect_count):
-                if rect_idx == rect_count - 1:
+            raw_rect_count = len(raw_rects)
+            for rect_idx in range(raw_rect_count):
+                if rect_idx == raw_rect_count - 1:
                     continue
                 rect = raw_rects[rect_idx]
                 if len(rect) >= 4:
                     fixed_rects.append(self._swell_rect(
                         rect, swell_angle, swell_size, direction))
             self._fixed_barrier_cache[cache_key] = fixed_rects
-        rects.extend(fixed_rects)
-        return rects
-    def _filter_forward_rects(self, rects, start, direction):
-        x, y = start
-        result = self._forward_rects_work
-        result.clear()
-        for rect in rects:
-            min_x = max_x = rect[0][0]
-            min_y = max_y = rect[0][1]
-            for point_idx in range(1, len(rect)):
-                p = rect[point_idx]
-                if p[0] < min_x: min_x = p[0]
-                elif p[0] > max_x: max_x = p[0]
-                if p[1] < min_y: min_y = p[1]
-                elif p[1] > max_y: max_y = p[1]
-            if direction == 0 and max_y >= y:
-                result.append(rect)
-            elif direction == 180 and min_y <= y:
-                result.append(rect)
-            elif direction == 90 and max_x >= x:
-                result.append(rect)
-            elif direction == -90 and min_x <= x:
-                result.append(rect)
-        return result
+        for source in fixed_rects:
+            if rect_count >= self._rect_capacity:
+                break
+            self._copy_cached_rect(rect_count, source)
+            if self._rect_is_forward(self.rects[rect_count], start_x,
+                                     start_y, direction):
+                rect_count += 1
+        self.rects_length = rect_count
+        self.rects_lenth = rect_count
+        return self.rects
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
         if x is None or y is None:
             x, y = self.my_car.x_current, self.my_car.y_current
-        all_rects = self.special_swell_barriers(objects, swell_dir, skip_idx, direction)
-        self.rects = self._filter_forward_rects(all_rects, (x, y), direction)
+        self.special_swell_barriers(objects, swell_dir, (x, y), skip_idx, direction)
         self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
@@ -209,7 +255,8 @@ class BoundaryPathPlanner:
         node_dists.clear()
         node_points.clear()
         fwd, right = self._forward_right(direction)
-        for rect in rects:
+        for rect_idx in range(self.rects_length):
+            rect = rects[rect_idx]
             p = self._avoid_corner_node(rect, direction, avoid_dir)
             if not self._ahead_or_level(start, p, direction):
                 continue
@@ -345,7 +392,8 @@ class BoundaryPathPlanner:
     def _point_valid(self, p, rects):
         if not self.my_plan._inside_field(p):
             return False
-        for rect in rects:
+        for rect_idx in range(self.rects_length):
+            rect = rects[rect_idx]
             if self.my_plan._point_in_poly(p, rect):
                 return False
         return True
@@ -368,11 +416,13 @@ class BoundaryPathPlanner:
         return (dx * right[0] + dy * right[1]) * avoid_dir >= -0.001
 
     def _line_valid(self, a, b, rects):
-        for rect in rects:
+        for rect_idx in range(self.rects_length):
+            rect = rects[rect_idx]
             if self.my_plan._segment_hits_poly(a, b, rect):
                 return False
         return True
-    
+obj_wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+obj_height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
 class objects_planner:
     def __init__(self,my_flash_sys,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.flash_sys = my_flash_sys
@@ -397,14 +447,13 @@ class objects_planner:
                           ['','',''],]
         gc.collect()
     def set_barriers(self,barriers):
-        wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
-        height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+        
         for i in self.now_objects:
             # Vision results can occasionally be incomplete.  Ignore malformed
             # entries here instead of indexing into them and crashing the task.
-            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in wideness:
+            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in obj_wideness:
                 continue
-            w,h=wideness[i[0]],height[i[0]]
+            w,h=obj_wideness[i[0]],obj_height[i[0]]
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
         self.last_sandbag_idx = -1
@@ -596,7 +645,7 @@ class objects_planner:
             self.judge_state = 2
             return False
         elif self.judge_state == 2:#计算每个目标物体的评分
-            side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
+            
             if self.now_idx>=len(self.target_objects): self.judge_state = 3
             else:
                 i = self.target_objects[self.now_idx]
