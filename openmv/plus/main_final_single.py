@@ -844,23 +844,24 @@ def handle_uart_commands(uart):
                 sensor.set_brightness(800 if not preview_use_model else 600)
 
 
-def nms(objects, iou_thresh=0.3):
-    """非极大值抑制，去除重叠框"""
+def nms(objects, iou_thresh=0.3, cross_iou_thresh=0.6):
+    """非极大值抑制，去除重叠框
+    同类别重叠度>0.3抑制；不同类别重叠度>0.5抑制（跨类较宽松）"""
     kept = []
     for obj in sorted(objects, key=lambda o: o[5], reverse=True):
         x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
         overlap = False
         for k in kept:
-            # 类别不同则不参与重叠判断，允许不同颜色各自保留
-            if k[4] != obj[4]:
-                continue
             kx1, ky1, kx2, ky2 = k[0], k[1], k[2], k[3]
             ix1, iy1 = max(x1, kx1), max(y1, ky1)
             ix2, iy2 = min(x2, kx2), min(y2, ky2)
             if ix2 > ix1 and iy2 > iy1:
                 inter = (ix2 - ix1) * (iy2 - iy1)
                 union = (x2 - x1) * (y2 - y1) + (kx2 - kx1) * (ky2 - ky1) - inter
-                if inter / union > iou_thresh:
+                iou = inter / union
+                # 同类别用0.3，不同类别用0.5（跨类高度重叠时才抑制）
+                thresh = iou_thresh if k[4] == obj[4] else cross_iou_thresh
+                if iou > thresh:
                     overlap = True
                     break
         if not overlap:
@@ -1027,7 +1028,6 @@ while True:
     elif current_mode == MODE_MODEL:
         kalman_enabled = kalman_enabled_model
         center, _ = detect_all_objects(img, Ts)
-        is_sent = False
 
         # 优先匹配已选类型，否则取最下方物体
         if center:
@@ -1037,11 +1037,6 @@ while True:
             else:
                 target = max(center, key=lambda c: c[1])
             communicator.send_coordinate(target[0], target[1], target[2])
-            is_sent = True
-
-        displayed_text = 'YES' if is_sent else 'NO'
-        displayed_text_color = DRAW_COLORS['green'] if is_sent else DRAW_COLORS['red']
-        img.draw_string(5, 5, displayed_text, color=displayed_text_color, scale=2)
 
     # 预览模式：默认色块识别全量打包发送，收到'm'切换为模型识别
     elif current_mode == MODE_PREVIEW:
