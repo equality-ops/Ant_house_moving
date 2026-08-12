@@ -14,11 +14,83 @@ class BoundaryPathPlanner:
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
         self.ready_path = []
+        self._all_rects_work = []
+        self._forward_rects_work = []
+        self._node_dist_work = []
+        self._node_point_work = []
         # Fixed field obstacles do not change during a transport decision.
         # Cache their expanded polygons to avoid repeated allocations in
         # every plan_move() call.
         self._fixed_barrier_cache = {}
         gc.collect()
+
+    def _append_swelled_axis_rect(self, out, cx, cy, half_w, half_h,
+                                  swell_angle, swell_size, direction):
+        """Append one axis-aligned expanded rectangle without a base copy."""
+        min_x = cx - half_w
+        max_x = cx + half_w
+        min_y = cy - half_h
+        max_y = cy + half_h
+        if swell_angle == -90:
+            min_x -= swell_size
+        elif swell_angle == 0:
+            max_y += swell_size
+        elif swell_angle == 90:
+            max_x += swell_size
+        elif swell_angle == 180:
+            min_y -= swell_size
+        elif swell_angle == 1 or swell_angle == -1:
+            _, right = self._forward_right(self._normalize_dir(direction))
+            if right[0] > 0:
+                min_x -= swell_size
+                max_x += swell_size
+            elif right[0] < 0:
+                min_x -= swell_size
+                max_x += swell_size
+            elif right[1] > 0:
+                min_y -= swell_size
+                max_y += swell_size
+            else:
+                min_y -= swell_size
+                max_y += swell_size
+        out.append([(min_x, min_y), (max_x, min_y),
+                    (max_x, max_y), (min_x, max_y)])
+
+    def _swell_rect(self, rect, swell_angle, swell_size, direction):
+        """Expand a configured rectangle while preserving its point ordering."""
+        out = []
+        cx, cy = 0.0, 0.0
+        if swell_angle == 1 or swell_angle == -1:
+            for p in rect:
+                cx += p[0]
+                cy += p[1]
+            cx /= len(rect)
+            cy /= len(rect)
+            _, right = self._forward_right(self._normalize_dir(direction))
+        for p in rect:
+            x, y = float(p[0]), float(p[1])
+            if swell_angle == -90:
+                if x < rect[0][0] + 0.001:
+                    x -= swell_size
+            elif swell_angle == 0:
+                if y > rect[0][1] + 0.001:
+                    y += swell_size
+            elif swell_angle == 90:
+                if x > rect[0][0] + 0.001:
+                    x += swell_size
+            elif swell_angle == 180:
+                if y < rect[2][1] - 0.001:
+                    y -= swell_size
+            elif swell_angle == 1 or swell_angle == -1:
+                side = (x - cx) * right[0] + (y - cy) * right[1]
+                if side > 0.001:
+                    x += right[0] * swell_size
+                    y += right[1] * swell_size
+                elif side < -0.001:
+                    x -= right[0] * swell_size
+                    y -= right[1] * swell_size
+            out.append((x, y))
+        return out
 
     def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
         if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
@@ -28,58 +100,10 @@ class BoundaryPathPlanner:
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
-        rects = []
-
-        def make_rect(cx, cy, half_w, half_h):
-            return [
-                (cx - half_w, cy - half_h),
-                (cx + half_w, cy - half_h),
-                (cx + half_w, cy + half_h),
-                (cx - half_w, cy + half_h)
-            ]
-
-        def swell_rect(rect,swell_angle):
-            out = []
-            cx, cy = 0.0, 0.0
-            if swell_angle == 1 or swell_angle == -1:
-                for p in rect:
-                    cx += p[0]
-                    cy += p[1]
-                cx /= len(rect)
-                cy /= len(rect)
-                _, right = self._forward_right(self._normalize_dir(direction))
-            for p in rect:
-                x, y = float(p[0]), float(p[1])
-                if swell_angle == -90:
-                    if x < rect[0][0] + 0.001:
-                        x -= swell_size
-                elif swell_angle == 0:
-                    if y > rect[0][1] + 0.001:
-                        y += swell_size
-                elif swell_angle == 90:
-                    if x > rect[0][0] + 0.001:
-                        x += swell_size
-                elif swell_angle == 180:
-                    if y < rect[2][1] - 0.001:
-                        y -= swell_size
-                elif swell_angle == 1:
-                    side = (x - cx) * right[0] + (y - cy) * right[1]
-                    if side > 0.001:
-                        x += right[0] * swell_size
-                        y += right[1] * swell_size
-                    elif side < -0.001:
-                        x -= right[0] * swell_size
-                        y -= right[1] * swell_size
-                elif swell_angle == -1:
-                    side = (x - cx) * right[0] + (y - cy) * right[1]
-                    if side > 0.001:
-                        x += right[0] * swell_size
-                        y += right[1] * swell_size
-                    elif side < -0.001:
-                        x -= right[0] * swell_size
-                        y -= right[1] * swell_size
-                out.append((x, y))
-            return out
+        # Reuse planner-owned containers; only the per-call dynamic polygons
+        # need to be allocated.
+        rects = self._all_rects_work
+        rects.clear()
 
         for obj_idx in range(len(objects)):
             if skip_idx is not None and obj_idx == skip_idx:
@@ -89,7 +113,9 @@ class BoundaryPathPlanner:
                 cx, cy = float(obj[0]), float(obj[1])
                 half_w = float(obj[2]) / 2.0 + safe_margin
                 half_h = float(obj[3]) / 2.0 + safe_margin
-                rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
+                self._append_swelled_axis_rect(
+                    rects, cx, cy, half_w, half_h, swell_angle,
+                    swell_size, direction)
         cache_key = (swell_angle,
                      direction if swell_angle == 1 or swell_angle == -1 else None)
         fixed_rects = self._fixed_barrier_cache.get(cache_key)
@@ -98,26 +124,30 @@ class BoundaryPathPlanner:
             for circle in circles:
                 if len(circle) >= 2:
                     cx, cy = float(circle[0]), float(circle[1])
-                    fixed_rects.append(swell_rect(make_rect(
-                        cx, cy, circle_r + safe_margin, circle_r + safe_margin),
-                        swell_angle))
+                    self._append_swelled_axis_rect(
+                        fixed_rects, cx, cy, circle_r + safe_margin,
+                        circle_r + safe_margin, swell_angle, swell_size,
+                        direction)
             rect_count = len(raw_rects)
             for rect_idx in range(rect_count):
                 if rect_idx == rect_count - 1:
                     continue
                 rect = raw_rects[rect_idx]
                 if len(rect) >= 4:
-                    fixed_rects.append(swell_rect(rect, swell_angle))
+                    fixed_rects.append(self._swell_rect(
+                        rect, swell_angle, swell_size, direction))
             self._fixed_barrier_cache[cache_key] = fixed_rects
         rects.extend(fixed_rects)
         return rects
     def _filter_forward_rects(self, rects, start, direction):
         x, y = start
-        result = []
+        result = self._forward_rects_work
+        result.clear()
         for rect in rects:
             min_x = max_x = rect[0][0]
             min_y = max_y = rect[0][1]
-            for p in rect[1:]:
+            for point_idx in range(1, len(rect)):
+                p = rect[point_idx]
                 if p[0] < min_x: min_x = p[0]
                 elif p[0] > max_x: max_x = p[0]
                 if p[1] < min_y: min_y = p[1]
@@ -143,20 +173,24 @@ class BoundaryPathPlanner:
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
         if limit_angle:
-            def calculate_angle(path,angle):
-                if not path:return []
-                push_yaw = math.atan2(path[1][0] - path[0][0], path[1][1] - path[0][1]) * 180.0 / math.pi
-                push_angle = abs(push_yaw - direction)
-                if push_angle > 180:
-                    push_angle = 360 - push_angle
-                if abs(push_angle)>angle:return []
-                return path
-            path_left = calculate_angle(path_left,limit_angle)
-            path_right = calculate_angle(path_right,limit_angle)
+            path_left = self._limit_path_angle(path_left, direction, limit_angle)
+            path_right = self._limit_path_angle(path_right, direction, limit_angle)
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
         return path_right
+
+    def _limit_path_angle(self, path, direction, limit_angle):
+        if not path:
+            return []
+        push_yaw = math.atan2(path[1][0] - path[0][0],
+                              path[1][1] - path[0][1]) * 180.0 / math.pi
+        push_angle = abs(push_yaw - direction)
+        if push_angle > 180:
+            push_angle = 360 - push_angle
+        if push_angle > limit_angle:
+            return []
+        return path
 
     def _plan_one_turn_with_avoid(self, direction, avoid_dir,x,y):
         direction = self._normalize_dir(direction)
@@ -166,9 +200,12 @@ class BoundaryPathPlanner:
         start = self._nearest_valid(start, rects)
         direct_end = self._project_to_boundary(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
-            return self.my_plan._path_to_list([start, direct_end])
+            return [[start[0], start[1]], [direct_end[0], direct_end[1]]]
 
-        nodes = []
+        node_dists = self._node_dist_work
+        node_points = self._node_point_work
+        node_dists.clear()
+        node_points.clear()
         fwd, right = self._forward_right(direction)
         for rect in rects:
             p = self._avoid_corner_node(rect, direction, avoid_dir)
@@ -177,13 +214,13 @@ class BoundaryPathPlanner:
             if not self._same_avoid_side_or_level(start, p, direction, avoid_dir):
                 continue
             side_dist = abs((p[0] - start[0]) * right[0] + (p[1] - start[1]) * right[1])
-            self._insert_sorted_node(nodes, side_dist, p)
+            self._insert_sorted_node(node_dists, node_points, side_dist, p)
         start_side = start[0] * right[0] + start[1] * right[1]
-        for i in range(len(nodes)):
-            ref_node = nodes[i][1]
+        for i in range(len(node_points)):
+            ref_node = node_points[i]
             ref_side = ref_node[0] * right[0] + ref_node[1] * right[1]
             for j in range(i + 1):
-                aim = nodes[j][1]
+                aim = node_points[j]
                 aim_side = aim[0] * right[0] + aim[1] * right[1]
                 den = aim_side - start_side
                 if abs(den) < 0.000001:
@@ -196,15 +233,17 @@ class BoundaryPathPlanner:
                 if not self.my_plan._inside_field(p):
                     continue
                 if self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
-                    return self.my_plan._path_to_list([start, p, self._project_to_boundary(p, direction)])
+                    end = self._project_to_boundary(p, direction)
+                    return [[start[0], start[1]], [p[0], p[1]],
+                            [end[0], end[1]]]
         return []
 
-    def _insert_sorted_node(self, nodes, side_dist, p):
-        item = [side_dist, p]
+    def _insert_sorted_node(self, node_dists, node_points, side_dist, p):
         idx = 0
-        while idx < len(nodes) and nodes[idx][0] <= side_dist:
+        while idx < len(node_dists) and node_dists[idx] <= side_dist:
             idx += 1
-        nodes.insert(idx, item)
+        node_dists.insert(idx, side_dist)
+        node_points.insert(idx, p)
 
     def _avoid_corner_node(self, rect, direction, avoid_dir):
         d = 2.0
