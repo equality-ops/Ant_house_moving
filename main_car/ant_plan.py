@@ -33,7 +33,7 @@ class PlanData:
         self.center_y = self.flash_sys.find_value("CENTER_Y")
         self.lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
-        rate = 1.8
+        rate = self.flash_sys.find_value("rect_zoom_rate")
         self.fixed_point = [[35.0,-40.2], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -75.0], [25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
@@ -48,7 +48,7 @@ class PlanData:
         self.INF = 1000000000.0  # 无穷大
         self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")# 小车安全裕量 (质点膨胀半径)
 
-        self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, self.lenth*rate*2, self.lenth*rate*2)  # 中心禁区矩形障碍物（已膨胀）
+        self.rectangle_obstacles = self.create_expanded_rect(self.center_x, self.center_y, self.lenth*rate*2, self.lenth*rate*2, if_expand=False)  # 中心禁区矩形障碍物（已膨胀）
         self.if_obstacles = self.flash_sys.find_value("if_obstacles")
         if self.if_obstacles == 1:
             self.cube = self.flash_sys.find_value("cube_obstacles")  # 立方体障碍物中心坐标列表（未膨胀）
@@ -75,9 +75,13 @@ class PlanData:
         gc.collect()
 
     # 辅助函数：由于原代码矩形检测未膨胀，这里手动对外扩充矩形顶点
-    def create_expanded_rect(self, x_center, y_center, width, height):
-        hw = width / 2.0 + self.SAFE_MARGIN
-        hh = height / 2.0 + self.SAFE_MARGIN
+    def create_expanded_rect(self, x_center, y_center, width, height, if_expand=True):
+        hw = width / 2.0
+        hh = height / 2.0
+        if if_expand:
+            hw += self.SAFE_MARGIN
+            hh += self.SAFE_MARGIN
+            
         return [
             (x_center - hw, y_center - hh),
             (x_center + hw, y_center - hh),

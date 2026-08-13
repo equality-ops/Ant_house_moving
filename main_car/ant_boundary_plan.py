@@ -581,10 +581,10 @@ class objects_planner:
                         push_angle = 360 - push_angle
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
-                    if i[4] !='R':score+=1000
-                    if self.last_sandbag_idx == 0:score+=1000
-                elif (i[1] == 'T') and i[4] !='D':score+=1000
-                elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
+                    if i[4] !='R':score+=800
+                    if self.last_sandbag_idx == 0:score+=800
+                elif (i[1] == 'T') and i[4] !='D':score+=800
+                elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=800
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
                     if i[1] == 'T': 
@@ -615,8 +615,8 @@ class objects_planner:
                     y1 = i[3] - py
                     y2 = self.my_car.y_current - py
                     distance_from_car = math.sqrt(x1 * x1 + y1 * y1) + math.sqrt(x2 * x2 + y2 * y2)
-                dis_score = 1250 / self.run_speed # 1500为行进途中每秒对应的分数
-                score += push_distance + push_angle*push_angle +distance_from_car*dis_score
+                dis_score = 1500 / self.run_speed # 1500为行进途中每秒对应的分数
+                score += push_distance + push_angle ** 2 / 5 +distance_from_car*dis_score
                 self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
                 self.target_score.append(score)
                 self.now_idx+=1

@@ -542,7 +542,9 @@ class flash_system:
             if var_value[0] == '"' and var_value[-1] == '"':  # 列表类型
                 try:
                     inner = var_value[1:-1]
-                    if '(' in inner:
+                    if not inner.strip():
+                        self.config[var_name] = []
+                    elif '(' in inner:
                         self.config[var_name] = self._parse_tuple_list(inner)
                     else:
                         self.config[var_name] = [float(x.strip()) for x in inner.split(',')]
