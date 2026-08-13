@@ -107,7 +107,7 @@ class BoundaryPathPlanner:
             if len(rect) >= 4:
                 new = self.swell_rect(rect,swell_angle)
                 if new:rects.append(new)
-        gc.collect()
+
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
@@ -118,7 +118,6 @@ class BoundaryPathPlanner:
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle):
         path_left = self._plan_one_turn_with_avoid(direction, -1)
-        gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1)
         if limit_angle:
             def calculate_angle(path,angle):
@@ -134,7 +133,6 @@ class BoundaryPathPlanner:
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
-        gc.collect()
         return path_right
     def _plan_one_turn_with_avoid(self, direction, avoid_dir):
         direction = self._normalize_dir(direction)
@@ -175,7 +173,6 @@ class BoundaryPathPlanner:
                     continue
                 if self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
                     return self.my_plan._path_to_list([start, p, self._project_to_boundary(p, direction)])
-        gc.collect()
         return []
 
     def _insert_sorted_node(self, nodes, side_dist, p):
@@ -359,32 +356,7 @@ class objects_planner:
         self.target_score = []
         self.plan_target = []
         self.now_idx = 0
-        gc.collect()
-    def judge_side_in(self,side,now_object):
-        def _if_p_block_p(p,p_):
-            avoid_width = self.my_BoundaryPath.avoid_width
-            near_area = self.my_BoundaryPath.near_area
-            if side == 'D':
-                if p_[1]>p[1]-near_area:return False
-                if abs(p_[0]-p[0])>avoid_width:return False
-            elif side == 'U':
-                if p_[1]<p[1]+near_area:return False
-                if abs(p_[0]-p[0])>avoid_width:return False
-            elif side == 'L':
-                if p_[0]>p[0]-near_area:return False
-                if abs(p_[1]-p[1])>avoid_width:return False
-            elif side == 'R':
-                if p_[0]<p[0]+near_area:return False
-                if abs(p_[1]-p[1])>avoid_width:return False
-            return True
-        for j in self.now_objects:
-            i=now_object
-            if i == j:continue
-            if _if_p_block_p([i[1],i[2]],[j[1],j[2]]):
-                gc.collect()
-                return False
-        gc.collect()
-        return True
+
     def nine_grid_postion_to_idx(self, x, y=None):
         """Return [row, col] for an exact nine-grid center, or [] if absent."""
         if y is None:
@@ -666,7 +638,6 @@ class objects_planner:
             # print("[judge][state3] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             # print("[judge][whole] flow total {} ms".format(time.ticks_diff(time.ticks_ms(), self.judge_start_ticks)))
             return True
-        gc.collect()
     def find_target(self):
         if self.objects_score:
             Target = self.objects_score[0]

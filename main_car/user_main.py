@@ -614,9 +614,6 @@ pit2_start()
 
 while True:
     if my_state.state == READY_NAVIGATE:
-        # 在规划前进行清空缓冲区
-        gc.collect()
-
         if my_task.if_transitioning:
             my_task.enter()
         if not my_task.if_end_first_scan:

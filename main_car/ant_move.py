@@ -475,6 +475,7 @@ class MoveControl:
                 self.vision_manager.if_lost_object = True
                 return
             target_point = self.my_art_protocol.coordinate_receive()
+
             if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and self.angle_pid.if_finish_turn():
                 real_point = self.vision_manager.predict_point(target_point[0], target_point[1],limit_y = None)
                 if self.vision_manager.if_in_rect(real_point[0], real_point[1]):
