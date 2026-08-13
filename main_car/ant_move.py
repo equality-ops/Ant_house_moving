@@ -564,12 +564,12 @@ class MoveControl:
                     self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
                 else:
                     self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
-            if len(self.my_plan.path) >=4:
-                self.slave_message_delay +=(len(self.my_plan.path)-3)*10
+            if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*10
+            else:slave_message_delay = self.slave_message_delay
             if self.if_send_navigate_command == False:
                 self.if_send_navigate_command = True
                 #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
-            elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15+self.slave_message_delay:
+            elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15 + slave_message_delay:
                 self.if_send_orbit_command = True
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
             if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
