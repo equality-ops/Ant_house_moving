@@ -615,7 +615,7 @@ class MoveControl:
                     self.get_slave_navigate_state = True
             else:
                 if self.if_first_navigate:
-                    self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
+                    self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
                 else:
                     if self.if_change_side:
                         self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
