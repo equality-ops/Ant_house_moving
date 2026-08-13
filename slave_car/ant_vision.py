@@ -222,12 +222,31 @@ class VisionManager:
 
         return X_w, Y_w
 
+    # 推测目标点位并进行视觉伺服控制
+    def predict_point(self, x, y,limit_y = None):
+        car_radius = 9.0
+        raw_x, raw_y = self.pixel_to_real_world(x, y)
+        if limit_y:
+            if raw_y>limit_y: return []
+        raw_y += car_radius
+        relative_angle = -math.atan2(-raw_x, raw_y)
+        actual_angle = self.my_car.now_yaw + relative_angle
+        if actual_angle > PI:
+            actual_angle -= 2 * PI
+        elif actual_angle < -PI:
+            actual_angle += 2 * PI
+        actual_dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
+        absolute_x = actual_dist * math.sin(actual_angle) + self.my_car.x_current
+        absolute_y = actual_dist * math.cos(actual_angle) + self.my_car.y_current
+        return [absolute_x, absolute_y]
+    
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
         scale = max(0.8, min(1.0, dist / 10.0)) # 10cm外全速，近处最少降到90%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
+
     def if_in_rect(self,x,y):
         rect_x_min = self.my_plan.plan_data.center_rect[0][0] - 5
         rect_x_max = self.my_plan.plan_data.center_rect[3][0] + 5
@@ -237,6 +256,7 @@ class VisionManager:
             y < rect_y_min or y > rect_y_max:
             return False
         return True
+    
     def calc_object_global_pos(self, pixel_x, pixel_y, object_kind=None):
         # 像素点 -> 车体坐标系下真实坐标
         if object_kind:
@@ -290,11 +310,20 @@ class VisionManager:
     def visual_servo_control(self):
         if self.if_finish_servo == True:
             return # 已经完成视觉伺服控制，直接返回
+        
         # 1. 尝试接收新一帧数据
         self.target_point = self.my_art_protocol.coordinate_receive()
-        
+
+        # 判断红色沙包是否在矩形框内
+        if self.target_point:
+            if self.current_servo_object == 'S':
+                actual_point = self.predict_point(self.target_point[0], self.target_point[1])
+                if_red_valid = self.if_in_rect(actual_point[0], actual_point[1])
+            else:
+                if_red_valid = True
+
         # 2. 判断是否收到有效的新视觉帧
-        if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
+        if self.target_point and chr(self.target_point[2]) == self.current_servo_object and if_red_valid:
             self.calculate_dist(self.target_point[0], self.target_point[1])
 
             # 突变检测：与上一帧伺服点位比较，防止噪点/干扰导致的振荡

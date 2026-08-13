@@ -352,7 +352,16 @@ class VisionManager:
         self.target_point = self.my_art_protocol.coordinate_receive()
         
         # 2. 判断是否收到有效的新视觉帧
-        if self.target_point and chr(self.target_point[2]) == self.current_servo_object:
+
+        # 判断红色沙包是否在矩形框内
+        if self.target_point:
+            if self.current_servo_object == 'S':
+                actual_point = self.predict_point(self.target_point[0], self.target_point[1])
+                if_red_valid = self.if_in_rect(actual_point[0], actual_point[1])
+            else:
+                if_red_valid = True
+
+        if self.target_point and chr(self.target_point[2]) == self.current_servo_object and if_red_valid:
             self.calculate_dist(self.target_point[0], self.target_point[1])
 
             # self.my_uart3.write(f"servo_point: {self.real_servo_point}, last_servo_point: {self.last_real_servo_point}\r\n")
