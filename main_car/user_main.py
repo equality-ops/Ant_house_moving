@@ -465,24 +465,27 @@ def time_pit1_handler(time):
         my_fan.if_fan = False
     """
 
+time__ = 0
 # 定时器3中断处理函数：路径规划与速度规划计算
-def time_pit3_handler(time) -> None:
+def time_pit3_handler(timer) -> None:
+    global time__
     # 角度环计算（10ms）
     angle_pid_compute()
 
     # 任务执行机
     task_machine()
 
-    # 全向定位测试程序
     """
+    # 全向定位测试程序
     if my_state.state == READY_NAVIGATE:
         # my_path.plan_path(245.0, 56.0)
         # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
+        time__ = time.ticks_ms()
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[-0.0, 150.0]], target_turn_angle = 30.0)
+        my_plan.navigate(path = [[100.0, 0.0]], target_turn_angle = 0.0)
         # my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
@@ -494,6 +497,7 @@ def time_pit3_handler(time) -> None:
             my_plan.reset_navigate_angle()
             my_state.state = STOP
             my_beep.test()
+            print(f"Navigation finished in {time.ticks_diff(time.ticks_ms(), time__)} ms")
     elif my_state.state == STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")

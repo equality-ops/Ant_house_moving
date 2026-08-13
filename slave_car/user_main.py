@@ -234,8 +234,8 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
 # 创建距离控制滤波对象
-dist_fil_L = ant_motor.SlipAveragingFilter(5)
-dist_fil_R = ant_motor.SlipAveragingFilter(5)
+dist_fil_L = ant_motor.SlipAveragingFilter(4)
+dist_fil_R = ant_motor.SlipAveragingFilter(4)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
