@@ -32,11 +32,11 @@ if not pin_obj.value():#进入调试模式
     gc.collect()
 else:
     gc.collect()
-    import ant_vision
-    gc.collect()
     import ant_move
     gc.collect()
     import ant_task
+    gc.collect()
+    import ant_vision
     gc.collect()
     import ant_motor
     gc.collect()
@@ -260,7 +260,7 @@ plan_data = ant_plan.PlanData(my_flash_sys)
 # 创建路径规划对象
 my_path = ant_plan.PathPlan(plan_data, my_car)
 # 创建规划（路径和速度）对象
-my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol)
+my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, angle_pid)
 
 my_tof = ant_move.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L, dist_pid_R, tof_L, tof_R)
 
