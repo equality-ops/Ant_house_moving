@@ -175,6 +175,7 @@ class MoveControl:
             'LDD': LDD,
             'RDD': RDD,
         }
+        self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         # print("[mem] ready_move free:{} alloc:{}".format(gc.mem_free(), gc.mem_alloc()))
@@ -229,8 +230,7 @@ class MoveControl:
         M_PAth = []
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         if self.if_change_side:
-            dicc = {'D':0,'L':1,'U':2,'R':3,}
-            if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
+            if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
                 if self.next_postion == 'r':
                     self.slave_message_delay = 15
                 m_PAth = [self.surrounding_points['LD']]
@@ -496,6 +496,9 @@ class MoveControl:
                         self.my_beep.test()
                         self.my_plan.reset_navigate_angle()
                         self.my_plan.reset_navigate()
+                        if self.vision_manager.current_servo_object in ['S','E']:
+                            if self.send_point[1] > 1e-3 and self.next_postion == 'r':self.my_plan.if_inside_sandbag = True
+                            elif self.send_point[1] < 1e-3 and self.next_postion == 'l':self.my_plan.if_inside_sandbag = True
                         self.my_plan.move_state = MOVE
                         self.current_state = MOVE
                         self.vision_manager.if_finish_servo = False
