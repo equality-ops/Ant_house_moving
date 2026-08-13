@@ -232,10 +232,10 @@ class VisionManager:
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
     def if_in_rect(self,x,y):
-        rect_x_min = self.my_plan.plan_data.center_rect[0][0] - 5
-        rect_x_max = self.my_plan.plan_data.center_rect[3][0] + 5
-        rect_y_min = self.my_plan.plan_data.center_rect[0][1] - 5
-        rect_y_max = self.my_plan.plan_data.center_rect[3][1] + 5
+        rect_x_min = self.my_plan.plan_data.center_rect[0][0]
+        rect_x_max = self.my_plan.plan_data.center_rect[3][0]
+        rect_y_min = self.my_plan.plan_data.center_rect[0][1]
+        rect_y_max = self.my_plan.plan_data.center_rect[3][1]
         if x < rect_x_min or x > rect_x_max or\
             y < rect_y_min or y > rect_y_max:
             return False

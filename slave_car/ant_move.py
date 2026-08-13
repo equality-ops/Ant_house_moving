@@ -749,7 +749,16 @@ class MoveControl:
                 left_y = y + 15.0 * math.sin(now_yaw)
                 self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
                 target_point = self.my_art_protocol.coordinate_receive()
-                if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object:
+
+                # 判断红色沙包是否在矩形框内
+                if target_point:
+                    if chr(target_point[2]) == 'S':
+                        actual_point = self.vision_manager.predict_point(target_point[0], target_point[1])
+                        if_red_valid = self.vision_manager.if_in_rect(actual_point[0], actual_point[1])
+                    else:
+                        if_red_valid = True
+
+                if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and if_red_valid:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()
                     self.vision_manager.if_lost_object = False
