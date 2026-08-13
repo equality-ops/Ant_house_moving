@@ -16,18 +16,67 @@ class BoundaryPathPlanner:
         self.rects = []
         self.ready_path = []
         self.judge_start_ticks = 0
+        self.xx = 0
+        self.yy = 0
+        self.direction = 0
+        self.swell_size = 0
         gc.collect()
-
-    def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
-        if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
-        else:swell_size = self.sigal_swell_size
+    def swell_rect(self,rect,swell_angle):
+        out = []
+        cx, cy = 0.0, 0.0
+        if swell_angle == 1 or swell_angle == -1:
+            for p in rect:
+                cx += p[0]
+                cy += p[1]
+            cx /= len(rect)
+            cy /= len(rect)
+            _, right = self._forward_right(self._normalize_dir(self.direction))
+        for p in rect:
+            x, y = float(p[0]), float(p[1])
+            if swell_angle == -90:
+                if x < rect[0][0] + 0.001:
+                    x -= self.swell_size
+            elif swell_angle == 0:
+                if y > rect[0][1] + 0.001:
+                    y += self.swell_size
+            elif swell_angle == 90:
+                if x > rect[0][0] + 0.001:
+                    x += self.swell_size
+            elif swell_angle == 180:
+                if y < rect[2][1] - 0.001:
+                    y -= self.swell_size
+            elif swell_angle == 1:
+                side = (x - cx) * right[0] + (y - cy) * right[1]
+                if side > 0.001:
+                    x += right[0] * self.swell_size
+                    y += right[1] * self.swell_size
+                elif side < -0.001:
+                    x -= right[0] * self.swell_size
+                    y -= right[1] * self.swell_size
+            elif swell_angle == -1:
+                side = (x - cx) * right[0] + (y - cy) * right[1]
+                if side > 0.001:
+                    x += right[0] * self.swell_size
+                    y += right[1] * self.swell_size
+                elif side < -0.001:
+                    x -= right[0] * self.swell_size
+                    y -= right[1] * self.swell_size
+            out.append((x, y))
+        if self.direction == 0 and out[2][1] <= self.yy:return []
+        elif self.direction == 180 and out[0][1] >= self.yy:return []
+        elif self.direction == 90 and out[2][0] <= self.xx:return []
+        elif self.direction == -90 and out[0][0] >= self.xx:return []
+        return out
+    def special_swell_barriers(self, objects_, swell_angle,skip_idx=None, direction=None):
+        if swell_angle == 1 or swell_angle== -1:self.swell_size = self.bothway_swell_size
+        else:self.swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
         safe_margin = self.SAFE_MARGIN
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
         rects = []
-
+        self.direction = direction
         def make_rect(cx, cy, half_w, half_h):
             return [
                 (cx - half_w, cy - half_h),
@@ -35,50 +84,6 @@ class BoundaryPathPlanner:
                 (cx + half_w, cy + half_h),
                 (cx - half_w, cy + half_h)
             ]
-
-        def swell_rect(rect,swell_angle):
-            out = []
-            cx, cy = 0.0, 0.0
-            if swell_angle == 1 or swell_angle == -1:
-                for p in rect:
-                    cx += p[0]
-                    cy += p[1]
-                cx /= len(rect)
-                cy /= len(rect)
-                _, right = self._forward_right(self._normalize_dir(direction))
-            for p in rect:
-                x, y = float(p[0]), float(p[1])
-                if swell_angle == -90:
-                    if x < rect[0][0] + 0.001:
-                        x -= swell_size
-                elif swell_angle == 0:
-                    if y > rect[0][1] + 0.001:
-                        y += swell_size
-                elif swell_angle == 90:
-                    if x > rect[0][0] + 0.001:
-                        x += swell_size
-                elif swell_angle == 180:
-                    if y < rect[2][1] - 0.001:
-                        y -= swell_size
-                elif swell_angle == 1:
-                    side = (x - cx) * right[0] + (y - cy) * right[1]
-                    if side > 0.001:
-                        x += right[0] * swell_size
-                        y += right[1] * swell_size
-                    elif side < -0.001:
-                        x -= right[0] * swell_size
-                        y -= right[1] * swell_size
-                elif swell_angle == -1:
-                    side = (x - cx) * right[0] + (y - cy) * right[1]
-                    if side > 0.001:
-                        x += right[0] * swell_size
-                        y += right[1] * swell_size
-                    elif side < -0.001:
-                        x -= right[0] * swell_size
-                        y -= right[1] * swell_size
-                out.append((x, y))
-            return out
-
         for obj_idx in range(len(objects)):
             if skip_idx is not None and obj_idx == skip_idx:
                 continue
@@ -87,30 +92,34 @@ class BoundaryPathPlanner:
                 cx, cy = float(obj[0]), float(obj[1])
                 half_w = float(obj[2]) / 2.0 + safe_margin
                 half_h = float(obj[3]) / 2.0 + safe_margin
-                rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
+                new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
+                if new:rects.append(new)
         for circle in circles:
             if len(circle) >= 2:
                 cx, cy = float(circle[0]), float(circle[1])
-                rects.append(swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle))
+                new = self.swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle)
+                if new:rects.append(new)
         rect_count = len(raw_rects)
         for rect_idx in range(rect_count):
             if rect_idx == rect_count - 1:
                 continue
             rect = raw_rects[rect_idx]
             if len(rect) >= 4:
-                rects.append(swell_rect(rect,swell_angle))
+                new = self.swell_rect(rect,swell_angle)
+                if new:rects.append(new)
         gc.collect()
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
+        if x is None or y is None:self.xx,self.yy=self.my_car.x_current,self.my_car.y_current
+        else: self.xx,self.yy=x,y
         self.rects = self.special_swell_barriers(objects, swell_dir,skip_idx, direction)
-        self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
+        self.ready_path = self.plan_one_turn(direction,limit_angle)
         return self.ready_path
-    def plan_one_turn(self, direction,limit_angle,x=None,y=None):
-        if x is None or y is None:x,y=self.my_car.x_current,self.my_car.y_current
-        path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
+    def plan_one_turn(self, direction,limit_angle):
+        path_left = self._plan_one_turn_with_avoid(direction, -1)
         gc.collect()
-        path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
+        path_right = self._plan_one_turn_with_avoid(direction, 1)
         if limit_angle:
             def calculate_angle(path,angle):
                 if not path:return []
@@ -127,11 +136,10 @@ class BoundaryPathPlanner:
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
         gc.collect()
         return path_right
-
-    def _plan_one_turn_with_avoid(self, direction, avoid_dir,x,y):
+    def _plan_one_turn_with_avoid(self, direction, avoid_dir):
         direction = self._normalize_dir(direction)
         avoid_dir = 1 if avoid_dir >= 0 else -1
-        start = (float(x), float(y))
+        start = (float(self.xx), float(self.yy))
         rects = self.rects
         start = self._nearest_valid(start, rects)
         direct_end = self._project_to_boundary(start, direction)
@@ -327,16 +335,17 @@ class objects_planner:
         self.nine_grid = [['','',''],
                           ['','',''],
                           ['','',''],]
+        self.wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+        self.height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
         gc.collect()
     def set_barriers(self,barriers):
-        wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
-        height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+        
         for i in self.now_objects:
             # Vision results can occasionally be incomplete.  Ignore malformed
             # entries here instead of indexing into them and crashing the task.
-            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in wideness:
+            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in self.wideness:
                 continue
-            w,h=wideness[i[0]],height[i[0]]
+            w,h=self.wideness[i[0]],self.height[i[0]]
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
         self.last_sandbag_idx = -1
@@ -510,7 +519,6 @@ class objects_planner:
             t_state = time.ticks_ms()
             idx=0
             self.target_objects = []
-
             for target in self.now_objects:
                 t_target = time.ticks_ms()
                 could_select = True
