@@ -107,8 +107,6 @@ class BoundaryPathPlanner:
         rect_count = len(raw_rects)
         if rect_count>0 and len(self.rectangles) == 0:
             for rect_idx in range(rect_count):
-                if rect_idx == rect_count - 1:
-                    continue
                 rect = raw_rects[rect_idx]
                 if len(rect) >= 4:
                     cx, cy = float(rect[0]), float(rect[1])
