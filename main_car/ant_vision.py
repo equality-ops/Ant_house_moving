@@ -102,6 +102,7 @@ class VisionManager:
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
         self.target_angle = 0.0            # type: float   # 目标角度
+        self.total_orbit_angle = 0.0       # type: float   # 总环绕角度
         self.orbit_v_max = self.flash_sys.find_value("orbit_v_max")   # type: int   # 环绕最大速度
         self.orbit_v_min = self.flash_sys.find_value("orbit_v_min")   # type: int   # 环绕最小速度
         self.object_radius = 0.0           # type: float   # 物体半径
@@ -366,23 +367,23 @@ class VisionManager:
 
                 if (dx > MAX_POINT_CHANGE or dy > MAX_POINT_CHANGE):
                     if self.relative_raw_y < self.last_relative_raw_y:
-                        # 帧有效，更新记录
+                        # 帧有效，更新记录（real_servo_point 只会被重新赋值，不会就地修改，可直接引用）
                         self.last_relative_raw_y = self.relative_raw_y
-                        self.last_real_servo_point = self.real_servo_point.copy()
+                        self.last_real_servo_point = self.real_servo_point
                         self.servo_lost_count = 0
                     else:
                         # 变化过大，丢弃本帧，还原为上一帧有效坐标
-                        self.real_servo_point = self.last_real_servo_point.copy()
+                        self.real_servo_point = self.last_real_servo_point
                         self.servo_lost_count += 1
                 else:
                     # 帧有效，更新记录
                     self.last_relative_raw_y = self.relative_raw_y
-                    self.last_real_servo_point = self.real_servo_point.copy()
+                    self.last_real_servo_point = self.real_servo_point
                     self.servo_lost_count = 0
             else:
                 # 首帧，直接接受
                 self.last_relative_raw_y = self.relative_raw_y
-                self.last_real_servo_point = self.real_servo_point.copy()
+                self.last_real_servo_point = self.real_servo_point
                 self.reset_last_car_pos()
                 self.servo_lost_count = 0
         else:
@@ -518,7 +519,7 @@ class VisionManager:
 
             # 环绕速度规划：对称梯形速度曲线 —— 启动时线性加速，结束时线性减速
             accel_range = min(15.0, self.total_orbit_angle / 2.0)   # 加速区间（度）
-            decel_range = min(25.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
+            decel_range = min(40.0, self.total_orbit_angle / 2.0)   # 减速区间（度）
             traveled = max(0.0, self.total_orbit_angle - diff)       # 已走过的角度
             if traveled < accel_range:
                 # 启动阶段：三次 ease-out，起步快、过渡平滑

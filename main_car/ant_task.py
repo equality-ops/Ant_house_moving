@@ -85,6 +85,7 @@ class TaskController:
         self.ap_slave_buffer = []
         self.april_tag_list = ['L','U']
         self.planned_scan_path = []
+        self.dangerous_object_kinds = set()
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
@@ -599,11 +600,9 @@ class TaskController:
                     self.if_plan_scan = True
                     counter = 0
                     return
-                print(f"{self.fixed_scan_point[counter+1][0]}")
                 self.my_path.plan_path(self.fixed_scan_point[counter+1][0][0],self.fixed_scan_point[counter+1][0][1],start_point = self.fixed_scan_point[counter][0]) 
                 self.my_path.ready_path[-1] = self.fixed_scan_point[counter+1][0]
                 self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[counter+1][1]])
-                print(f"{self.planned_scan_path}")
                 counter+=1
             else:self.first_scan()
         else:self.exit()

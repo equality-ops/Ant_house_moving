@@ -76,7 +76,7 @@ fixed_high_level_us = 1260
 ###################【速度规划】####################
 min_start_v = 40
 long_v_max = 180
-find_line_v_max = 60
+find_line_v_max = 80
 acc_normal_coef = 0.03
 dec_coef = 0.08
 scan_rate = 1.0
@@ -140,9 +140,9 @@ radius_B_R = 19.0
 radius_B_L = 19.0
 radius_B_D = 16.0
 
-angle_T = 43
-angle_S = 46
-angle_B = 43
+angle_T = 42
+angle_S = 35
+angle_B = 42
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
 
@@ -159,15 +159,15 @@ BEAR_cla_dis = 2.4
 total_objects_num = 5
 #是否返回
 IF_BACK = 0
-#是否先转角后惯导
-if_first_turn = 1
 #是否有障碍
-if_obstacles = 0
+if_obstacles = 1
+# 是否开启日志
+if_write_log = 1
 
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
-circle = "(215, 190)"
+cube_obstacles = "(200, 48.5, 25, 12), (200, 198, 25, 12)"
+circle = "(55, 100)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 #推动避障膨胀半径
@@ -196,8 +196,14 @@ if_model_detect = 1
 scan_num = 6
 
 #--------------场地相关---------------------
+# CENTER_X = 147.6
+# CENTER_Y = 114.0
+
 CENTER_X = 160.0
 CENTER_Y = 120.0
+
+# FIELD_W = 315.0
+# FIELD_H = 235.0
 
 FIELD_W = 320.0
 FIELD_H = 240.0

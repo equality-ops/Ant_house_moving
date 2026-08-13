@@ -21,11 +21,11 @@ my_uart_debug.init(115200)
 gc.collect()
 import ant_task
 gc.collect()
-import ant_move
-gc.collect()
 import ant_plan
 gc.collect()
 import ant_vision
+gc.collect()
+import ant_move
 gc.collect()
 import ant_boundary_plan
 gc.collect()
@@ -120,7 +120,7 @@ my_state = ant_plan.StateMachine()
 my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
-my_write_system = ant_else.write_system(my_beep,"/flash/main_log.txt")
+my_write_system = ant_else.write_system(my_flash_sys, my_beep, "/flash/main_log.txt")
 
 # 创建无刷风扇控制对象
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
@@ -629,10 +629,10 @@ while True:
                      
                     target = my_task.object_plan.plan_target
                     my_task.if_end_first_scan = True
-                    # my_task.my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    # my_task.my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    # my_task.my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    # my_task.my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    my_task.my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                    my_task.my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                    my_task.my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                    my_task.my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()

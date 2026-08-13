@@ -177,6 +177,7 @@ class MoveControl:
         }
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
+        # print("[mem] ready_move free:{} alloc:{}".format(gc.mem_free(), gc.mem_alloc()))
         self.slave_message_delay = 0
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
@@ -444,6 +445,7 @@ class MoveControl:
     # 状态过渡函数
     def state_transition(self):
         global counter
+        # print("[mem] state{} free:{} alloc:{}".format(self.current_state, gc.mem_free(), gc.mem_alloc()))
         if self.current_state == NAVIGATE:
             if self.if_first_navigate:
                 self.if_first_navigate = False
@@ -572,6 +574,7 @@ class MoveControl:
                 self.state_transition() # 退出当前状态，进入搬运状态
                 return
             NAV_T=self.navigate_buffer
+            gc.collect()  # 环绕前主动回收，缓解内存不足
             self.vision_manager.orbit_control(NAV_T['ANGLE'][2])
         elif self.current_state == ADJUST:
             self.vision_manager.visual_servo_control()

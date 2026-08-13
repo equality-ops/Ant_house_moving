@@ -377,7 +377,6 @@ class TaskController:
 
     def handle_return(self):
         # if state == RETURN
-        print("\nreturn\n")
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状态

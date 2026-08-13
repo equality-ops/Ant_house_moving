@@ -201,7 +201,8 @@ class flash_system:
 
 # 日志系统
 class write_system:
-    def __init__(self, beep, file_path: str):
+    def __init__(self, flash_sys: flash_system, beep, file_path: str):
+        self.flash_sys = flash_sys
         # 注入蜂鸣器对象，用于警报
         self.beep = beep
         self.num = 1
@@ -210,11 +211,18 @@ class write_system:
         # 环形字节缓冲区：一次性预分配固定内存，写入过程零动态分配，避免内存碎片
         self.buf_size = 1024        # 缓冲区字节上限（可调）
         self.buf = bytearray(self.buf_size)
+        self.if_write_log = self.flash_sys.find_value("if_write_log")
         self.head = 0               # 已写入的有效字节数（数据始终从 buf[0] 连续存放）
         gc.collect()
 
     def write_str(self, line: str):
-        return
+        # 如果未开启日志则直接返回
+        if not self.if_write_log:
+            return
+
+        print(line)
+
+        '''
         """将一行日志写入缓冲区；空间不足时丢弃最旧的一行（循环队列语义）"""
         if not line.endswith("\n"):
             line += '\n'
@@ -243,9 +251,13 @@ class write_system:
         for i in range(n):
             self.buf[self.head + i] = data[i]
         self.head += n
+       '''
 
     def write_in(self) -> None:
-        return
+        # 如果未开启日志则直接返回
+        if not self.if_write_log:
+            return
+        '''
         """将缓冲区中的所有内容一次性刷入文件"""
         if self.head == 0:
             return
@@ -257,6 +269,7 @@ class write_system:
             print(f"Error: Failed to write to {self.file_path}: {e}")
             return
         self.head = 0
+        '''
     def init_write(self) -> None:
         self.num = 1
         try:

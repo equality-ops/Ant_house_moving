@@ -1,5 +1,6 @@
 import math
 import gc
+import time
 class BoundaryPathPlanner:
     def __init__(self, plan_data, car, my_plan,flash_sys):
         self.Data = plan_data
@@ -14,83 +15,8 @@ class BoundaryPathPlanner:
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
         self.ready_path = []
-        self._all_rects_work = []
-        self._forward_rects_work = []
-        self._node_dist_work = []
-        self._node_point_work = []
-        # Fixed field obstacles do not change during a transport decision.
-        # Cache their expanded polygons to avoid repeated allocations in
-        # every plan_move() call.
-        self._fixed_barrier_cache = {}
+        self.judge_start_ticks = 0
         gc.collect()
-
-    def _append_swelled_axis_rect(self, out, cx, cy, half_w, half_h,
-                                  swell_angle, swell_size, direction):
-        """Append one axis-aligned expanded rectangle without a base copy."""
-        min_x = cx - half_w
-        max_x = cx + half_w
-        min_y = cy - half_h
-        max_y = cy + half_h
-        if swell_angle == -90:
-            min_x -= swell_size
-        elif swell_angle == 0:
-            max_y += swell_size
-        elif swell_angle == 90:
-            max_x += swell_size
-        elif swell_angle == 180:
-            min_y -= swell_size
-        elif swell_angle == 1 or swell_angle == -1:
-            _, right = self._forward_right(self._normalize_dir(direction))
-            if right[0] > 0:
-                min_x -= swell_size
-                max_x += swell_size
-            elif right[0] < 0:
-                min_x -= swell_size
-                max_x += swell_size
-            elif right[1] > 0:
-                min_y -= swell_size
-                max_y += swell_size
-            else:
-                min_y -= swell_size
-                max_y += swell_size
-        out.append([(min_x, min_y), (max_x, min_y),
-                    (max_x, max_y), (min_x, max_y)])
-
-    def _swell_rect(self, rect, swell_angle, swell_size, direction):
-        """Expand a configured rectangle while preserving its point ordering."""
-        out = []
-        cx, cy = 0.0, 0.0
-        if swell_angle == 1 or swell_angle == -1:
-            for p in rect:
-                cx += p[0]
-                cy += p[1]
-            cx /= len(rect)
-            cy /= len(rect)
-            _, right = self._forward_right(self._normalize_dir(direction))
-        for p in rect:
-            x, y = float(p[0]), float(p[1])
-            if swell_angle == -90:
-                if x < rect[0][0] + 0.001:
-                    x -= swell_size
-            elif swell_angle == 0:
-                if y > rect[0][1] + 0.001:
-                    y += swell_size
-            elif swell_angle == 90:
-                if x > rect[0][0] + 0.001:
-                    x += swell_size
-            elif swell_angle == 180:
-                if y < rect[2][1] - 0.001:
-                    y -= swell_size
-            elif swell_angle == 1 or swell_angle == -1:
-                side = (x - cx) * right[0] + (y - cy) * right[1]
-                if side > 0.001:
-                    x += right[0] * swell_size
-                    y += right[1] * swell_size
-                elif side < -0.001:
-                    x -= right[0] * swell_size
-                    y -= right[1] * swell_size
-            out.append((x, y))
-        return out
 
     def special_swell_barriers(self, objects_, swell_angle, skip_idx=None, direction=None):
         if swell_angle == 1 or swell_angle== -1:swell_size = self.bothway_swell_size
@@ -100,10 +26,58 @@ class BoundaryPathPlanner:
         circles = self.Data.circle
         raw_rects = self.Data.rectangles
         objects = objects_ if objects_ else []
-        # Reuse planner-owned containers; only the per-call dynamic polygons
-        # need to be allocated.
-        rects = self._all_rects_work
-        rects.clear()
+        rects = []
+
+        def make_rect(cx, cy, half_w, half_h):
+            return [
+                (cx - half_w, cy - half_h),
+                (cx + half_w, cy - half_h),
+                (cx + half_w, cy + half_h),
+                (cx - half_w, cy + half_h)
+            ]
+
+        def swell_rect(rect,swell_angle):
+            out = []
+            cx, cy = 0.0, 0.0
+            if swell_angle == 1 or swell_angle == -1:
+                for p in rect:
+                    cx += p[0]
+                    cy += p[1]
+                cx /= len(rect)
+                cy /= len(rect)
+                _, right = self._forward_right(self._normalize_dir(direction))
+            for p in rect:
+                x, y = float(p[0]), float(p[1])
+                if swell_angle == -90:
+                    if x < rect[0][0] + 0.001:
+                        x -= swell_size
+                elif swell_angle == 0:
+                    if y > rect[0][1] + 0.001:
+                        y += swell_size
+                elif swell_angle == 90:
+                    if x > rect[0][0] + 0.001:
+                        x += swell_size
+                elif swell_angle == 180:
+                    if y < rect[2][1] - 0.001:
+                        y -= swell_size
+                elif swell_angle == 1:
+                    side = (x - cx) * right[0] + (y - cy) * right[1]
+                    if side > 0.001:
+                        x += right[0] * swell_size
+                        y += right[1] * swell_size
+                    elif side < -0.001:
+                        x -= right[0] * swell_size
+                        y -= right[1] * swell_size
+                elif swell_angle == -1:
+                    side = (x - cx) * right[0] + (y - cy) * right[1]
+                    if side > 0.001:
+                        x += right[0] * swell_size
+                        y += right[1] * swell_size
+                    elif side < -0.001:
+                        x -= right[0] * swell_size
+                        y -= right[1] * swell_size
+                out.append((x, y))
+            return out
 
         for obj_idx in range(len(objects)):
             if skip_idx is not None and obj_idx == skip_idx:
@@ -113,59 +87,23 @@ class BoundaryPathPlanner:
                 cx, cy = float(obj[0]), float(obj[1])
                 half_w = float(obj[2]) / 2.0 + safe_margin
                 half_h = float(obj[3]) / 2.0 + safe_margin
-                self._append_swelled_axis_rect(
-                    rects, cx, cy, half_w, half_h, swell_angle,
-                    swell_size, direction)
-        cache_key = (swell_angle,
-                     direction if swell_angle == 1 or swell_angle == -1 else None)
-        fixed_rects = self._fixed_barrier_cache.get(cache_key)
-        if fixed_rects is None:
-            fixed_rects = []
-            for circle in circles:
-                if len(circle) >= 2:
-                    cx, cy = float(circle[0]), float(circle[1])
-                    self._append_swelled_axis_rect(
-                        fixed_rects, cx, cy, circle_r + safe_margin,
-                        circle_r + safe_margin, swell_angle, swell_size,
-                        direction)
-            rect_count = len(raw_rects)
-            for rect_idx in range(rect_count):
-                if rect_idx == rect_count - 1:
-                    continue
-                rect = raw_rects[rect_idx]
-                if len(rect) >= 4:
-                    fixed_rects.append(self._swell_rect(
-                        rect, swell_angle, swell_size, direction))
-            self._fixed_barrier_cache[cache_key] = fixed_rects
-        rects.extend(fixed_rects)
+                rects.append(swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle))
+        for circle in circles:
+            if len(circle) >= 2:
+                cx, cy = float(circle[0]), float(circle[1])
+                rects.append(swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle))
+        rect_count = len(raw_rects)
+        for rect_idx in range(rect_count):
+            if rect_idx == rect_count - 1:
+                continue
+            rect = raw_rects[rect_idx]
+            if len(rect) >= 4:
+                rects.append(swell_rect(rect,swell_angle))
+        gc.collect()
         return rects
-    def _filter_forward_rects(self, rects, start, direction):
-        x, y = start
-        result = self._forward_rects_work
-        result.clear()
-        for rect in rects:
-            min_x = max_x = rect[0][0]
-            min_y = max_y = rect[0][1]
-            for point_idx in range(1, len(rect)):
-                p = rect[point_idx]
-                if p[0] < min_x: min_x = p[0]
-                elif p[0] > max_x: max_x = p[0]
-                if p[1] < min_y: min_y = p[1]
-                elif p[1] > max_y: max_y = p[1]
-            if direction == 0 and max_y >= y:
-                result.append(rect)
-            elif direction == 180 and min_y <= y:
-                result.append(rect)
-            elif direction == 90 and max_x >= x:
-                result.append(rect)
-            elif direction == -90 and min_x <= x:
-                result.append(rect)
-        return result
+
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
-        if x is None or y is None:
-            x, y = self.my_car.x_current, self.my_car.y_current
-        all_rects = self.special_swell_barriers(objects, swell_dir, skip_idx, direction)
-        self.rects = self._filter_forward_rects(all_rects, (x, y), direction)
+        self.rects = self.special_swell_barriers(objects, swell_dir,skip_idx, direction)
         self.ready_path = self.plan_one_turn(direction,limit_angle,x,y)
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle,x=None,y=None):
@@ -173,26 +111,22 @@ class BoundaryPathPlanner:
         path_left = self._plan_one_turn_with_avoid(direction, -1,x,y)
         gc.collect()
         path_right = self._plan_one_turn_with_avoid(direction, 1,x,y)
-        gc.collect()
         if limit_angle:
-            path_left = self._limit_path_angle(path_left, direction, limit_angle)
-            path_right = self._limit_path_angle(path_right, direction, limit_angle)
+            def calculate_angle(path,angle):
+                if not path:return []
+                push_yaw = math.atan2(path[1][0] - path[0][0], path[1][1] - path[0][1]) * 180.0 / math.pi
+                push_angle = abs(push_yaw - direction)
+                if push_angle > 180:
+                    push_angle = 360 - push_angle
+                if abs(push_angle)>angle:return []
+                return path
+            path_left = calculate_angle(path_left,limit_angle)
+            path_right = calculate_angle(path_right,limit_angle)
         if not path_left:return path_right
         if not path_right:return path_left
         if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
+        gc.collect()
         return path_right
-
-    def _limit_path_angle(self, path, direction, limit_angle):
-        if not path:
-            return []
-        push_yaw = math.atan2(path[1][0] - path[0][0],
-                              path[1][1] - path[0][1]) * 180.0 / math.pi
-        push_angle = abs(push_yaw - direction)
-        if push_angle > 180:
-            push_angle = 360 - push_angle
-        if push_angle > limit_angle:
-            return []
-        return path
 
     def _plan_one_turn_with_avoid(self, direction, avoid_dir,x,y):
         direction = self._normalize_dir(direction)
@@ -202,12 +136,9 @@ class BoundaryPathPlanner:
         start = self._nearest_valid(start, rects)
         direct_end = self._project_to_boundary(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
-            return [[start[0], start[1]], [direct_end[0], direct_end[1]]]
+            return self.my_plan._path_to_list([start, direct_end])
 
-        node_dists = self._node_dist_work
-        node_points = self._node_point_work
-        node_dists.clear()
-        node_points.clear()
+        nodes = []
         fwd, right = self._forward_right(direction)
         for rect in rects:
             p = self._avoid_corner_node(rect, direction, avoid_dir)
@@ -216,13 +147,13 @@ class BoundaryPathPlanner:
             if not self._same_avoid_side_or_level(start, p, direction, avoid_dir):
                 continue
             side_dist = abs((p[0] - start[0]) * right[0] + (p[1] - start[1]) * right[1])
-            self._insert_sorted_node(node_dists, node_points, side_dist, p)
+            self._insert_sorted_node(nodes, side_dist, p)
         start_side = start[0] * right[0] + start[1] * right[1]
-        for i in range(len(node_points)):
-            ref_node = node_points[i]
+        for i in range(len(nodes)):
+            ref_node = nodes[i][1]
             ref_side = ref_node[0] * right[0] + ref_node[1] * right[1]
             for j in range(i + 1):
-                aim = node_points[j]
+                aim = nodes[j][1]
                 aim_side = aim[0] * right[0] + aim[1] * right[1]
                 den = aim_side - start_side
                 if abs(den) < 0.000001:
@@ -235,17 +166,16 @@ class BoundaryPathPlanner:
                 if not self.my_plan._inside_field(p):
                     continue
                 if self._one_turn_candidate_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
-                    end = self._project_to_boundary(p, direction)
-                    return [[start[0], start[1]], [p[0], p[1]],
-                            [end[0], end[1]]]
+                    return self.my_plan._path_to_list([start, p, self._project_to_boundary(p, direction)])
+        gc.collect()
         return []
 
-    def _insert_sorted_node(self, node_dists, node_points, side_dist, p):
+    def _insert_sorted_node(self, nodes, side_dist, p):
+        item = [side_dist, p]
         idx = 0
-        while idx < len(node_dists) and node_dists[idx] <= side_dist:
+        while idx < len(nodes) and nodes[idx][0] <= side_dist:
             idx += 1
-        node_dists.insert(idx, side_dist)
-        node_points.insert(idx, p)
+        nodes.insert(idx, item)
 
     def _avoid_corner_node(self, rect, direction, avoid_dir):
         d = 2.0
@@ -387,10 +317,12 @@ class objects_planner:
         self.target_score = []
         self.plan_target = []
         self.path = []
+        self.target_objects = []
         self.best_path = [0,0]
         self.judge_state = 0#0:未开始，1:正在进行，2:已结束
         self.last_sandbag_idx = -1
         self.now_idx = 0
+        self.judge_start_ticks = 0
         self.run_speed = self.flash_sys.find_value("long_v_max")
         self.nine_grid = [['','',''],
                           ['','',''],
@@ -440,7 +372,9 @@ class objects_planner:
             i=now_object
             if i == j:continue
             if _if_p_block_p([i[1],i[2]],[j[1],j[2]]):
+                gc.collect()
                 return False
+        gc.collect()
         return True
     def nine_grid_postion_to_idx(self, x, y=None):
         """Return [row, col] for an exact nine-grid center, or [] if absent."""
@@ -498,7 +432,9 @@ class objects_planner:
             if idx:
                 self.nine_grid[idx[0]][idx[1]] = obj[0]
         return self.nine_grid
+
     def judge_side_in_nine_grid(self,obj,dir,k):
+        """判断物体沿 dir 方向连续 k 步的九宫格是否为空（方法级定义，避免循环内反复创建函数对象）"""
         if not obj or len(obj) < 3:
             return False
         now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
@@ -512,7 +448,9 @@ class objects_planner:
             now_pt[0] += dir[0] * k
             now_pt[1] += dir[1] * k
         return True
+
     def judge_side_in_nine_grid_idx(self,idx,dir,k):
+        """判断九宫格索引 idx 沿 dir 方向连续 k 步是否为空"""
         if not idx or len(idx) < 2:
             return False
         idx = idx[:]
@@ -524,7 +462,9 @@ class objects_planner:
             idx[0] += dir[0] * k
             idx[1] += dir[1] * k
         return True
+
     def find_nine_grid_blank(self,obj,push_dir,in_dir):
+        """沿推动方向寻找九宫格空白区域，返回搬运矩形与步数"""
         now_pt = self.nine_grid_postion_to_idx(obj[1],obj[2])
         if not now_pt:
             return [None, 0]
@@ -542,7 +482,7 @@ class objects_planner:
             if self.judge_side_in_nine_grid_idx(i,in_dir,-1):
                 # in_dir uses [row, col], while world coordinates use [x, y].
                 target_edge = [self.Data.center_x-in_dir[1]*1.5*self.Data.lenth,
-                                self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
+                               self.Data.center_y-in_dir[0]*1.5*self.Data.lenth]#反向寻找进入边界
                 p2 = self.nine_grid_idx_to_postion(i)
                 if in_dir[0] == 0:p2 = [target_edge[0],p2[1]]
                 else:p2 = [p2[0],target_edge[1]]
@@ -552,20 +492,27 @@ class objects_planner:
             i[1] -= push_dir[1]
         if use_big_rect:return [[],0]
         else :return [None,0]
+
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
+            self.judge_start_ticks = time.ticks_ms()
+            t_state = time.ticks_ms()
             # Keep only records with the fields used by the planner.  A partial
             # detection must not make the state machine fail during indexing.
             self.now_objects = [obj for obj in (objects or [])
                                 if isinstance(obj, (list, tuple)) and len(obj) >= 3]
             self.set_barriers(self.barrier)#将物体转化为障碍形式并存储在self.barrier中
             self.generate_nine_grid()
+            # print("[judge][state0] cost {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             self.judge_state = 1
             return False
         elif self.judge_state == 1:#筛选出能直接搬运的物体
+            t_state = time.ticks_ms()
             idx=0
             self.target_objects = []
+
             for target in self.now_objects:
+                t_target = time.ticks_ms()
                 could_select = True
                 if target[0] == 'S' or target[0] == 'E':
                     push_dir = [0,-1]#推动正方向
@@ -584,7 +531,6 @@ class objects_planner:
                 elif car_side == 'R':in_dir = [0,-1]
                 elif car_side == 'D':in_dir = [1,0]
                 else: in_dir = [-1,0]
-                
                 if self.judge_side_in_nine_grid(target,in_dir,-1):
                     self.target_objects.append([idx,target[0],target[1],target[2],car_side,[],0])#序号，物体种类，x,y,目标边,空表示用原矩形
                 if not self.judge_side_in_nine_grid(target,push_dir,1):could_select = False
@@ -593,12 +539,17 @@ class objects_planner:
                     if rect != None:
                         self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])#序号，物体种类，x,y,目标边
                 idx+=1
+                # print("[judge][state1] target {} cost {} ms".format(idx-1, time.ticks_diff(time.ticks_ms(), t_target)))
+            # print("[judge][state1] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             self.judge_state = 2
             return False
         elif self.judge_state == 2:#计算每个目标物体的评分
+            t_state = time.ticks_ms()
             side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
-            if self.now_idx>=len(self.target_objects): self.judge_state = 3
+            if self.now_idx>=len(self.target_objects): 
+                self.judge_state = 3
             else:
+                t_target = time.ticks_ms()
                 i = self.target_objects[self.now_idx]
                 score = 0
                 dir,sdir=self.judge_push_direction(i[1])
@@ -612,16 +563,19 @@ class objects_planner:
                 elif i[1] in ['T']:
                     sy -= 10.0 
                 if car_side == i[4]:
+                    t_plan = time.ticks_ms()
                     path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
+                    # print("[judge][state2] plan_move {} ms".format(time.ticks_diff(time.ticks_ms(), t_plan)))
                 else:
                     has_planned = False
                     for j in range(self.now_idx):
                         if i[0] == self.target_objects[j][0]:
                             path = [[sx,sy]]+self.path[j]
                             has_planned = True
-                            break
                     if not has_planned:
+                        t_plan = time.ticks_ms()
                         path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
+                        # print("[judge][state2] plan_move {} ms".format(time.ticks_diff(time.ticks_ms(), t_plan)))
                 push_distance,push_angle= 1000,90
                 if (not path) or len(path) <= 1: 
                     self.path.append([])
@@ -658,22 +612,32 @@ class objects_planner:
                     RECT = i[5]
                     if not RECT:#使用大矩阵
                         RECT = [self.Data.center_rect[0],self.Data.center_rect[3]]
-                    P = {'D':((RECT[0][0]+RECT[1][0])/2,RECT[0][1]),
-                         'L':(RECT[0][0],(RECT[0][1]+RECT[1][1])/2),
-                         'U':((RECT[0][0]+RECT[1][0])/2,RECT[1][1]),
-                         'R':(RECT[1][0],(RECT[0][1]+RECT[1][1])/2),}
-                    x1 = i[2] - P[i[4]][0]
-                    x2 = self.my_car.x_current - P[i[4]][0]
-                    y1 = i[3] - P[i[4]][1]
-                    y2 = self.my_car.y_current - P[i[4]][1]
+                    # 只计算目标边对应的入口点（避免每物体创建字典与元组）
+                    side = i[4]
+                    if side == 'D':
+                        px = (RECT[0][0]+RECT[1][0])/2; py = RECT[0][1]
+                    elif side == 'L':
+                        px = RECT[0][0]; py = (RECT[0][1]+RECT[1][1])/2
+                    elif side == 'U':
+                        px = (RECT[0][0]+RECT[1][0])/2; py = RECT[1][1]
+                    else:
+                        px = RECT[1][0]; py = (RECT[0][1]+RECT[1][1])/2
+                    x1 = i[2] - px
+                    x2 = self.my_car.x_current - px
+                    y1 = i[3] - py
+                    y2 = self.my_car.y_current - py
                     distance_from_car = math.sqrt(x1 * x1 + y1 * y1) + math.sqrt(x2 * x2 + y2 * y2)
                 dis_score = 9.69*180/self.run_speed
                 score += push_distance + push_angle*push_angle +distance_from_car*dis_score
-                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
+                # 注意：write_str 已禁用，注释掉避免每物体一次无用的字符串分配
+                # self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
                 self.target_score.append(score)
                 self.now_idx+=1
+                # print("[judge][state2] object {} score cost {} ms".format(i[1], time.ticks_diff(time.ticks_ms(), t_target)))
+            # print("[judge][state2] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             return False
         elif self.judge_state == 3:#选择评分最低的物体作为目标
+            t_state = time.ticks_ms()
             new_path = []
             for i in range(len(self.target_score)):
                 if self.target_score[i] == min(self.target_score):
@@ -692,7 +656,10 @@ class objects_planner:
                 if self.path[i]:
                     new_path.append(self.path[i][0])
             self.path = new_path
+            # print("[judge][state3] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
+            # print("[judge][whole] flow total {} ms".format(time.ticks_diff(time.ticks_ms(), self.judge_start_ticks)))
             return True
+        gc.collect()
     def find_target(self):
         if self.objects_score:
             Target = self.objects_score[0]
