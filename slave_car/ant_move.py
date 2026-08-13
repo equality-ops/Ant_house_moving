@@ -647,6 +647,9 @@ class MoveControl:
                 self.if_send_to_main = False
                 self.my_plan.reset_navigate()
                 self.my_plan.reset_navigate_angle()
+                if self.vision_manager.current_servo_object in ['S','E']:
+                    if rec_path[2][1] > 1e-3 and self.next_postion == 'r':self.my_plan.if_inside_sandbag = True
+                    elif rec_path[2][1] < 1e-3 and self.next_postion == 'l':self.my_plan.if_inside_sandbag = True
                 self.my_plan.move_state = MOVE
                 self.current_state = MOVE
                 
