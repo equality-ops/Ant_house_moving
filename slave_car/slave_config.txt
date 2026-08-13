@@ -75,7 +75,7 @@ fixed_high_level_us = 1260
 ###################【速度规划】####################
 min_start_v = 40
 long_v_max = 180
-find_line_v_max = 100
+find_line_v_max = 80
 acc_normal_coef = 0.03
 dec_coef = 0.08
 
@@ -90,15 +90,15 @@ servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.0
-servo_target_y_S = -1.0
+servo_target_y_S = 1.5
 servo_target_y_B = 3.0
 # 普通的视觉伺服阈值
-finish_threshold_x = 1.0
-finish_threshold_y = 1.0
+finish_threshold_x = 1.1
+finish_threshold_y = 1.1
 
 min_rel_speed = 30
 max_rel_speed = 130
-servo_pwmout_limitmax = 90
+servo_pwmout_limitmax = 130
 
 ###################【apriltag矫正】####################
 servo_kp_calibrate_x = 8.0
@@ -113,14 +113,14 @@ apriltag_threshold_x = 1.5
 apriltag_threshold_y = 1.5
 
 ###################【tof距离控制】####################
-dist_kp = 18.0
+dist_kp = 20.0
 dist_kd = 5.0
 target_L = 15.0
 target_R = 15.0
 dist_deadzone = 0.8
 tof_valid_min = 5.0
-tof_valid_max = 40.0
-dist_pwmout_limitmax = 120
+tof_valid_max = 45.0
+dist_pwmout_limitmax = 150
 ###################【环绕控制】####################
 radius_T_U = 17.0
 radius_T_R = 14.0
@@ -137,9 +137,9 @@ radius_B_R = 19.0
 radius_B_L = 19.0
 radius_B_D = 16.5
 
-angle_T = 43
-angle_S = 46
-angle_B = 43
+angle_T = 42
+angle_S = 40
+angle_B = 42
 
 calibrate_waiting_time = 40
 
@@ -163,19 +163,25 @@ if_model = 1
 if_first_turn = 1
 
 # 是否需要障碍物
-if_obstacles = 0
+if_obstacles = 1
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(43, 178, 12, 40), (278, 83, 12, 40)"
-circle = "(215, 190)"
+cube_obstacles = "(200, 48.5, 35, 15), (200, 198, 35, 15)"
+circle = "(55, 100)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
 
 #--------------场地相关---------------------
 SUDOKU_length_x = 30.0
 
+# CENTER_X = 147.6
+# CENTER_Y = 114.0
+
 CENTER_X = 160.0
 CENTER_Y = 120.0
+
+# FIELD_W = 315.0
+# FIELD_H = 235.0
 
 FIELD_W = 320.0
 FIELD_H = 240.0
@@ -184,3 +190,4 @@ FIELD_H = 240.0
 move_v_max_T = 160
 move_v_max_S = 160
 move_v_max_B = 160
+move_S_increment = 5

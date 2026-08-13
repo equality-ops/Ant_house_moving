@@ -410,10 +410,10 @@ class MoveControl:
                 # dy+=self.push_postion[1]*10
                 p0 = [self.my_car.x_current,self.my_car.y_current]
                 p1 = [self.my_car.x_current+dx,self.my_car.y_current+dy]
-                if self.move_dir==0:p2 = [self.my_car.x_current+dx,260]
-                elif self.move_dir==180:p2 = [self.my_car.x_current+dx,-20]
-                elif self.move_dir==-90:p2 = [-20,self.my_car.y_current+dy]
-                else :p2 = [340,self.my_car.y_current+dy]
+                if self.move_dir==0:p2 = [self.my_car.x_current+dx,self.plan_data.FIELD_H+30]
+                elif self.move_dir==180:p2 = [self.my_car.x_current+dx,-30]
+                elif self.move_dir==-90:p2 = [-30,self.my_car.y_current+dy]
+                else :p2 = [self.plan_data.FIELD_W+30,self.my_car.y_current+dy]
                 if abs(dx)<1e-3 or abs(dy)<1e-3:plan_path = [p0,p2]
                 else:plan_path = [p0,p1,p2]
             except:return False
