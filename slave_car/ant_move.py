@@ -742,7 +742,10 @@ class MoveControl:
             if self.if_change_side:
                 self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
             else:
-                self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
+                if self.if_first_navigate:
+                    self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
+                else:
+                    self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
             if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= 15:
                 self.send_navigate_feed_back = True
                 self.my_slave_protocol.send_slave_state("ready")
