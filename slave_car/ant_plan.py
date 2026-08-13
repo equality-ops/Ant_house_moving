@@ -360,7 +360,7 @@ class PathPlan:
 # 导航规划类
 # 导航规划类
 class NavigationPlan:
-    def __init__(self, flash_sys, fan, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol):
+    def __init__(self, flash_sys, fan, plan_data: PlanData, car, state: StateMachine, order_manager, my_uart3, beep, art_protocol, angle_pid):
         # 注入flash系统对象
         self.flash_sys = flash_sys
         # 注入路径规划数据对象
@@ -379,6 +379,8 @@ class NavigationPlan:
         self.my_beep = beep
         # 注入openart串口解析对象
         self.my_art_protocol = art_protocol
+        # 注入角度环PID对象
+        self.angle_pid = angle_pid
 
         # 速度规划相关常量
         self.min_start_v = self.flash_sys.find_value("min_start_v")  # type: int  # 最小制动速度
@@ -693,6 +695,7 @@ class NavigationPlan:
         elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
+            self.angle_pid.choose_high_angle_mode(False)
             # 重置导航标志位
             self.if_finish_navigate = True
             self.stop()
@@ -704,12 +707,16 @@ class NavigationPlan:
 
     # 按照传入路径及进行惯性导航
     # 如果传入的目标转角不为none，则进行转角规划，否则不进行转角规划（用于路径点之间的过渡）
-    def navigate(self, path = None, target_turn_angle = None, if_first_turn = True):
+    def navigate(self, path = None, target_turn_angle = None, if_high_angle = False, if_first_turn = True):
         # 先进行转角调整使得路径规划与导航更稳定
         if self.if_finish_navigate == False:
             if self.if_finish_turn == False:
                 if target_turn_angle is not None:
+                    self.if_high_angle = if_high_angle
                     self.if_first_turn = if_first_turn
+
+                    if if_high_angle and not self.angle_pid.if_high_angle:
+                        self.angle_pid.choose_high_angle_mode(True)
 
                     self.target_v = 0
                     self.turn_angle_target = target_turn_angle
@@ -722,6 +729,10 @@ class NavigationPlan:
                         diff = 360.0 - diff
 
                     if diff <= 1.5 or if_first_turn == False:
+                        if if_first_turn:
+                            # 换回小角度的角度环模式，帮助小车稳定完成转角调整
+                            self.angle_pid.choose_high_angle_mode(False)
+
                         # 若不传入路径则当前导航已完成
                         if path is None:
                             self.if_finish_navigate = True
@@ -753,8 +764,12 @@ class NavigationPlan:
         self.target_v = 0.0
         self.if_finish_turn = False
         self.if_finish_navigate = False
+        self.finished_dist = 0.0
         self.aimed_point_index = 0
+        self.dec_counter = 0
+        self.dec_start_v = 0.0
         self.path.clear()
+        self.angle_pid.choose_high_angle_mode(False)
         self.if_push_T = False
         self.if_inside_sandbag = False
 
