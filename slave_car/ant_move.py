@@ -438,7 +438,6 @@ class MoveControl:
         else:
             dicc = {'D':0,'L':1,'U':2,'R':3,}
             if self.if_first_navigate:
-                self.if_first_navigate = False
                 if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
                     sla_p = [self.surrounding_points['RD']]
                     angle0 = angle_r0
@@ -621,24 +620,18 @@ class MoveControl:
     def state_transition(self):
         global counter
         if self.current_state == NAVIGATE:
-            counter += 1
             if self.vision_manager.if_send_order == False:
                 self.my_order_manager.mode_target()
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
-            # 延时500ms
-            if counter >= 0:
-                # 重置计数器
-                counter = 0
-                #self.my_plan.reset_navigate()
-                #self.my_plan.reset_navigate_angle()
-                #self.reset_orbit() # 重置环绕相关变量
-                self.plan_path = []
-                self.vision_manager.if_finish_servo = False
-                self.vision_manager.if_lost_object = True
-                self.current_state = SCAN
-                return 
+            if self.if_first_navigate:
+                self.if_first_navigate = False
+            self.plan_path = []
+            self.vision_manager.if_finish_servo = False
+            self.vision_manager.if_lost_object = True
+            self.current_state = SCAN
+            return 
         elif self.current_state == SCAN:
             if self.my_plan.if_finish_navigate:
                 self.current_state = SERVO
