@@ -331,10 +331,10 @@ class MoveControl:
                         (point[1]-self.my_car.y_current < 0 and self.next_postion == 'l'):
                         self.run_first = False
                         self.get_slave_navigate_state = False
-                elif now_side == 'D':
+                elif now_side == 'R':
                     if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'l') or\
                         (point[1]-self.my_car.y_current < 0 and self.next_postion == 'r'):
-                        self.run_first = False          
+                        self.run_first = False
                         self.get_slave_navigate_state = False  
             if self.next_postion == 'r':
                 m_PAth = [self.surrounding_points['RD']]
