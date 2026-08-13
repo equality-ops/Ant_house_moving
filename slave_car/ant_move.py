@@ -240,6 +240,7 @@ class MoveControl:
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
+        self.start_scan_range = self.flash_sys.find_value("start_scan_range")
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
@@ -749,7 +750,7 @@ class MoveControl:
             if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= 15:
                 self.send_navigate_feed_back = True
                 self.my_slave_protocol.send_slave_state("ready")
-            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
+            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= self.start_scan_range:
                 self.state_transition()
                 return
         elif self.current_state == ORBIT:
