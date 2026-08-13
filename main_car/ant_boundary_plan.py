@@ -588,6 +588,7 @@ class objects_planner:
                     dx_car = i[2] - self.my_car.x_current
                     dy_car = i[3] - self.my_car.y_current
                     distance_from_car = math.sqrt(dx_car * dx_car + dy_car * dy_car)
+
                 else:
                     RECT = i[5]
                     if not RECT:#使用大矩阵
