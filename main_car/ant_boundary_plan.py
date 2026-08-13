@@ -331,7 +331,7 @@ class objects_planner:
         self.last_sandbag_idx = -1
         self.now_idx = 0
         self.judge_start_ticks = 0
-        self.run_speed = self.flash_sys.find_value("long_v_max")
+        self.run_speed = self.flash_sys.find_value("long_v_max") * 0.656467 * 0.72 # 0.656467为速度转换系数，把long_v_max转换为理论的厘米每秒速度，0.72转换为实际
         self.nine_grid = [['','',''],
                           ['','',''],
                           ['','',''],]
@@ -635,10 +635,9 @@ class objects_planner:
                     y1 = i[3] - py
                     y2 = self.my_car.y_current - py
                     distance_from_car = math.sqrt(x1 * x1 + y1 * y1) + math.sqrt(x2 * x2 + y2 * y2)
-                dis_score = 9.69*180/self.run_speed
+                dis_score = 1250 / self.run_speed # 1500为行进途中每秒对应的分数
                 score += push_distance + push_angle*push_angle +distance_from_car*dis_score
-                # 注意：write_str 已禁用，注释掉避免每物体一次无用的字符串分配
-                # self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
+                self.my_write.write_str("object {} push_dis:{} angle:{} dis:{}\n".format(i[1], push_distance, push_angle*push_angle, distance_from_car*dis_score))
                 self.target_score.append(score)
                 self.now_idx+=1
                 # print("[judge][state2] object {} score cost {} ms".format(i[1], time.ticks_diff(time.ticks_ms(), t_target)))
