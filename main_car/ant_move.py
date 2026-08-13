@@ -181,7 +181,7 @@ class MoveControl:
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         # print("[mem] ready_move free:{} alloc:{}".format(gc.mem_free(), gc.mem_alloc()))
-        self.slave_message_delay = 0
+        self.slave_message_delay = 15
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
         self.now_object_pt = point[:]
