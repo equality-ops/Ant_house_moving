@@ -470,19 +470,20 @@ class MoveControl:
                         car_postion += 90
                 else:
                     if self.next_postion == 'r':
+                        sla_p = [self.surrounding_points['RD']]
+                        angle0 = angle_r0
+                        angle = angle_r
+                        self.next_postion = 'l'
+                        self.my_tof.ready_tof('left',target_turn)
+                        car_postion -= 90    
+                    else:
                         sla_p = [self.surrounding_points['LD']]
                         angle0 = angle_l0
                         angle = angle_l
                         self.next_postion = 'r'
                         self.my_tof.ready_tof('right',target_turn)
                         car_postion += 90
-                    else:
-                        sla_p = [self.surrounding_points['RD']]
-                        angle0 = angle_r0
-                        angle = angle_r
-                        self.next_postion = 'l'
-                        self.my_tof.ready_tof('left',target_turn)
-                        car_postion -= 90      
+                          
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7

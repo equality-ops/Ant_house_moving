@@ -262,15 +262,16 @@ class MoveControl:
                     if self.next_postion == 'l':
                         self.run_first = False
                         self.get_slave_navigate_state = False
+                        m_PAth = [self.surrounding_points['LD']]
+                        ANGle = [angle_l0,target_turn_deg+Num,angle_l]
+                        car_postion += 90
+                        self.next_postion = 'r'
+                    else:
                         m_PAth = [self.surrounding_points['RD']]
                         ANGle = [angle_r0,target_turn_deg+Num,angle_r]
                         car_postion -= 90
                         self.next_postion = 'l'
-                    else:
-                        m_PAth = [self.surrounding_points['LD']]
-                        ANGle = [angle_l0,target_turn_deg+Num,angle_l]
-                        car_postion += 90
-                        self.next_postion = 'r'          
+                        
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7
