@@ -232,34 +232,45 @@ class MoveControl:
         M_PAth = []
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
-
         if self.if_change_side:
-            if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
-                if self.next_postion == 'r':
-                    self.run_first = False
-                    self.get_slave_navigate_state = False
-                    m_PAth = [self.surrounding_points['RD']]
-                    ANGle = [angle_r0,target_turn_deg+Num,angle_r]
-                    car_postion -= 90
-                    self.next_postion = 'l'
-                else:
+            if self.if_first_navigate:
+                if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
                     m_PAth = [self.surrounding_points['LD']]
                     ANGle = [angle_l0,target_turn_deg+Num,angle_l]
                     car_postion += 90
                     self.next_postion = 'r'
-            else:
-                if self.next_postion == 'l':
-                    self.run_first = False
-                    self.get_slave_navigate_state = False
+                else:
                     m_PAth = [self.surrounding_points['RD']]
                     ANGle = [angle_r0,target_turn_deg+Num,angle_r]
                     car_postion -= 90
                     self.next_postion = 'l'
+            else:
+                if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
+                    if self.next_postion == 'r':
+                        self.run_first = False
+                        self.get_slave_navigate_state = False
+                        m_PAth = [self.surrounding_points['RD']]
+                        ANGle = [angle_r0,target_turn_deg+Num,angle_r]
+                        car_postion -= 90
+                        self.next_postion = 'l'
+                    else:
+                        m_PAth = [self.surrounding_points['LD']]
+                        ANGle = [angle_l0,target_turn_deg+Num,angle_l]
+                        car_postion += 90
+                        self.next_postion = 'r'
                 else:
-                    m_PAth = [self.surrounding_points['LD']]
-                    ANGle = [angle_l0,target_turn_deg+Num,angle_l]
-                    car_postion += 90
-                    self.next_postion = 'r'          
+                    if self.next_postion == 'l':
+                        self.run_first = False
+                        self.get_slave_navigate_state = False
+                        m_PAth = [self.surrounding_points['RD']]
+                        ANGle = [angle_r0,target_turn_deg+Num,angle_r]
+                        car_postion -= 90
+                        self.next_postion = 'l'
+                    else:
+                        m_PAth = [self.surrounding_points['LD']]
+                        ANGle = [angle_l0,target_turn_deg+Num,angle_l]
+                        car_postion += 90
+                        self.next_postion = 'r'          
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7
@@ -304,26 +315,27 @@ class MoveControl:
                 self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
         else:
-            if now_side == 'D':
-                if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'l') or\
-                   (point[0]-self.my_car.x_current < 0 and self.next_postion == 'r'):
-                    self.run_first = False
-                    self.get_slave_navigate_state = False
-            elif now_side == 'U':
-                if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'r') or\
-                    (point[0]-self.my_car.x_current < 0 and self.next_postion == 'l'):
-                    self.run_first = False
-                    self.get_slave_navigate_state = False
-            elif now_side == 'L':
-                if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'r') or\
-                    (point[1]-self.my_car.y_current < 0 and self.next_postion == 'l'):
-                    self.run_first = False
-                    self.get_slave_navigate_state = False
-            elif now_side == 'D':
-                if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'l') or\
-                    (point[1]-self.my_car.y_current < 0 and self.next_postion == 'r'):
-                    self.run_first = False          
-                    self.get_slave_navigate_state = False  
+            if not self.if_first_navigate:
+                if now_side == 'D':
+                    if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'l') or\
+                    (point[0]-self.my_car.x_current < 0 and self.next_postion == 'r'):
+                        self.run_first = False
+                        self.get_slave_navigate_state = False
+                elif now_side == 'U':
+                    if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'r') or\
+                        (point[0]-self.my_car.x_current < 0 and self.next_postion == 'l'):
+                        self.run_first = False
+                        self.get_slave_navigate_state = False
+                elif now_side == 'L':
+                    if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'r') or\
+                        (point[1]-self.my_car.y_current < 0 and self.next_postion == 'l'):
+                        self.run_first = False
+                        self.get_slave_navigate_state = False
+                elif now_side == 'D':
+                    if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'l') or\
+                        (point[1]-self.my_car.y_current < 0 and self.next_postion == 'r'):
+                        self.run_first = False          
+                        self.get_slave_navigate_state = False  
             if self.next_postion == 'r':
                 m_PAth = [self.surrounding_points['RD']]
                 ANGle = [angle_r0,target_turn_deg,angle_r]
