@@ -233,6 +233,7 @@ class MoveControl:
         self.now_object_pt = []
         self.clamp_distance = 3
         self.next_postion = 'l'
+        self.send_navigate_feed_back = False
         self.push_postion = [1,0]
         self.plan_path = []
         self.angle_T = self.flash_sys.find_value("angle_T")
@@ -259,7 +260,7 @@ class MoveControl:
             'LDD': [],
             'RDD': [],
         }
-
+        self.if_change_side = True
         gc.collect()
 
     def reset_orbit(self):
@@ -323,6 +324,7 @@ class MoveControl:
             else:return 180.0  # 车尾后方
 
     def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
+        self.send_navigate_feed_back = False
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         RECT = []
         center_x = self.plan_data.center_x
@@ -367,6 +369,8 @@ class MoveControl:
         elif now_side == 'L':current_ref_yaw_deg = 90.0
         elif now_side == 'R':current_ref_yaw_deg = -90.0
         else: current_ref_yaw_deg = 180
+        if now_side != target_side:self.if_change_side = True
+        else:self.if_change_side = False
         # 初始参考偏航角就是当前小车所在方向（度数）
         turn_angle = 0.0
         turn_angle = self.judge_next_turn(sp,target_ref_yaw_deg)
@@ -432,20 +436,36 @@ class MoveControl:
             sla_p = self.my_path.ready_path + sla_p
         else:
             dicc = {'D':0,'L':1,'U':2,'R':3,}
-            if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到右侧
-                sla_p = [self.surrounding_points['RD']]
-                angle0 = angle_r0
-                angle = angle_r
-                self.next_postion = 'l'
-                self.my_tof.ready_tof('left',target_turn)
-                car_postion -= 90                
+            if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
+                if self.next_postion == 'r':
+                    sla_p = [self.surrounding_points['RD']]
+                    angle0 = angle_r0
+                    angle = angle_r
+                    self.next_postion = 'l'
+                    self.my_tof.ready_tof('left',target_turn)
+                    car_postion -= 90      
+                else:
+                    sla_p = [self.surrounding_points['LD']]
+                    angle0 = angle_l0
+                    angle = angle_l
+                    self.next_postion = 'r'
+                    self.my_tof.ready_tof('right',target_turn)
+                    car_postion += 90
             else:
-                sla_p = [self.surrounding_points['LD']]
-                angle0 = angle_l0
-                angle = angle_l
-                self.next_postion = 'r'
-                self.my_tof.ready_tof('right',target_turn)
-                car_postion += 90
+                if self.next_postion == 'r':
+                    sla_p = [self.surrounding_points['LD']]
+                    angle0 = angle_l0
+                    angle = angle_l
+                    self.next_postion = 'r'
+                    self.my_tof.ready_tof('right',target_turn)
+                    car_postion += 90
+                else:
+                    sla_p = [self.surrounding_points['RD']]
+                    angle0 = angle_r0
+                    angle = angle_r
+                    self.next_postion = 'l'
+                    self.my_tof.ready_tof('left',target_turn)
+                    car_postion -= 90      
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7
@@ -701,7 +721,13 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0], if_first_turn = False)
+            if self.if_change_side:
+                self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
+            else:
+                self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
+            if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= 15:
+                self.send_navigate_feed_back = True
+                self.my_slave_protocol.send_slave_state("ready")
             if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
                 self.state_transition()
                 return

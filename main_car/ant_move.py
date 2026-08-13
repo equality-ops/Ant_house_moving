@@ -81,6 +81,8 @@ class MoveControl:
         self.push_postion = [0,0] #用于判断推动时所需的xy补偿
         self.plan_path = []
         self.send_point = []
+        self.run_first = True
+        self.get_slave_navigate_state = False
         self.saved_best_path = []
         self.slave_massage ={
             'path':[],
@@ -229,21 +231,35 @@ class MoveControl:
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
         M_PAth = []
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
+        self.run_first = True
+
         if self.if_change_side:
             if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
                 if self.next_postion == 'r':
-                    self.slave_message_delay = 15
-                m_PAth = [self.surrounding_points['LD']]
-                ANGle = [angle_l0,target_turn_deg+Num,angle_l]
-                car_postion += 90
-                self.next_postion = 'r'
+                    self.run_first = False
+                    self.get_slave_navigate_state = False
+                    m_PAth = [self.surrounding_points['RD']]
+                    ANGle = [angle_r0,target_turn_deg+Num,angle_r]
+                    car_postion -= 90
+                    self.next_postion = 'l'
+                else:
+                    m_PAth = [self.surrounding_points['LD']]
+                    ANGle = [angle_l0,target_turn_deg+Num,angle_l]
+                    car_postion += 90
+                    self.next_postion = 'r'
             else:
                 if self.next_postion == 'l':
-                    self.slave_message_delay = 15
-                m_PAth = [self.surrounding_points['RD']]
-                ANGle = [angle_r0,target_turn_deg+Num,angle_r]
-                car_postion -= 90
-                self.next_postion = 'l'
+                    self.run_first = False
+                    self.get_slave_navigate_state = False
+                    m_PAth = [self.surrounding_points['RD']]
+                    ANGle = [angle_r0,target_turn_deg+Num,angle_r]
+                    car_postion -= 90
+                    self.next_postion = 'l'
+                else:
+                    m_PAth = [self.surrounding_points['LD']]
+                    ANGle = [angle_l0,target_turn_deg+Num,angle_l]
+                    car_postion += 90
+                    self.next_postion = 'r'          
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7
@@ -288,6 +304,26 @@ class MoveControl:
                 self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
         else:
+            if now_side == 'D':
+                if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'l') or\
+                   (point[0]-self.my_car.x_current < 0 and self.next_postion == 'r'):
+                    self.run_first = False
+                    self.get_slave_navigate_state = False
+            elif now_side == 'U':
+                if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'r') or\
+                    (point[0]-self.my_car.x_current < 0 and self.next_postion == 'l'):
+                    self.run_first = False
+                    self.get_slave_navigate_state = False
+            elif now_side == 'L':
+                if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'r') or\
+                    (point[1]-self.my_car.y_current < 0 and self.next_postion == 'l'):
+                    self.run_first = False
+                    self.get_slave_navigate_state = False
+            elif now_side == 'D':
+                if (point[1]-self.my_car.y_current > 0 and self.next_postion == 'l') or\
+                    (point[1]-self.my_car.y_current < 0 and self.next_postion == 'r'):
+                    self.run_first = False          
+                    self.get_slave_navigate_state = False  
             if self.next_postion == 'r':
                 m_PAth = [self.surrounding_points['RD']]
                 ANGle = [angle_r0,target_turn_deg,angle_r]
@@ -557,24 +593,35 @@ class MoveControl:
             return
         if self.current_state == NAVIGATE:
             NAV_T=self.navigate_buffer
-            if self.if_first_navigate:
-                self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
+            if not self.run_first and not self.get_slave_navigate_state:
+                if self.if_send_navigate_command == False:self.if_send_navigate_command = True
+                if self.if_send_orbit_command == False:
+                    self.if_send_orbit_command = True
+                    self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
+                if self.my_main_protocol.get_slave_state() == "ready":
+                    self.get_slave_navigate_state = True
             else:
-                if self.if_change_side:
-                    self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
+                if self.if_first_navigate:
+                    self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0])
                 else:
-                    self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
-            if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*10
-            else:slave_message_delay = self.slave_message_delay
-            if self.if_send_navigate_command == False:
-                self.if_send_navigate_command = True
-                #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
-            elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= 15 + slave_message_delay:
-                self.if_send_orbit_command = True
-                self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
-            if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
-                self.state_transition()
-                return
+                    if self.if_change_side:
+                        self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
+                    else:
+                        self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
+                if self.run_first:
+                    if self.if_first_navigate:
+                        if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
+                        else:slave_message_delay = self.slave_message_delay
+                    else:slave_message_delay = self.slave_message_delay
+                    if self.if_send_navigate_command == False:
+                        self.if_send_navigate_command = True
+                        #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
+                    elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= slave_message_delay:
+                        self.if_send_orbit_command = True
+                        self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
+                if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
+                    self.state_transition()
+                    return
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
             self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
