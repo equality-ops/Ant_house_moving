@@ -625,6 +625,8 @@ class MoveControl:
                 self.my_art_protocol.send_object_kind(self.vision_manager.current_servo_object)
                 self.my_art_protocol.clear_uart_buffer()
                 self.vision_manager.if_send_order = True
+            if not self.send_navigate_feed_back:
+                self.my_slave_protocol.send_slave_state("ready")
             if self.if_first_navigate:
                 self.if_first_navigate = False
             self.plan_path = []
