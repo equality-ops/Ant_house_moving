@@ -39,7 +39,7 @@ pwmout_limitmax = 9000
 angle_normal_kp = 20.0
 angle_normal_kd = 0.0
 # 角速度负反馈系数（gkd应为负）
-gkd = -0.1
+gkd = -0.08
 high_angle_pwmout_limitmax = 450
 low_angle_pwmout_limitmax = 360
 # A设置为B的2倍左右
@@ -71,7 +71,7 @@ error_x_B = 2.0
 
 ###################【风扇控制】####################
 if_fan = 1
-fixed_high_level_us = 1260
+fixed_high_level_us = 1300
 
 ###################【速度规划】####################
 min_start_v = 40
@@ -166,10 +166,10 @@ if_write_log = 1
 
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(200, 48.5, 35, 15), (200, 198, 35, 15)"
+cube_obstacles = "(200, 48.5, 25, 15), (200, 198, 25, 15)"
 circle = "(55, 100)"
 #惯导避障膨胀半径
-SAFE_MARGIN = 16.0
+SAFE_MARGIN = 20.0
 #推动避障膨胀半径
 MOVE_SAFE_MARGIN = 15.0
 #单侧膨胀长度
@@ -194,6 +194,8 @@ if_model = 1
 if_model_detect = 1
 #扫描帧数
 scan_num = 6
+# 开始扫描的距离阈值
+start_scan_range = 10.0
 
 #--------------场地相关---------------------
 # CENTER_X = 147.6
@@ -212,8 +214,11 @@ FIELD_H = 240.0
 SUDOKU_length_x = 30.0
 SUDOKU_width_y = 30.0
 
+# 矩形缩放比例（根据九宫格长度）
+rect_zoom_rate = 1.8
+
 # 不同物体的搬运速度
 move_v_max_T = 160
-move_v_max_S = 160
+move_v_max_S = 140
 move_v_max_B = 160
 move_S_increment = 5
