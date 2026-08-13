@@ -544,13 +544,13 @@ class MoveControl:
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
-                pl=[self.my_car.x_current+dx1,self.plan_data.FIELD_H+20]
+                pl=[self.my_car.x_current+dx1,self.plan_data.FIELD_H+30]
             elif path[1] == 180:
-                pl=[self.my_car.x_current+dx1,-20]
+                pl=[self.my_car.x_current+dx1,-30]
             elif path[1] == 90:
-                pl=[self.plan_data.FIELD_W+20,self.my_car.y_current+dy1]
+                pl=[self.plan_data.FIELD_W+30,self.my_car.y_current+dy1]
             elif path[1] == -90:
-                pl=[-20,self.my_car.y_current+dy1]
+                pl=[-30,self.my_car.y_current+dy1]
             now_clamp = self.clamp_distance
             p2 = [pl[0] + self.push_postion[0] * now_clamp,
                   pl[1] + self.push_postion[1] * now_clamp,]
@@ -652,7 +652,7 @@ class MoveControl:
                     elif rec_path[2][1] < 1e-3 and self.next_postion == 'l':self.my_plan.if_inside_sandbag = True
                 self.my_plan.move_state = MOVE
                 self.current_state = MOVE
-                
+
                 # 如果当前伺服物体存在，则设置 my_plan 的 if_push_T 标志为 True
                 if self.vision_manager.current_servo_object == 'T':
                     self.my_plan.if_push_T = True

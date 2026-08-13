@@ -141,7 +141,7 @@ radius_B_L = 19.0
 radius_B_D = 16.0
 
 angle_T = 42
-angle_S = 35
+angle_S = 40
 angle_B = 42
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
@@ -166,7 +166,7 @@ if_write_log = 1
 
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(200, 48.5, 25, 12), (200, 198, 25, 12)"
+cube_obstacles = "(200, 48.5, 35, 15), (200, 198, 35, 15)"
 circle = "(55, 100)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 16.0
@@ -216,3 +216,4 @@ SUDOKU_width_y = 30.0
 move_v_max_T = 160
 move_v_max_S = 160
 move_v_max_B = 160
+move_S_increment = 5
