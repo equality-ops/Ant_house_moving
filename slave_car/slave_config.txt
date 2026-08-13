@@ -113,14 +113,14 @@ apriltag_threshold_x = 1.5
 apriltag_threshold_y = 1.5
 
 ###################【tof距离控制】####################
-dist_kp = 22.0
+dist_kp = 18.0
 dist_kd = 5.0
 target_L = 15.0
 target_R = 15.0
-dist_deadzone = 1.0
+dist_deadzone = 0.5
 tof_valid_min = 5.0
 tof_valid_max = 45.0
-dist_pwmout_limitmax = 160
+dist_pwmout_limitmax = 140
 ###################【环绕控制】####################
 radius_T_U = 17.0
 radius_T_R = 14.0
@@ -138,7 +138,7 @@ radius_B_L = 19.0
 radius_B_D = 16.5
 
 angle_T = 42
-angle_S = 40
+angle_S = 44
 angle_B = 42
 
 calibrate_waiting_time = 40

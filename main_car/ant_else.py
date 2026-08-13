@@ -618,6 +618,7 @@ class LinkProtocol:
     # 向从车发送开始信�?
     def send_start(self):
         self.my_uart3.write('S'.encode('utf-8'))
+        
     def get_slave_state(self):
         """
         解析从车状态包 (非阻�?
@@ -628,19 +629,14 @@ class LinkProtocol:
             try:
                 byte = self.my_uart3.read(1)[0]
                 if byte == ord('R'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲�?
                     return "ready"
                 elif byte == ord('L'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲�?
                     return "lost"
                 elif byte == ord('F'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲�?
                     return "finish"
                 elif byte == ord('G'):
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲�?
                     return "get"
                 else:
-                    byte = self.my_uart3.read(self.my_uart3.any()) # 清空缓冲�?
                     return None
             except:
                 return None

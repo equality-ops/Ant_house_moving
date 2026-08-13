@@ -141,7 +141,7 @@ radius_B_L = 19.0
 radius_B_D = 16.0
 
 angle_T = 42
-angle_S = 40
+angle_S = 44
 angle_B = 42
 
 rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
