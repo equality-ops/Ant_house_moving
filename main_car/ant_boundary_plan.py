@@ -9,11 +9,14 @@ class BoundaryPathPlanner:
         self.flash_sys = flash_sys
         self.sigal_swell_size = self.flash_sys.find_value("sigal_swell_size")#单向膨胀
         self.bothway_swell_size = self.flash_sys.find_value("bothway_swell_size")#双向膨胀
-        self.SAFE_MARGIN = self.flash_sys.find_value("MOVE_SAFE_MARGIN")#四周膨胀半径
+        self.MOVE_SAFE_MARGIN = self.flash_sys.find_value("MOVE_SAFE_MARGIN")#四周膨胀半径
+        self.SAFE_MARGIN = self.flash_sys.find_value("SAFE_MARGIN")#四周膨胀半径
         self.near_area = self.flash_sys.find_value("NEAR_AREA")
         self.avoid_width = self.flash_sys.find_value("AVOID_WIDTH")
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
+        self.rectangles = []
+        self.circle = []
         self.ready_path = []
         self.judge_start_ticks = 0
         self.xx = 0
@@ -71,9 +74,9 @@ class BoundaryPathPlanner:
         if swell_angle == 1 or swell_angle== -1:self.swell_size = self.bothway_swell_size
         else:self.swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
-        safe_margin = self.SAFE_MARGIN
+        safe_margin = self.MOVE_SAFE_MARGIN
         circles = self.Data.circle
-        raw_rects = self.Data.rectangles
+        raw_rects = self.Data.cube
         objects = objects_ if objects_ else []
         rects = []
         self.direction = direction
@@ -94,20 +97,26 @@ class BoundaryPathPlanner:
                 half_h = float(obj[3]) / 2.0 + safe_margin
                 new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
                 if new:rects.append(new)
-        for circle in circles:
-            if len(circle) >= 2:
-                cx, cy = float(circle[0]), float(circle[1])
-                new = self.swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle)
-                if new:rects.append(new)
+        if len(self.circle) == 0:
+            for circle in circles:
+                if len(circle) >= 2:
+                    cx, cy = float(circle[0]), float(circle[1])
+                    new = self.swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle)
+                    if new:rects.append(new)
+        rects+=self.circle
         rect_count = len(raw_rects)
-        for rect_idx in range(rect_count):
-            if rect_idx == rect_count - 1:
-                continue
-            rect = raw_rects[rect_idx]
-            if len(rect) >= 4:
-                new = self.swell_rect(rect,swell_angle)
-                if new:rects.append(new)
-
+        if rect_count>0 and len(self.rectangles) == 0:
+            for rect_idx in range(rect_count):
+                if rect_idx == rect_count - 1:
+                    continue
+                rect = raw_rects[rect_idx]
+                if len(rect) >= 4:
+                    cx, cy = float(rect[0]), float(rect[1])
+                    half_w = float(rect[2]) / 2.0 + safe_margin
+                    half_h = float(rect[3]) / 2.0 + safe_margin
+                    new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
+                    if new:self.rectangles.append(new)
+        rects+=self.rectangles
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
