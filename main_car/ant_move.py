@@ -49,6 +49,7 @@ class MoveControl:
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
+        self.start_scan_range = self.flash_sys.find_value("start_scan_range")
         self.surrounding_points = {
             'LU': [],
             'LD': [],
@@ -632,7 +633,7 @@ class MoveControl:
                     elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= slave_message_delay:
                         self.if_send_orbit_command = True
                         self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
-                if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= 25.0:
+                if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= self.start_scan_range:
                     self.state_transition()
                     return
         elif self.current_state == SCAN:
