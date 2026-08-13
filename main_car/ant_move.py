@@ -503,6 +503,10 @@ class MoveControl:
                         self.my_plan.move_state = MOVE
                         self.current_state = MOVE
                         self.vision_manager.if_finish_servo = False
+
+                        # 如果当前伺服物体存在，则设置 my_plan 的 if_push_T 标志为 True
+                        if self.vision_manager.current_servo_object == 'T':
+                            self.my_plan.if_push_T = True
                 else:
                     if order == "finish":
                         self.my_plan.fitting_path_ = []

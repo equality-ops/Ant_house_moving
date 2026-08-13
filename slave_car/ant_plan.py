@@ -391,7 +391,7 @@ class NavigationPlan:
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
         self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")# type: int  # 搬运沙包时的最大速度
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
-
+        self.move_S_increment = self.flash_sys.find_value("move_S_increment")# type: int  # 搬运沙包时的速度增量
         self.waypoint_v = []  # type: list  # 目标速度列表
 
         # 路径规划相关变量
@@ -427,6 +427,8 @@ class NavigationPlan:
         self.if_finish_navigate = False     # type: bool  # 判断是否完成导航标志位
         self.if_near_line = False           # type: bool  # 判断是否接近边界标志位
         self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
+        self.if_push_T = False              # type: bool  # 判断是否搬运网球标志位
+        self.if_inside_sandbag = False      # type: bool  # 判断是否搬运沙包标志位
         self.move_state = NAVIGATE
         
         self.fit_target_yaw = 0.0
@@ -579,6 +581,16 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+
+            move_v_max = self.move_v_max
+        
+            if self.if_push_T and self.aimed_point_index >= 1:
+                move_v_max *= 1.2
+            elif self.if_inside_sandbag and self.aimed_point_index == 0 and len(self.path) > 2:
+                move_v_max = self.move_v_max_S + self.move_S_increment
+
+            v_target = self.find_line_v_max + (move_v_max - self.find_line_v_max) * ratio
+
             return v_target
             """
             # 在搬运模式下为保证加速阶段一致设置恒定速度
@@ -743,6 +755,8 @@ class NavigationPlan:
         self.if_finish_navigate = False
         self.aimed_point_index = 0
         self.path.clear()
+        self.if_push_T = False
+        self.if_inside_sandbag = False
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):
