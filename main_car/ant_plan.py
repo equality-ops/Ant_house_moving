@@ -398,7 +398,7 @@ class NavigationPlan:
         self.move_v_max_T = self.flash_sys.find_value("move_v_max_T")# type: int  # 搬运网球时的最大速度
         self.move_v_max_S = self.flash_sys.find_value("move_v_max_S")# type: int  # 搬运沙包时的最大速度
         self.move_v_max_B = self.flash_sys.find_value("move_v_max_B")# type: int  # 搬运玩具熊时的最大速度  
-
+        self.move_S_increment = self.flash_sys.find_value("move_S_increment")# type: int  # 搬运沙包时的速度增量
         self.waypoint_v = []  # type: list  # 目标速度列表
 
         self.dec_counter = 0  # type: int  # 二次确认时的减速计数器
@@ -442,6 +442,8 @@ class NavigationPlan:
         self.if_second_verify = False       # type: bool  # 判断是否进行第二次验证视觉
         self.if_high_angle = False          # type: bool  # 判断是否进行大角度转向
         self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
+        self.if_push_T = False              # type: bool  # 判断是否搬运网球标志位
+        self.if_inside_sandbag = False      # type: bool  # 判断在沙包内侧
         self.move_state = NAVIGATE
 
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
@@ -594,6 +596,16 @@ class NavigationPlan:
             ratio = max(0.0, min(1.0, ratio))
             ratio = ratio * ratio * ratio
             v_target = self.find_line_v_max + (self.move_v_max - self.find_line_v_max) * ratio
+
+            move_v_max = self.move_v_max
+        
+            if self.if_push_T and self.aimed_point_index >= 1:
+                move_v_max *= 1.2
+            elif self.if_inside_sandbag and self.aimed_point_index == 0 and len(self.path) > 2:
+                move_v_max = self.move_v_max_S + self.move_S_increment
+
+            v_target = self.find_line_v_max + (move_v_max - self.find_line_v_max) * ratio
+
             return v_target
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             '''if self.keep_x_or_y_v == True:
@@ -769,6 +781,8 @@ class NavigationPlan:
         self.dec_start_v = 0.0
         self.path.clear()
         self.angle_pid.choose_high_angle_mode(False)
+        self.if_push_T = False
+        self.if_inside_sandbag = False
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):
