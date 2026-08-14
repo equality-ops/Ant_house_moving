@@ -194,7 +194,6 @@ my_obj_plan = ant_boundary_plan.objects_planner(my_flash_sys,my_write_system,pla
 # 任务及类
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
-
 # 测试打印变量解析是否成功
 """
 print("fixed+point:", plan_data.fixed_point)
@@ -426,10 +425,10 @@ def test_vision_servo():
             my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()
+
 # 任务机执行函数
 def task_machine():
     my_task.run()
-
 
 """ 定时器类 """
 # 定时器1中断回调函数
@@ -478,14 +477,14 @@ def time_pit3_handler(timer) -> None:
     """
     # 全向定位测试程序
     if my_state.state == READY_NAVIGATE:
-        # my_path.plan_path(245.0, 56.0)
-        # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
+        my_path.plan_path(220.0, 230.0)
+        print(f"ready_path: {my_path.ready_path}\n")
         my_state.state = NAVIGATE
         time__ = time.ticks_ms()
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = [[100.0, 0.0]], target_turn_angle = 0.0)
+        my_plan.navigate(path = my_path.ready_path, target_turn_angle = 0.0)
         # my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
@@ -502,14 +501,13 @@ def time_pit3_handler(timer) -> None:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
-
     """
     if my_state.state == READY_NAVIGATE:
-        # my_path.plan_path(245.0, 56.0)
-        # my_uart3.write(f"ready_path: {my_path.ready_path}\n")
-        my_state.state = MOVE
+        my_path.plan_path(220.0, 220.0)
+        my_uart3.write(f"ready_path: {my_path.ready_path}\n")
+        # my_state.state = MOVE
         my_plan.keep_x_or_y_v = False
-        my_moving.current_state = MOVE
+        # my_moving.current_state = MOVE
         my_plan.move_state = MOVE
         my_plan.move_v_max = 160
         my_car.x_current = 0.0
@@ -531,7 +529,6 @@ def time_pit3_handler(timer) -> None:
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
-
     # 视觉伺服测试程序
     #test_vision_servo()
 
@@ -613,7 +610,7 @@ voltage_detect(11.2)
 pit2_start()
 
 while True:
-    if my_state.state == READY_NAVIGATE:
+    if my_state.state == READY_NAVIGATE and my_task.if_start_task:
         if my_task.if_transitioning:
             my_task.enter()
         if not my_task.if_end_first_scan:
@@ -646,7 +643,6 @@ while True:
                         my_task.my_vision.current_servo_object = my_task.current_object
                         rm = my_task.my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
-                        #self.my_uart.write(f"rm:{rm},nav_n:{len(my_task.my_moving.navigate_buffer)}\n")
                         if rm:
                             my_task.my_moving.saved_best_path =my_task.object_plan.best_path
                             num_compensation = my_task.data.current_index * my_task.num_clamp_factor
@@ -690,5 +686,5 @@ while True:
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态
-    
+
     gc.collect()

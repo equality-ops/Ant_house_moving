@@ -278,16 +278,16 @@ class MoveControl:
                 therhold = 7
                 if target_side =='D':
                     self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
-                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
+                    # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
                 elif target_side =='U':
                     self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
-                    self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
+                    # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
                 elif target_side =='L':
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1])   
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1]) 
+                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1]) 
                 else:
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
+                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
                 p_2 = RECT[0][:]
@@ -313,7 +313,7 @@ class MoveControl:
                 else:
                     p_2[0] = big_rect[1][0]
                 self.my_path.plan_path(p_2[0],p_2[1])   
-                self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
+                # self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
                 self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
         else:
@@ -373,6 +373,7 @@ class MoveControl:
             elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True)   
             else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True)
             M_PAth = self.my_path.ready_path + m_PAth
+        # print(f"if_change_side:{self.if_change_side}, RECT: {RECT}, if_first_navigate: {self.if_first_navigate},  ready_path: {self.my_path.ready_path}")
         car_postion = 180 - (180 - car_postion) % 360
         # Offset toward the other car rather than away from the object pair.
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
@@ -423,10 +424,11 @@ class MoveControl:
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
         # 经验修正值
-        correction = -3.0
+        correction = 2.0
         if current_object == 'T':
             self.my_car.y_current = self.plan_data.FIELD_H - correction
         elif current_object in ['S', 'E']:
+            raw_x = self.my_car.x_current
             self.my_car.x_current = 0.0 + correction
         elif current_object in ['B', 'W']:
             self.my_car.x_current = self.plan_data.FIELD_W - correction
@@ -632,13 +634,13 @@ class MoveControl:
                         #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
                     elif self.if_send_orbit_command == False and self.my_plan.finished_dist >= slave_message_delay:
                         self.if_send_orbit_command = True
-                        self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
+                        self.my_main_protocol.send_path(NAV_T['SLA_P'][0], NAV_T['ANGLE'][1], NAV_T['SLA_P'][1])
                 if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= self.start_scan_range:
                     self.state_transition()
                     return
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
-            self.my_plan.navigate(NAV_T['MAIN_P'],NAV_T['ANGLE'][0],if_first_turn=False)
+            self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0], if_first_turn=False)
             self.state_transition()
         elif self.current_state == ORBIT:
             if self.vision_manager.if_finish_orbit:
