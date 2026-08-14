@@ -161,7 +161,6 @@ class BoundaryPathPlanner:
         direct_end = self._project_to_boundary(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
             return self.my_plan._path_to_list([start, direct_end])
-
         nodes = []
         fwd, right = self._forward_right(direction)
         for rect in rects:
@@ -266,8 +265,8 @@ class BoundaryPathPlanner:
         if direction == 180:
             return (0.0, -1.0), (-1.0, 0.0)
         return (-1.0, 0.0), (0.0, 1.0)
-
-    def _project_to_boundary(self, p, direction):
+    
+    def _project_to_boundary(self, p, direction):#计算在爹刺痛方向上边界的投影点
         if direction == 0:
             return (p[0], self.Data.FIELD_H+20)
         if direction == 180:
@@ -282,7 +281,6 @@ class BoundaryPathPlanner:
         p = (px, py)
         if self._point_valid(p, rects):
             return p
-
         radius = 2.0
         max_r = max(self.Data.FIELD_W, self.Data.FIELD_H)
         while radius < max_r:
@@ -318,7 +316,6 @@ class BoundaryPathPlanner:
         _, right = self._forward_right(direction)
         dx, dy = p[0] - start[0], p[1] - start[1]
         return (dx * right[0] + dy * right[1]) * avoid_dir >= -0.001
-
     def _line_valid(self, a, b, rects):
         for rect in rects:
             if self.line_cross_rect(a, b, rect):

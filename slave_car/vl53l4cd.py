@@ -53,13 +53,25 @@ RANGE_ERROR_MERGED_TARGET = const(0x0B)
 RANGE_ERROR_SIGNAL_TOO_WEAK = const(0x0C)
 RANGE_ERROR_OTHER = const(0xFF)
 
+_RANGE_STATUS_MAP = (
+    RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_HW_FAIL,
+    RANGE_WARN_SIGMA_BELOW, RANGE_ERROR_INVALID_PHASE, RANGE_WARN_SIGMA_ABOVE,
+    RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH, RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD,
+    RANGE_VALID, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_CROSSTALK_FAIL,
+    RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER,
+    RANGE_ERROR_OTHER, RANGE_ERROR_INTERRUPT, RANGE_WARN_NO_WRAP_AROUND_CHECK,
+    RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_MERGED_TARGET, RANGE_ERROR_SIGNAL_TOO_WEAK,
+)
+
 class VL53L4CD:
     """MicroPython driver for the VL53L4CD distance sensor."""
     
-    def __init__(self, i2c, address=0x29, i2c_retries=100):
+    def __init__(self, i2c, address=0x29, i2c_retries=3):
         self._i2c = i2c
         self._address = address
         self._ranging = False
+        self._interrupt_polarity_cache = None
+        self._inter_measurement_cache = None
         # I2C 重试次数 应对激光脉冲电流导致的总线瞬态故障 (EIO)
         self._i2c_retries = i2c_retries
         
@@ -88,6 +100,7 @@ class VL53L4CD:
         
         self._wait_for_boot()
         self._write_register(0x002D, init_seq)
+        self._interrupt_polarity_cache = None
         self._start_vhv()
         self.clear_interrupt()
         self.stop_ranging()
@@ -113,20 +126,19 @@ class VL53L4CD:
     @property
     def range_status(self):
         """Return measurement validity status."""
-        status_rtn = [
-            RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_HW_FAIL,
-            RANGE_WARN_SIGMA_BELOW, RANGE_ERROR_INVALID_PHASE, RANGE_WARN_SIGMA_ABOVE,
-            RANGE_ERROR_WRAPPED_TARGET_PHASE_MISMATCH, RANGE_ERROR_DISTANCE_BELOW_DETECTION_THRESHOLD,
-            RANGE_VALID, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_CROSSTALK_FAIL,
-            RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_OTHER,
-            RANGE_ERROR_OTHER, RANGE_ERROR_INTERRUPT, RANGE_WARN_NO_WRAP_AROUND_CHECK,
-            RANGE_ERROR_OTHER, RANGE_ERROR_OTHER, RANGE_ERROR_MERGED_TARGET, RANGE_ERROR_SIGNAL_TOO_WEAK,
-        ]
         status = self._read_register(_VL53L4CD_RESULT_RANGE_STATUS, 1)
         status = status[0] & 0x1F
         if status < 24:
-            return status_rtn[status]
+            return _RANGE_STATUS_MAP[status]
         return RANGE_ERROR_OTHER
+
+    def read_measurement(self):
+        """Read range status and distance with one I2C transaction."""
+        result = self._read_register(_VL53L4CD_RESULT_RANGE_STATUS, 15)
+        status_index = result[0] & 0x1F
+        status = _RANGE_STATUS_MAP[status_index] if status_index < 24 else RANGE_ERROR_OTHER
+        distance_mm = (result[13] << 8) | result[14]
+        return distance_mm / 10.0, status
     
     @property
     def sigma(self):
@@ -219,7 +231,9 @@ class VL53L4CD:
         clock_pll = struct.unpack(">H", clock_pll_data)[0] & 0x3FF
         clock_pll = int(1.065 * clock_pll)
         
-        return int(reg_val / clock_pll) if clock_pll != 0 else 0
+        value = int(reg_val / clock_pll) if clock_pll != 0 else 0
+        self._inter_measurement_cache = value
+        return value
     
     @inter_measurement.setter
     def inter_measurement(self, val):
@@ -235,28 +249,39 @@ class VL53L4CD:
         int_meas = int(1.055 * val * clock_pll)
         
         self._write_register(_VL53L4CD_INTERMEASUREMENT_MS, struct.pack(">I", int_meas))
+        self._inter_measurement_cache = val
         self.timing_budget = timing_bud
     
-    def start_ranging(self):
+    def start_ranging(self, wait=True):
         """Start ranging operation."""
-        if self.inter_measurement == 0:
+        if self._ranging:
+            return
+        inter_measurement = self._inter_measurement_cache
+        if inter_measurement is None:
+            inter_measurement = self.inter_measurement
+        if inter_measurement == 0:
             self._write_register(_VL53L4CD_SYSTEM_START, b"\x21")  # Continuous mode
         else:
             self._write_register(_VL53L4CD_SYSTEM_START, b"\x40")  # Autonomous mode
         
-        # Wait for data ready
+        self._ranging = True
+        if not wait:
+            return
+
+        # Initialization may wait; runtime callers should use wait=False.
         for _ in range(1000):
             if self.data_ready:
                 break
             time.sleep_ms(1)
         else:
             raise TimeoutError("Timeout waiting for data ready.")
-        
+
         self.clear_interrupt()
-        self._ranging = True
     
     def stop_ranging(self):
         """Stop ranging operation."""
+        if not self._ranging:
+            return
         self._write_register(_VL53L4CD_SYSTEM_START, b"\x00")
         self._ranging = False
     
@@ -272,9 +297,11 @@ class VL53L4CD:
     
     @property
     def _interrupt_polarity(self):
-        int_pol_data = self._read_register(_VL53L4CD_GPIO_HV_MUX_CTRL, 1)
-        int_pol = (int_pol_data[0] & 0x10) >> 4
-        return 0 if int_pol else 1
+        if self._interrupt_polarity_cache is None:
+            int_pol_data = self._read_register(_VL53L4CD_GPIO_HV_MUX_CTRL, 1)
+            int_pol = (int_pol_data[0] & 0x10) >> 4
+            self._interrupt_polarity_cache = 0 if int_pol else 1
+        return self._interrupt_polarity_cache
     
     def _wait_for_boot(self):
         for _ in range(1000):

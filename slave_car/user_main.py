@@ -626,6 +626,10 @@ voltage_detect(11.2)
 pit2_start()
 
 while True:
+    # I2C访问可能阻塞，必须放在普通主循环中，避免拖住姿态和电机定时器。
+    if not if_menu:
+        my_tof.service()
+
     # 屏幕测试程序
     # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
     # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
