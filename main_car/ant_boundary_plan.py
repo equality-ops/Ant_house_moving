@@ -19,10 +19,13 @@ class BoundaryPathPlanner:
         self.circle = []
         self.ready_path = []
         self.judge_start_ticks = 0
+        self.first_run = True
         self.xx = 0
         self.yy = 0
         self.direction = 0
         self.swell_size = 0
+        self._p = [0.0,0.0,0.0,0.0]
+        self._q = [0.0,0.0,0.0,0.0]
         gc.collect()
     def swell_rect(self,rect,swell_angle):
         out = []
@@ -97,24 +100,32 @@ class BoundaryPathPlanner:
                 half_h = float(obj[3]) / 2.0 + safe_margin
                 new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
                 if new:rects.append(new)
-        if len(self.circle) == 0:
+        # 第一次只缓存未定向膨胀的基础矩形
+        if self.first_run:
             for circle in circles:
                 if len(circle) >= 2:
                     cx, cy = float(circle[0]), float(circle[1])
-                    new = self.swell_rect(make_rect(cx, cy, circle_r + safe_margin, circle_r + safe_margin),swell_angle)
-                    if new:rects.append(new)
-        rects+=self.circle
-        rect_count = len(raw_rects)
-        if rect_count>0 and len(self.rectangles) == 0:
-            for rect_idx in range(rect_count):
-                rect = raw_rects[rect_idx]
+                    self.circle.append(
+                        make_rect(cx, cy,
+                                circle_r + safe_margin,
+                                circle_r + safe_margin)
+                    )
+            for rect in raw_rects:
                 if len(rect) >= 4:
                     cx, cy = float(rect[0]), float(rect[1])
                     half_w = float(rect[2]) / 2.0 + safe_margin
                     half_h = float(rect[3]) / 2.0 + safe_margin
-                    new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
-                    if new:self.rectangles.append(new)
-        rects+=self.rectangles
+                    self.rectangles.append(
+                        make_rect(cx, cy, half_w, half_h)
+                    )
+            self.first_run = False
+        # 每轮重新定向膨胀和按车位置过滤
+        for rect in self.circle:
+            new = self.swell_rect(rect, swell_angle)
+            if new:rects.append(new)
+        for rect in self.rectangles:
+            new = self.swell_rect(rect, swell_angle)
+            if new:rects.append(new)
         return rects
 
     def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
@@ -303,7 +314,6 @@ class BoundaryPathPlanner:
         fwd, _ = self._forward_right(direction)
         dx, dy = p[0] - start[0], p[1] - start[1]
         return dx * fwd[0] + dy * fwd[1] >= -0.001
-
     def _same_avoid_side_or_level(self, start, p, direction, avoid_dir):
         _, right = self._forward_right(direction)
         dx, dy = p[0] - start[0], p[1] - start[1]
@@ -311,9 +321,43 @@ class BoundaryPathPlanner:
 
     def _line_valid(self, a, b, rects):
         for rect in rects:
-            if self.my_plan._segment_hits_poly(a, b, rect):
+            if self.line_cross_rect(a, b, rect):
                 return False
         return True
+    def line_cross_rect(self, p1, p2, rect):
+        x1, y1 = p1
+        x2, y2 = p2
+        minn ,_ ,maxx ,_ = rect
+        x_min, y_min = minn
+        x_max, y_max = maxx
+        dx = x2 - x1
+        dy = y2 - y1
+        # 关键优化：将 self 属性 赋值给 局部变量（只需查找一次 self）
+        p = self._p
+        q = self._q
+        # 原地修改数值（复用内存，无分配）
+        p[0] = -dx; p[1] = dx; p[2] = -dy; p[3] = dy
+        q[0] = x1 - x_min; q[1] = x_max - x1
+        q[2] = y1 - y_min; q[3] = y_max - y1
+        u1 = 0.0
+        u2 = 1.0
+        for i in range(4):  # 这里的循环开销在 Micropython 中还能接受
+            if p[i] == 0:
+                if q[i] < 0:
+                    return False
+            else:
+                t = q[i] / p[i]
+                if p[i] < 0:
+                    if t > u2:
+                        return False
+                    if t > u1:
+                        u1 = t
+                else:
+                    if t < u1:
+                        return False
+                    if t < u2:
+                        u2 = t
+        return u1 <= u2
     
 class objects_planner:
     def __init__(self,my_flash_sys,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
