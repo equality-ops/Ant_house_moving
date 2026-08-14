@@ -459,7 +459,9 @@ class MoveControl:
         self.if_to_the_top = False
         self.now_object_pt = point
         self.get_object_square_points(target_ref_yaw_deg, 16)
+        self.vision_manager.if_next_orbit = False
         if now_side == target_side:
+            self.vision_manager.if_next_orbit = True
             if self.next_postion == 'r':
                 sla_p = [self.surrounding_points['RD']]
                 angle0 = angle_r0
@@ -475,6 +477,7 @@ class MoveControl:
                 self.my_tof.ready_tof('right',target_turn)
                 car_postion += 90
             if turn_angle == 0.0:
+                self.vision_manager.if_next_orbit = False
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
                 if self.next_postion == 'r':self.if_first_orbit = True

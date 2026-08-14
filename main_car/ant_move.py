@@ -233,7 +233,9 @@ class MoveControl:
         M_PAth = []
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
+        self.vision_manager.if_next_orbit = False
         if self.if_change_side:
+            self.vision_manager.if_next_orbit = False
             if self.if_first_navigate:
                 if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
                     m_PAth = [self.surrounding_points['LD']]
@@ -317,6 +319,7 @@ class MoveControl:
                 self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
         else:
+            self.vision_manager.if_next_orbit = True
             if not self.if_first_navigate:
                 if now_side == 'D':
                     if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'l') or\
@@ -349,6 +352,7 @@ class MoveControl:
                 car_postion += 90
                 self.next_postion = 'r'
             if turn_angle == 0.0:
+                self.vision_manager.if_next_orbit = False
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
                 if self.next_postion == 'r':self.if_first_orbit = True
