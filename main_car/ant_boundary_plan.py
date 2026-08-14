@@ -17,9 +17,12 @@ class BoundaryPathPlanner:
         self.rects = []
         self.rectangles = []
         self.circle = []
+        self.fixed_obj = []
         self.ready_path = []
         self.judge_start_ticks = 0
         self.first_run = True
+        self.last_swell_direct = None
+        self.last_skip_idx = None
         self.xx = 0
         self.yy = 0
         self.direction = 0
@@ -73,7 +76,7 @@ class BoundaryPathPlanner:
         elif self.direction == 90 and out[2][0] <= self.xx:return []
         elif self.direction == -90 and out[0][0] >= self.xx:return []
         return out
-    def special_swell_barriers(self, objects_, swell_angle,skip_idx=None, direction=None):
+    def special_swell_barriers(self, objects_, swell_angle,skip_idx=None, direction=None,generate_new_obj = True):
         if swell_angle == 1 or swell_angle== -1:self.swell_size = self.bothway_swell_size
         else:self.swell_size = self.sigal_swell_size
         circle_r = float(self.Data.OBSTACLE_R)
@@ -90,16 +93,20 @@ class BoundaryPathPlanner:
                 (cx + half_w, cy + half_h),
                 (cx - half_w, cy + half_h)
             ]
-        for obj_idx in range(len(objects)):
-            if skip_idx is not None and obj_idx == skip_idx:
-                continue
-            obj = objects[obj_idx]
-            if len(obj) >= 4:
-                cx, cy = float(obj[0]), float(obj[1])
-                half_w = float(obj[2]) / 2.0 + safe_margin
-                half_h = float(obj[3]) / 2.0 + safe_margin
-                new = self.swell_rect(make_rect(cx, cy, half_w, half_h),swell_angle)
-                if new:rects.append(new)
+        # True表示进入了新一轮物体集合，必须替换旧缓存，不能继续append。
+        # 数量不一致时即使调用方传False也自动重建，避免使用错位的旧缓存。
+        if generate_new_obj or len(self.fixed_obj) != len(objects):
+            self.fixed_obj.clear()
+            for obj_idx in range(len(objects)):
+                obj = objects[obj_idx]
+                if len(obj) >= 4:
+                    cx, cy = float(obj[0]), float(obj[1])
+                    half_w = float(obj[2]) / 2.0 + safe_margin
+                    half_h = float(obj[3]) / 2.0 + safe_margin
+                    self.fixed_obj.append(make_rect(cx, cy, half_w, half_h))
+                else:
+                    # 保持fixed_obj与objects索引一一对应，skip_idx才不会错位。
+                    self.fixed_obj.append(None)
         # 第一次只缓存未定向膨胀的基础矩形
         if self.first_run:
             for circle in circles:
@@ -120,18 +127,26 @@ class BoundaryPathPlanner:
                     )
             self.first_run = False
         # 每轮重新定向膨胀和按车位置过滤
+        for obj_idx in range(len(objects)):
+            if skip_idx is not None and obj_idx == skip_idx:
+                continue
+            obj = self.fixed_obj[obj_idx]
+            if obj is None:
+                continue
+            new = self.swell_rect(obj,swell_angle)
+            if new:rects.append(new)
         for rect in self.circle:
             new = self.swell_rect(rect, swell_angle)
             if new:rects.append(new)
         for rect in self.rectangles:
             new = self.swell_rect(rect, swell_angle)
             if new:rects.append(new)
-        return rects
+        self.rects = rects
 
-    def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None):
+    def plan_move(self, direction, swell_dir, objects,x=None,y=None,skip_idx=None,limit_angle = None,generate_new_obj = True):
         if x is None or y is None:self.xx,self.yy=self.my_car.x_current,self.my_car.y_current
         else: self.xx,self.yy=x,y
-        self.rects = self.special_swell_barriers(objects, swell_dir,skip_idx, direction)
+        self.special_swell_barriers(objects, swell_dir,skip_idx, direction,generate_new_obj)
         self.ready_path = self.plan_one_turn(direction,limit_angle)
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle):
@@ -384,7 +399,6 @@ class objects_planner:
         self.height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
         gc.collect()
     def set_barriers(self,barriers):
-        
         for i in self.now_objects:
             # Vision results can occasionally be incomplete.  Ignore malformed
             # entries here instead of indexing into them and crashing the task.
@@ -536,11 +550,11 @@ class objects_planner:
             self.judge_state = 1
             return False
         elif self.judge_state == 1:#筛选出能直接搬运的物体
-            t_state = time.ticks_ms()
+            #t_state = time.ticks_ms()
             idx=0
             self.target_objects = []
             for target in self.now_objects:
-                t_target = time.ticks_ms()
+                #t_target = time.ticks_ms()
                 could_select = True
                 if target[0] == 'S' or target[0] == 'E':
                     push_dir = [0,-1]#推动正方向
@@ -591,8 +605,11 @@ class objects_planner:
                 elif i[1] in ['T']:
                     sy -= 10.0 
                 if car_side == i[4]:
-                    t_plan = time.ticks_ms()
-                    path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
+                    #t_plan = time.ticks_ms()
+                    if self.now_idx == 0:
+                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0],generate_new_obj =True)
+                    else:
+                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0],generate_new_obj = False)
                     # print("[judge][state2] plan_move {} ms".format(time.ticks_diff(time.ticks_ms(), t_plan)))
                 else:
                     has_planned = False
@@ -601,8 +618,11 @@ class objects_planner:
                             path = [[sx,sy]]+self.path[j]
                             has_planned = True
                     if not has_planned:
-                        t_plan = time.ticks_ms()
-                        path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0])
+                        #t_plan = time.ticks_ms()
+                        if self.now_idx == 0:
+                            path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0],generate_new_obj =True)
+                        else:
+                            path = self.my_BoundaryPath.plan_move(dir, sdir, self.barrier, sx, sy, skip_idx=i[0],generate_new_obj = False)
                         # print("[judge][state2] plan_move {} ms".format(time.ticks_diff(time.ticks_ms(), t_plan)))
                 push_distance,push_angle= 1000,90
                 if (not path) or len(path) <= 1: 
