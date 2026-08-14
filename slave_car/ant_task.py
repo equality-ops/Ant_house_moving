@@ -217,7 +217,7 @@ class TaskController:
                             self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
 
                         # 只有偏差过大时才用主车坐标纠正里程计
-                        if abs(self.my_car.x_current - target_x) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                        if self.if_calibrate and abs(self.my_car.x_current - target_x) > calibrate_threshold and self.my_tof.is_data_valid_once():
                             self.my_beep.test()  # 发出提示音
                             self.my_car.x_current = target_x 
 
@@ -233,7 +233,7 @@ class TaskController:
                             self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
 
                         # 只有偏差过大时才用主车坐标纠正里程计
-                        if abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                        if self.if_calibrate and abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once():
                             self.my_beep.test()  # 发出提示音
                             self.my_car.y_current = target_y
 
@@ -249,7 +249,7 @@ class TaskController:
                             self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
 
                         # 只有偏差过大时才用主车坐标纠正里程计
-                        if abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                        if self.if_calibrate and abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once():
                             self.my_beep.test()  # 发出提示音
                             self.my_car.y_current = target_y
 

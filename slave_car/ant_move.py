@@ -188,6 +188,20 @@ class TofControl:
             # 连续多次无效才真正失效
             return self.if_init_fil and self._invalid_count <= 4
 
+    # 判断数据是否合理
+    def is_data_valid_once(self):
+        # 使用滞回判断避免频繁切换：需要连续多次无效才真正失效
+        raw_valid = False
+        if self.which_one == 'L':
+            raw_valid = self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
+        elif self.which_one == 'R':
+            raw_valid = self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
+
+        if raw_valid:
+            return True
+        else:
+            return False
+        
     # 重置速度分量
     def reset_speed_weight(self):
         self.my_car.speed_weight = 0.0
