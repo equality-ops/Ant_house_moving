@@ -451,12 +451,10 @@ class objects_planner:
             row, col = idx
         else:
             row = idx
-
         if not isinstance(row, int) or not isinstance(col, int):
             return []
         if row < 0 or row > 2 or col < 0 or col > 2:
             return []
-
         center_x = self.Data.center_x
         center_y = self.Data.center_y
         length = self.Data.lenth
@@ -464,7 +462,6 @@ class objects_planner:
             return []
         return [center_x + (col - 1) * length,
                 center_y + (row - 1) * length]
-
     def generate_nine_grid(self):
         """Fill the 3x3 grid with object kinds from snapped object coordinates."""
         self.nine_grid = [['', '', ''], ['', '', ''], ['', '', '']]
@@ -642,10 +639,31 @@ class objects_planner:
                         push_angle = 360 - push_angle
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
-                    if i[4] !='R':score+=1000
+                    if i[4] !='R':
+                        idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                        if car_side =='L':
+                            if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
+                            if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
+                        else:
+                            if idxx[0]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
+                        score+=1000
                     if self.last_sandbag_idx == 0:score+=1000
-                elif (i[1] == 'T') and i[4] !='D':score+=1000
-                elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
+                elif (i[1] == 'T') and i[4] !='D':
+                    idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                    if car_side =='U':
+                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
+                        if idxx[0]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
+                    else:
+                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
+                    score+=1000
+                elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':
+                    idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                    if car_side =='R':
+                        if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
+                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
+                    else:
+                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
+                    score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
                     if i[1] == 'T': 

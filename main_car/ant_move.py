@@ -452,7 +452,7 @@ class MoveControl:
             if self.my_car.now_yaw>-PI/2 and self.my_car.now_yaw<PI/2:swell_dir=180
             else:swell_dir=0
         else: return False
-        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 55,generate_new_obj =True)
+        plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 55,generate_new_obj = True)
         used_path = 2
         if not plan_path or len(plan_path)<=1:
             try:
