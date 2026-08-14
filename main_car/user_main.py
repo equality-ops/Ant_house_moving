@@ -309,14 +309,6 @@ def master_control():
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-    elif my_state.state == CALIBRATE:
-        if my_vision_manager.if_ready_calibrate == False:
-            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        else:
-            if my_vision_manager.if_lost_object == False:
-                my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
-            else:
-                my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
 
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
@@ -422,6 +414,26 @@ def test_vision_servo():
         my_vision_manager.visual_servo_control()
         if my_vision_manager.if_finish_servo == True:
             my_plan.reset_navigate_angle()
+            my_state.state = STOP
+    elif my_state.state == STOP:
+        my_plan.stop()
+
+# 环绕测试函数
+def test_orbit():
+    global counter
+    if my_state.state == READY_NAVIGATE:
+        my_car.x_current = 0.0
+        my_car.y_current = 0.0
+        my_vision_manager.object_radius = 25.0
+        my_vision_manager.object_radius_vision = 15.0
+        my_vision_manager.current_servo_object = 'S'
+        my_vision_manager.reset_orbit_angle()
+        my_state.state = ORBIT
+    elif my_state.state == ORBIT:
+        my_vision_manager.orbit_control(140.0)
+        if my_vision_manager.if_finish_orbit == True:
+            my_plan.reset_navigate_angle()
+            my_moving.reset_orbit()
             my_state.state = STOP
     elif my_state.state == STOP:
         my_plan.stop()

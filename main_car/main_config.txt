@@ -125,6 +125,9 @@ apriltag_threshold_y = 2.0
 
 calibrate_waiting_time = 40
 ###################【环绕控制】####################
+# 是否使用视觉让环绕闭环（1=纯视觉半径闭环：只保持车与物体的距离=预设半径，不依赖固定圆心/惯导；0=固定圆心+惯导闭环）
+if_use_vision = 0
+
 radius_T_U = 17.0
 radius_T_R = 15.0
 radius_T_L = 15.0
