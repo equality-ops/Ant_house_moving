@@ -392,11 +392,13 @@ class VisionManager:
             # 连续丢失超过一定帧数后，降低小车速度
             self.target_rel_speed = 40.0
             return 
-        
+
+        finish_threshold_x = self.finish_threshold_x
+        finish_threshold_y = self.finish_threshold_y
         # 若下次需要环绕则加大伺服成功的阈值
         if self.if_next_orbit:
-            finish_threshold_x = self.finish_threshold_x + 0.5
-            finish_threshold_y = self.finish_threshold_y + 0.5
+            finish_threshold_x += 0.5
+            finish_threshold_y += 0.5
 
         if abs(self.absolute_actual_x) <= finish_threshold_x and abs(self.absolute_actual_y) <= finish_threshold_y:
             self.target_rel_speed = 0.0
