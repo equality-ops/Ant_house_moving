@@ -622,43 +622,42 @@ while True:
 
         if not my_task.if_choose_object:
             if my_task.now_objects:
-                if my_task.object_plan.judge_object_character(my_task.now_objects, my_task.last_side):
+                if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
                     gc.collect()
-                     
-                    target = my_task.object_plan.plan_target
+                    target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
-                    my_task.my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    my_task.my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    my_task.my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    my_task.my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                    my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                    my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                    my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
                     else:
-                        my_task.object_plan.barrier.pop(target[0])
+                        my_obj_plan.barrier.pop(target[0])
                         my_task.now_objects.pop(target[0])
-                        my_task.my_moving.now_barriar=my_task.object_plan.barrier[:]
+                        my_moving.now_barriar=my_obj_plan.barrier[:]
                         #self.my_uart.write(f"barriar{my_task.my_moving.now_barriar}\n")
                         my_task.current_object=target[1]
-                        my_task.my_vision.current_servo_object = my_task.current_object
-                        rm = my_task.my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
+                        my_vision_manager.current_servo_object = my_task.current_object
+                        rm = my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
                         if rm:
-                            my_task.my_moving.saved_best_path =my_task.object_plan.best_path
+                            my_moving.saved_best_path =my_task.object_plan.best_path
                             num_compensation = my_task.data.current_index * my_task.num_clamp_factor
-                            my_task.my_moving.clamp_distance = my_task.clamp_distance[my_task.current_object]+num_compensation
+                            my_moving.clamp_distance = my_task.clamp_distance[my_task.current_object]+num_compensation
                             my_task.if_choose_object = True
-                            my_task.my_plan.reset_navigate()
+                            my_plan.reset_navigate()
                         else:my_task.exit()
             else:my_task.exit()
         else:
-            if my_task.data.current_index >= my_task.data.total_objects_num:
+            if plan_data.current_index >=plan_data.total_objects_num:
                 my_task.my_state.state = RETURN
                 my_task.if_transitioning = True
                 continue
             # 进入准备导航状态，做好路径规划准备和导航信息准?
             slave_stop_threshold = 25.0
-            planned_path = my_task.my_moving.navigate_buffer['MAIN_P']
+            planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
             if my_task.last_side == "L":
                 target_angle = 90.0
