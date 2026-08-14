@@ -61,6 +61,7 @@ class TaskController:
         self.need_calibrate_score = 0
         self.now_objects = []
         # 标志�?
+        self.if_start_task = False  # 是否开始任务
         self.if_transitioning = True  # 是否正在进行状态转�?
         self.if_send_path = False  # 是否已经发送路径规划信�?
         self.detected_num = 0
@@ -101,6 +102,10 @@ class TaskController:
         
     # 不同模式下的执行函数
     def run(self):
+        # 开始任务标志
+        if not self.if_start_task:
+            self.if_start_task = True
+
         if self.if_transitioning:
             self.enter()  # 进入新状态执行一次性的进入函数
 
@@ -144,7 +149,7 @@ class TaskController:
             # 测试
             # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
         elif state == CALIBRATE:
-            self.my_plan.if_finish_plan = False
+            pass
         elif state == ADJUST:
             # 进入调整状态，根据需要进行微�?
             pass
@@ -161,9 +166,6 @@ class TaskController:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
         elif state == RETREAT:
-            self.my_main_protocol.send_path('A',self.ap_slave_buffer[1],self.ap_slave_buffer[0])
-            self.my_plan.reset_navigate()
-            self.my_plan.reset_navigate_angle()
             pass
 
     def exit(self):
@@ -230,42 +232,30 @@ class TaskController:
             dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
                             (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
             score = self.need_calibrate_score - dis * 0.015
-            global counter
             if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
-                if counter >= 10:
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-                    self.my_moving.reset_move()  # 重置搬运标志
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-                    return
-                else:counter +=1
-            elif self.last_side in self.april_tag_list and self.my_order_manager.if_calibrate and score>=self.calibrate_score_threshold:
-                self.data.current_index += 1
-                self.my_plan.reset_navigate()
+                self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
                 self.my_plan.reset_navigate_angle()
-                self.my_state.state = RETREAT
+                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                if counter >= 10:
-                    counter = 0
+                if not self.if_send_path:
+                    self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
+                    self.if_send_path = True
+
+                # 从车完成矫正
+                if self.my_main_protocol.get_slave_state() == "get":
+                    self.if_send_path = False
                     self.data.current_index += 1
                     self.my_plan.reset_navigate()
                     self.my_plan.reset_navigate_angle()
                     self.my_state.state = READY_NAVIGATE
+                    # 测试光电管矫正效果
+                    # self.my_state.state = RETURN
                     self.my_moving.reset_move()  # 重置搬运标志
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-                else:counter +=1
         elif state == CALIBRATE:
-            if not self.my_vision.if_lost_object:
-                self.need_calibrate_score = 1.5#将need_score降低为1.5
-
-            self.my_plan.if_finish_plan = False
-            self.my_vision.reset_calibrate()  # 重置校准标志
-            self.my_plan.reset_navigate()
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物?
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状?
+            pass
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更�?
             self.my_vision.reset_orbit()
@@ -287,14 +277,8 @@ class TaskController:
             # 退出停止状态，准备进入下一任务或待命状�?
             self.my_beep.test()  # 任务完成，发出提示音
         elif state == RETREAT:
-            # 重置导航标志�?
-            self.my_plan.reset_navigate()
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = CALIBRATE
-            if self.data.current_index >= self.data.total_objects_num:
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+            pass
+
     def handle_ready_navigate(self):
         pass
 
@@ -617,7 +601,6 @@ class TaskController:
             current_object = self.current_object
             retreat_threhold = 10
             ap_threhold = 25
-            self.my_vision.reset_calibrate()
             global counter
             if current_object == 'T':
                 if counter == 0:self.need_calibrate_score += 3.5
@@ -685,30 +668,12 @@ class TaskController:
                     else:self.my_vision.if_waiting = False
             self.my_vision.calibrate_buffer = [path,set_angle]
             self.exit()  # 退出当前状态，进入下一个状�?
-    def handle_retreat(self):
-        self.my_plan.navigate(path = [self.retreat_message])
-        if self.my_plan.if_finish_navigate:
-            self.exit()  # 退出当前状态，进入下一个状态
-    def handle_calibrate(self):
-        if self.my_vision.if_finish_calibrate:
-            self.exit()
-            return
-        
-        if self.my_vision.if_lost_object == False:
-            self.my_vision.apriltag_calibrate_control()
-        else:
-            # 控制小车前后移动寻找apriltag码
-            self.my_plan.navigate(path = self.my_vision.lost_path)
 
-            target_point = self.my_art_protocol.apriltag_receive()
-            if target_point:    
-                self.my_plan.reset_navigate()
-                self.my_vision.counter = 0
-                self.my_vision.calibrate_times = 0
-                self.my_vision.if_lost_object, self.my_vision.if_gain_calibrate_angle = False, False
-            
-            if self.my_plan.if_finish_navigate:
-                self.exit()
+    def handle_retreat(self):
+        pass
+
+    def handle_calibrate(self):
+        pass
 
     def handle_adjust(self):
         pass
@@ -723,6 +688,7 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状�?
+
     def handle_stop(self):
         # if state == STOP
         self.my_plan.stop()             

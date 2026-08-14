@@ -294,6 +294,7 @@ class MoveControl:
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
         self.start_scan_range = self.flash_sys.find_value("start_scan_range")
+        self.if_calibrate = self.flash_sys.find_value("if_calibrate")
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
@@ -542,16 +543,16 @@ class MoveControl:
                 therhold = 7
                 if target_side =='D':
                     self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
-                    self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
+                    # self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
                 elif target_side =='U':
                     self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
-                    self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
+                    # self.my_path.ready_path[-1] = (sla_p[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
                 elif target_side =='L':
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,sla_p[0][1])
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,sla_p[0][1])
+                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,sla_p[0][1])
                 else: 
                     self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,sla_p[0][1])
-                    self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,sla_p[0][1])
+                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,sla_p[0][1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
                 p_2 = RECT[0][:]
@@ -577,7 +578,7 @@ class MoveControl:
                 else:
                     p_2[0] = big_rect[1][0]
                 self.my_path.plan_path(p_2[0],p_2[1])   
-                self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
+                # self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
                 self.my_path.ready_path.append(p_1)
             sla_p = self.my_path.ready_path + sla_p
         car_postion = 180 - (180 - car_postion) % 360
@@ -600,7 +601,7 @@ class MoveControl:
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
         # 经验修正值
-        correction = -3.0
+        correction = 2.0
         if current_object == 'T':
             self.my_car.y_current = self.plan_data.FIELD_H - correction
         elif current_object in ['S', 'E']:
@@ -745,7 +746,8 @@ class MoveControl:
                     self.my_plan.if_push_T = True
         elif self.current_state == MOVE:
             if self.my_plan.if_near_line or self.my_plan.if_finish_navigate:
-                self.my_tof.reset_tof()
+                if not self.if_calibrate:
+                    self.my_tof.reset_tof()
                 self.my_photo.reset_photo()
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False

@@ -26,7 +26,7 @@ object_to_line_dict = {
 }
 
 class TaskController:
-    def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol):
+    def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol, my_tof):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -41,6 +41,7 @@ class TaskController:
         self.my_art_protocol = art_protocal
         self.my_slave_protocol = slave_protocol
         self.my_flash_system = flash
+        self.my_tof = my_tof
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -60,9 +61,12 @@ class TaskController:
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
+        self.calibrate_dist = self.my_flash_system.find_value("calibrate_dist")
+        self.if_calibrate = self.my_flash_system.find_value("if_calibrate")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
+        self.retreat_message = [] # 后退点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
         self.last_side = 'D'
         # 标志位
@@ -137,7 +141,6 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.current_object == 'A':
-                self.my_vision.reset_calibrate()
                 if self.pt_buffer[1] == 90:
                     if self.my_car.x_current <= self.pt_buffer[0][0]:
                         self.my_vision.if_waiting = True
@@ -188,23 +191,79 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
-            self.my_moving.if_finish_move = False  # 重置搬运完成标志
-            self.my_plan.reset_navigate_angle()
-            self.my_plan.reset_navigate()
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
-            if self.current_object == 'T':self.last_side = 'U'
-            elif self.current_object in ['S','E']:self.last_side = 'L'
-            else:self.last_side = 'R'
             if self.my_moving.current_state != NAVIGATE:
+                self.my_tof.reset_tof()
                 self.my_state.state = RETURN  # 直接切换到校准状态
-                return
-            self.my_state.state = RETREAT  # 直接切换到校准状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            else:
+                path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
+                if path and path[0] == 'A':
+                    self.my_tof.update_tof()  # 更新TOF传感器数据
+                    self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到路径信息
+                    current_object = self.current_object
+                    retreat_threhold = 5
+                    car_dist = self.calibrate_dist # 主从车的距离
+                    calibrate_threshold = 5.0 # 校准距离阈值
+                    self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
+                    if current_object == 'T':
+                        self.my_vision.car_position = 'U'
+                        main_car_x = path[2][0]
+
+                        if self.my_car.now_yaw<0:
+                            target_x = main_car_x + car_dist      # 理想位置：主车右侧
+                            self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
+                        else:
+                            target_x = main_car_x - car_dist      # 理想位置：主车左侧
+                            self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
+
+                        # 只有偏差过大时才用主车坐标纠正里程计
+                        if abs(self.my_car.x_current - target_x) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                            self.my_beep.test()  # 发出提示音
+                            self.my_car.x_current = target_x 
+
+                    elif current_object in ['S', 'E']:
+                        self.my_vision.car_position = 'L'
+                        main_car_y = path[2][1]
+
+                        if self.my_car.now_yaw<-PI/2:
+                            target_y = main_car_y + car_dist
+                            self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
+                        else:
+                            target_y  = main_car_y - car_dist
+                            self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
+
+                        # 只有偏差过大时才用主车坐标纠正里程计
+                        if abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                            self.my_beep.test()  # 发出提示音
+                            self.my_car.y_current = target_y
+
+                    elif current_object in ['B', 'W']:
+                        self.my_vision.car_position = 'R'
+                        main_car_y = path[2][1]
+
+                        if self.my_car.now_yaw<PI/2:
+                            target_y  = main_car_y - car_dist
+                            self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
+                        else:
+                            target_y  = main_car_y + car_dist
+                            self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
+
+                        # 只有偏差过大时才用主车坐标纠正里程计
+                        if abs(self.my_car.y_current - target_y) > calibrate_threshold and self.my_tof.is_data_valid_once() and self.if_calibrate:
+                            self.my_beep.test()  # 发出提示音
+                            self.my_car.y_current = target_y
+
+                    self.my_tof.reset_tof()  # 重置TOF传感器
+                    self.my_moving.if_finish_move = False  # 重置搬运完成标志
+                    self.my_plan.reset_navigate_angle()
+                    self.my_plan.reset_navigate()
+                    if self.current_object == 'T':self.last_side = 'U'
+                    elif self.current_object in ['S','E']:self.last_side = 'L'
+                    else:self.last_side = 'R'
+                    self.my_state.state = RETREAT  # 直接切换到校准状态
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
-            # 退出校准状态，完成校准后进行必要的状态更新
-            self.my_vision.reset_calibrate()  # 重置校准标志
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物体
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            pass
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更新
             pass
@@ -321,27 +380,6 @@ class TaskController:
         # if state == MOVE
         self.my_moving.moving()
         if self.my_moving.if_finish_move:
-            current_object = self.current_object
-            retreat_threhold = 5
-            self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
-            if current_object == 'T':
-                self.my_vision.car_position = 'U'
-                if self.my_car.now_yaw<0:
-                    self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
-                else:
-                    self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
-            elif current_object in ['S', 'E']:
-                self.my_vision.car_position = 'L'
-                if self.my_car.now_yaw<-PI/2:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
-                else:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
-            elif current_object in ['B', 'W']:
-                self.my_vision.car_position = 'R'
-                if self.my_car.now_yaw<PI/2:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
-                else:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
             self.exit()  # 退出当前状态，进入下一个状态
 
     def handle_retreat(self):
@@ -351,25 +389,7 @@ class TaskController:
             self.exit()  # 退出当前状态，进入下一个状态
     
     def handle_calibrate(self):
-        if self.my_vision.if_finish_calibrate:
-            self.exit()
-            return
-        
-        if self.my_vision.if_lost_object == False:
-            self.my_vision.apriltag_calibrate_control()
-        else:
-            # 控制小车前后移动寻找apriltag码
-            self.my_plan.navigate(path = self.my_vision.lost_path)
-
-            target_point = self.my_art_protocol.apriltag_receive()
-            if target_point:
-                self.my_plan.reset_navigate()
-                self.my_vision.counter = 0
-                self.my_vision.calibrate_times = 0
-                self.my_vision.if_lost_object, self.my_vision.if_gain_calibrate_angle = False, False
-            
-            if self.my_plan.if_finish_navigate:
-                self.exit()
+        pass
     
     def handle_adjust(self):
         # if state == ADJUST
