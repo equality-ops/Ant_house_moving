@@ -130,6 +130,7 @@ class MoveControl:
         elif current_object in ['B', 'W']:
             self.moving_point.append([self.plan_data.FIELD_W, self.moving_point[-1][1]])
             self.move_dir = 90
+
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_pt, next_pt, ref_yaw=None):
         if ref_yaw is None:ref_yaw = self.record_angle
@@ -146,6 +147,7 @@ class MoveControl:
         else:
             if cy > 0:return 0.0  # 车头前方
             else:return 180.0  # 车尾后方
+
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
         a=self.navigate_distance
         if car_angle == 0:
@@ -180,6 +182,7 @@ class MoveControl:
             'RDD': RDD,
         }
         self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
+        
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         #now_side (从上次推动的物体导出，小车现在所在边)
