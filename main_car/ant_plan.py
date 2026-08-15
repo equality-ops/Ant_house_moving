@@ -1,6 +1,6 @@
 from micropython import const
 import math
-import gc
+import gc,time
 
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状态
@@ -109,7 +109,7 @@ class PathPlan:
         # 必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
         circles = self.Data.circle[:]
         rects = self.Data.rectangles[:]
-        
+        print(f"plan_pathstart{time.ticks_ms}\n")
         # 如果特定状态激活，将原有的中心区域矩形障碍物移除
         # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
         if ignore_center_rect and len(rects) > 0:
@@ -152,7 +152,8 @@ class PathPlan:
         # 检查直连
         if self._line_valid(start, end, circles, rects, block_r):
             self.ready_path = [[float(end[0]), float(end[1])]]
-
+            print(f"plan_pathend{time.ticks_ms}\n")
+            return self.ready_path
         # 初始化节点列表
         nodes = [start, end]
         # 添加圆形中继点 (核心修改部分)
@@ -189,6 +190,7 @@ class PathPlan:
                         prev[v] = u
 
         if prev[1] < 0:
+            print(f"plan_pathend{time.ticks_ms}\n")
             return []
 
         # 重建路径

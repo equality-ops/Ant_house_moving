@@ -198,6 +198,7 @@ class MoveControl:
         vision = self.vision_manager
         PLAN_PATH = self.my_path
         DATA = self.plan_data
+        OBJ_PLAN = self.my_obj_plan
         if not vision.if_in_rect(self.now_object_pt[0],self.now_object_pt[1]):
             return False
         self.moving_idx = 0
@@ -244,11 +245,10 @@ class MoveControl:
         S_PAth = [vision.current_servo_object,self.now_object_pt]
         self.run_first = True
         vision.if_next_orbit = False
-        retreat_lenth = 25
-        if self.if_first_navigate:
-            st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
-        else:
-            st = []
+        retreat_lenth = 20
+        if not self.if_first_navigate:st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
+        else:st = []
+        print('1\n')
         self.delay_more = False
         if self.if_change_side:
             self.vision_manager.if_next_orbit = False
@@ -308,13 +308,11 @@ class MoveControl:
                 p_2 = RECT[0][:]
                 p_1 = m_PAth[0][:]
                 if target_side =='D': 
-                    p_2[1] = RECT[0][1]
                     p_1[1] = RECT[0][1]
                 elif target_side =='U': 
                     p_2[1] = RECT[1][1]
                     p_1[1] = RECT[1][1]
                 elif target_side =='L': 
-                    p_2[0] = RECT[0][0]
                     p_1[0] = RECT[0][0]
                 else:
                     p_2[0] = RECT[1][0]
@@ -365,7 +363,7 @@ class MoveControl:
                 self.next_postion = 'r'
             if turn_angle == 0.0:
                 vision.if_next_orbit = False
-                if self.my_obj_plan.special_push:ANGle[1] = target_turn_deg + 5 * Num
+                if OBJ_PLAN.special_push:ANGle[1] = target_turn_deg + 5 * Num
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
                 if self.next_postion == 'r':self.if_first_orbit = True
@@ -385,15 +383,16 @@ class MoveControl:
             elif turn_angle == -90.0:
                 if self.next_postion == 'r':self.if_first_orbit = False
                 else:self.if_first_orbit = True
-            if self.my_obj_plan.special_push:
-                self.plan_data.rectangles.insert(-1,RECT)
+            if OBJ_PLAN.special_push:
+                DATA.rectangles.insert(-1,RECT)
             if target_side =='D':PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[0][1],ignore_center_rect=True,start_point = st)
             elif target_side =='U':PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[3][1],ignore_center_rect=True,start_point = st)
             elif target_side =='L':PLAN_PATH.plan_path(DATA.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)   
             else:PLAN_PATH.plan_path(DATA.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)
-            if self.my_obj_plan.special_push:
+            if OBJ_PLAN.special_push:
                 DATA.rectangles.remove(RECT)
             M_PAth = PLAN_PATH.ready_path + m_PAth
+        print("2\n")
         # print(f"if_change_side:{self.if_change_side}, RECT: {RECT}, if_first_navigate: {self.if_first_navigate},  ready_path: {self.my_path.ready_path}")
         car_postion = 180 - (180 - car_postion) % 360
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
