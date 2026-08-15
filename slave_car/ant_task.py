@@ -269,17 +269,17 @@ class TaskController:
             else:
                 if not self.if_init_move_data:
                     if abs(path[1] - 180) < 1e-3:
-                        self.my_moving.next_position = 'r'
+                        self.my_moving.next_postion = 'r'
                         self.last_side = 'U'
                     elif abs(path[1] - 90) < 1e-3:
-                        self.my_moving.next_position = 'r'
+                        self.my_moving.next_postion = 'r'
                         self.last_side = 'L'
                     elif abs(path[1] - (-90)) < 1e-3:
-                        self.my_moving.next_position = 'l'
+                        self.my_moving.next_postion = 'l'
                         self.last_side = 'R'
                     else:
                         self.last_side = 'D'
-                        self.my_moving.next_position = 'l'
+                        self.my_moving.next_postion = 'l'
 
                     self.if_init_move_data = True
 

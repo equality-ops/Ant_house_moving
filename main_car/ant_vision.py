@@ -627,8 +627,19 @@ class VisionManager:
             # 速度限幅
             self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
+            # 判断是否已越过目标角度（带方向，正确处理 -180/180 突变）
+            now_deg = (self.my_car.now_yaw * 180.0 / PI + 180.0) % 360.0 - 180.0   # 归一化到 (-180, 180]
+            if self.direct == 'CW':
+                # 顺时针：姿态角沿递增方向，从起始角走到当前角的有向角度
+                traveled_dir = now_deg - self.record_angle
+            else:
+                # 逆时针：姿态角沿递减方向
+                traveled_dir = self.record_angle - now_deg
+            traveled_dir %= 360.0                     # 归一到 [0, 360)，规避跨边界突变与可能的多圈
+            if_beyond = traveled_dir >= self.total_orbit_angle  # 沿设定方向已到达/越过目标角度
+
             # 判断是否完成环绕
-            if diff <= 2.0:  # 允许2度误差	
+            if if_beyond or diff <= 2.0:  # 越过目标即完成；允许2度误差兜底
                 counter = 0
                 self.my_order_manager.finish()
                 self.orbit_speed = 0.0
