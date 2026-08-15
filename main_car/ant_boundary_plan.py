@@ -622,12 +622,10 @@ class objects_planner:
             self.judge_state = 2
             return False
         elif self.judge_state == 2:#计算每个目标物体的评分
-            t_state = time.ticks_ms()
             side_to_dir = {'D':0,'L':90,'U':180,'R':-90}
             if self.now_idx>=len(self.target_objects): 
                 self.judge_state = 3
             else:
-                t_target = time.ticks_ms()
                 i = self.target_objects[self.now_idx]
                 score = 0
                 dir,sdir=self.judge_push_direction(i[1])
@@ -684,14 +682,14 @@ class objects_planner:
                             if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
                             if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
                         else:
-                            if idxx[0]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
+                            if idxx[1]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
                         score+=1000
                     if self.last_sandbag_idx == 0:score+=1000
                 elif (i[1] == 'T') and i[4] !='D':
                     idxx = self.nine_grid_postion_to_idx(i[2],i[3])
                     if car_side =='U':
-                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
-                        if idxx[0]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
+                        if idxx[1]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
+                        if idxx[1]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
                     else:
                         if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
                     score+=1000
@@ -701,7 +699,7 @@ class objects_planner:
                         if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
                         if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
                     else:
-                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
+                        if idxx[1]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
                     score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
