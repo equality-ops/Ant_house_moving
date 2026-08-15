@@ -533,7 +533,22 @@ class objects_planner:
             i[1] -= push_dir[1]
         if use_big_rect:return [[],0]
         else :return [None,0]
-
+    def if_special_push(self):
+        num_ = 0
+        for i in range(3):
+            num_+=1
+            line_has_S = False
+            for j in range(3):
+                if self.nine_grid[i][j] == 'T':
+                    return False,num_
+                if not line_has_S:
+                    if self.nine_grid[i][j] in ['S','E']:
+                        line_has_S = True
+                else:
+                    if self.nine_grid[i][j] in ['B','W']:
+                        return True,num_
+            if line_has_S: return False,num_
+        return False,num_
     def judge_object_character(self,objects,car_side):
         """选择合适的物体选为target计算target分数并选取最小分数作为选定目标"""
         if self.judge_state == 0:
@@ -552,24 +567,8 @@ class objects_planner:
             #t_state = time.ticks_ms()
             idx=0
             self.target_objects = []
-            if len(self.now_objects) == 2:
-                def if_special_push():
-                    num_ = 0
-                    for i in range(3):
-                        num_+=1
-                        line_has_S = False
-                        for j in range(3):
-                            if self.nine_grid[i][j] == 'T':
-                                return False,num_
-                            if not line_has_S:
-                                if self.nine_grid[i][j] in ['S','E']:
-                                    line_has_S = True
-                            else:
-                                if self.nine_grid[i][j] in ['B','W']:
-                                    return True,num_
-                        if line_has_S: return False,num_
-                    return False,num_
-                self.special_push,num = if_special_push()
+            if len(self.now_objects) == 2 and car_side == 'L':
+                self.special_push,num = self.if_special_push()
                 if self.special_push:#强制选择熊
                     lenth = self.Data.lenth
                     center_x = self.Data.center_x

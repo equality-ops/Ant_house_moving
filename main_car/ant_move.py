@@ -367,8 +367,7 @@ class MoveControl:
                 self.next_postion = 'r'
             if turn_angle == 0.0:
                 self.vision_manager.if_next_orbit = False
-                if self.my_obj_plan.special_push:
-                    ANGle[1] = target_turn_deg + 5 * Num
+                if self.my_obj_plan.special_push:ANGle[1] = target_turn_deg + 5 * Num
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
                 if self.next_postion == 'r':self.if_first_orbit = True
