@@ -56,7 +56,6 @@ class MoveControl:
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.twist_clamp_factor = self.flash_sys.find_value("CLAMP_FACTOR")
         self.start_scan_range = self.flash_sys.find_value("start_scan_range")
-        self.if_calibrate = self.flash_sys.find_value("if_calibrate")
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
@@ -527,8 +526,7 @@ class MoveControl:
                     self.my_plan.if_push_T = True
         elif self.current_state == MOVE:
             if self.my_plan.if_near_line or self.my_plan.if_finish_navigate:
-                if not self.if_calibrate:
-                    self.my_tof.reset_tof()
+                self.my_tof.reset_tof()
                 self.my_photo.reset_photo()
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False
