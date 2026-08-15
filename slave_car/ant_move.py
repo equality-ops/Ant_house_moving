@@ -302,6 +302,7 @@ class MoveControl:
         self.next_postion = 'l'
         self.send_navigate_feed_back = False
         self.push_postion = [1,0]
+        self.special_push = False
         self.plan_path = []
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
@@ -393,6 +394,7 @@ class MoveControl:
             else:return 180.0  # 车尾后方
 
     def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
+        self.special_push = False
         self.send_navigate_feed_back = False
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         RECT = []
@@ -415,9 +417,19 @@ class MoveControl:
             if int(target_ref_yaw_deg) != 90:
                 Num = int(target_ref_yaw_deg - 90)
                 target_ref_yaw_deg = 90
-                if now_side == 'U':p2 = [point[0]-lenth*Num,center_y + 1.5*lenth]
-                else:p2 = [point[0]-lenth*Num,center_y - 1.5*lenth]
-                RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]
+                if Num < 4:
+                    if now_side == 'U':p2 = [point[0]-lenth*Num,center_y + 1.5*lenth]
+                    else:p2 = [point[0]-lenth*Num,center_y - 1.5*lenth]
+                    RECT = [[min(point[0],p2[0]),min(point[1],p2[1])],[max(point[0],p2[0]),max(point[1],p2[1])]]
+                else:
+                    self.special_push = True
+                    cy = Num / 5 * lenth + center_y - lenth*2
+                    h = 4
+                    half_h = 2 + self.plan_data.SAFE_MARGIN
+                    rect = [(center_x - lenth*1.6,cy - half_h),
+                            (point[0] - lenth*0.5,cy - half_h),
+                            (point[0] - lenth*0.5,cy + half_h),
+                            (center_x - lenth*1.6,cy + half_h),]
         elif target_ref_yaw_deg > 135.0 or target_ref_yaw_deg <= -135.0:
             target_side = 'U'
             if int(target_ref_yaw_deg) != 180:
@@ -460,7 +472,7 @@ class MoveControl:
         self.now_object_pt = point
         self.get_object_square_points(target_ref_yaw_deg, 16)
         self.vision_manager.if_next_orbit = False
-        if now_side == target_side:
+        if now_side == target_side:#如果servo目标边与现在边相同
             self.vision_manager.if_next_orbit = True
             if self.next_postion == 'r':
                 sla_p = [self.surrounding_points['RD']]
@@ -501,12 +513,17 @@ class MoveControl:
             elif turn_angle == -90.0:
                 if self.next_postion == 'r':self.if_first_orbit = False
                 else:self.if_first_orbit = True
+            if self.special_push:
+                self.plan_data.rectangles.insert(-1,rect)
             if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]),ignore_center_rect=True)
             elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]),ignore_center_rect=True)
             elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)   
             else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)
+            if self.special_push:
+                self.plan_data.rectangles.remove(rect)
             sla_p = self.my_path.ready_path + sla_p
         else:
+            #如果servo目标边与现在边不同
             dicc = {'D':0,'L':1,'U':2,'R':3,}
             if self.if_first_navigate:
                 if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧

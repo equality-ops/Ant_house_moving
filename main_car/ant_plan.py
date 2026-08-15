@@ -99,7 +99,7 @@ class PathPlan:
 
     # 路径规划主函数
     def plan_path(self, x1, y1, ignore_center_rect=False, start_point = []):
-        # 【关键】：必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
+        # 必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
         circles = self.Data.circle[:]
         rects = self.Data.rectangles[:]
         

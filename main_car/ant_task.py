@@ -502,15 +502,18 @@ class TaskController:
     def first_scan(self):
         def analyse_package(num,angle):
             global counter
-            object_package=self.my_art_protocol.detect_objects_on_the_court()#[物体种类(ord),x,y]
+            object_package=self.my_art_protocol.detect_objects_on_the_court(num - counter)#[物体种类(ord),x,y]
             if object_package:
-                counter +=1
-                self.scan_empty_counter = 0
-                new_world = self.handle_object_info(object_package,angle)
-                self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
-                if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
-                else: self.now_objects = new_world
-                self.my_vision.analysed_objects = self.now_objects
+                i = 0
+                while counter + i < num and i < len(object_package):
+                    self.scan_empty_counter = 0
+                    new_world = self.handle_object_info(object_package[i],angle)
+                    #self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
+                    if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
+                    else: self.now_objects = new_world
+                    self.my_vision.analysed_objects = self.now_objects
+                    i += 1
+                counter += i
             else:
                 self.scan_empty_counter += 1
                 if self.scan_empty_counter>40:
@@ -521,8 +524,8 @@ class TaskController:
                     self.if_send_detect_message = False
                     self.if_plan_scan = False
                     counter = num#直接退出
-            if counter == num:
-                self.detected_num+=1#切换到下一个物体
+            if counter >= num:
+                self.detected_num+=1#切换到下一个位置
                 counter = 0
                 self.scan_waiting_count = 0
                 self.my_plan.reset_navigate()
