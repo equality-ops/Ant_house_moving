@@ -556,6 +556,7 @@ class objects_planner:
                 def if_special_push():
                     num_ = 0
                     for i in range(3):
+                        num_+=1
                         line_has_S = False
                         for j in range(3):
                             if self.nine_grid[i][j] == 'T':
@@ -567,50 +568,53 @@ class objects_planner:
                                 if self.nine_grid[i][j] in ['B','W']:
                                     return True,num_
                         if line_has_S: return False,num_
-                        num_+=1
                     return False,num_
                 self.special_push,num = if_special_push()
                 if self.special_push:#强制选择熊
+                    lenth = self.Data.lenth
+                    center_x = self.Data.center_x
+                    center_y = self.Data.center_y
                     for target in self.now_objects:
-                        lenth = self.Data.lenth
-                        center_x = self.Data.center_x
                         if target[0] in ['B','W']:
-                            cy = num * lenth + 
-                            rect = [(),
-                                    (),
-                                    ]
-                            self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])
+                            cy = num * lenth + center_y - lenth*2
+                            half_h = 2 + self.Data.SAFE_MARGIN
+                            rect = [(center_x - lenth*1.6,cy - half_h),
+                                    (target[1] - lenth*0.5,cy - half_h),
+                                    (target[1] - lenth*0.5,cy + half_h),
+                                    (center_x - lenth*1.6,cy + half_h),]
+                            self.target_objects.append([idx,target[0],target[1],target[2],'L',rect,num])
                             self.judge_state = 2
                             return False
-            else:
-                for target in self.now_objects:
-                    #t_target = time.ticks_ms()
-                    could_select = True
-                    if target[0] in ['S','E']:
-                        push_dir = [0,-1]#推动正方向
-                        self.last_sandbag_idx += 1
-                        target_side = 'R'
-                        if car_side == 'R' or car_side == 'L':could_select = False
-                    elif target[0] == 'T':
-                        push_dir = [1,0]#推动正方向
-                        target_side = 'D'
-                        if car_side == 'D' or car_side == 'U':could_select = False
-                    else:
-                        push_dir = [0,1]#推动正方向
-                        target_side = 'L'
-                        if car_side == 'L' or car_side == 'R':could_select = False
-                    if car_side == 'L':in_dir = [0,1]#进入正方向
-                    elif car_side == 'R':in_dir = [0,-1]
-                    elif car_side == 'D':in_dir = [1,0]
-                    else: in_dir = [-1,0]
-                    if self.judge_side_in_nine_grid(target,in_dir,-1):
-                        self.target_objects.append([idx,target[0],target[1],target[2],car_side,[],0])#序号，物体种类，x,y,目标边,空表示用原矩形
-                    if not self.judge_side_in_nine_grid(target,push_dir,1):could_select = False
-                    if could_select:
-                        rect,num = self.find_nine_grid_blank(target,push_dir,in_dir)
-                        if rect != None:
-                            self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])#序号，物体种类，x,y,目标边
-                    idx+=1
+                        idx+=1
+            idx = 0
+            for target in self.now_objects:
+                #t_target = time.ticks_ms()
+                could_select = True
+                if target[0] in ['S','E']:
+                    push_dir = [0,-1]#推动正方向
+                    self.last_sandbag_idx += 1
+                    target_side = 'R'
+                    if car_side == 'R' or car_side == 'L':could_select = False
+                elif target[0] == 'T':
+                    push_dir = [1,0]#推动正方向
+                    target_side = 'D'
+                    if car_side == 'D' or car_side == 'U':could_select = False
+                else:
+                    push_dir = [0,1]#推动正方向
+                    target_side = 'L'
+                    if car_side == 'L' or car_side == 'R':could_select = False
+                if car_side == 'L':in_dir = [0,1]#进入正方向
+                elif car_side == 'R':in_dir = [0,-1]
+                elif car_side == 'D':in_dir = [1,0]
+                else: in_dir = [-1,0]
+                if self.judge_side_in_nine_grid(target,in_dir,-1):
+                    self.target_objects.append([idx,target[0],target[1],target[2],car_side,[],0])#序号，物体种类，x,y,目标边,空表示用原矩形
+                if not self.judge_side_in_nine_grid(target,push_dir,1):could_select = False
+                if could_select:
+                    rect,num = self.find_nine_grid_blank(target,push_dir,in_dir)
+                    if rect != None:
+                        self.target_objects.append([idx,target[0],target[1],target[2],target_side,rect,num])#序号，物体种类，x,y,目标边
+                idx+=1
                 # print("[judge][state1] target {} cost {} ms".format(idx-1, time.ticks_diff(time.ticks_ms(), t_target)))
             # print("[judge][state1] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             self.judge_state = 2
