@@ -145,9 +145,9 @@ class BoundaryPathPlanner:
         st = time.ticks_ms()
         self.special_swell_barriers(objects, swell_dir,skip_idx, direction,generate_new_obj)
         ed = time.ticks_ms()
-        print(f"swell:{ed-st}ms\n")
+        # print(f"swell:{ed-st}ms\n")
         self.ready_path = self.plan_one_turn(direction,limit_angle)
-        print()
+        # print()
         return self.ready_path
     def plan_one_turn(self, direction,limit_angle):
         path_left = self._plan_one_turn_with_avoid(direction, -1)
@@ -177,7 +177,7 @@ class BoundaryPathPlanner:
         direct_end = self._to_edge(start, direction)
         if self._move_allowed(start, direct_end, direction, avoid_dir) and self._line_valid(start, direct_end, rects):
             ed = time.ticks_ms()
-            print(f"f&s_node:{ed-st}ms\n")
+            # print(f"f&s_node:{ed-st}ms\n")
             return self.my_plan._path_to_list([start, direct_end])
         nodes = []
         fwd, right = self._forward_right(direction)
@@ -190,7 +190,7 @@ class BoundaryPathPlanner:
             side_dist = abs((p[0] - start[0]) * right[0] + (p[1] - start[1]) * right[1])
             self._insert_sorted_node(nodes, side_dist, p)
         ed = time.ticks_ms()
-        print(f"f&s_node:{ed-st}ms\n")
+        # print(f"f&s_node:{ed-st}ms\n")
         start_side = start[0] * right[0] + start[1] * right[1]
         for i in range(len(nodes)):
             ref_node = nodes[i][1]
@@ -210,7 +210,7 @@ class BoundaryPathPlanner:
                     continue
                 if self._one_turn_cost(start, p, direction, avoid_dir, rects) < self.Data.INF:
                     st = time.ticks_ms()
-                    print(f"C_node:{ed-st}ms\n")
+                    # print(f"C_node:{ed-st}ms\n")
                     return self.my_plan._path_to_list([start, p, self._to_edge(p, direction)])
         return []
 

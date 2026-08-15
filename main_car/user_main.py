@@ -21,9 +21,9 @@ my_uart_debug.init(115200)
 gc.collect()
 import ant_task
 gc.collect()
-import ant_plan
-gc.collect()
 import ant_move
+gc.collect()
+import ant_plan
 gc.collect()
 import ant_vision
 gc.collect()
@@ -636,9 +636,9 @@ while True:
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
                     my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    # my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                    # my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                    # my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
