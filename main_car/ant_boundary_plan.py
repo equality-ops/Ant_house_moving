@@ -464,13 +464,13 @@ class objects_planner:
     def generate_nine_grid(self):
         """Fill the 3x3 grid with object kinds from snapped object coordinates."""
         self.nine_grid = [['', '', ''], ['', '', ''], ['', '', '']]
+        nine_grid = self.nine_grid
         for obj in self.now_objects:
             if not obj or len(obj) < 3:
                 continue
             idx = self.nine_grid_postion_to_idx(obj[1],obj[2])
             if idx:
-                self.nine_grid[idx[0]][idx[1]] = obj[0]
-        return self.nine_grid
+                nine_grid[idx[0]][idx[1]] = obj[0]
 
     def judge_side_in_nine_grid(self,obj,dir,k):
         """判断物体沿 dir 方向连续 k 步的九宫格是否为空（方法级定义，避免循环内反复创建函数对象）"""
@@ -481,8 +481,9 @@ class objects_planner:
             return False
         now_pt[0] += dir[0] * k
         now_pt[1] += dir[1] * k
+        nine_grid = self.nine_grid
         while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
-            if self.nine_grid[now_pt[0]][now_pt[1]] != '':
+            if nine_grid[now_pt[0]][now_pt[1]] != '':
                 return False
             now_pt[0] += dir[0] * k
             now_pt[1] += dir[1] * k
@@ -495,8 +496,9 @@ class objects_planner:
         idx = idx[:]
         idx[0] += dir[0] * k
         idx[1] += dir[1] * k
+        nine_grid = self.nine_grid
         while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
-            if self.nine_grid[idx[0]][idx[1]] != '':
+            if nine_grid[idx[0]][idx[1]] != '':
                 return False
             idx[0] += dir[0] * k
             idx[1] += dir[1] * k
@@ -513,8 +515,9 @@ class objects_planner:
         num = 0
         k = push_dir[0] + push_dir[1]
         use_big_rect = True
+        nine_grid = self.nine_grid
         while i[0] < 3 and i[0] >= 0 and i[1] < 3 and i[1] >= 0:
-            if self.nine_grid[i[0]][i[1]] != '':
+            if nine_grid[i[0]][i[1]] != '':
                 use_big_rect = False
                 break
             num += k
@@ -536,14 +539,15 @@ class objects_planner:
         for i in range(3):
             num_+=1
             line_has_S = False
+            nine_grid = self.nine_grid
             for j in range(3):
-                if self.nine_grid[i][j] == 'T':
+                if nine_grid[i][j] == 'T':
                     return False,num_
                 if not line_has_S:
-                    if self.nine_grid[i][j] in ['S','E']:
+                    if nine_grid[i][j] in ['S','E']:
                         line_has_S = True
                 else:
-                    if self.nine_grid[i][j] in ['B','W']:
+                    if nine_grid[i][j] in ['B','W']:
                         return True,num_
             if line_has_S: return False,num_
         return False,num_

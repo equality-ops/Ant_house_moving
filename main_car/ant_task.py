@@ -404,8 +404,24 @@ class TaskController:
         kept = []
         for group in grouped:
             if len(group) > 1:
-                group = [valid_idx for valid_idx in group
-                         if valid_objects[valid_idx][1] not in dangerous_kinds]
+                first_kind = valid_objects[group[0]][1]
+                same_kind = True
+                for valid_idx in group:
+                    if valid_objects[valid_idx][1] != first_kind:
+                        same_kind = False
+                        break
+                if same_kind:
+                    best_idx = group[0]
+                    best_dist2 = valid_objects[best_idx][5]
+                    for valid_idx in group[1:]:
+                        dist2 = valid_objects[valid_idx][5]
+                        if dist2 < best_dist2:
+                            best_idx = valid_idx
+                            best_dist2 = dist2
+                    group = [best_idx]
+                else:
+                    group = [valid_idx for valid_idx in group
+                             if valid_objects[valid_idx][1] not in dangerous_kinds]
             kept.extend(group)
 
         # Stable nearest-first assignment: objects that are closest to their
