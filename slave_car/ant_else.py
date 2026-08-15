@@ -1,6 +1,9 @@
 from micropython import const
 import time
 import gc
+# 引入 VL53L4CD 驱动
+from vl53l4cd import VL53L4CD,RANGE_VALID
+
 PI = const(3.1415926)
 # 计数器
 counter = 0 
@@ -599,3 +602,255 @@ class flash_system:
                         break
         if error_flag:
             self.beep.beep_warn()
+
+class TofControl:
+    def __init__(self, flash_sys, beep, car, plan, dist_pid_L, dist_pid_R, tof_L = None, tof_R = None):
+        self.flash_sys = flash_sys
+        self.my_beep = beep
+        self.tof_L = tof_L
+        self.tof_R = tof_R
+        self.my_car = car
+        self.my_plan = plan
+        self.dist_pid_L = dist_pid_L
+        self.dist_pid_R = dist_pid_R
+
+        # 传感器读数
+        self.data_L = -1.0
+        self.data_R = -1.0
+        self.status_L = RANGE_VALID
+        self.status_R = RANGE_VALID 
+        self.bias_L = 0.0  # 左传感器偏置值
+        self.bias_R = 0.0  # 右传感器偏置值
+        # 传感器读数合理的最小值和最大值
+        self.tof_valid_min = self.flash_sys.find_value("tof_valid_min")  # type: float
+        self.tof_valid_max = self.flash_sys.find_value("tof_valid_max")  # type: float
+
+        self.if_init_fil = False # 是否初始化滤波器
+        self.which_one = None  # 当前使用的传感器，'L'表示左传感器，'R'表示右传感器
+        self._stale_count_L = 0  # 左传感器连续无效计数
+        self._stale_count_R = 0  # 右传感器连续无效计数
+        self._invalid_count = 0  # 数据超出valid范围的连续计数
+        # I2C只能由主循环service()访问，定时器中的控制逻辑只读取缓存。
+        self._desired_side = None
+        self._active_side = None
+        self._sync_retry_ms = 0
+        self._next_read_ms = 0
+        self._tof_period_ms = 10
+        self._error_count_L = 0
+        self._error_count_R = 0
+        self._retry_after_L = 0
+        self._retry_after_R = 0
+
+    def _mark_stale(self, side):
+        if side == 'L':
+            self._stale_count_L += 1
+            if self._stale_count_L > 6:
+                self.data_L = -1.0
+        else:
+            self._stale_count_R += 1
+            if self._stale_count_R > 6:
+                self.data_R = -1.0
+
+    def _mark_read_failed(self, side, now):
+        self._mark_stale(side)
+        if side == 'L':
+            self._error_count_L += 1
+            if self._error_count_L >= 3:
+                self._retry_after_L = time.ticks_add(now, 200)
+                self._error_count_L = 0
+        else:
+            self._error_count_R += 1
+            if self._error_count_R >= 3:
+                self._retry_after_R = time.ticks_add(now, 200)
+                self._error_count_R = 0
+
+    def _read_sensor(self, sensor, side, now):
+        retry_after = self._retry_after_L if side == 'L' else self._retry_after_R
+        if sensor is None or time.ticks_diff(now, retry_after) < 0:
+            return
+        try:
+            if not sensor.data_ready:
+                self._mark_stale(side)
+                return
+            distance, status = sensor.read_measurement()
+            sensor.clear_interrupt()
+        except (OSError, TimeoutError):
+            self._mark_read_failed(side, now)
+            return
+
+        distance -= self.bias_L if side == 'L' else self.bias_R
+        if distance < 0:
+            distance = 0.0
+        if side == 'L':
+            self.status_L = status
+            self._error_count_L = 0
+            if status == RANGE_VALID:
+                self.data_L = distance
+                self._stale_count_L = 0
+            else:
+                self._mark_stale(side)
+        else:
+            self.status_R = status
+            self._error_count_R = 0
+            if status == RANGE_VALID:
+                self.data_R = distance
+                self._stale_count_R = 0
+            else:
+                self._mark_stale(side)
+
+    def service(self):
+        """Run deferred TOF I2C work from the main loop, never from a timer callback."""
+        now = time.ticks_ms()
+        if self._desired_side != self._active_side and time.ticks_diff(now, self._sync_retry_ms) >= 0:
+            try:
+                if self.tof_L and self._active_side == 'L':
+                    self.tof_L.stop_ranging()
+                if self.tof_R and self._active_side == 'R':
+                    self.tof_R.stop_ranging()
+                self._active_side = None
+
+                if self._desired_side == 'L' and self.tof_L:
+                    self.tof_L.start_ranging(wait=False)
+                    self._active_side = 'L'
+                elif self._desired_side == 'R' and self.tof_R:
+                    self.tof_R.start_ranging(wait=False)
+                    self._active_side = 'R'
+            except (OSError, TimeoutError):
+                self._sync_retry_ms = time.ticks_add(now, 200)
+                if self._desired_side in ('L', 'R'):
+                    self._mark_read_failed(self._desired_side, now)
+
+        if not self.my_car.if_control_dist or self._active_side is None:
+            return
+        if time.ticks_diff(now, self._next_read_ms) < 0:
+            return
+        self._next_read_ms = time.ticks_add(now, self._tof_period_ms)
+        self.update_tof(now)
+
+    # 更新tof传感器信息
+    def update_tof(self, now=None):
+        # 如果没有初始化tof成功则直接退出
+        if self.tof_L is None and self.which_one == 'L':
+            return
+        if self.tof_R is None and self.which_one == 'R':
+            return
+
+        if now is None:
+            now = time.ticks_ms()
+        if self.which_one == 'L':
+            self._read_sensor(self.tof_L, 'L', now)
+        elif self.which_one == 'R':
+            self._read_sensor(self.tof_R, 'R', now)
+        else:
+            self._read_sensor(self.tof_L, 'L', now)
+            self._read_sensor(self.tof_R, 'R', now)
+
+        # 自动选择：优先左传感器，无效则用右传感器
+        if not self.which_one:
+            if self.data_L != -1.0:
+                self.which_one = 'L'
+            elif self.data_R != -1.0:
+                self.which_one = 'R'
+
+    # 判断数据是否合理
+    def is_data_valid(self):
+        # 使用滞回判断避免频繁切换：需要连续多次无效才真正失效
+        raw_valid = False
+        if self.which_one == 'L':
+            raw_valid = self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
+        elif self.which_one == 'R':
+            raw_valid = self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
+
+        if raw_valid:
+            self._invalid_count = 0
+            return True
+        else:
+            self._invalid_count += 1
+            # 连续多次无效才真正失效
+            return self.if_init_fil and self._invalid_count <= 4
+
+    # 判断数据是否合理
+    def is_data_valid_once(self):
+        # 使用滞回判断避免频繁切换：需要连续多次无效才真正失效
+        raw_valid = False
+        if self.which_one == 'L':
+            raw_valid = self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
+        elif self.which_one == 'R':
+            raw_valid = self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
+
+        if raw_valid:
+            return True
+        else:
+            return False
+        
+    # 重置速度分量
+    def reset_speed_weight(self):
+        self.my_car.speed_weight = 0.0
+
+    # tof准备
+    def ready_tof(self, sensor, fixed_dir):
+        def choose_sensor(sensor):
+            if sensor == 'left':
+                self.which_one = 'L'
+            elif sensor == 'right':
+                self.which_one = 'R'
+            else:
+                self.which_one = None
+
+        # 选择tof传感器
+        choose_sensor(sensor)
+        self.my_car.fixed_direction = fixed_dir
+        self.my_car.if_control_dist = True
+        self.if_init_fil = False
+        self._desired_side = self.which_one
+        self._next_read_ms = 0
+
+    # 重置tof传感器信息
+    def reset_tof(self):
+        self._desired_side = None
+
+        self.data_L, self.data_R = -1.0, -1.0
+        self._stale_count_L, self._stale_count_R = 0, 0
+        self._invalid_count = 0
+        self.which_one = None
+        self.status_L, self.status_R = RANGE_VALID, RANGE_VALID
+        self.my_car.if_control_dist = False
+        self.if_init_fil = False
+        self.reset_speed_weight()
+        self.my_beep.beep.low()
+        
+    # 距离控制主函数
+    def dist_control(self):
+        # 如果没有初始化tof成功则直接退出
+        if self.tof_L is None and self.which_one == 'L':
+            return
+        if self.tof_R is None and self.which_one == 'R':
+            return
+        
+        # TOF数据由主循环service()更新；定时器中仅使用最近一次缓存。
+        if self.is_data_valid():
+            self.my_beep.beep.low()
+            if self.if_init_fil == False:
+                if self.which_one == 'L':
+                    self.dist_pid_L.init_filter(self.data_L)
+                elif self.which_one == 'R':
+                    self.dist_pid_R.init_filter(self.data_R)
+                self.if_init_fil = True
+
+            if self.which_one == 'L':
+                self.dist_pid_L.compute_pid(self.data_L)
+                self.my_car.speed_weight = self.dist_pid_L.pwm_output
+            elif self.which_one == 'R':
+                self.dist_pid_R.compute_pid(self.data_R)
+                self.my_car.speed_weight = self.dist_pid_R.pwm_output
+            else:
+                # 清零输出
+                self.dist_pid_L.reset_pwmout()
+                self.dist_pid_R.reset_pwmout()
+                self.reset_speed_weight()
+        else:
+            self.my_beep.beep.high()
+            # 清零输出
+            self.dist_pid_L.reset_pwmout()
+            self.dist_pid_R.reset_pwmout()
+            self.reset_speed_weight()
