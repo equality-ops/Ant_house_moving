@@ -91,6 +91,7 @@ class MoveControl:
             'path':[],
             'angle':0,
         }
+        self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
         gc.collect()
 
     # 更新物体当前坐标，已知物体在小车正前方的距离 dist
@@ -108,28 +109,30 @@ class MoveControl:
 
     # 构建搬运途径点列表
     def build_moving_point(self,point):
-        current_index = self.plan_data.current_index
+        Data = self.plan_data
+        current_index = Data.current_index
         current_object = self.vision_manager.current_servo_object
-        self.moving_point.clear()
-        self.moving_point.append(self.now_object_pt[:])  # 物体位置（使用切片拷贝，避免引用污染）
-        if self.plan_data.if_rogue_plan:
-            object_message = self.plan_data.rogue_planning[current_index]
+        move_point = self.moving_point
+        move_point.clear()
+        move_point.append(self.now_object_pt[:])  # 物体位置（使用切片拷贝，避免引用污染）
+        if Data.if_rogue_plan:
+            object_message = Data.rogue_planning[current_index]
             move_step=object_message[3]
         else:
             move_step=[]
         for item in move_step: # 搬运途径点
             if item[0] == 'x':
-                self.moving_point.append([item[1], self.moving_point[-1][1]])
+                move_point.append([item[1], move_point[-1][1]])
             elif item[0] == 'y':
-                self.moving_point.append([self.moving_point[-1][0], item[1]])
+                move_point.append([move_point[-1][0], item[1]])
         if current_object == 'T':
-            self.moving_point.append([self.moving_point[-1][0], self.plan_data.FIELD_H])
+            move_point.append([move_point[-1][0], Data.FIELD_H])
             self.move_dir = 0
         elif current_object in ['S', 'E']:
-            self.moving_point.append([0.0, self.moving_point[-1][1]])
+            move_point.append([0.0, move_point[-1][1]])
             self.move_dir = -90
         elif current_object in ['B', 'W']:
-            self.moving_point.append([self.plan_data.FIELD_W, self.moving_point[-1][1]])
+            move_point.append([Data.FIELD_W, move_point[-1][1]])
             self.move_dir = 90
 
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
@@ -182,7 +185,7 @@ class MoveControl:
             'LDD': LDD,
             'RDD': RDD,
         }
-        self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
+        
         
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
@@ -192,7 +195,10 @@ class MoveControl:
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
         self.now_object_pt = point[:]
-        if not self.vision_manager.if_in_rect(self.now_object_pt[0],self.now_object_pt[1]):
+        vision = self.vision_manager
+        PLAN_PATH = self.my_path
+        DATA = self.plan_data
+        if not vision.if_in_rect(self.now_object_pt[0],self.now_object_pt[1]):
             return False
         self.moving_idx = 0
         self.current_state = NAVIGATE
@@ -200,14 +206,12 @@ class MoveControl:
         self.if_start_orbit = False
         self.if_slave_ready_move = False
         self.navigate_buffer.clear()
-        self.my_plan.reset_navigate()
-        self.my_plan.reset_navigate_angle()
         # 重置搬运点索引
         self.moving_idx = 0
         # 构建搬运途径点列表
         self.build_moving_point(point)
-        if self.vision_manager.current_servo_object in ['S','E']:self.__angle = self.angle_S
-        elif self.vision_manager.current_servo_object == 'T':self.__angle = self.angle_T
+        if vision.current_servo_object in ['S','E']:self.__angle = self.angle_S
+        elif vision.current_servo_object == 'T':self.__angle = self.angle_T
         else:self.__angle = self.angle_B
         # 记录小车当前角度
         if now_side == 'L':current_turn_deg = 90.0
@@ -237,15 +241,14 @@ class MoveControl:
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
         M_PAth = []
-        S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
+        S_PAth = [vision.current_servo_object,self.now_object_pt]
         self.run_first = True
-        self.vision_manager.if_next_orbit = False
+        vision.if_next_orbit = False
         retreat_lenth = 25
         if self.if_first_navigate:
             st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
         else:
             st = []
-        # print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
         self.delay_more = False
         if self.if_change_side:
             self.vision_manager.if_next_orbit = False
@@ -293,19 +296,15 @@ class MoveControl:
             if not RECT:
                 therhold = 7
                 if target_side =='D':
-                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold,start_point = st)
-                    # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
+                    PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[0][1]-therhold,start_point = st)
                 elif target_side =='U':
-                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold,start_point = st)
-                    # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
+                    PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[3][1]+therhold,start_point = st)
                 elif target_side =='L':
-                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1],start_point = st)   
-                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1]) 
+                    PLAN_PATH.plan_path(DATA.center_rect[0][0]-therhold,m_PAth[0][1],start_point = st)   
                 else:
-                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1],start_point = st)
-                    # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
+                    PLAN_PATH.plan_path(DATA.center_rect[3][0]+therhold,m_PAth[0][1],start_point = st)
             else:
-                big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
+                big_rect = [DATA.center_rect[0],DATA.center_rect[3]]
                 p_2 = RECT[0][:]
                 p_1 = m_PAth[0][:]
                 if target_side =='D': 
@@ -328,12 +327,11 @@ class MoveControl:
                     p_2[0] = big_rect[0][0]
                 else:
                     p_2[0] = big_rect[1][0]
-                self.my_path.plan_path(p_2[0],p_2[1],start_point = st)   
-                # self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
-                self.my_path.ready_path.append(p_1)
-            M_PAth = self.my_path.ready_path + m_PAth
+                PLAN_PATH.plan_path(p_2[0],p_2[1],start_point = st)   
+                PLAN_PATH.ready_path.append(p_1)
+            M_PAth = PLAN_PATH.ready_path + m_PAth
         else:#如果servo目标边与现在边相同
-            self.vision_manager.if_next_orbit = True
+            vision.if_next_orbit = True
             if not self.if_first_navigate:#第一次，固定主车在先,若不是第一次，判断物体位置，靠近物体的车先
                 if now_side == 'D':
                     if (point[0]-self.my_car.x_current > 0 and self.next_postion == 'l') or\
@@ -366,7 +364,7 @@ class MoveControl:
                 car_postion += 90
                 self.next_postion = 'r'
             if turn_angle == 0.0:
-                self.vision_manager.if_next_orbit = False
+                vision.if_next_orbit = False
                 if self.my_obj_plan.special_push:ANGle[1] = target_turn_deg + 5 * Num
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
@@ -389,16 +387,15 @@ class MoveControl:
                 else:self.if_first_orbit = True
             if self.my_obj_plan.special_push:
                 self.plan_data.rectangles.insert(-1,RECT)
-            if target_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1],ignore_center_rect=True,start_point = st)
-            elif target_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1],ignore_center_rect=True,start_point = st)
-            elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)   
-            else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)
+            if target_side =='D':PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[0][1],ignore_center_rect=True,start_point = st)
+            elif target_side =='U':PLAN_PATH.plan_path(m_PAth[0][0],DATA.center_rect[3][1],ignore_center_rect=True,start_point = st)
+            elif target_side =='L':PLAN_PATH.plan_path(DATA.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)   
+            else:PLAN_PATH.plan_path(DATA.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)
             if self.my_obj_plan.special_push:
-                self.plan_data.rectangles.remove(RECT)
-            M_PAth = self.my_path.ready_path + m_PAth
+                DATA.rectangles.remove(RECT)
+            M_PAth = PLAN_PATH.ready_path + m_PAth
         # print(f"if_change_side:{self.if_change_side}, RECT: {RECT}, if_first_navigate: {self.if_first_navigate},  ready_path: {self.my_path.ready_path}")
         car_postion = 180 - (180 - car_postion) % 360
-        # Offset toward the other car rather than away from the object pair.
         if car_postion<=90+0.01 and car_postion>=90-0.01:self.push_postion = [1,0]
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
