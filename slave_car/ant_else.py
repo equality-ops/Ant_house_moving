@@ -189,9 +189,9 @@ class UARTProtocol:
         self.state_object = 0
         self.detect_buffer = [0,[]]
         self.object_buffer = ['',0,0]
-    def detect_objects_on_the_court(self):
-        objects_package = None
-        while self.my_uart.any():
+    def detect_objects_on_the_court(self,max_num):
+        objects_package = []
+        while self.my_uart.any() and len(objects_package) < max_num:
             byte = self.my_uart.read(1)[0]
             if self.state_detect_all_objects == 0:
                 self.reset_detect_objects()

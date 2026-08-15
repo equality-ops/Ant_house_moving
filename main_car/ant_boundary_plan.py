@@ -372,6 +372,7 @@ class BoundaryPathPlanner:
         return u1 <= u2
     
 class objects_planner:
+    #用于物体评分，选择物体，做规划预处理
     def __init__(self,my_flash_sys,my_write, plan_data, car, my_plan, my_BoundaryPath : BoundaryPathPlanner):
         self.flash_sys = my_flash_sys
         self.my_write = my_write
@@ -389,15 +390,15 @@ class objects_planner:
         self.special_push = False
         self.best_path = [0,0]
         self.judge_state = 0#0:未开始，1:正在进行，2:已结束
-        self.last_sandbag_idx = -1
+        self.last_sandbag_idx = -1#用于最后一个沙袋加分
         self.now_idx = 0
         self.judge_start_ticks = 0
         self.run_speed = self.flash_sys.find_value("long_v_max") * 0.656467 * 0.72 # 0.656467为速度转换系数，把long_v_max转换为理论的厘米每秒速度，0.72转换为实际
         self.nine_grid = [['','',''],
                           ['','',''],
                           ['','',''],]
-        self.wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
-        self.height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}
+        self.wideness={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}#用于物体障碍矩阵构建
+        self.height={'T':4.0,'S':3.0,'E':3.0,'B':3.0,'W':3.0,}#用于物体障碍矩阵构建
         gc.collect()
     def set_barriers(self,barriers):
         for i in self.now_objects:
@@ -536,6 +537,7 @@ class objects_planner:
         else :return [None,0]
 
     def judge_object_character(self,objects,car_side):
+        """选择合适的物体选为target计算target分数并选取最小分数作为选定目标"""
         if self.judge_state == 0:
             self.judge_start_ticks = time.ticks_ms()
             t_state = time.ticks_ms()

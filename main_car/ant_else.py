@@ -426,7 +426,7 @@ class UARTProtocol:
         self.detect_buffer = [0,[]]
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.object_buffer = ['',0,0]
-        self.my_uart.read(self.my_uart.any())#清空缓冲�?
+        self.my_uart.read(self.my_uart.any())#清空缓冲区?
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
         last_valid_frame = None
@@ -469,9 +469,9 @@ class UARTProtocol:
         self.detect_buffer = [0,[]]
         self.object_buffer = ['',0,0]
 
-    def detect_objects_on_the_court(self):
-        objects_package = None
-        while self.my_uart.any():
+    def detect_objects_on_the_court(self,max_num):
+        objects_packages = []
+        while self.my_uart.any() and len(objects_packages) < max_num:
             byte = self.my_uart.read(1)[0]
             if self.state_detect_all_objects == 0:
                 self.reset_detect_objects()
@@ -503,10 +503,14 @@ class UARTProtocol:
                         continue
             elif self.state_detect_all_objects == 3:
                 if byte == 0x78:
-                    objects_package = self.detect_buffer
+                    if not objects_packages:
+                        objects_packages = [self.detect_buffer]
+                    else:
+                        objects_packages.append(self.detect_buffer)
                 self.reset_detect_objects()
                 continue
-        return objects_package
+        if len(objects_packages) == max_num:self.clear_uart_buffer()
+        return objects_packages
     # 发送物体种�?
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
