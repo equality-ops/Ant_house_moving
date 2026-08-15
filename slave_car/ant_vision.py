@@ -248,7 +248,7 @@ class VisionManager:
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；
-        scale = max(0.8, min(1.0, dist / 10.0)) # 10cm外全速，近处最少降到90%
+        scale = max(0.9, min(1.0, dist / 5.0)) # 10cm外全速，近处最少降到90%
         self.servo_pid.servo_kp_x = self.servo_pid.servo_kp_normal_x * scale
         self.servo_pid.servo_kp_y = self.servo_pid.servo_kp_normal_y * scale
 
@@ -586,18 +586,15 @@ class VisionManager:
             self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
             # 判断是否已越过目标角度（带方向，正确处理 -180/180 突变）
-            now_deg = (self.my_car.now_yaw * 180.0 / PI + 180.0) % 360.0 - 180.0   # 归一化到 (-180, 180]
+            # over = 当前姿态角相对目标角的带符号最短角差，范围 (-180, 180]
+            over = (self.my_car.now_yaw * 180.0 / PI - self.target_angle + 180.0) % 360.0 - 180.0
             if self.direct == 'CW':
-                # 顺时针：姿态角沿递增方向，从起始角走到当前角的有向角度
-                traveled_dir = now_deg - self.record_angle
+                if_beyond = over >= 0.0   # 姿态角已沿递增方向到达/越过目标角
             else:
-                # 逆时针：姿态角沿递减方向
-                traveled_dir = self.record_angle - now_deg
-            traveled_dir %= 360.0                     # 归一到 [0, 360)，规避跨边界突变与可能的多圈
-            if_beyond = traveled_dir >= self.total_orbit_angle  # 沿设定方向已到达/越过目标角度
+                if_beyond = over <= 0.0   # 姿态角已沿递减方向到达/越过目标角
 
             # 判断是否完成环绕
-            if diff <= 2.0 and if_beyond:	
+            if if_beyond or diff <= 2.0:	
                 counter = 0
                 self.my_order_manager.finish()
                 self.orbit_speed = 0.0
