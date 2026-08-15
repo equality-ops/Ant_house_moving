@@ -21,8 +21,6 @@ class BoundaryPathPlanner:
         self.ready_path = []
         self.judge_start_ticks = 0
         self.first_run = True
-        self.last_swell_direct = None
-        self.last_skip_idx = None
         self.xx = 0
         self.yy = 0
         self.direction = 0
