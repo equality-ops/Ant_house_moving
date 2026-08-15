@@ -201,7 +201,7 @@ class TaskController:
                     self.my_tof.update_tof()  # 更新TOF传感器数据
                     self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到路径信息
                     current_object = self.current_object
-                    retreat_threhold = 5
+                    retreat_threhold = 10
                     car_dist = self.calibrate_dist # 主从车的距离
                     calibrate_threshold = 5.0 # 校准距离阈值
                     self.retreat_message = [self.my_car.x_current, self.my_car.y_current]

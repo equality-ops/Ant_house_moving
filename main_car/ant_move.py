@@ -239,9 +239,8 @@ class MoveControl:
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         self.vision_manager.if_next_orbit = False
-        #规划分支
-        
-        if self.if_change_side:#如果servo目标边与现在边不同
+        print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
+        if self.if_change_side:
             self.vision_manager.if_next_orbit = False
             if self.if_first_navigate:#第一次，固定主车在先
                 if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
