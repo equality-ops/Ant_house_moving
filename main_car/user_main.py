@@ -669,7 +669,7 @@ while True:
             slave_stop_threshold = 25.0
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
-            retreat_lenth = 20
+            retreat_lenth = 25
             if my_task.last_side == "L":
                 target_angle = 90.0
                 my_task.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]

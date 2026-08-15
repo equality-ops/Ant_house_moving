@@ -59,6 +59,7 @@ class MoveControl:
             'LDD': [],
             'RDD': [],
         }
+        self.delay_more = False
         self.if_first_orbit = False
         self.slave_message_delay = 0
         self.now_barriar = []
@@ -239,12 +240,13 @@ class MoveControl:
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         self.vision_manager.if_next_orbit = False
-        retreat_lenth = 20
+        retreat_lenth = 25
         if self.if_first_navigate:
             st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
         else:
             st = []
         print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
+        self.delay_more = False
         if self.if_change_side:
             self.vision_manager.if_next_orbit = False
             if self.if_first_navigate:#第一次，固定主车在先
@@ -268,6 +270,7 @@ class MoveControl:
                         car_postion -= 90
                         self.next_postion = 'l'
                     else:
+                        self.delay_more = True
                         m_PAth = [self.surrounding_points['LD']]
                         ANGle = [angle_l0,target_turn_deg+Num,angle_l]
                         car_postion += 90
@@ -281,6 +284,7 @@ class MoveControl:
                         car_postion += 90
                         self.next_postion = 'r'
                     else:
+                        self.delay_more = True
                         m_PAth = [self.surrounding_points['RD']]
                         ANGle = [angle_r0,target_turn_deg+Num,angle_r]
                         car_postion -= 90
@@ -648,7 +652,10 @@ class MoveControl:
                     if self.if_first_navigate:
                         if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
                         else:slave_message_delay = self.slave_message_delay
-                    else:slave_message_delay = self.slave_message_delay
+                    else:
+                        if self.delay_more and len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
+                        else:
+                            slave_message_delay = self.slave_message_delay
                     if self.if_send_navigate_command == False:
                         self.if_send_navigate_command = True
                         #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
