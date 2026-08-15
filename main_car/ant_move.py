@@ -239,6 +239,11 @@ class MoveControl:
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         self.vision_manager.if_next_orbit = False
+        retreat_lenth = 20
+        if self.if_first_navigate:
+            st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
+        else:
+            st = []
         print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
         if self.if_change_side:
             self.vision_manager.if_next_orbit = False
@@ -284,16 +289,16 @@ class MoveControl:
             if not RECT:
                 therhold = 7
                 if target_side =='D':
-                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
+                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold,start_point = st)
                     # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
                 elif target_side =='U':
-                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
+                    self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold,start_point = st)
                     # self.my_path.ready_path[-1] = (m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
                 elif target_side =='L':
-                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1])   
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1],start_point = st)   
                     # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[0][0]-therhold,m_PAth[0][1]) 
                 else:
-                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
+                    self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1],start_point = st)
                     # self.my_path.ready_path[-1] = (self.my_plan.plan_data.center_rect[3][0]+therhold,m_PAth[0][1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
@@ -319,7 +324,7 @@ class MoveControl:
                     p_2[0] = big_rect[0][0]
                 else:
                     p_2[0] = big_rect[1][0]
-                self.my_path.plan_path(p_2[0],p_2[1])   
+                self.my_path.plan_path(p_2[0],p_2[1],start_point = st)   
                 # self.my_path.ready_path[-1] = (p_2[0],p_2[1]) 
                 self.my_path.ready_path.append(p_1)
             M_PAth = self.my_path.ready_path + m_PAth
@@ -381,10 +386,10 @@ class MoveControl:
                 else:self.if_first_orbit = True
             if self.my_obj_plan.special_push:
                 self.plan_data.rectangles.insert(-1,RECT)
-            if target_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1],ignore_center_rect=True)
-            elif target_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1],ignore_center_rect=True)
-            elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True)   
-            else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True)
+            if target_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1],ignore_center_rect=True,start_point = st)
+            elif target_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1],ignore_center_rect=True,start_point = st)
+            elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)   
+            else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True,start_point = st)
             if self.my_obj_plan.special_push:
                 self.plan_data.rectangles.remove(RECT)
             M_PAth = self.my_path.ready_path + m_PAth
