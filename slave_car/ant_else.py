@@ -554,6 +554,9 @@ class flash_system:
                 except Exception as e:
                     print(f"Error: Failed to parse {var_name} = {var_value}")
                     self.beep.beep_warn()
+            elif var_value[0] == "'" and var_value[-1] == "'":
+                # 单引号包裹的值视为字符串（如 'L' → "L"）
+                self.config[var_name] = var_value[1:-1]
             else:
                 self.config[var_name] = self.phase_num_string(var_value)
             line_count += 1

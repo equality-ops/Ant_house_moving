@@ -78,9 +78,6 @@ class TaskController:
         self.calibrate_score_threshold = self.my_flash_system.find_value("calibrate_score_threshold")
         self.scan_num = self.my_flash_system.find_value("scan_num")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
-        if self.use_scan_point>2:
-            self.last_side = 'U'
-        else:self.last_side = 'D'
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
         self.ap_slave_buffer = []
@@ -92,12 +89,28 @@ class TaskController:
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
         self.need_calibrate_score = 0
-        self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
-                                 [[self.data.center_x-self.data.lenth,self.data.fixed_point[1][1]],0],
-                                 [[self.data.center_x+self.data.lenth*0.5,self.data.fixed_point[1][1]],0],
-                                 [[self.data.center_x+self.data.lenth*0.5,self.data.fixed_point[2][1]],180],
-                                 [[self.data.center_x-self.data.lenth,self.data.fixed_point[2][1]],180],
-                                 [[self.data.fixed_point[1][0],self.data.fixed_point[1][1]],45]]
+
+        self.scan_side = self.my_flash_system.find_value("scan_side")  # 在哪边进行扫描
+        if self.scan_side not in ['D', 'L', 'R', 'U']:
+            print("Write invalid scan_side in flash, default to 'D'")
+            self.my_beep.beep_warn()    # 蜂鸣器进行提醒此时扫描边参数输入错误
+            self.scan_side = 'D'  # 默认扫描在下边
+
+        self.last_side = self.scan_side  # 开始边与扫描边一致
+
+        if self.scan_side in ['D', 'R']:
+            self.my_moving.next_postion = 'r'
+        else:
+            self.my_moving.next_postion = 'l'
+
+        self.fixed_scan_point = {'D': [[[self.data.center_x - self.data.lenth, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[1][1]], 0]], \
+                                 'L': [[[self.data.fixed_point[1][0], self.data.center_y - self.data.lenth], 90], [[self.data.fixed_point[1][0], self.data.center_y+self.data.lenth*0.5], 90]], \
+                                 'R': [[[self.data.fixed_point[2][0], self.data.center_y - self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y+self.data.lenth*0.5],- 90]], \
+                                 'U': [[[self.data.center_x - self.data.lenth, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[2][1]], 180]], \
+                                 'ONE_POINT': [[[self.data.fixed_point[1][0],self.data.fixed_point[1][1]], 45]]} # type: dict
+
+        # print(f"last_side: {self.last_side}, scan_side: {self.scan_side}, next_position: {self.my_moving.next_postion}, fixed_scan_point: {self.fixed_scan_point}")
+
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
     # 不同模式下的执行函数
@@ -169,6 +182,8 @@ class TaskController:
             pass
 
     def exit(self):
+        global counter
+
         state = self.my_state.state
         if state == READY_NAVIGATE:
             # 退出准备导航状态，清理路径规划相关资源
@@ -176,15 +191,30 @@ class TaskController:
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
                 if self.use_scan_point == 1:
-                    p = self.fixed_scan_point[-1][0]
-                    a = self.fixed_scan_point[self.use_scan_point][1]
+                    p = self.fixed_scan_point.get("ONE_POINT")[0][0] # type: ignore
+                    a = 0.0
+                    slave_x = p[0]
+                    slave_y = 20.0
                 else:
-                    p = self.fixed_scan_point[self.use_scan_point][0]
-                    a = self.fixed_scan_point[self.use_scan_point][1]
-                if self.use_scan_point>2:
-                    self.my_main_protocol.send_path('P',a,(p[0],220.0))
-                else:
-                    self.my_main_protocol.send_path('P',a,(p[0],20.0))
+                    p = self.fixed_scan_point.get(self.scan_side)[0][0] # type: ignore
+                    a = self.fixed_scan_point.get(self.scan_side)[0][1] # type: ignore
+
+                    dist = 50.0
+                    if self.scan_side == 'D':
+                        slave_x = self.data.center_x
+                        slave_y = p[1] - dist
+                    elif self.scan_side == 'L':
+                        slave_x = p[0] - dist
+                        slave_y = self.data.center_y
+                    elif self.scan_side == 'R':
+                        slave_x = p[0] + dist
+                        slave_y = self.data.center_y
+                    elif self.scan_side == 'U':
+                        slave_x = self.data.center_x
+                        slave_y = p[1] + dist
+
+                self.my_main_protocol.send_path('P',a,(slave_x, slave_y))
+
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
@@ -239,21 +269,21 @@ class TaskController:
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                if not self.if_send_path:
-                    self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
-                    self.if_send_path = True
+                counter += 1
+                # 延时100ms
+                if counter <= 10:
+                    return
 
-                # 从车完成矫正
-                if self.my_main_protocol.get_slave_state() == "get":
-                    self.if_send_path = False
-                    self.data.current_index += 1
-                    self.my_plan.reset_navigate()
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = READY_NAVIGATE
-                    # 测试光电管矫正效果
-                    # self.my_state.state = RETURN
-                    self.my_moving.reset_move()  # 重置搬运标志
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                counter = 0
+                self.if_send_path = False
+                self.data.current_index += 1
+                self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = READY_NAVIGATE
+                # 测试光电管矫正效果
+                # self.my_state.state = RETURN
+                self.my_moving.reset_move()  # 重置搬运标志
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
@@ -524,7 +554,7 @@ class TaskController:
                 while counter + i < num and i < len(object_package):
                     self.scan_empty_counter = 0
                     new_world = self.handle_object_info(object_package[i],angle)
-                    #self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
+                    self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
                     if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                     else: self.now_objects = new_world
                     self.my_vision.analysed_objects = self.now_objects
@@ -590,23 +620,32 @@ class TaskController:
         global counter
         if not self.if_end_first_scan:
             if not self.if_plan_scan:
+                start_point = [self.my_car.x_current, self.my_car.y_current + 40.0]
+
                 if self.use_scan_point == 1:
-                    self.my_path.plan_path(self.fixed_scan_point[-1][0][0],self.fixed_scan_point[-1][0][1]) 
-                    self.my_path.ready_path[-1] = self.fixed_scan_point[-1][0]
-                    self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[-1][1]])
-                    self.planned_scan_path[0][0].insert(0,[self.my_car.x_current,self.my_car.y_current+30])
+                    target_point = self.fixed_scan_point.get("ONE_POINT")[0][0] # type: ignore
+                    target_angle = self.fixed_scan_point.get("ONE_POINT")[0][1] # type: ignore
+                    self.my_path.plan_path(target_point[0],target_point[1]) 
+                    self.my_path.ready_path[-1] = target_point
+                    self.planned_scan_path.append([self.my_path.ready_path, target_angle])
+                    self.planned_scan_path[0][0].insert(0, start_point)
                     self.if_plan_scan = True
                     counter = 0
-                    return
-                if counter >= self.use_scan_point:
-                    self.planned_scan_path[0][0].insert(0,[self.my_car.x_current,self.my_car.y_current+30])
-                    self.if_plan_scan = True
-                    counter = 0
-                    return
-                self.my_path.plan_path(self.fixed_scan_point[counter+1][0][0],self.fixed_scan_point[counter+1][0][1],start_point = self.fixed_scan_point[counter][0]) 
-                self.my_path.ready_path[-1] = self.fixed_scan_point[counter+1][0]
-                self.planned_scan_path.append([self.my_path.ready_path,self.fixed_scan_point[counter+1][1]])
-                counter+=1
+                else:
+                    if counter >= self.use_scan_point:
+                        self.planned_scan_path[0][0].insert(0, start_point)
+                        self.if_plan_scan = True
+                        counter = 0
+                        return
+
+                    pt = self.fixed_scan_point.get(self.scan_side)[counter] # type: ignore
+                    if counter > 0:
+                        self.my_path.plan_path(pt[0][0], pt[0][1], start_point = self.fixed_scan_point.get(self.scan_side)[counter - 1][0]) # type: ignore
+                    else:
+                        self.my_path.plan_path(pt[0][0], pt[0][1], start_point = start_point) 
+                    self.my_path.ready_path[-1] = pt[0]
+                    self.planned_scan_path.append([self.my_path.ready_path, pt[1]])
+                    counter += 1
             else:self.first_scan()
         else:self.exit()
 
@@ -701,7 +740,7 @@ class TaskController:
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
         # 主车行驶多远后给从车发送路径信�?
-        dist_threshold = 50.0
+        dist_threshold = 30.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?

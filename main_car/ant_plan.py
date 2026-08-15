@@ -34,11 +34,18 @@ class PlanData:
         self.lenth = self.flash_sys.find_value("SUDOKU_length_x")
         self.center_rect_center = [self.center_x,self.center_y]
         rate = self.flash_sys.find_value("rect_zoom_rate")
+        rate_vision = self.flash_sys.find_value("vision_rect_zoom_rate")
+        
         self.fixed_point = [[35.0,-40.2], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -75.0], [25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x - self.lenth*rate,self.center_y + self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate]] 
+
+        # 中心物品摆放的矩形区域（视觉过滤）
+        self.vision_fil_center_rect = [[self.center_x - self.lenth*rate_vision,self.center_y - self.lenth*rate_vision], [self.center_x - self.lenth*rate_vision,self.center_y + self.lenth*rate_vision],
+                                       [self.center_x + self.lenth*rate_vision,self.center_y - self.lenth*rate_vision], [self.center_x + self.lenth*rate_vision,self.center_y + self.lenth*rate_vision]]
+
         # 路径规划相关常量
         self.FIELD_W = self.flash_sys.find_value("FIELD_W")  # 地图宽度
         self.FIELD_H = self.flash_sys.find_value("FIELD_H")  # 地图高度
