@@ -213,7 +213,6 @@ class BoundaryPathPlanner:
         while idx < len(nodes) and nodes[idx][0] <= side_dist:
             idx += 1
         nodes.insert(idx, item)
-
     def _avoid_corner_node(self, rect, direction, avoid_dir):
         d = 2.0
         count = len(rect)
@@ -224,7 +223,6 @@ class BoundaryPathPlanner:
             cy += p[1]
         cx /= count
         cy /= count
-
         best = rect[0]
         best_side = -self.Data.INF
         best_back = -self.Data.INF
@@ -677,29 +675,29 @@ class objects_planner:
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
                     if i[4] !='R':
-                        idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                        '''idxx = self.nine_grid_postion_to_idx(i[2],i[3])
                         if car_side =='L':
                             if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
                             if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
                         else:
-                            if idxx[1]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
+                            if idxx[1]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000'''
                         score+=1000
                     if self.last_sandbag_idx == 0:score+=1000
                 elif (i[1] == 'T') and i[4] !='D':
-                    idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                    '''idxx = self.nine_grid_postion_to_idx(i[2],i[3])
                     if car_side =='U':
                         if idxx[1]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
                         if idxx[1]+1<3 and self.nine_grid[idxx[0]][idxx[1]+1] == 'T':score+=1000
                     else:
-                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
+                        if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000'''
                     score+=1000
                 elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':
-                    idxx = self.nine_grid_postion_to_idx(i[2],i[3])
+                    '''idxx = self.nine_grid_postion_to_idx(i[2],i[3])
                     if car_side =='R':
                         if idxx[0]+1<3 and self.nine_grid[idxx[0]+1][idxx[1]] == 'T':score+=1000
                         if idxx[0]-1>=0 and self.nine_grid[idxx[0]-1][idxx[1]] == 'T':score+=1000
                     else:
-                        if idxx[1]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000
+                        if idxx[1]-1>=0 and self.nine_grid[idxx[0]][idxx[1]-1] == 'T':score+=1000'''
                     score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
