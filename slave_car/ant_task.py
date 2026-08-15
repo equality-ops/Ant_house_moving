@@ -192,7 +192,6 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             if self.my_moving.current_state != NAVIGATE:
-                self.my_tof.reset_tof()
                 self.my_state.state = RETURN  # 直接切换到校准状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:

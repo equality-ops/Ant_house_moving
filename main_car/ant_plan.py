@@ -1,6 +1,6 @@
 from micropython import const
 import math
-import gc,time
+import gc
 
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状态
@@ -109,7 +109,7 @@ class PathPlan:
         # 必须加 [:] 生成一份临时拷贝，绝不能在原内存列表上做 remove！
         circles = self.Data.circle[:]
         rects = self.Data.rectangles[:]
-        print(f"plan_pathstart{time.ticks_ms()}\n")
+        
         # 如果特定状态激活，将原有的中心区域矩形障碍物移除
         # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
         if ignore_center_rect and len(rects) > 0:
@@ -149,14 +149,10 @@ class PathPlan:
         start = get_nearest_valid(start)
         end = get_nearest_valid(end)
 
-        print(f"plan_1")
-
         # 检查直连
         if self._line_valid(start, end, circles, rects, block_r):
             self.ready_path = [[float(end[0]), float(end[1])]]
-            print(f"plan_pathend{time.ticks_ms()}\n")
-            return self.ready_path
-        
+
         # 初始化节点列表
         nodes = [start, end]
         # 添加圆形中继点 (核心修改部分)
@@ -165,8 +161,6 @@ class PathPlan:
         self._add_rectangle_nodes(nodes, rects)
         # 剔除无效点和重复点            
         nodes = self._unique_valid_nodes(nodes, circles, rects, block_r)
-
-        print(f"plan_2")
 
         n = len(nodes)
         dist = [self.Data.INF] * n
@@ -194,10 +188,7 @@ class PathPlan:
                         dist[v] = dist[u] + w
                         prev[v] = u
 
-        print(f"plan_3")
-        
         if prev[1] < 0:
-            print(f"plan_pathend{time.ticks_ms()}\n")
             return []
 
         # 重建路径
@@ -209,8 +200,6 @@ class PathPlan:
         path.reverse()
         
         self.ready_path = self._path_to_list(self._smooth_path(path, circles, rects, block_r))
-
-        print(f"plan_pathend{time.ticks_ms}\n")
         # 删除起点
         self.ready_path.pop(0)
 
