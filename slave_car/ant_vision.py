@@ -92,6 +92,8 @@ class VisionManager:
         # 环绕控制相关变量
         self.orbit_center_x = 0.0
         self.orbit_center_y = 0.0
+        self.orbit_traveled_angle = 0.0    # type: float   # 累计已环绕角度(绕过头兜底)
+        self.last_orbit_yaw = 0.0          # type: float   # 上一帧环绕偏航角(度)
         self.orbit_radius = 0.0            # type: float   # 环绕半径
         self.orbit_speed = 0.0             # type: float     # 环绕速度
         self.orbit_yaw = 0.0               # type: float   # 环绕航向角
@@ -461,6 +463,8 @@ class VisionManager:
             else:
                 self.direct = 'CCW'
             self.current_dis = 0.0
+            self.orbit_traveled_angle = 0.0
+            self.last_orbit_yaw = self.record_angle
 
              # 计算总的环绕角度（考虑选择的环绕方向，CW为顺时针，CCW为逆时针）
             natural_cw = (diff_angle >= 0.0)
@@ -559,6 +563,13 @@ class VisionManager:
             # ====== 实时闭环车体姿态角：车头始终面向目标（视觉闭环为物体，否则为圆心）======
             self.orbit_turn_angle = theta
             self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
+
+            # 累计环绕已走过的角度（绕过头后 diff 无法收敛时的兜底）
+            cur_yaw_deg = self.my_car.now_yaw * 180.0 / PI
+            delta_yaw = cur_yaw_deg - self.last_orbit_yaw
+            delta_yaw = (delta_yaw + 180.0) % 360.0 - 180.0
+            self.orbit_traveled_angle += abs(delta_yaw)
+            self.last_orbit_yaw = cur_yaw_deg
             
             # 更新当前小车的速度（保留原有逻辑判断）
             diff = abs(self.target_angle - self.my_car.now_yaw * 180 / PI)
@@ -585,8 +596,8 @@ class VisionManager:
             # 速度限幅
             self.orbit_speed = max(self.orbit_v_min, min(self.orbit_speed, self.orbit_v_max))
 
-            # 判断是否完成环绕
-            if diff <= 1.5:	
+            # 判断是否完成环绕：角度到位，或累计环绕角度已超过总环绕角度则强制停止
+            if diff <= 1.5 or self.orbit_traveled_angle >= self.total_orbit_angle:	
                 counter = 0
                 self.my_order_manager.finish()
                 self.orbit_speed = 0.0
