@@ -179,11 +179,9 @@ class MoveControl:
         # 角度限幅到 [-180, 180)
         target_turn = (target_turn + 180.0) % 360.0 - 180.0
         car_postion = target_turn
-
         if sp in ['S','E']:self.__angle = self.vision_manager.angle_S
         elif sp == 'T':self.__angle = self.vision_manager.angle_T
         else:self.__angle = self.vision_manager.angle_B
-
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
         angle_l0=(target_ref_yaw_deg + self.__angle + 180.0) % 360.0 - 180.0
