@@ -70,6 +70,7 @@ class TaskController:
         self.last_side = 'D'
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
+        self.if_init_move_data = False # 是否初始化过搬运数据
         self.current_pushed_num = 0
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
         
@@ -238,6 +239,22 @@ class TaskController:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
                 self.navigate_message = []  # 收到物体坐标先不导航
             else:
+                if not self.if_init_move_data:
+                    if abs(path[1] - 180) < 1e-3:
+                        self.my_moving.next_postion = 'r'
+                        self.last_side = 'U'
+                    elif abs(path[1] - 90) < 1e-3:
+                        self.my_moving.next_postion = 'r'
+                        self.last_side = 'L'
+                    elif abs(path[1] - (-90)) < 1e-3:
+                        self.my_moving.next_postion = 'l'
+                        self.last_side = 'R'
+                    else:
+                        self.last_side = 'D'
+                        self.my_moving.next_postion = 'l'
+
+                    self.if_init_move_data = True
+
                 # 进行路径规划
                 tx=path[2][0]
                 ty=path[2][1]
