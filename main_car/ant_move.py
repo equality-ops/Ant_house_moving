@@ -68,7 +68,7 @@ class MoveControl:
         self.num_send_orbit_point=0
         self.if_change_side = False
         self.next_postion = 'r'
-        self.clamp_distance = 3.0
+        #self.clamp_distance = 3.0
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_orbit_command = False  # 是否发送过环绕控制指令
         self.if_send_navigate_command = False  # 是否发送过惯导控制指令
@@ -406,7 +406,7 @@ class MoveControl:
         try:
             dy = abs(plan_path[-1][1]-plan_path[0][1])
             dx = abs(plan_path[-1][0]-plan_path[0][0])
-            now_clamp = self.clamp_distance
+            #now_clamp = self.clamp_distance
         except:return False
         if self.push_postion[0] == 0:
             self.my_plan.keep_x_or_y_v = True
@@ -421,9 +421,8 @@ class MoveControl:
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
             dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
             dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
-            p1=[plan_path[1][0]+dy1/(dy1+dy2)*self.push_postion[0]*now_clamp,
-                plan_path[1][1]+dx1/(dx1+dx2)*self.push_postion[1]*now_clamp]
-            p2=[plan_path[2][0]+self.push_postion[0]*now_clamp*self.twist_clamp_factor,plan_path[2][1]+self.push_postion[1]*now_clamp*self.twist_clamp_factor]
+            #p1=[plan_path[1][0]+dy1/(dy1+dy2)*self.push_postion[0]*now_clamp,plan_path[1][1]+dx1/(dx1+dx2)*self.push_postion[1]*now_clamp]
+            #p2=[plan_path[2][0]+self.push_postion[0]*now_clamp*self.twist_clamp_factor,plan_path[2][1]+self.push_postion[1]*now_clamp*self.twist_clamp_factor]
             #self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
             self.plan_path = plan_path[1:]
         self.my_write_system.write_str(f"used path:{used_path},dx:{self.send_point[0]},dy:{self.send_point[1]},car_x:{self.my_car.x_current},car_y:{self.my_car.y_current},push_pos:{self.push_postion}\n")

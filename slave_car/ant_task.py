@@ -57,12 +57,12 @@ class TaskController:
             # ... 其他状态
         }
         self.if_first_run = True
-        self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
+        #self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
         self.if_calibrate = self.my_flash_system.find_value("if_calibrate")
-        self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
+        #self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.retreat_message = [] # 后退点坐标缓冲区
@@ -78,7 +78,6 @@ class TaskController:
     def run(self):
         if self.if_transitioning:
             self.enter()  # 进入新状态执行一次性的进入函数
-
         # 获取当前状态对应的函数并执行
         handler = self.handlers.get(self.my_state.state)
         if handler:
@@ -102,8 +101,8 @@ class TaskController:
             # 进入伺服状态，开始精确对准目标物体
             pass
         elif state == MOVE:
-            num_compensation = self.current_pushed_num * self.num_clamp_factor
-            self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
+            #num_compensation = self.current_pushed_num * self.num_clamp_factor
+            #self.my_moving.clamp_distance = self.clamp_distance[self.current_object]+num_compensation
             self.my_moving.ready_move(self.pt_buffer[1], self.pt_buffer[0], self.current_object,now_side = self.last_side)
             self.current_pushed_num += 1
             pass
@@ -141,25 +140,7 @@ class TaskController:
                 self.my_state.state = READY_NAVIGATE
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             elif self.current_object == 'A':
-                if self.pt_buffer[1] == 90:
-                    if self.my_car.x_current <= self.pt_buffer[0][0]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                elif self.pt_buffer[1] == -90:
-                    if self.my_car.x_current >= self.pt_buffer[0][0]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                elif self.pt_buffer[1] == 0:
-                    if self.my_car.y_current <= self.pt_buffer[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                elif self.pt_buffer[1] == 180:
-                    if self.my_car.y_current >= self.pt_buffer[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                self.my_vision.calibrate_buffer = [[self.pt_buffer[0]],self.pt_buffer[1]]
-                self.my_state.state = CALIBRATE
-                self.if_transitioning=True
+                pass
             elif self.current_object in ['T', 'S', 'E', 'W', 'B']:
                 #target_point = self.my_art_protocol.coordinate_receive()
                 #if target_point and chr(target_point[2]) == self.current_object:

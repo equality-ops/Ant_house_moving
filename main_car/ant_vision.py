@@ -129,16 +129,6 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.correct_dist = 7.27     # 经验修正
-        # apriltag码矫正相关变量--------------------------------------------------------
-        apr_pos_L = self.flash_sys.find_value("apr_pos_L")
-        apr_pos_R = self.flash_sys.find_value("apr_pos_R")
-        apr_pos_D = self.flash_sys.find_value("apr_pos_D")
-        apr_pos_U = self.flash_sys.find_value("apr_pos_U")
-        self.apriltage_postion = {'U':apr_pos_U,'D':apr_pos_D,'R':apr_pos_R,'L':apr_pos_L}  # type: dict   # apriltag码在世界坐标系下的坐标
-        self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
-        self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
-        self.calibrate_times = 0
-        
         # 边线矫正时小车位置
         self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 相对于apriltag码的位置（左侧还是右侧）

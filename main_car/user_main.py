@@ -676,8 +676,8 @@ while True:
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
                         if rm:
                             my_moving.saved_best_path =my_task.object_plan.best_path
-                            num_compensation = my_task.data.current_index * my_task.num_clamp_factor
-                            my_moving.clamp_distance = my_task.clamp_distance[my_task.current_object]+num_compensation
+                            #num_compensation = my_task.data.current_index * my_task.num_clamp_factor
+                            #my_moving.clamp_distance = my_task.clamp_distance[my_task.current_object]+num_compensation
                             my_task.if_choose_object = True
                             my_plan.reset_navigate()
                         else:my_task.exit()
