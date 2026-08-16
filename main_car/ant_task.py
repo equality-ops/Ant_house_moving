@@ -55,7 +55,7 @@ class TaskController:
         }
         self.scan_empty_counter = 0
         self.first_return = True
-        self.if_send_return_message = True
+        self.if_send_return_message = False
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝�?
@@ -661,7 +661,7 @@ class TaskController:
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
         # 主车行驶多远后给从车发送路径信�?
         dist_threshold = 30.0
-        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
+        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path and not self.if_send_return_message:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
