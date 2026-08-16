@@ -259,7 +259,7 @@ class TaskController:
 
             print(f"{self.last_side}, {self.my_moving.next_postion}, {self.first_return}")
             if self.first_return:
-                if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
+                if self.data.current_index >= self.data.total_objects_num - 1 or not self.now_objects or self.my_moving.current_state != NAVIGATE:
                     if self.last_side == 'L' and self.my_moving.next_postion == 'l':self.first_return = False
                     elif self.last_side == 'R' and self.my_moving.next_postion == 'r':self.first_return = False
                     elif self.last_side == 'U' and self.my_moving.next_postion == 'l':self.first_return = False
