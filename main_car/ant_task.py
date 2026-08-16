@@ -58,7 +58,6 @@ class TaskController:
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝�?
         self.current_object = ''  # 当前目标物体种类
-        self.need_calibrate_score = 0
         self.now_objects = []
         # 标志�?
         self.if_start_task = False  # 是否开始任务
@@ -70,12 +69,11 @@ class TaskController:
         self.SUDOKU_length_x = self.my_flash_system.find_value("SUDOKU_length_x")
         self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
         self.use_scan_point = self.my_flash_system.find_value("USE_SCAN_POINT")
-        self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
+        #self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
         self.if_back = self.my_flash_system.find_value("IF_BACK")
-        self.calibrate_score_threshold = self.my_flash_system.find_value("calibrate_score_threshold")
         self.scan_num = self.my_flash_system.find_value("scan_num")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
         if self.use_scan_point>2:
@@ -84,14 +82,13 @@ class TaskController:
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
         self.ap_slave_buffer = []
-        self.april_tag_list = ['L','U']
+        #self.april_tag_list = ['L','U']
         self.planned_scan_path = []
         self.dangerous_object_kinds = set()
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
-        self.need_calibrate_score = 0
         self.fixed_scan_point = [[[self.my_car.x_current,self.my_car.y_current],0],
                                  [[self.data.center_x-self.data.lenth,self.data.fixed_point[1][1]],0],
                                  [[self.data.center_x+self.data.lenth*0.5,self.data.fixed_point[1][1]],0],
@@ -229,9 +226,6 @@ class TaskController:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
-            dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
-                            (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
-            score = self.need_calibrate_score - dis * 0.015
             if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
                 self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
                 self.my_plan.reset_navigate_angle()
@@ -598,75 +592,6 @@ class TaskController:
         # if state == MOVE
         self.my_moving.moving()
         if self.my_moving.if_finish_move:
-            current_object = self.current_object
-            retreat_threhold = 10
-            ap_threhold = 25
-            global counter
-            if current_object == 'T':
-                if counter == 0:self.need_calibrate_score += 3.5
-                self.my_vision.car_position = 'U'
-                if self.my_car.now_yaw<0:
-                    self.retreat_message=[self.my_car.x_current+retreat_threhold, self.my_car.y_current]
-                    set_angle = -90
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0]+ap_threhold,ap_pos[1]]]
-                    self.ap_slave_buffer = [[ap_pos[0]-ap_threhold,ap_pos[1]],90]
-                    if self.my_car.x_current+retreat_threhold >= path[0][0]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                else:
-                    self.retreat_message=[self.my_car.x_current-retreat_threhold, self.my_car.y_current]
-                    set_angle = 90
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0]-ap_threhold,ap_pos[1]]]
-                    self.ap_slave_buffer = [[ap_pos[0]+ap_threhold,ap_pos[1]],-90]
-                    if self.my_car.x_current-retreat_threhold <= path[0][0]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-            elif current_object in ['S', 'E']:
-                if counter == 0:self.need_calibrate_score += 4.5
-                self.my_vision.car_position = 'L'
-                if self.my_car.now_yaw<-PI/2:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
-                    set_angle = 180
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0],ap_pos[1]+ap_threhold]]
-                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]-ap_threhold],0]
-                    if self.my_car.y_current+retreat_threhold >= path[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                else:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
-                    set_angle = 0
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0],ap_pos[1]-ap_threhold]]
-                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]+ap_threhold],180]
-                    if self.my_car.y_current-retreat_threhold <= path[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-            else:
-                
-                if counter == 0:self.need_calibrate_score += 3.5
-                self.my_vision.car_position = 'R'
-                if self.my_car.now_yaw<PI/2:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current-retreat_threhold]
-                    set_angle = 0
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0],ap_pos[1]-ap_threhold]]
-                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]+ap_threhold],180]
-                    if self.my_car.y_current-retreat_threhold <= path[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-                else:
-                    self.retreat_message=[self.my_car.x_current, self.my_car.y_current+retreat_threhold]
-                    set_angle = 180
-                    ap_pos = self.my_vision.apriltage_postion[self.my_vision.car_position]
-                    path = [[ap_pos[0],ap_pos[1]+ap_threhold]]
-                    self.ap_slave_buffer = [[ap_pos[0],ap_pos[1]-ap_threhold],0]
-                    if self.my_car.y_current+retreat_threhold >= path[0][1]:
-                        self.my_vision.if_waiting = True
-                    else:self.my_vision.if_waiting = False
-            self.my_vision.calibrate_buffer = [path,set_angle]
             self.exit()  # 退出当前状态，进入下一个状�?
 
     def handle_retreat(self):
