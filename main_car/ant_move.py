@@ -237,7 +237,7 @@ class MoveControl:
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         self.vision_manager.if_next_orbit = False
-        print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
+        # print(f"if_change_side:{self.if_change_side},now_side:{now_side},target_side:{target_side},next_postion:{self.next_postion},RECT:{RECT}")
         if self.if_change_side:
             self.vision_manager.if_next_orbit = False
             if self.if_first_navigate:
