@@ -4,23 +4,51 @@ import time
 import os
 from micropython import const
 gc.collect()
-# 从 machine 库包含所有内容 
+
+# ==================== 内存分配追踪（带标签 + 增量 diff） ====================
+MEM_TRACE = True    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
+
+_mem_inited = False
+_mem_last_alloc = 0
+_mem_last_free = 0
+
+def mem_trace(tag):
+    """打印带标签的内存分配进度及相对上一步的增量。
+    内部先 gc.collect()，测到的是该步的净持久占用，便于定位内存分配异常。"""
+    global _mem_inited, _mem_last_alloc, _mem_last_free
+    if not MEM_TRACE:
+        return
+    gc.collect()
+    alloc = gc.mem_alloc()
+    free = gc.mem_free()
+    if not _mem_inited:
+        print("[MEM] %-26s alloc=%d free=%d" % (tag, alloc, free))
+        _mem_inited = True
+    else:
+        print("[MEM] %-26s alloc=%d(%+d) free=%d(%+d)" % (tag, alloc, alloc - _mem_last_alloc, free, free - _mem_last_free))
+    _mem_last_alloc = alloc
+    _mem_last_free = free
+
+mem_trace("baseline")
+# 从 machine 库包含所有内容
 from machine import *
-gc.collect()
+mem_trace("import machine")
 from display import *
-gc.collect()
+mem_trace("import display")
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
-gc.collect()
+mem_trace("import seekfree")
 from smartcar import ticker, encoder
+mem_trace("import smartcar")
 my_uart3 = UART(2)
 my_uart3.init(115200)
 my_uart2 = UART(7)
 my_uart2.init(115200)
+mem_trace("my_uart3/my_uart2")
 
 import ant_plan
-gc.collect()
+mem_trace("import ant_plan")
 import ant_else
-gc.collect()
+mem_trace("import ant_else")
 # 与定时器2周期一致，都为53ms
 pin_obj = Pin("C15", Pin.OPEN_DRAIN, pull = Pin.PULL_UP, value = True)
 del(pin_obj)
@@ -29,19 +57,19 @@ if_menu = False
 if not pin_obj.value():#进入调试模式
     if_menu = True
     import ant_menu
-    gc.collect()
+    mem_trace("import ant_menu")
 else:
-    gc.collect()
     import ant_move
-    gc.collect()
+    mem_trace("import ant_move")
     import ant_task
-    gc.collect()
+    mem_trace("import ant_task")
     import ant_vision
-    gc.collect()
+    mem_trace("import ant_vision")
     import ant_motor
-    gc.collect()
+    mem_trace("import ant_motor")
     # 引入 VL53L4CD 驱动
     from vl53l4cd import VL53L4CD
+    mem_trace("import vl53l4cd")
     import os
 
 ###################################【变量定义及初始化】###################################
@@ -85,6 +113,7 @@ pit3 = ticker(3)
 beep = Pin('D24', Pin.OUT, value = False)
 # 创建蜂鸣器对象
 my_beep = ant_else.beep(beep)
+mem_trace("my_beep")
 
 """异步串口通信初始化"""
 my_uart6 = UART(5)
@@ -105,6 +134,7 @@ os.dupterm(my_uart2)
 # ------------------------------------------------------------------------------
 i2c_1 = I2C(1, freq = 100000)
 i2c_3 = I2C(3, freq = 100000)
+mem_trace("i2c")
 
 # 扫描 I2C 总线确认设备在线
 # ------------------------------------------------------------------------------
@@ -137,6 +167,8 @@ else:
     my_beep.failure_to_find_tof()
     print("TOF L (I2C3) not found! Please check wiring and XSHUT pull-up.")
 
+mem_trace("tof")
+
 
 """光电管初始化"""
 photo = Pin('B4', Pin.IN, value = False)
@@ -145,15 +177,18 @@ photo = Pin('B4', Pin.IN, value = False)
 motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = True)
+mem_trace("motors")
 
 """传感器初始化"""
 # 编码器初始化
 encoder_ul = encoder("C2" , "C3" , True)
 encoder_ur = encoder("D13", "D14", True)
 encoder_md = encoder("D16", "D15", True)
+mem_trace("encoders")
 
 # IMU初始化
 imu = IMU660RX()
+mem_trace("imu")
 
 """菜单与显示屏初始化"""
 # 新建LCD实例并初始化
@@ -168,6 +203,7 @@ lcd = LCD(drv)
 lcd.color(0xFFFF, 0x0000)
 lcd.mode(0)
 lcd.clear(0x0000)
+mem_trace("lcd")
 
 key = KEY_HANDLER(53)
 key_data = key.get()
@@ -176,15 +212,17 @@ key_data = key.get()
 key_up:     key_data[1]
 key_down:   key_data[0]
 enc_key:    key_data[2]
-key_run:    key_data[3] 
+key_run:    key_data[3]
 """
 
 # 菜单编码器初始化
 enc_rotation = encoder("C0", "C1", True)
+mem_trace("key_enc")
 
 """""""""创建对象"""""""""
 # 创建状态机对象
 my_state = ant_plan.StateMachine()
+mem_trace("my_state")
 
 fan = BLDC_CONTROLLER(BLDC_CONTROLLER.PWM_C25, freq=300, highlevel_us = 1000)
 
@@ -194,51 +232,64 @@ my_flash_sys = ant_else.flash_system(my_beep, "/flash/slave_config.txt")
 my_flash_sys.phase_config()
 # 检查列表格式
 my_flash_sys.check_list_format()
+mem_trace("my_flash_sys")
 
 # 创建指令管理对象
 my_order_manager = ant_else.order_manager(my_flash_sys, my_uart6)
+mem_trace("my_order_manager")
 
 # 创建openart串口解析对象
 my_art_protocol = ant_else.UARTProtocol(my_uart6)
+mem_trace("my_art_protocol")
 
 # 创建主从车无线串口通信对象
 my_slave_protocol = ant_else.LinkProtocol(my_uart3)
+mem_trace("my_slave_protocol")
 
 # 创建pid参数对象
 pid_data = ant_motor.PID_data(my_flash_sys)
+mem_trace("pid_data")
 
 #创建无刷
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
+mem_trace("my_fan")
 
 # 创建光电管控制对象
 my_photo = ant_motor.PhotoControl(my_flash_sys, my_beep, photo)
+mem_trace("my_photo")
 
 # 创建电机微分项的滑动平均滤波器对象
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
 diff_filter_ur = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为3个
 diff_filter_md = ant_motor.SlipAveragingFilter(5)    # 滤波窗口为2个
 diff_filter_gyroz = ant_motor.SlipAveragingFilter(3)  # 滤波窗口为5个
+mem_trace("diff_filters")
 
 # 创建加速度计滤波对象
 acc_x_fil = ant_motor.SlipAveragingFilter(5)
 acc_y_fil = ant_motor.SlipAveragingFilter(5)
 acc_z_fil = ant_motor.SlipAveragingFilter(5)
 acc_z_fil.buffer_init(4096)  # 初始化z轴加速度计滤波器的初始值为4096
+mem_trace("acc_filters")
 
 # 创建小车x和y方向上的速度的卡尔曼滤波器
 speed_x_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
 speed_y_fil = ant_motor.KalmanFilter(P = 1.0, Q = 0.01, R = 4.0)
+mem_trace("kalman")
 # 创建小车自转角滤波器对象
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
+sin_servo_fil = ant_motor.SlipAveragingFilter(4)
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
+mem_trace("servo_filters")
 # 创建距离控制滤波对象
 dist_fil_L = ant_motor.SlipAveragingFilter(3)
 dist_fil_R = ant_motor.SlipAveragingFilter(3)
+mem_trace("dist_filters")
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, my_uart3, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
+mem_trace("pose_data")
 
 # 创建电机pid对象和角度pid对象
 motor_ul_pid = ant_motor.SpeedPositionPID(my_flash_sys, diff_filter = diff_filter_ul)
@@ -248,29 +299,38 @@ angle_pid = ant_motor.AnglePositionPID(my_flash_sys)
 servo_pid = ant_motor.ServoPID(my_flash_sys)
 dist_pid_L = ant_motor.DistPID(my_flash_sys, "L", dist_fil_L)
 dist_pid_R = ant_motor.DistPID(my_flash_sys, "R", dist_fil_R)
+mem_trace("pids")
 
 # 创建小车姿态对象
 my_car = ant_motor.CarPose(my_flash_sys, my_state, pose_data, car_yaw_fil, angle_pid,
                         motor_ul_pid, motor_ur_pid, motor_md_pid,
                         motor_ul, motor_ur, motor_md)
+mem_trace("my_car")
 
 # 创建路径规划数据对象
 plan_data = ant_plan.PlanData(my_flash_sys)
+mem_trace("plan_data")
 
 # 创建路径规划对象
 my_path = ant_plan.PathPlan(plan_data, my_car)
+mem_trace("my_path")
 # 创建规划（路径和速度）对象
 my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_state, my_order_manager, my_uart3, my_beep, my_art_protocol, angle_pid)
+mem_trace("my_plan")
 
 my_tof = ant_else.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L, dist_pid_R, tof_L, tof_R)
+mem_trace("my_tof")
 
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+mem_trace("my_vision_manager")
 
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_uart2, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof, angle_pid)
+mem_trace("my_moving")
 # 任务及类
 my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol, my_tof)
+mem_trace("my_task")
 
 # 测试打印变量解析是否成功
 """
