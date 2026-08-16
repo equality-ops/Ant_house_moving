@@ -44,6 +44,7 @@ class MoveControl:
                         'SLA_P':[],
                         'ANGLE':0,
                     })
+        self.if_delay_more = False
         self.navigate_distance=20
         self.__angle=30
         self.angle_T = self.flash_sys.find_value("angle_T")
@@ -126,6 +127,7 @@ class MoveControl:
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         # print("[mem] ready_move free:{} alloc:{}".format(gc.mem_free(), gc.mem_alloc()))
         self.slave_message_delay = 15
+        self.if_delay_more = False
         if not point or len(point) < 2:return False
         #self.now_object_pt = self.vision_manager.calc_object_global_pos(point[0],point[1])
         self.now_object_pt = point[:]
@@ -175,6 +177,7 @@ class MoveControl:
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         if self.if_change_side:
+            self.if_delay_more = True
             if self.if_first_navigate:
                 if (self.sidenum_dicc[target_side] - self.sidenum_dicc[now_side]) % 4 == 1:#要到左侧
                     m_PAth = self.surrounding_points['LD']
@@ -558,7 +561,10 @@ class MoveControl:
                     if self.if_first_navigate:
                         if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
                         else:slave_message_delay = self.slave_message_delay
-                    else:slave_message_delay = self.slave_message_delay
+                    elif self.if_delay_more and len(self.my_plan.path) >=4:
+                        slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
+                    else:
+                        slave_message_delay = self.slave_message_delay
                     if self.if_send_navigate_command == False:
                         self.if_send_navigate_command = True
                         #self.my_main_protocol.send_path('P',NAV_T['ANGLE'][1],[-1,-1])#让从车先转回来
