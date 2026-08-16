@@ -653,7 +653,7 @@ while True:
                         #self.my_uart.write(f"barriar{my_task.my_moving.now_barriar}\n")
                         my_task.current_object=target[1]
                         my_vision_manager.current_servo_object = my_task.current_object
-                        print(f"READY_START{time.ticks_ms()}\n")
+                        # print(f"READY_START{time.ticks_ms()}\n")
                         rm = my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
                         mem("READYEND")
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
