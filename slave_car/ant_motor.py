@@ -660,10 +660,6 @@ class ServoPID(ControlPID):
         self.servo_kd_normal_x = self.flash_sys.find_value("servo_kd_normal_x")        # type: float
         self.servo_kp_normal_y = self.flash_sys.find_value("servo_kp_normal_y")        # type: float
         self.servo_kd_normal_y = self.flash_sys.find_value("servo_kd_normal_y")    
-        self.servo_kp_calibrate_x = self.flash_sys.find_value("servo_kp_calibrate_x")        # type: float
-        self.servo_kd_calibrate_x = self.flash_sys.find_value("servo_kd_calibrate_x")        # type: float
-        self.servo_kp_calibrate_y = self.flash_sys.find_value("servo_kp_calibrate_y")        # type: float
-        self.servo_kd_calibrate_y = self.flash_sys.find_value("servo_kd_calibrate_y")        # type: float    # type: float
         self.servo_kp_x = 0.0
         self.servo_kp_y = 0.0
         self.servo_kd_x = 0.0
@@ -673,7 +669,6 @@ class ServoPID(ControlPID):
         self.target_y = 0.0   # type: float
         self.actual_y = 0.0     # type: float
 
-        self.target_y_A = self.flash_sys.find_value("servo_target_y_A")     # type: float
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float

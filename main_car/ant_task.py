@@ -226,28 +226,22 @@ class TaskController:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
+
             if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
-                self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
                 self.my_plan.reset_navigate_angle()
                 self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
                 self.my_moving.reset_move()  # 重置搬运标志
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                if not self.if_send_path:
-                    self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
-                    self.if_send_path = True
-
-                # 从车完成矫正
-                if self.my_main_protocol.get_slave_state() == "get":
-                    self.if_send_path = False
-                    self.data.current_index += 1
-                    self.my_plan.reset_navigate()
-                    self.my_plan.reset_navigate_angle()
-                    self.my_state.state = READY_NAVIGATE
-                    # 测试光电管矫正效果
-                    # self.my_state.state = RETURN
-                    self.my_moving.reset_move()  # 重置搬运标志
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                self.if_send_path = False
+                self.data.current_index += 1
+                self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
+                self.my_state.state = READY_NAVIGATE
+                # 测试光电管矫正效果
+                # self.my_state.state = RETURN
+                self.my_moving.reset_move()  # 重置搬运标志
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
@@ -607,7 +601,7 @@ class TaskController:
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
         # 主车行驶多远后给从车发送路径信�?
-        dist_threshold = 50.0
+        dist_threshold = 30.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?

@@ -189,24 +189,18 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             if self.my_moving.current_state != NAVIGATE:
-                self.my_tof.reset_tof()
                 self.my_state.state = RETURN  # 直接切换到校准状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
-                path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
-                if path and path[0] == 'A':
-                    self.my_tof.update_tof()  # 更新TOF传感器数据
-                    self.my_slave_protocol.send_slave_state("get")  # 通知主车已收到路径信息
-                    self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
-                    self.my_tof.reset_tof()  # 重置TOF传感器
-                    self.my_moving.if_finish_move = False  # 重置搬运完成标志
-                    self.my_plan.reset_navigate_angle()
-                    self.my_plan.reset_navigate()
-                    if self.current_object == 'T':self.last_side = 'U'
-                    elif self.current_object in ['S','E']:self.last_side = 'L'
-                    else:self.last_side = 'R'
-                    self.my_state.state = RETREAT  # 直接切换到校准状态
-                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+                self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
+                self.my_moving.if_finish_move = False  # 重置搬运完成标志
+                self.my_plan.reset_navigate_angle()
+                self.my_plan.reset_navigate()
+                if self.current_object == 'T':self.last_side = 'U'
+                elif self.current_object in ['S','E']:self.last_side = 'L'
+                else:self.last_side = 'R'
+                self.my_state.state = RETREAT  # 直接切换到校准状态
+                self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:

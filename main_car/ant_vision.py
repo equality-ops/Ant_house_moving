@@ -117,12 +117,9 @@ class VisionManager:
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.correct_dist = 7.27     # 经验修正
         self.counter = 0       # type: int     # 延时计数器
-        # 矫正时丢失需要行进的路径
-        self.lost_path = []   
+
         # 上一帧预测的物体点位
         self.last_predict_point = None
-        # 临时用于测试的角度变量
-        self.angle_temp = 0.0
 
         self.last_real_servo_point = None
         # 标志位

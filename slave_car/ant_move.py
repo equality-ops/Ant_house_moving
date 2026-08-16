@@ -522,6 +522,7 @@ class MoveControl:
                     self.my_plan.if_push_T = True
         elif self.current_state == MOVE:
             if self.my_plan.if_near_line or self.my_plan.if_finish_navigate:
+                self.my_tof.reset_tof()
                 self.my_photo.reset_photo()
                 self.my_plan.reset_navigate()
                 self.my_plan.if_near_line = False

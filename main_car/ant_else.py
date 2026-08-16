@@ -361,7 +361,6 @@ class order_manager:
         self.flash_sys = flash_sys
         # 注入串口对象
         self.my_uart = uart
-        self.if_calibrate =self.flash_sys.find_value('if_calibrate')
         # 使用模型还是色块
         self.if_model = self.flash_sys.find_value("if_model")
 
@@ -642,68 +641,3 @@ class LinkProtocol:
                 return None
         else:
             return None
-
-
-# 主辅助车通信�?
-class AssistLinkProtocol:
-    def __init__(self, uart):
-        # 注入串口对象
-        self.my_uart = uart
-        # 创建字节流缓冲区
-        self.raw_buffer = b''           
-        self.max_buf = 128         # 缓冲区最大长度，防止内存泄漏
-        self.start_idx = 0          # 上次成功解析后剩余数据的起始索引（相对于raw_buffer�?
-        self.end_idx = 0            # 上次成功解析后剩余数据的结束索引（相对于raw_buffer�?
-
-        gc.collect()
-
-    # 用于主车向辅助车发送即将到达的边界信息
-    def send_advanced_line(self, line):
-        """
-        发送状�?(非阻�?
-        格式: *line666!
-        :param line: 字符串，表示小车即将到达的边界，�?A','B','C','D'�?
-        """
-        if line == 'U':
-            line_temp = 'B'
-        elif line == 'L':
-            line_temp = 'A'
-        elif line == 'R':
-            line_temp = 'C'
-        else:
-            line_temp = 'D'
-        packet = "*{}666!".format(line_temp)
-        self.my_uart.write(packet.encode('utf-8'))
-
-    # 用于主车向辅助车发送回到线上的消息
-    def send_back_message(self):
-        """
-        发送状�?(非阻�?
-        格式: *任意字母888!
-        """
-        packet = "*A888!"
-        self.my_uart.write(packet.encode('utf-8'))
-
-    # 用于主车向辅助车发送搬运到的具体位�?
-    def send_target_pos(self, line: str, pos: float):
-        """
-        发送目标位�?(非阻�?
-        格式: *linepos!
-        :param line: 字符串，表示边界，如'A','B','C','D'�?
-        :param pos: 整数，表示目标位置x/y坐标
-        """
-        pos_int = int(pos)
-        if pos_int < 0:
-            pos_int = 0
-        
-        # 对于 B �?D（如上下边界），限幅�?320
-        if line in ('B', 'D') and pos_int > 320:
-            pos_int = 320
-        # 对于 A �?C（如左右边界），限幅�?240
-        elif line in ('A', 'C') and pos_int > 240:
-            pos_int = 240
-
-        pos_str = "{:03d}".format(pos_int)
-        packet = "*{}{}!".format(line, pos_str)
-        self.my_uart.write(packet.encode('utf-8'))
-

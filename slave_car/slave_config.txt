@@ -90,7 +90,7 @@ servo_kp_normal_y = 7.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.0
-servo_target_y_S = 1.0
+servo_target_y_S = -1.5
 servo_target_y_B = 3.0
 # 普通的视觉伺服阈值
 finish_threshold_x = 1.1
@@ -100,48 +100,37 @@ min_rel_speed = 30
 max_rel_speed = 130
 servo_pwmout_limitmax = 130
 
-###################【apriltag矫正】####################
-servo_kp_calibrate_x = 8.0
-servo_kd_calibrate_x = 10.0
-servo_kp_calibrate_y = 8.0
-servo_kd_calibrate_y = 10.0
-
-servo_target_y_A = 6.0
-
-# 用于apriltag矫正的阈值
-apriltag_threshold_x = 1.5
-apriltag_threshold_y = 1.5
-
 ###################【tof距离控制】####################
-dist_kp = 18.0
+dist_kp = 16.0
 dist_kd = 5.0
 target_L = 15.0
 target_R = 15.0
 dist_deadzone = 0.5
 tof_valid_min = 5.0
 tof_valid_max = 45.0
-dist_pwmout_limitmax = 140
+dist_pwmout_limitmax = 120
 ###################【环绕控制】####################
 radius_T_U = 17.0
 radius_T_R = 14.0
 radius_T_L = 14.0
 radius_T_D = 16.0
+radius_T_vision = 10.0
 
 radius_S_U = 14.0
 radius_S_R = 16.0
 radius_S_L = 16.0
 radius_S_D = 14.5
+radius_S_vision = 15.0
 
 radius_B_U = 16.0
-radius_B_R = 19.0
-radius_B_L = 19.0
-radius_B_D = 16.5
+radius_B_R = 18.0
+radius_B_L = 18.0
+radius_B_D = 16.0
+radius_B_vision = 20.0
 
 angle_T = 42
 angle_S = 44
-angle_B = 42
-
-calibrate_waiting_time = 40
+angle_B = 47
 
 #推动内收因子
 CLAMP_FACTOR = 1.08
@@ -151,17 +140,15 @@ TENNIS_cla_dis = 2.1
 SANDBAG_cla_dis = 2.5
 BEAR_cla_dis = 2.4
 
-#april_tag位置
-apr_pos_L = "0,123"
-apr_pos_R = "326,123"
-apr_pos_U = "163,246"
-apr_pos_D = "163,0"
 #！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
 #是否使用模型servo
 if_model = 1
 # 是否需要障碍物
 if_obstacles = 1
-
+# 是否矫正从车坐标
+if_calibrate = 0
+# 环绕是否进行视觉闭环
+if_use_vision = 1
 # 开始扫描的距离阈值
 start_scan_range = 10.0
 #--------------障碍相关---------------------
@@ -170,13 +157,17 @@ cube_obstacles = "(200, 48.5, 25, 15), (200, 198, 25, 15)"
 circle = "(55, 100)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 20.0
+# 根据主车位置矫正从车位置的距离 
+calibrate_dist = 23.0
 
 #--------------场地相关---------------------
 # 九宫格尺寸
 SUDOKU_length_x = 30.0
 
-# 矩形缩放比例（根据九宫格长度）
+# 惯导矩形缩放比例（根据九宫格长度）
 rect_zoom_rate = 1.8
+# 视觉矩形缩放比例
+vision_rect_zoom_rate = 1.5
         
 # CENTER_X = 147.6
 # CENTER_Y = 114.0
@@ -194,4 +185,4 @@ FIELD_H = 240.0
 move_v_max_T = 160
 move_v_max_S = 140
 move_v_max_B = 160
-move_S_increment = 5
+move_S_increment = 3
