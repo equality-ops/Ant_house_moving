@@ -110,7 +110,12 @@ class MoveControl:
             self.move_dir = 0
         elif sp in ['S','E']:self.move_dir = -90
         else: self.move_dir = 90
-        return (self.move_dir - ref_yaw - 180) % 360 +180
+        angle = self.move_dir - ref_yaw
+        if angle <= -180:
+            angle += 360
+        elif angle > 180:
+            angle -= 360
+        return angle
     def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
         self.send_navigate_feed_back = False
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
