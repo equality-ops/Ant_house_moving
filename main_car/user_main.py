@@ -3,7 +3,24 @@ import gc
 import time
 import os
 from micropython import const
-
+def max_block():
+    gc.collect()
+    low = 0
+    high = gc.mem_free()
+    while low + 16 < high:
+        mid = (low + high) // 2
+        try:
+            b = bytearray(mid)
+            del b
+            low = mid
+        except MemoryError:
+            high = mid
+        gc.collect()
+    return low
+def mem(tag):
+    print(tag,gc.mem_free(),gc.mem_alloc(),max_block())
+    #my_uart3.write(f"{tag},{gc.mem_free()}, {gc.mem_alloc()}, {max_block()}\n")
+    gc.collect()
 gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
