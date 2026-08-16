@@ -114,7 +114,7 @@ class TaskController:
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            self.my_path.plan_path(self.data.fixed_point[3][0], self.data.fixed_point[3][1], ignore_center_rect=True)  # 规划回起始点的路径
+            self.my_path.plan_path(self.pt_buffer[1][0], self.pt_buffer[1][1], ignore_center_rect=True)  # 规划回起始点的路径
             self.my_path.ready_path[-1] = self.data.fixed_point[3]
             # 最后插入一个途径点便于计时
             self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
@@ -229,7 +229,6 @@ class TaskController:
             counter += 1
             if counter <= 50:
                 return
-            
         # 进入准备导航状态，做好路径规划准备和导航信息准备
         path = self.my_slave_protocol.get_path_list()  # 从从车协议中获取路径信息
         if path:
