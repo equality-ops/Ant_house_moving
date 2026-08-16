@@ -645,10 +645,11 @@ while True:
                     gc.collect()
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
-                    # my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    # my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    # my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    # my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    if my_write_system.if_write_log:
+                        my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                        my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                        my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                        my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
