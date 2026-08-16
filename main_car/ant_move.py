@@ -327,9 +327,12 @@ class MoveControl:
                         'SLA_P':S_PAth,
                         'ANGLE':ANGle,
                     })
+
+        print(f"{self.if_first_orbit}, {self.if_change_side}, {self.next_postion}, {now_side}, {target_side}, {target_turn_deg}")
         if not self.navigate_buffer:
             return False
         return True
+    
     # 重置环绕控制标志位
     def reset_orbit(self):
         self.if_send_orbit_command = False
