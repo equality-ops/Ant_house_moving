@@ -48,6 +48,7 @@ class MoveControl:
         self.move_dir = 0
         self.now_object_pt = []
         self.next_postion = 'l'
+        self.if_first_orbit = False
         self.send_navigate_feed_back = False
         self.push_postion = [1,0]
         self.plan_path = []
@@ -118,6 +119,7 @@ class MoveControl:
         center_y = self.plan_data.center_y
         lenth = self.plan_data.lenth
         self.special_push = False
+        self.if_first_orbit = False
         if target_ref_yaw_deg > -45.0 and target_ref_yaw_deg <= 45.0: 
             target_side = 'D'
             if int(target_ref_yaw_deg) != 0:
