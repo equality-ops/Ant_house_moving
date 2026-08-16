@@ -56,7 +56,6 @@ class TaskController:
         self.scan_empty_counter = 0
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
-        self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝�?
         self.current_object = ''  # 当前目标物体种类
         self.need_calibrate_score = 0
         self.now_objects = []
@@ -95,14 +94,9 @@ class TaskController:
             print("Write invalid scan_side in flash, default to 'D'")
             self.my_beep.beep_warn()    # 蜂鸣器进行提醒此时扫描边参数输入错误
             self.scan_side = 'D'  # 默认扫描在下边
-
         self.last_side = self.scan_side  # 开始边与扫描边一致
-
-        if self.scan_side in ['D', 'R']:
-            self.my_moving.next_postion = 'r'
-        else:
-            self.my_moving.next_postion = 'l'
-
+        if self.scan_side in ['D', 'R']:self.my_moving.next_postion = 'r'
+        else:self.my_moving.next_postion = 'l'
         self.fixed_scan_point = {'D': [[[self.data.center_x - self.data.lenth, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[1][1]], 0]], \
                                  'L': [[[self.data.fixed_point[1][0], self.data.center_y - self.data.lenth], 90], [[self.data.fixed_point[1][0], self.data.center_y+self.data.lenth*0.5], 90]], \
                                  'R': [[[self.data.fixed_point[2][0], self.data.center_y - self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y+self.data.lenth*0.5],- 90]], \
@@ -226,14 +220,7 @@ class TaskController:
             self.my_state.state = MOVE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
-            if not self.if_send_path:
-                # 发送路径信息给从车
-                self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
-            # 退出导航状态，停止路径跟随
-            self.if_send_path = False  # 重置路径发送标志位
-            self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_state.state = SCAN  # 直接切换到扫描状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            pass
         elif state == SCAN:
             self.planned_scan_path.clear()
             self.if_plan_scan = False
@@ -313,15 +300,7 @@ class TaskController:
         pass
 
     def handle_navigate(self):
-        # if state == NAVIGATE
-        self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
-        # 主车行驶多远后给从车发送路径信�?
-        dist_threshold = 20.0
-        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
-            self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
-            self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
-        if self.my_plan.if_finish_navigate:
-            self.exit()  # 退出当前状态，进入扫描状�?
+        pass
             
     # 处理物体信息（将像素坐标转换为世界坐标）
     def handle_object_info(self, ob_info,angle):
@@ -346,24 +325,16 @@ class TaskController:
         self.my_vision.current_servo_object = ''  # 重置当前物体种类
         return real_ob_info
     
-    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y, maxNum,
-                                  grid_center_x=160.0, grid_center_y=120.0):
+    def snap_objects_to_nine_grid(self, objects, cell_x, cell_y, maxNum,grid_center_x=160.0, grid_center_y=120.0):
         """Snap objects to unique grid centers while removing unsafe conflicts."""
         if not objects:
             self.object_kind_counts = {}
             self.dangerous_object_kinds = set()
             return []
-        if cell_x <= 0 or cell_y <= 0:
-            raise ValueError("cell_x and cell_y must be greater than zero")
-        if maxNum < 0:
-            raise ValueError("maxNum must not be negative")
-
         grid_centers = []
         for row in (-1, 0, 1):
             for col in (-1, 0, 1):
-                grid_centers.append((grid_center_x + col * cell_x,
-                                     grid_center_y + row * cell_y))
-
+                grid_centers.append((grid_center_x + col * cell_x,grid_center_y + row * cell_y))
         # Keep the original index so results remain in detection order.
         valid_objects = []
         for original_idx, obj in enumerate(objects):
@@ -371,9 +342,7 @@ class TaskController:
                 kind, obj_x, obj_y = obj
                 obj_x = float(obj_x)
                 obj_y = float(obj_y)
-            except:
-                continue
-
+            except:continue
             nearest_center_idx = 0
             nearest_dist2 = float('inf')
             for center_idx, (center_x, center_y) in enumerate(grid_centers):
@@ -381,9 +350,7 @@ class TaskController:
                 if dist2 < nearest_dist2:
                     nearest_dist2 = dist2
                     nearest_center_idx = center_idx
-            valid_objects.append((original_idx, kind, obj_x, obj_y,
-                                  nearest_center_idx, nearest_dist2))
-
+            valid_objects.append((original_idx, kind, obj_x, obj_y,nearest_center_idx, nearest_dist2))
         kind_counts = {}
         for _, kind, _, _, _, _ in valid_objects:
             kind_counts[kind] = kind_counts.get(kind, 0) + 1
@@ -393,26 +360,19 @@ class TaskController:
                 dangerous_kinds.add(kind)
         self.object_kind_counts = kind_counts
         self.dangerous_object_kinds = dangerous_kinds
-
-        # First group detections by their natural nearest cell.  A dangerous
-        # kind is removed only when it conflicts with another detection in the
-        # same cell; a lone detection remains usable.
         grouped = [[] for _ in grid_centers]
         for valid_idx, obj in enumerate(valid_objects):
             grouped[obj[4]].append(valid_idx)
-
         kept = []
         for group in grouped:
             if len(group) > 1:
                 group = [valid_idx for valid_idx in group
                          if valid_objects[valid_idx][1] not in dangerous_kinds]
             kept.extend(group)
-
         # Stable nearest-first assignment: objects that are closest to their
         # intended cell get first choice; unresolved conflicts move to the
         # nearest still-free cell.
-        candidates = [(valid_objects[valid_idx][5], valid_idx)
-                      for valid_idx in kept]
+        candidates = [(valid_objects[valid_idx][5], valid_idx) for valid_idx in kept]
         candidates.sort(key=lambda item: item[0])
         occupied = [False] * len(grid_centers)
         assignments = {}
@@ -427,7 +387,6 @@ class TaskController:
                 if dist2 < best_dist2:
                     best_dist2 = dist2
                     best_center_idx = center_idx
-
             # There are only nine legal cells.  Extra detections cannot be
             # represented without creating a duplicate grid position, so drop
             # them instead of silently reusing an occupied cell.
@@ -435,7 +394,6 @@ class TaskController:
                 continue
             occupied[best_center_idx] = True
             assignments[valid_idx] = best_center_idx
-
         snapped = []
         for valid_idx, (original_idx, kind, _, _, _, _) in enumerate(valid_objects):
             if valid_idx not in assignments:
@@ -443,9 +401,7 @@ class TaskController:
             center_x, center_y = grid_centers[assignments[valid_idx]]
             snapped.append((original_idx, kind, center_x, center_y))
         snapped.sort(key=lambda item: item[0])
-        return [(kind, center_x, center_y)
-                for _, kind, center_x, center_y in snapped]
-
+        return [(kind, center_x, center_y)for _, kind, center_x, center_y in snapped]
     def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
         threshold_far = threshold_near+10
@@ -578,10 +534,8 @@ class TaskController:
                 else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
-            self.now_objects = self.snap_objects_to_nine_grid(
-                self.now_objects, self.SUDOKU_length_x, self.SUDOKU_width_y,
-                maxNum=1, grid_center_x=self.data.center_x,
-                grid_center_y=self.data.center_y)
+            self.now_objects = self.snap_objects_to_nine_grid(self.now_objects, self.SUDOKU_length_x, self.SUDOKU_width_y,
+                maxNum=1, grid_center_x=self.data.center_x,grid_center_y=self.data.center_y)
             if self.if_back:
                 if len(self.now_objects) != self.data.total_objects_num:
                     for i in range(len(self.now_objects)):

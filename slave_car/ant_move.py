@@ -360,31 +360,8 @@ class MoveControl:
             self.my_car.x_current = 0.0 + correction
         elif current_object in ['B', 'W']:
             self.my_car.x_current = self.plan_data.FIELD_W - correction
-
-    # 计算微调的目标点
-    def calculate_adjustment_point(self, fixed_dist = 5.0):
-        # 当前车头朝向 (弧度)
-        now_yaw = self.my_car.now_yaw
-        # 已知世界坐标系下向北(+Y)为0度，向东(+X)为90度
-        # 车头指向的正方向向量为 (sin(now_yaw), cos(now_yaw))
-        # 逆着车头方向，就是向车身正后方偏移 fixed_dist 的距离
-        target_x = self.my_car.x_current - fixed_dist * math.sin(now_yaw)
-        target_y = self.my_car.y_current - fixed_dist * math.cos(now_yaw)
-        
-        self.adjust_point = [target_x, target_y]
-
-    # 处理主车发送的下一搬运途径点
-    def handle_next_point(self, move_pt_buffer):
-        direct = move_pt_buffer[2][0]
-        coord_val = move_pt_buffer[2][1]
-        # 根据指令计算下一目标点坐标，'x'表示在x轴方向上调整，'y'表示在y轴方向上调整
-        if direct == float(ord('x')):
-            self.next_point = [self.my_car.x_current + coord_val, self.my_car.y_current]
-        elif direct == float(ord('y')):
-            self.next_point = [self.my_car.x_current, self.my_car.y_current + coord_val]
     def caculate_move_path(self,path):
         try:
-            
             dx1=path[2][0]
             dy1=path[2][1]
             if path[1] == 0:
@@ -395,27 +372,20 @@ class MoveControl:
                 pl=[self.plan_data.FIELD_W+30,self.my_car.y_current+dy1]
             elif path[1] == -90:
                 pl=[-30,self.my_car.y_current+dy1]
-            now_clamp = self.clamp_distance
             p_m = [self.my_car.x_current + dx1,
                    self.my_car.y_current + dy1,]
             if self.push_postion[0] != 0:
                 total_dy = abs(pl[1] - self.my_car.y_current)
                 if total_dy <= 1e-6:return []
-                ratio = abs(dy1) / total_dy
                 self.my_plan.keep_x_or_y_v = False
             elif self.push_postion[1] != 0:
                 # y 内收，保持 vx
                 total_dx = abs(pl[0] - self.my_car.x_current)
                 if total_dx <= 1e-6:return []
-                ratio = abs(dx1) / total_dx
                 self.my_plan.keep_x_or_y_v = True
             else:return []
             if dx1==0 and dy1==0:
-                #self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p2]
                 return [pl]
-            p1 = [p_m[0] + ratio * self.push_postion[0] * now_clamp,
-                  p_m[1] + ratio * self.push_postion[1] * now_clamp,]
-            #self.my_plan.fitting_path_ = [[self.my_car.x_current,self.my_car.y_current],p1,p2_t]
             return [p_m,pl]
         except:return []
     # 状态过渡函数
@@ -488,7 +458,6 @@ class MoveControl:
                     elif rec_path[2][1] < 1e-3 and self.next_postion == 'l':self.my_plan.if_inside_sandbag = True
                 self.my_plan.move_state = MOVE
                 self.current_state = MOVE
-
                 # 如果当前伺服物体存在，则设置 my_plan 的 if_push_T 标志为 True
                 if self.vision_manager.current_servo_object == 'T':
                     self.my_plan.if_push_T = True
@@ -540,10 +509,8 @@ class MoveControl:
             if self.if_change_side:
                 self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
             else:
-                if self.if_first_navigate:
-                    self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
-                else:
-                    self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
+                if self.if_first_navigate:self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
+                else:self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
             if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= 15:
                 self.send_navigate_feed_back = True
                 self.my_slave_protocol.send_slave_state("ready")
@@ -594,7 +561,6 @@ class MoveControl:
                 left_y = y + 15.0 * math.sin(now_yaw)
                 self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
                 target_point = self.my_art_protocol.coordinate_receive()
-
                 # 判断红色沙包是否在矩形框内
                 if target_point:
                     if chr(target_point[2]) == 'S':
@@ -602,7 +568,6 @@ class MoveControl:
                         if_red_valid = self.vision_manager.if_in_rect(actual_point[0], actual_point[1])
                     else:
                         if_red_valid = True
-
                 if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and if_red_valid:
                     self.vision_manager.ready_servo_and_orbit(chr(target_point[2]), 'servo',point = [target_point[0],target_point[1]])
                     self.my_plan.reset_navigate()

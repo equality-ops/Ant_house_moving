@@ -688,35 +688,22 @@ while True:
                 my_task.if_transitioning = True
                 continue
             # 进入准备导航状态，做好路径规划准备和导航信息准?
-            slave_stop_threshold = 25.0
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
             retreat_lenth = 25
             if my_task.last_side == "L":
-                target_angle = 90.0
-                my_task.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
                 else:insert_point = [my_task.my_car.x_current+retreat_lenth,my_task.my_car.y_current]
             elif my_task.last_side == "R":
-                target_angle = -90.0
-                my_task.slave_navigate_message = [[planned_path[-2][0] + slave_stop_threshold,planned_path[-2][1]], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
                 else:insert_point = [my_task.my_car.x_current-retreat_lenth,my_task.my_car.y_current]
             elif my_task.last_side == "U":
-                target_angle = 180.0
-                my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] + slave_stop_threshold], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
                 else:insert_point = [my_task.my_car.x_current,my_task.my_car.y_current-retreat_lenth]
             else:
-                target_angle = 0.0
-                my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] - slave_stop_threshold], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
                 else:insert_point = [my_task.my_car.x_current,my_task.my_car.y_current+retreat_lenth]
-            # 进行路径规划
-            my_task.my_moving.slave_massage['path'] = my_task.slave_navigate_message [0]
-            my_task.my_moving.slave_massage['angle'] = my_task.slave_navigate_message [1]
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态
-
     gc.collect()
