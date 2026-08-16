@@ -256,6 +256,8 @@ class TaskController:
             else:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 self.my_state.state = RETURN 
+
+            print(f"{self.last_side}, {self.my_moving.next_postion}, {self.first_return}")
             if self.first_return:
                 if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
                     if self.last_side == 'L' and self.my_moving.next_postion == 'l':self.first_return = False
@@ -538,7 +540,8 @@ class TaskController:
                 counter +=1
                 self.scan_empty_counter = 0
                 new_world = self.handle_object_info(object_package,angle)
-                self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
+                if self.my_write_system.if_write_log:
+                    self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects
