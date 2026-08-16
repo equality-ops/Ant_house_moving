@@ -195,6 +195,12 @@ my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo,
 # 任务及类
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
+motor_control_T = my_flash_sys.find_value("motor_control_T")
+uart_and_menu_T = my_flash_sys.find_value("uart_and_menu_T")
+plan_calculate_T = my_flash_sys.find_value("plan_calculate_T")
+
+my_flash_sys.config = None
+
 # 测试打印变量解析是否成功
 """
 print("fixed+point:", plan_data.fixed_point)
@@ -600,21 +606,21 @@ def pit1_start():
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)
     # 底层为4ms定时器
-    pit1.start(my_flash_sys.find_value("motor_control_T"))
+    pit1.start(motor_control_T)
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
     global pit2
     pit2.callback(time_pit2_handler)
     pit2.capture_list(key)
-    pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
+    pit2.start(uart_and_menu_T)
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     global pit3
     pit3.callback(time_pit3_handler)
     # 规划为10ms定时器
-    pit3.start(my_flash_sys.find_value("plan_calculate_T"))
+    pit3.start(plan_calculate_T)
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
