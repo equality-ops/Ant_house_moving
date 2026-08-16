@@ -54,6 +54,8 @@ class TaskController:
             # ... 其他状�?
         }
         self.scan_empty_counter = 0
+        self.first_return = True
+        self.if_send_return_message = True
         self.if_rogue_plan=self.data.if_rogue_plan
         self.navigate_message = []  # 导航信息：目标点坐标和朝�?
         self.slave_navigate_message = []  # 从车导航信息：目标点坐标和朝�?
@@ -224,24 +226,36 @@ class TaskController:
             elif self.current_object == 'W' or self.current_object == 'B':self.last_side = 'R'
             else:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
-                # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = RETURN 
-
-            if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
-                self.my_moving.reset_move()  # 重置搬运标志
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+            if self.first_return:
+                if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != NAVIGATE:
+                    if self.last_side == 'L' and self.my_moving.next_postion == 'l':self.first_return = False
+                    elif self.last_side == 'R' and self.my_moving.next_postion == 'r':self.first_return = False
+                    elif self.last_side == 'U' and self.my_moving.next_postion == 'l':self.first_return = False
+                    elif self.last_side == 'D' and self.my_moving.next_postion == 'r':self.first_return = False
+                    if self.first_return:
+                        self.my_plan.reset_navigate_angle()
+                        self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
+                        self.my_moving.reset_move()  # 重置搬运标志
+                        self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                else:
+                    self.if_send_path = False
+                    self.data.current_index += 1
+                    self.my_plan.reset_navigate()
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = READY_NAVIGATE
+                    # 测试光电管矫正效果
+                    self.my_moving.reset_move()  # 重置搬运标志
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
             else:
-                self.if_send_path = False
-                self.data.current_index += 1
-                self.my_plan.reset_navigate()
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = READY_NAVIGATE
-                # 测试光电管矫正效果
-                # self.my_state.state = RETURN
-                self.my_moving.reset_move()  # 重置搬运标志
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                if not self.if_send_return_message:
+                    self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
+                    self.if_send_return_message = True
+                if self.my_main_protocol.get_slave_state() == 'lost':
+                    self.my_plan.reset_navigate_angle()
+                    self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
+                    self.my_moving.reset_move()  # 重置搬运标志
+                    self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:

@@ -396,8 +396,6 @@ class MoveControl:
             try:
                 used_path = 1
                 dx,dy = self.saved_best_path
-                # dx+=self.push_postion[0]*10
-                # dy+=self.push_postion[1]*10
                 p0 = [self.my_car.x_current,self.my_car.y_current]
                 p1 = [self.my_car.x_current+dx,self.my_car.y_current+dy]
                 if self.move_dir==0:p2 = [self.my_car.x_current+dx,self.plan_data.FIELD_H+30]
@@ -559,10 +557,10 @@ class MoveControl:
                         self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
                 if self.run_first:
                     if self.if_first_navigate:
-                        if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
+                        if len(self.my_plan.path) >=4:slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*15
                         else:slave_message_delay = self.slave_message_delay
                     elif self.if_delay_more and len(self.my_plan.path) >=4:
-                        slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*20
+                        slave_message_delay = self.slave_message_delay + (len(self.my_plan.path)-3)*15
                     else:
                         slave_message_delay = self.slave_message_delay
                     if self.if_send_navigate_command == False:
@@ -619,7 +617,6 @@ class MoveControl:
                 left_y = y + 15.0 * math.sin(now_yaw)
                 self.my_plan.navigate(path = [[right_x, right_y], [left_x, left_y]])
                 target_point = self.my_art_protocol.coordinate_receive()
-
                 # 判断红色沙包是否在矩形框内
                 if target_point:
                     if chr(target_point[2]) == 'S':
@@ -627,7 +624,6 @@ class MoveControl:
                         if_red_valid = self.vision_manager.if_in_rect(actual_point[0], actual_point[1])
                     else:
                         if_red_valid = True
-
                 if target_point and chr(target_point[2]) == self.vision_manager.current_servo_object and if_red_valid:
                     self.vision_manager.ready_servo_and_orbit(target_point, 'servo')
                     self.my_plan.reset_navigate()

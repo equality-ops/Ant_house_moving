@@ -62,6 +62,7 @@ class TaskController:
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
         B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
         self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
+        self.if_send_return = False
         self.navigate_message = []  # 导航信息：目标点坐标和朝向
         self.pt_buffer = []  # 目标点坐标缓冲区
         self.retreat_message = [] # 后退点坐标缓冲区
@@ -337,6 +338,9 @@ class TaskController:
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始点
+        if self.my_plan.finished_dist >= 15 and not self.if_send_return:
+            self.my_slave_protocol.send_slave_state("lost")
+            self.if_send_return = True
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状态
 
