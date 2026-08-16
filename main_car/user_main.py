@@ -25,7 +25,7 @@ def mem(tag):
     gc.collect()
 
 # ==================== 内存分配追踪（带标签 + 增量 diff） ====================
-MEM_TRACE = True    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
+MEM_TRACE = False    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
 
 _mem_inited = False
 _mem_last_alloc = 0
