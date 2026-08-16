@@ -6,7 +6,7 @@ from micropython import const
 gc.collect()
 
 # ==================== 内存分配追踪（带标签 + 增量 diff） ====================
-MEM_TRACE = True    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
+MEM_TRACE = False    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
 
 _mem_inited = False
 _mem_last_alloc = 0
@@ -247,8 +247,8 @@ my_slave_protocol = ant_else.LinkProtocol(my_uart3)
 mem_trace("my_slave_protocol")
 
 # 创建pid参数对象
-pid_data = ant_motor.PID_data(my_flash_sys)
-mem_trace("pid_data")
+pid_gains = ant_motor.load_pid_gains(my_flash_sys)
+mem_trace("pid_gains")
 
 #创建无刷
 my_fan = ant_motor.FanControl(my_flash_sys, fan, my_state)
@@ -331,6 +331,16 @@ mem_trace("my_moving")
 # 任务及类
 my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol, my_tof)
 mem_trace("my_task")
+
+# 提前取出定时器中断参数后释放参数字典
+motor_control_T = my_flash_sys.find_value("motor_control_T")
+uart_and_menu_T = my_flash_sys.find_value("uart_and_menu_T")
+plan_calculate_T = my_flash_sys.find_value("plan_calculate_T")
+
+# 所有构造器已经读完参数，断开对大配置字典的引用。
+# 如果重新启用 ant_menu，必须在此处之前创建菜单对象。
+my_flash_sys.release_config()
+mem_trace("release config")
 
 # 测试打印变量解析是否成功
 """
@@ -468,91 +478,50 @@ _HIGH_TARGET = 180         # >= 此值使用High挡
 _MID_TARGET = 120          # >= 此值使用Mid→High线性插值
 _LOW_TARGET = 50           # >= 此值使用Low→Mid线性插值，< 此值使用Low挡
 
-def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
-                       kp_mid, ki_mid, kd_mid,
-                       kp_low, ki_low, kd_low):
+_PID_UL = const(0)
+_PID_UR = const(9)
+_PID_MD = const(18)
+_PID_HIGH = const(0)
+_PID_MID = const(3)
+_PID_LOW = const(6)
+
+def _apply_pid_params(motor_pid, base):
+    motor_pid.set_pid_params(
+        pid_gains[base], pid_gains[base + 1], pid_gains[base + 2])
+
+def _select_pid_params(motor_pid, motor_base):
     """为单个电机按目标速度选择并设置PID参数"""
     target_abs = abs(motor_pid.target)
+    high = motor_base + _PID_HIGH
+    mid = motor_base + _PID_MID
+    low = motor_base + _PID_LOW
 
     if target_abs >= _HIGH_TARGET:
-        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
+        _apply_pid_params(motor_pid, high)
     elif target_abs >= _MID_TARGET:
         ratio = (target_abs - _MID_TARGET) / (_HIGH_TARGET - _MID_TARGET)
         motor_pid.set_pid_params(
-            kp_mid + (kp_high - kp_mid) * ratio,
-            ki_mid + (ki_high - ki_mid) * ratio,
-            kd_mid + (kd_high - kd_mid) * ratio)
+            pid_gains[mid] + (pid_gains[high] - pid_gains[mid]) * ratio,
+            pid_gains[mid + 1] + (pid_gains[high + 1] - pid_gains[mid + 1]) * ratio,
+            pid_gains[mid + 2] + (pid_gains[high + 2] - pid_gains[mid + 2]) * ratio)
     elif target_abs >= _LOW_TARGET:
         ratio = (target_abs - _LOW_TARGET) / (_MID_TARGET - _LOW_TARGET)
         motor_pid.set_pid_params(
-            kp_low + (kp_mid - kp_low) * ratio,
-            ki_low + (ki_mid - ki_low) * ratio,
-            kd_low + (kd_mid - kd_low) * ratio)
+            pid_gains[low] + (pid_gains[mid] - pid_gains[low]) * ratio,
+            pid_gains[low + 1] + (pid_gains[mid + 1] - pid_gains[low + 1]) * ratio,
+            pid_gains[low + 2] + (pid_gains[mid + 2] - pid_gains[low + 2]) * ratio)
     else:
-        motor_pid.set_pid_params(kp_low, ki_low, kd_low)
+        _apply_pid_params(motor_pid, low)
 
 def set_pid_params():
     if my_state.state == _MOVE:
-        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+        _apply_pid_params(motor_ul_pid, _PID_UL + _PID_HIGH)
+        _apply_pid_params(motor_ur_pid, _PID_UR + _PID_HIGH)
+        _apply_pid_params(motor_md_pid, _PID_MD + _PID_HIGH)
     else:
-        _select_pid_params(motor_ul_pid,
-            pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd,
-            pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd,
-            pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-        _select_pid_params(motor_ur_pid,
-            pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd,
-            pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd,
-            pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
-        _select_pid_params(motor_md_pid,
-            pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd,
-            pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd,
-            pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
-
-# 测试tof距离控制
-def test_tof_distance_control():
-    if my_state.state == _READY_NAVIGATE:
-        my_state.state = _MOVE
-        my_plan.move_v_max = 160
-        my_moving.current_state = _MOVE
-        my_plan.move_state = _MOVE
-        my_plan.keep_x_or_y_v = False
-        my_tof.ready_tof('left',0)
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-    elif my_state.state == _MOVE:
-        # 距离控制
-        my_tof.dist_control()
-        my_plan.navigate(path = [[50.0, 50.0], [50.0, 150.0]], target_turn_angle = -45.0)
-        if my_plan.if_finish_navigate == True:
-            my_tof.reset_tof()
-            my_plan.reset_navigate()
-            my_plan.reset_navigate_angle()
-            my_state.state = _STOP
-    elif my_state.state == _STOP:
-        pass
-        # my_uart3.write(f"slave_car: {my_car.x_current},{my_car.y_current}\n")
-
-# 环绕测试函数
-def test_orbit():
-    global counter
-    if my_state.state == _READY_NAVIGATE:
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_vision_manager.object_radius = 25.0
-        my_vision_manager.object_radius_vision = 15.0
-        my_vision_manager.current_servo_object = 'S'
-        my_vision_manager.reset_orbit_angle()
-        my_state.state = _ORBIT
-    elif my_state.state == _ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = _STOP
-    elif my_state.state == _STOP:
-        my_plan.stop()
+        _select_pid_params(motor_ul_pid, _PID_UL)
+        _select_pid_params(motor_ur_pid, _PID_UR)
+        _select_pid_params(motor_md_pid, _PID_MD)
 
 # 任务机执行函数
 def task_machine():
@@ -569,12 +538,6 @@ def time_pit1_handler(time):
     # 更新小车姿态
     my_car.update_pose()
 
-    # 测试角度闭环
-    #complete_angle_circle()
-
-    # 速度环测试
-    #show_speed_PID_test()
-    
     # 总控制函数
     master_control()
 
@@ -615,27 +578,7 @@ def time_pit3_handler(time) -> None:
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
-    
-    # 视觉伺服测试程序
-    # test_vision_servo()
-
-    # 边线校准测试程序
-    # test_apriltag_calibrate()
-
-    # 环绕物体测试程序
-    # test_orbit()
-
-    # 测试tof距离控制
-    # test_tof_distance_control()
-
-    # 自转测试函数
-    # test_spin()
-
-    # 环绕物体测试程序
-    # test_orbit()
-
-    # apriltag码矫正测试函数
-    # test_apriltag_calibrate()
+ 
     pass
 
 
@@ -678,20 +621,20 @@ def pit1_start():
     # 进行IMU零漂校准并将imu_data与定时器1的底层采集绑定
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)
-    pit1.start(my_flash_sys.find_value("motor_control_T"))
+    pit1.start(motor_control_T)
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
     global pit2
     pit2.callback(time_pit2_handler)
     pit2.capture_list(key)
-    pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
+    pit2.start(uart_and_menu_T)
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     global pit3
     pit3.callback(time_pit3_handler)
-    pit3.start(my_flash_sys.find_value("plan_calculate_T"))
+    pit3.start(plan_calculate_T)
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
@@ -704,22 +647,5 @@ while True:
     # I2C访问可能阻塞，必须放在普通主循环中，避免拖住姿态和电机定时器。
     if not if_menu:
         my_tof.service()
-
-    # 屏幕测试程序
-    # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
-    # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0xF800)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x07E0)s
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x001F)
-    
-    # 如果拨码开关打开 对应引脚拉低 就退出循环
-    # 这么做是为了防止写错代码导致异常 有一个退出的手段 
-    if switch2.value() != state2:
-        print("Test program stop.")
-        gc.collect()
-        break
 
     gc.collect()

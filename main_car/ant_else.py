@@ -199,16 +199,8 @@ class flash_system:
 
 # 日志系统
 class write_system:
-    def __init__(self, flash_sys: flash_system, beep, file_path: str):
+    def __init__(self, flash_sys: flash_system):
         self.flash_sys = flash_sys
-        # 注入蜂鸣器对象，用于警报
-        self.beep = beep
-        self.num = 1
-        # 传入文件路径
-        self.file_path = file_path  # type: str
-        # 环形字节缓冲区：一次性预分配固定内存，写入过程零动态分配，避免内存碎片
-        self.buf_size = 1024        # 缓冲区字节上限（可调）
-        self.buf = bytearray(self.buf_size)
         self.if_write_log = self.flash_sys.find_value("if_write_log")
         gc.collect()
 

@@ -74,42 +74,20 @@ class FanControl:
     def fan_off(self):
         self.my_fan.highlevel_us(1000)
 
-class PID_data:
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-
-        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
-        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
-        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
-        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
-        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
-        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
-        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
-        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
-        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
-
-        self.ul_mid_kp = self.flash_sys.find_value("ul_mid_kp")  # type: float
-        self.ul_mid_ki = self.flash_sys.find_value("ul_mid_ki")  # type: float
-        self.ul_mid_kd = self.flash_sys.find_value("ul_mid_kd")  # type: float
-        self.ur_mid_kp = self.flash_sys.find_value("ur_mid_kp")  # type: float
-        self.ur_mid_ki = self.flash_sys.find_value("ur_mid_ki")  # type: float
-        self.ur_mid_kd = self.flash_sys.find_value("ur_mid_kd")  # type: float
-        self.md_mid_kp = self.flash_sys.find_value("md_mid_kp")  # type: float
-        self.md_mid_ki = self.flash_sys.find_value("md_mid_ki")  # type: float
-        self.md_mid_kd = self.flash_sys.find_value("md_mid_kd")  # type: float
-        
-        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
-        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
-        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
-        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
-        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
-        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
-        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
-        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
-        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
-
-        gc.collect()  # 主动触发垃圾回收，释放内存
+def load_pid_gains(flash_sys):
+    """Load UL/UR/MD high, mid and low (kp, ki, kd) into one flat tuple."""
+    find = flash_sys.find_value
+    gains = []
+    for motor in ("ul", "ur", "md"):
+        for level in ("high", "mid", "low"):
+            prefix = motor + "_" + level
+            gains.append(find(prefix + "_kp"))
+            gains.append(find(prefix + "_ki"))
+            gains.append(find(prefix + "_kd"))
+    result = tuple(gains)
+    del gains
+    gc.collect()
+    return result
 
 # 滑动平均滤波器
 class SlipAveragingFilter:

@@ -2,9 +2,8 @@ from micropython import const
 import time
 import gc
 # 引入 VL53L4CD 驱动
-from vl53l4cd import VL53L4CD,RANGE_VALID
+from vl53l4cd import RANGE_VALID
 
-_PI = const(3.1415926)
 # 计数器
 counter = 0 
 ##############################【蜂鸣器】##############################
@@ -564,6 +563,12 @@ class flash_system:
                 gc.collect()
         f.close()
 
+    def release_config(self) -> None:
+        # Deleting the reference releases the hash table and all unused values.
+        # dict.clear() may retain the allocated hash table.
+        if hasattr(self, "config"):
+            del self.config
+        gc.collect()
 
     def find_value(self, var_name: str):
         try:

@@ -240,6 +240,11 @@ class TaskController:
         elif state == _SERVO:
             pass
         elif state == _MOVE:
+            counter += 1
+            # 延时100ms
+            if counter <= 10:
+                return
+            
             if self.current_object == 'T':self.last_side = 'U'
             elif self.current_object == 'S' or self.current_object == 'E':self.last_side = 'L'
             elif self.current_object == 'W' or self.current_object == 'B':self.last_side = 'R'
@@ -247,31 +252,17 @@ class TaskController:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 # 如果从车丢失物体直接返回发车区避免浪费时�?
                 self.my_state.state = _RETURN 
-            dis = math.sqrt((self.my_car.x_current - self.my_vision.calibrate_buffer[0][0][0])**2 +\
-                            (self.my_car.y_current - self.my_vision.calibrate_buffer[0][0][1])**2 )
-            score = self.need_calibrate_score - dis * 0.015
-            if self.data.current_index >= self.data.total_objects_num - 1 or self.my_moving.current_state != _NAVIGATE:
-                self.my_main_protocol.send_path('A', 999, [self.my_car.x_current, self.my_car.y_current]) 
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = _RETURN  # 如果所有物体都处理完了，进入返回状�?
-                self.my_moving.reset_move()  # 重置搬运标志
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
-            else:
-                counter += 1
-                # 延时100ms
-                if counter <= 10:
-                    return
-
-                counter = 0
-                self.if_send_path = False
-                self.data.current_index += 1
-                self.my_plan.reset_navigate()
-                self.my_plan.reset_navigate_angle()
-                self.my_state.state = _READY_NAVIGATE
-                # 测试光电管矫正效果
-                # self.my_state.state = _RETURN
-                self.my_moving.reset_move()  # 重置搬运标志
-                self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+            # 重置计数器
+            counter = 0
+            self.if_send_path = False
+            self.data.current_index += 1
+            self.my_plan.reset_navigate()
+            self.my_plan.reset_navigate_angle()
+            self.my_state.state = _READY_NAVIGATE
+            # 测试光电管矫正效果
+            # self.my_state.state = _RETURN
+            self.my_moving.reset_move()  # 重置搬运标志
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == _CALIBRATE:
             pass
         elif state == _ADJUST:

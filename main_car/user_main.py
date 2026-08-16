@@ -52,8 +52,6 @@ mem_trace("baseline")
 # 从 machine 库包含所有内容
 from machine import *
 mem_trace("import machine")
-from display import *
-mem_trace("import display")
 from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
 mem_trace("import seekfree")
 from smartcar import ticker, encoder
@@ -176,7 +174,7 @@ _timer_periods = (
 )
 
 mem_trace("my_flash_sys")
-my_write_system = ant_else.write_system(my_flash_sys, my_beep, "/flash/main_log.txt")
+my_write_system = ant_else.write_system(my_flash_sys)
 mem_trace("my_write_system")
 
 # 创建无刷风扇控制对象
