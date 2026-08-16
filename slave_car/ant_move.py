@@ -63,7 +63,7 @@ class MoveControl:
         self.if_first_navigate = True
         self.navigate_buffer ={
                         'SLA_P':[],
-                        'ANGLE':[0,0],
+                        'ANGLE':[0,0,0],
         }
         self.navigate_distance=20
         self.__angle=30
@@ -225,10 +225,10 @@ class MoveControl:
                 else:self.if_first_orbit = True
             if self.special_push:
                 self.plan_data.rectangles.insert(-1,rect)
-            if now_side =='D': self.my_path.plan_path(sla_p[0][0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[0][1]),ignore_center_rect=True)
-            elif now_side =='U': self.my_path.plan_path(sla_p[0][0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[0][1]),ignore_center_rect=True)
-            elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)   
-            else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0][0]),sla_p[0][1],ignore_center_rect=True)
+            if now_side =='D': self.my_path.plan_path(sla_p[0],min(self.my_plan.plan_data.center_rect[0][1],sla_p[1]),ignore_center_rect=True)
+            elif now_side =='U': self.my_path.plan_path(sla_p[0],max(self.my_plan.plan_data.center_rect[3][1],sla_p[1]),ignore_center_rect=True)
+            elif now_side =='L': self.my_path.plan_path(min(self.my_plan.plan_data.center_rect[0][0],sla_p[0]),sla_p[1],ignore_center_rect=True)   
+            else: self.my_path.plan_path(max(self.my_plan.plan_data.center_rect[3][0],sla_p[0]),sla_p[1],ignore_center_rect=True)
             self.my_path.ready_path.append(sla_p)
             if self.special_push:
                 self.plan_data.rectangles.pop(-2)
@@ -284,14 +284,14 @@ class MoveControl:
             self.if_to_the_top =True
             if not RECT:
                 therhold = 7
-                if target_side =='D':self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[0][1]-therhold)
-                elif target_side =='U':self.my_path.plan_path(sla_p[0][0],self.my_plan.plan_data.center_rect[3][1]+therhold)
-                elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,sla_p[0][1])
-                else: self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,sla_p[0][1])
+                if target_side =='D':self.my_path.plan_path(sla_p[0],self.my_plan.plan_data.center_rect[0][1]-therhold)
+                elif target_side =='U':self.my_path.plan_path(sla_p[0],self.my_plan.plan_data.center_rect[3][1]+therhold)
+                elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0]-therhold,sla_p[1])
+                else: self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0]+therhold,sla_p[1])
             else:
                 big_rect = [self.my_plan.plan_data.center_rect[0],self.my_plan.plan_data.center_rect[3]]
                 p_2 = RECT[0][:]
-                p_1 = sla_p[0][:]
+                p_1 = sla_p[:]
                 if target_side =='D': 
                     p_2[1] = RECT[0][1]
                     p_1[1] = RECT[0][1]
