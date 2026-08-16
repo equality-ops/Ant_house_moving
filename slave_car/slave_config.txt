@@ -167,7 +167,7 @@ SUDOKU_length_x = 30.0
 # 惯导矩形缩放比例（根据九宫格长度）
 rect_zoom_rate = 1.8
 # 视觉矩形缩放比例
-vision_rect_zoom_rate = 1.5
+vision_rect_zoom_rate = 1.7
         
 # CENTER_X = 147.6
 # CENTER_Y = 114.0

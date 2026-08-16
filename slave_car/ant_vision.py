@@ -98,6 +98,7 @@ class VisionManager:
         self.orbit_turn_angle = 0.0        # type: float   # 环绕转角
         self.current_dis = 0.0             # type: float   # 当前距离
         self.target_angle = 0.0            # type: float   # 目标角度
+        self.last_err_r = None             
         self.orbit_v_max = self.flash_sys.find_value("orbit_v_max")   # type: int   # 环绕最大速度
         self.orbit_v_min = self.flash_sys.find_value("orbit_v_min")   # type: int   # 环绕最小速度
         self.object_radius = 0.0           # type: float   # 物体半径
@@ -475,7 +476,7 @@ class VisionManager:
                     else:
                         dist = (self.real_servo_point[0] - self.orbit_center_x) ** 2 + (self.real_servo_point[1] - self.orbit_center_y) ** 2
 
-                    if dist > 225:
+                    if dist > 100:
                         counter += 1
                         if self.last_predict_point is not None:
                             self.real_servo_point = self.last_predict_point
@@ -519,7 +520,12 @@ class VisionManager:
                 theta = -math.atan2(-dx, dy) * 180.0 / _PI
 
                 # 半径误差（大于0代表实际比指定半径近，需要向外扩）
-                err_r = self.orbit_radius - actual_r
+                if self.last_err_r is None:
+                    err_r = self.orbit_radius - actual_r
+                else:
+                    err_r = (self.orbit_radius - actual_r) * 0.5 + self.last_err_r
+
+                self.last_err_r = err_r
 
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
             kr = 2.0
@@ -576,6 +582,7 @@ class VisionManager:
                 self.my_order_manager.finish()
                 self.orbit_speed = 0.0
                 self.orbit_turn_angle = self.my_car.now_yaw * 180 / _PI
+                self.last_err_r = None
                 self.if_use_navigate = False
                 self.last_predict_point = None
                 self.if_finish_orbit = True

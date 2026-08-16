@@ -114,10 +114,10 @@ class TaskController:
             pass
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            self.my_path.plan_path(self.pt_buffer[1][0], self.pt_buffer[1][1], ignore_center_rect=True)  # 规划回起始点的路径
-            self.my_path.ready_path[-1] = self.pt_buffer[1]
+            self.my_path.plan_path(self.pt_buffer[0][0], self.pt_buffer[0][1], ignore_center_rect=True)  # 规划回起始点的路径
+            self.my_path.ready_path[-1] = self.pt_buffer[0]
             # 最后插入一个途径点便于计时
-            self.my_path.ready_path.insert(-1, [self.pt_buffer[1][0], 10.0])
+            self.my_path.ready_path.insert(-1, [self.pt_buffer[0][0], 10.0])
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
@@ -234,7 +234,7 @@ class TaskController:
         if path:
             # 只有当路径信息为过渡或者回城时才记录目标点坐标
             horizon_stop_threshold = 10
-            if path[0] not in ['P', 'R']:
+            if path[0] not in ['P']:
                 self.pt_buffer = [path[2], path[1]]  # 储存目标坐标
                 self.navigate_message = []  # 收到物体坐标先不导航
             else:

@@ -335,7 +335,7 @@ class MoveControl:
                         'ANGLE':ANGle,
                     })
 
-        print(f"{self.if_first_orbit}, {self.if_change_side}, {self.next_postion}, {now_side}, {target_side}, {target_turn_deg}")
+        # print(f"{self.if_first_orbit}, {self.if_change_side}, {self.next_postion}, {now_side}, {target_side}, {target_turn_deg}")
         if not self.navigate_buffer:
             return False
         return True

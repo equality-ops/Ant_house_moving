@@ -262,7 +262,7 @@ class TaskController:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 self.my_state.state = RETURN 
 
-            print(f"{self.last_side}, {self.my_moving.next_postion}, {self.first_return}")
+            # print(f"{self.last_side}, {self.my_moving.next_postion}, {self.first_return}")
             if self.first_return:
                 if self.data.current_index >= self.data.total_objects_num - 1 or not self.now_objects or self.my_moving.current_state != NAVIGATE:
                     if self.last_side == 'L' and self.my_moving.next_postion == 'l':self.first_return = False

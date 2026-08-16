@@ -171,7 +171,7 @@ AVOID_WIDTH = 20
 #使用扫描点
 USE_SCAN_POINT = 2
 # 选择哪条边进行扫描
-scan_side = 'L'
+scan_side = 'D'
 #是否使用模型servo
 if_model = 1
 #是否使用模型scan

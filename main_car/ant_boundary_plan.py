@@ -670,7 +670,7 @@ class objects_planner:
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
                     if i[4] !='R':score+=1000
-                    if self.last_sandbag_idx == 0:score+=1000
+                    if self.last_sandbag_idx == 0:score+=3000
                 elif (i[1] == 'T') and i[4] !='D':score+=1000
                 elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
                 # 大角度搬运路径加分
