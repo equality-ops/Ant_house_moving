@@ -199,7 +199,7 @@ motor_control_T = my_flash_sys.find_value("motor_control_T")
 uart_and_menu_T = my_flash_sys.find_value("uart_and_menu_T")
 plan_calculate_T = my_flash_sys.find_value("plan_calculate_T")
 
-my_flash_sys.config = None
+my_flash_sys.release_config()  # 释放配置文件占用的内存
 
 # 测试打印变量解析是否成功
 """

@@ -127,6 +127,14 @@ class flash_system:
             if line_count % 8 == 0:
                 gc.collect()
         f.close()
+
+    def release_config(self) -> None:
+        # Deleting the reference releases the hash table and all unused values.
+        # dict.clear() may retain the allocated hash table.
+        if hasattr(self, "config"):
+            del self.config
+        gc.collect()
+        
     def find_value(self, var_name: str):
         try:
             var_value = self.config[var_name.strip()]
