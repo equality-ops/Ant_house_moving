@@ -2,20 +2,21 @@ from micropython import const
 import math,time
 import gc
 
-PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
-STOP = const(9)           # 停止状态
-InField = const(-1)
-OnLine = const(0)
-OutLine = const(1)
+_PI = const(3.1415926)
+_READY_NAVIGATE = const(0)   # 准备导航状态
+_NAVIGATE = const(1)       # 导航状态
+_SCAN = const(2)           # 扫描状态
+_SERVO = const(3)          # 视觉伺服状态
+_ORBIT = const(4)          # 环绕状态
+_MOVE = const(5)           # 搬运状态
+_CALIBRATE = const(6)      # 校准状态
+_ADJUST = const(7)           # 微调状态
+_RETURN = const(8)		    # 返回状态
+_STOP = const(9)           # 停止状态
+_InField = const(-1)
+_OnLine = const(0)
+_OutLine = const(1)
+
 # 多路复用器计数器
 counter = 0
 class MoveControl:
@@ -69,7 +70,7 @@ class MoveControl:
         self.if_change_side = False
         self.next_postion = 'r'
         #self.clamp_distance = 3.0
-        self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
+        self.current_state = _ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_orbit_command = False  # 是否发送过环绕控制指令
         self.if_send_navigate_command = False  # 是否发送过惯导控制指令
         self.if_start_orbit = False  # 是否开始环绕
@@ -84,6 +85,7 @@ class MoveControl:
         self.saved_best_path = []
         self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
         gc.collect()
+        
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_turn, sp):
         if sp == 'T':
@@ -127,7 +129,7 @@ class MoveControl:
         if not vision.if_in_rect(self.now_object_pt[0],self.now_object_pt[1]):
             return False
         self.moving_idx = 0
-        self.current_state = NAVIGATE
+        self.current_state = _NAVIGATE
         self.if_finish_move = False
         self.if_start_orbit = False
         self.if_slave_ready_move = False
@@ -168,7 +170,7 @@ class MoveControl:
         self.run_first = True
         vision.if_next_orbit = False
         retreat_lenth = 20
-        if not self.if_first_navigate:st = [self.my_car.x_current+math.sin(current_turn_deg/180*PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*PI)*retreat_lenth]
+        if not self.if_first_navigate:st = [self.my_car.x_current+math.sin(current_turn_deg/180*_PI)*retreat_lenth,self.my_car.y_current+math.cos(current_turn_deg/180*_PI)*retreat_lenth]
         else:st = []
         gc.collect()
         self.delay_more = False
@@ -347,7 +349,7 @@ class MoveControl:
         self.adjust_point.clear()
         self.surrounding_points.clear()
         self.navigate_buffer.clear()
-        self.current_state = NAVIGATE
+        self.current_state = _NAVIGATE
         self.reset_orbit()
         self.if_send_navigate_command = False 
         self.if_finish_move = False
@@ -383,7 +385,7 @@ class MoveControl:
             if self.my_car.now_yaw>0:swell_dir=-90
             else:swell_dir=90
         elif self.move_dir==-90 or self.move_dir==90:
-            if self.my_car.now_yaw>-PI/2 and self.my_car.now_yaw<PI/2:swell_dir=180
+            if self.my_car.now_yaw>-_PI/2 and self.my_car.now_yaw<_PI/2:swell_dir=180
             else:swell_dir=0
         else: return False
         plan_path = self.move_plan.plan_move(self.move_dir,swell_dir,objects,limit_angle = 55,generate_new_obj = True)
@@ -431,7 +433,7 @@ class MoveControl:
     def state_transition(self):
         global counter
         # print("[mem] state{} free:{} alloc:{}".format(self.current_state, gc.mem_free(), gc.mem_alloc()))
-        if self.current_state == NAVIGATE:
+        if self.current_state == _NAVIGATE:
             if self.if_first_navigate:
                 self.if_first_navigate = False
             self.my_art_protocol.clear_uart_buffer()
@@ -449,10 +451,10 @@ class MoveControl:
             if self.if_send_orbit_command == False:
                 self.my_main_protocol.send_path(NAV_T['SLA_P'][0],NAV_T['ANGLE'][1],NAV_T['SLA_P'][1])
                 self.if_send_orbit_command = True
-            self.current_state = SCAN
-        elif self.current_state == SCAN:
+            self.current_state = _SCAN
+        elif self.current_state == _SCAN:
             if self.my_plan.if_finish_navigate:
-                self.current_state = SERVO
+                self.current_state = _SERVO
                 self.vision_manager.reset_servo_angle()
                 self.my_plan.reset_navigate()
                 self.reset_orbit() # 重置环绕相关变量
@@ -469,9 +471,9 @@ class MoveControl:
                     self.my_plan.reset_navigate()
                     self.reset_orbit() # 重置环绕相关变量
                     self.plan_path = []
-                    self.current_state = SERVO
+                    self.current_state = _SERVO
                     return
-        elif self.current_state == ORBIT:
+        elif self.current_state == _ORBIT:
             self.vision_manager.if_send_order = False
             if counter >= 5:
                 order = self.my_main_protocol.get_slave_state()
@@ -485,8 +487,8 @@ class MoveControl:
                         if self.vision_manager.current_servo_object in ['S','E']:
                             if self.send_point[1] > 1e-3 and self.next_postion == 'r':self.my_plan.if_inside_sandbag = True
                             elif self.send_point[1] < 1e-3 and self.next_postion == 'l':self.my_plan.if_inside_sandbag = True
-                        self.my_plan.move_state = MOVE
-                        self.current_state = MOVE
+                        self.my_plan.move_state = _MOVE
+                        self.current_state = _MOVE
                         self.vision_manager.if_finish_servo = False
 
                         # 如果当前伺服物体存在，则设置 my_plan 的 if_push_T 标志为 True
@@ -507,16 +509,16 @@ class MoveControl:
                         return #直接退出return
             else:
                 counter += 1
-        elif self.current_state == ADJUST:
+        elif self.current_state == _ADJUST:
             pass
-        elif self.current_state == MOVE:
+        elif self.current_state == _MOVE:
             self.my_photo.reset_photo()
             self.if_finish_move = True
-            self.my_plan.move_state = NAVIGATE
-            self.current_state = NAVIGATE
+            self.my_plan.move_state = _NAVIGATE
+            self.current_state = _NAVIGATE
             self.my_plan.fitting_path_ = []
             return
-        elif self.current_state == SERVO:
+        elif self.current_state == _SERVO:
             self.my_order_manager.clear_knock()
             if self.vision_manager.if_lost_object:
                 self.if_finish_move = True
@@ -525,22 +527,22 @@ class MoveControl:
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.if_finish_orbit=True#直接跳过旋转
                 self.vision_manager.reset_orbit_angle()
-                self.current_state = ORBIT
+                self.current_state = _ORBIT
             elif self.if_first_orbit:#若是第一个环绕
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.reset_orbit_angle()
-                self.current_state = ORBIT
+                self.current_state = _ORBIT
                 self.my_main_protocol.send_start()
             elif self.my_main_protocol.get_slave_state() == "get":#从车完成伺服
                 self.vision_manager.if_finish_servo = False
                 self.vision_manager.reset_orbit_angle()
-                self.current_state = ORBIT
+                self.current_state = _ORBIT
             return
     # 搬运控制函数
     def moving(self):
         if self.if_finish_move:
             return
-        if self.current_state == NAVIGATE:
+        if self.current_state == _NAVIGATE:
             NAV_T=self.navigate_buffer
             if not self.run_first and not self.get_slave_navigate_state:
                 if self.if_send_navigate_command == False:self.if_send_navigate_command = True
@@ -574,25 +576,25 @@ class MoveControl:
                 if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= self.start_scan_range:
                     self.state_transition()
                     return
-        elif self.current_state == SCAN:
+        elif self.current_state == _SCAN:
             NAV_T=self.navigate_buffer
             self.my_plan.navigate(NAV_T['MAIN_P'], NAV_T['ANGLE'][0], if_first_turn=False)
             self.state_transition()
-        elif self.current_state == ORBIT:
+        elif self.current_state == _ORBIT:
             if self.vision_manager.if_finish_orbit:
                 self.state_transition() # 退出当前状态，进入搬运状态
                 return
             NAV_T=self.navigate_buffer
             gc.collect()  # 环绕前主动回收，缓解内存不足
             self.vision_manager.orbit_control(NAV_T['ANGLE'][2])
-        elif self.current_state == ADJUST:
+        elif self.current_state == _ADJUST:
             self.vision_manager.visual_servo_control()
             if self.vision_manager.if_finish_servo == True:
                 self.state_transition()
-        elif self.current_state == MOVE:
+        elif self.current_state == _MOVE:
             #self.my_plan.navigate(path = [self.next_point])
             self.my_photo.update_photo_state()
-            if self.my_photo.current_state == OutLine:
+            if self.my_photo.current_state == _OutLine:
                 self.reset_car_pos()
                 self.my_photo.reset_photo()
                 self.my_beep.test()
@@ -601,7 +603,7 @@ class MoveControl:
             self.my_plan.navigate(path = self.plan_path)
             if self.my_plan.if_finish_navigate == True:
                 self.state_transition()
-        elif self.current_state == SERVO:
+        elif self.current_state == _SERVO:
             if self.vision_manager.if_finish_servo or self.my_plan.if_finish_navigate:
                 self.state_transition()  # 退出当前状态
             if self.vision_manager.if_lost_object == False:

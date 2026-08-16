@@ -2,18 +2,18 @@ from micropython import const
 import math
 import gc
 
-PI = const(3.1415926)
-READY_NAVIGATE = const(0) # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)         # 微调状态
-RETURN = const(8)		  # 返回状态
-STOP = const(9)           # 停止状态
-RETREAT = const(10)       # 后退状态
+_PI = const(3.1415926)
+_READY_NAVIGATE = const(0) # 准备导航状态
+_NAVIGATE = const(1)       # 导航状态
+_SCAN = const(2)           # 扫描状态
+_SERVO = const(3)          # 视觉伺服状态
+_ORBIT = const(4)          # 环绕状态
+_MOVE = const(5)           # 搬运状态
+_CALIBRATE = const(6)      # 校准状态
+_ADJUST = const(7)         # 微调状态
+_RETURN = const(8)		  # 返回状态
+_STOP = const(9)           # 停止状态
+_RETREAT = const(10)       # 后退状态
 
 # 多路复用器计数器
 counter = 0
@@ -178,11 +178,11 @@ class VisionManager:
         
     # 重置视觉伺服角度
     def reset_servo_angle(self):
-        self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / PI
+        self.target_rel_turn_angle = self.my_car.now_yaw * 180.0 / _PI
 
     # 重置环绕角度
     def reset_orbit_angle(self):
-        self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / PI
+        self.orbit_turn_angle = self.my_car.now_yaw * 180.0 / _PI
 
     # 重置环绕控制标志位
     def reset_orbit(self):
@@ -204,7 +204,7 @@ class VisionManager:
         :return: 真实的物理坐标 (X_w, Y_w)
         """
         object_H = 0.0  # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
-        if self.my_state.state == CALIBRATE:
+        if self.my_state.state == _CALIBRATE:
             object_H = 0.0
         else:
             if not object_kind:
@@ -236,10 +236,10 @@ class VisionManager:
         raw_y += car_radius
         relative_angle = -math.atan2(-raw_x, raw_y)
         actual_angle = self.my_car.now_yaw + relative_angle
-        if actual_angle > PI:
-            actual_angle -= 2 * PI
-        elif actual_angle < -PI:
-            actual_angle += 2 * PI
+        if actual_angle > _PI:
+            actual_angle -= 2 * _PI
+        elif actual_angle < -_PI:
+            actual_angle += 2 * _PI
         actual_dist = math.sqrt(raw_x ** 2 + raw_y ** 2)
         absolute_x = actual_dist * math.sin(actual_angle) + self.my_car.x_current
         absolute_y = actual_dist * math.cos(actual_angle) + self.my_car.y_current
@@ -270,12 +270,12 @@ class VisionManager:
         rel_y += 5
         # 车体坐标系下，x 为车右侧，y 为车前方
         dist = math.sqrt(rel_x ** 2 + rel_y ** 2)
-        now_yaw = self.my_car.now_yaw * 180.0 / PI
-        rel_yaw = math.atan2(rel_x, rel_y) * 180.0 / PI
+        now_yaw = self.my_car.now_yaw * 180.0 / _PI
+        rel_yaw = math.atan2(rel_x, rel_y) * 180.0 / _PI
         actual_yaw = now_yaw + rel_yaw
         actual_yaw = (actual_yaw + 180.0) % 360.0 - 180.0
-        abs_x = dist * math.sin(actual_yaw * PI / 180.0)
-        abs_y = dist * math.cos(actual_yaw * PI / 180.0)
+        abs_x = dist * math.sin(actual_yaw * _PI / 180.0)
+        abs_y = dist * math.cos(actual_yaw * _PI / 180.0)
         return [
             self.my_car.x_current + abs_x,
             self.my_car.y_current + abs_y
@@ -292,26 +292,26 @@ class VisionManager:
             self.relative_raw_y = self.relative_raw_y - self.final_dist_y - self.correct_dist
         # 根据小车记录的上一次坐标点进行矫正，避免因为小车移动导致的解算误差
         car_dist = math.sqrt((self.my_car.x_current - self.last_car_x) ** 2 + (self.my_car.y_current - self.last_car_y) ** 2)
-        car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / PI
-        relative_yaw = car_yaw * PI / 180.0 - self.my_car.now_yaw
+        car_yaw = -math.atan2(-(self.my_car.x_current - self.last_car_x), (self.my_car.y_current - self.last_car_y)) * 180.0 / _PI
+        relative_yaw = car_yaw * _PI / 180.0 - self.my_car.now_yaw
         # 限幅
-        if relative_yaw > PI:
-            relative_yaw -= 2 * PI
-        elif relative_yaw < -PI:
-            relative_yaw += 2 * PI
+        if relative_yaw > _PI:
+            relative_yaw -= 2 * _PI
+        elif relative_yaw < -_PI:
+            relative_yaw += 2 * _PI
         self.relative_actual_x = self.relative_raw_x - (car_dist * math.sin(relative_yaw))
         self.relative_actual_y = self.relative_raw_y - (car_dist * math.cos(relative_yaw))
         self.actual_dist = math.sqrt(self.relative_actual_x ** 2 + self.relative_actual_y ** 2)
         # 计算物体相对于小车的绝对偏差
-        now_yaw = self.my_car.now_yaw * 180 / PI
-        rel_yaw = -math.atan2(-self.relative_actual_x, self.relative_actual_y) * 180.0 / PI
+        now_yaw = self.my_car.now_yaw * 180 / _PI
+        rel_yaw = -math.atan2(-self.relative_actual_x, self.relative_actual_y) * 180.0 / _PI
         actual_yaw = now_yaw + rel_yaw
         if actual_yaw > 180.0:
             actual_yaw -= 360.0
         elif actual_yaw < -180.0:
             actual_yaw += 360.0
-        self.absolute_actual_x = self.actual_dist * math.sin(actual_yaw * PI / 180.0)
-        self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * PI / 180.0)
+        self.absolute_actual_x = self.actual_dist * math.sin(actual_yaw * _PI / 180.0)
+        self.absolute_actual_y = self.actual_dist * math.cos(actual_yaw * _PI / 180.0)
         self.real_servo_point = [self.my_car.x_current + self.absolute_actual_x, self.my_car.y_current + self.absolute_actual_y]
         # 测试打印
         # self.my_uart3.write(f"{self.relative_raw_x},{self.relative_raw_y}\r\n")
@@ -417,7 +417,7 @@ class VisionManager:
             self.target_rel_speed_y = self.cos_servo_fil.filtering(self.target_rel_speed_y)                                            
             self.target_rel_speed = math.sqrt(self.target_rel_speed_x ** 2 + self.target_rel_speed_y ** 2)
             # 计算目标角度，单位：度（注意避免除以0）
-            self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / PI
+            self.target_rel_yaw = -math.atan2(-self.target_rel_speed_x, self.target_rel_speed_y) * 180.0 / _PI
             if self.target_rel_yaw > 180.0:
                 self.target_rel_yaw -= 360.0
             elif self.target_rel_yaw < -180.0:
@@ -437,7 +437,7 @@ class VisionManager:
             else:
                 self.orbit_radius = self.object_radius
 
-            self.record_angle = self.my_car.now_yaw * 180 / PI
+            self.record_angle = self.my_car.now_yaw * 180 / _PI
             self.target_angle = target_angle
             # 限制目标角度在-180到180度之间
             if self.target_angle > 180.0:
@@ -469,8 +469,8 @@ class VisionManager:
 
             # ====== 新增：记录下当前的理想旋转圆心坐标 ======
             # 刚开始环绕时，record_angle 为车头直面圆心的角度，由此推导世界坐标系下的圆心坐标
-            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * PI / 180.0)
-            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * PI / 180.0)
+            self.orbit_center_x = self.my_car.x_current + self.orbit_radius * math.sin(self.record_angle * _PI / 180.0)
+            self.orbit_center_y = self.my_car.y_current + self.orbit_radius * math.cos(self.record_angle * _PI / 180.0)
             self.if_orbit_ready = True
 
             if self.if_use_vision:
@@ -511,8 +511,8 @@ class VisionManager:
                     if counter > 20:
                         counter = 0
                         self.if_use_navigate = True
-                        center_x = self.my_car.x_current + self.object_radius * math.sin(self.record_angle * PI / 180.0)
-                        center_y = self.my_car.y_current + self.object_radius * math.cos(self.record_angle * PI / 180.0)
+                        center_x = self.my_car.x_current + self.object_radius * math.sin(self.record_angle * _PI / 180.0)
+                        center_y = self.my_car.y_current + self.object_radius * math.cos(self.record_angle * _PI / 180.0)
                         self.real_servo_point = [center_x, center_y]
                     return
                 
@@ -527,7 +527,7 @@ class VisionManager:
                 actual_r = math.sqrt(dx**2 + dy**2)
 
                 # 小车指向物体的角度（世界系）
-                theta = -math.atan2(-dx, dy) * 180.0 / PI
+                theta = -math.atan2(-dx, dy) * 180.0 / _PI
 
                 # 半径误差（目标半径 - 视觉实测距离；>0 表示太近，需向外扩）
                 err_r = self.orbit_radius - actual_r
@@ -539,7 +539,7 @@ class VisionManager:
                 actual_r = math.sqrt(dx**2 + dy**2)
 
                 # 计算当前处于圆上的相位角 (从小车指向圆心)
-                theta = -math.atan2(-dx, dy) * 180.0 / PI
+                theta = -math.atan2(-dx, dy) * 180.0 / _PI
 
                 # 半径误差（大于0代表实际比指定半径近，需要向外扩）
                 err_r = self.orbit_radius - actual_r
@@ -561,7 +561,7 @@ class VisionManager:
             self.orbit_turn_angle = (self.orbit_turn_angle + 180.0) % 360.0 - 180.0
             
             # 更新当前小车的速度（保留原有逻辑判断）
-            diff = abs(self.target_angle - self.my_car.now_yaw * 180 / PI)
+            diff = abs(self.target_angle - self.my_car.now_yaw * 180 / _PI)
             if diff > 180.0:
                 diff = 360.0 - diff
 
@@ -587,7 +587,7 @@ class VisionManager:
 
             # 判断是否已越过目标角度（带方向，正确处理 -180/180 突变）
             # over = 当前姿态角相对目标角的带符号最短角差，范围 (-180, 180]
-            over = (self.my_car.now_yaw * 180.0 / PI - self.target_angle + 180.0) % 360.0 - 180.0
+            over = (self.my_car.now_yaw * 180.0 / _PI - self.target_angle + 180.0) % 360.0 - 180.0
             if self.direct == 'CW':
                 if_beyond = over >= 0.0   # 姿态角已沿递增方向到达/越过目标角
             else:
@@ -598,7 +598,7 @@ class VisionManager:
                 counter = 0
                 self.my_order_manager.finish()
                 self.orbit_speed = 0.0
-                self.orbit_turn_angle = self.my_car.now_yaw * 180 / PI
+                self.orbit_turn_angle = self.my_car.now_yaw * 180 / _PI
                 self.if_use_navigate = False
                 self.last_predict_point = None
                 self.if_finish_orbit = True
@@ -620,7 +620,7 @@ class VisionManager:
         self.servo_pid.servo_kd_x = self.servo_pid.servo_kd_normal_x
         self.servo_pid.servo_kd_y = self.servo_pid.servo_kd_normal_y
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
-        current_yaw_deg = self.record_angle * 180.0 / PI
+        current_yaw_deg = self.record_angle * 180.0 / _PI
         if current_yaw_deg > -45.0 and current_yaw_deg <= 45.0: current_turn_deg = 0.0
         elif current_yaw_deg > 45.0 and current_yaw_deg <= 135.0:current_turn_deg = 90.0
         elif current_yaw_deg > 135.0 or current_yaw_deg <= -135.0:current_turn_deg = 180.0

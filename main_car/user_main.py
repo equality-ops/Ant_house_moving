@@ -2,7 +2,6 @@
 import gc
 import time
 import os
-import micropython
 from micropython import const
 
 def max_block():
@@ -26,7 +25,7 @@ def mem(tag):
     gc.collect()
 
 # ==================== 内存分配追踪（带标签 + 增量 diff） ====================
-MEM_TRACE = True    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
+MEM_TRACE = False    # 总开关：True 打印追踪，False 全部静默（不改动业务逻辑）
 
 _mem_inited = False
 _mem_last_alloc = 0
@@ -59,9 +58,6 @@ from seekfree import MOTOR_CONTROLLER, IMU660RX, KEY_HANDLER, BLDC_CONTROLLER
 mem_trace("import seekfree")
 from smartcar import ticker, encoder
 mem_trace("import smartcar")
-my_uart3 = UART(2)
-my_uart3.init(115200)
-mem_trace("my_uart3")
 my_uart_debug = UART(7)
 my_uart_debug.init(115200)
 mem_trace("my_uart_debug")
@@ -83,18 +79,18 @@ mem_trace("import ant_else")
 #gc.collect()
 
 ###################################【变量定义及初始化】###################################
-PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
-STOP = const(9)           # 停止状态
-RETREAT = const(10) 
+_PI = const(3.1415926)
+_READY_NAVIGATE = const(0)   # 准备导航状态
+_NAVIGATE = const(1)       # 导航状态
+_SCAN = const(2)           # 扫描状态
+_SERVO = const(3)          # 视觉伺服状态
+_ORBIT = const(4)          # 环绕状态
+_MOVE = const(5)           # 搬运状态
+_CALIBRATE = const(6)      # 校准状态
+_ADJUST = const(7)           # 微调状态
+_RETURN = const(8)		    # 返回状态
+_STOP = const(9)           # 停止状态
+_RETREAT = const(10) 
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -171,6 +167,14 @@ mem_trace("my_state")
 my_flash_sys = ant_else.flash_system(my_beep, "/flash/main_config.txt")
 my_flash_sys.phase_config()
 my_flash_sys.check_list_format()
+
+# 这三个参数在对象创建完成后才使用，释放配置字典前先缓存。
+_timer_periods = (
+    my_flash_sys.find_value("motor_control_T"),
+    my_flash_sys.find_value("uart_and_menu_T"),
+    my_flash_sys.find_value("plan_calculate_T"),
+)
+
 mem_trace("my_flash_sys")
 my_write_system = ant_else.write_system(my_flash_sys, my_beep, "/flash/main_log.txt")
 mem_trace("my_write_system")
@@ -195,9 +199,9 @@ mem_trace("my_art_protocol")
 my_main_protocol = ant_else.LinkProtocol(my_uart3)
 mem_trace("my_main_protocol")
 
-# 创建pid参数对象
-pid_data = ant_motor.PID_data(my_flash_sys)
-mem_trace("pid_data")
+# PID参数按 UL/UR/MD、high/mid/low、kp/ki/kd 存入一个扁平元组。
+pid_gains = ant_motor.load_pid_gains(my_flash_sys)
+mem_trace("pid_gains")
 
 # 创建电机微分项的滑动平均滤波器对象
 diff_filter_ul = ant_motor.SlipAveragingFilter(3)    # 滤波窗口为2个
@@ -267,6 +271,11 @@ mem_trace("my_moving")
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 mem_trace("my_task")
 
+# 所有构造器已经读完参数，断开对大配置字典的引用。
+# 如果重新启用 ant_menu，必须在此处之前创建菜单对象。
+my_flash_sys.release_config()
+mem_trace("release config")
+
 # 测试打印变量解析是否成功
 """
 print("fixed+point:", plan_data.fixed_point)
@@ -301,7 +310,7 @@ def voltage_detect(limit_min: float) -> None:
 # 角度环计算函数
 def angle_pid_compute():
     # 计算z轴的目标速度
-    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / PI)
+    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / _PI)
 
 # 用于主车启动的函数
 def main_start():
@@ -314,7 +323,6 @@ def main_start():
                 my_beep.key_test()
                 # 测试，记得双车通信时要打开
                 my_main_protocol.send_start()
-                my_write_system.init_write()
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
@@ -322,8 +330,8 @@ def main_start():
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
                 # 盲盒任务测试，一定要修改！！！
-                my_state.state = READY_NAVIGATE
-                # my_state.state = RETURN 
+                my_state.state = _READY_NAVIGATE
+                # my_state.state = _RETURN 
                 start_flag = True
                 # 延时1秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -338,50 +346,30 @@ def main_start():
                 my_car.now_yaw = 0.0
 
 
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    global counter
-    counter += 1
-    # motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(120, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(120, pose_data.encoder_data_md)
-    
-    # 测试不同速度下的pid参数切换情况
-    if counter >= 8000:
-        counter = 0
-    elif counter >= 6000:
-        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
-    elif counter >= 4000:
-        motor_ur_pid.compute_pid(-100, pose_data.encoder_data_ur)
-    elif counter >= 2000:
-        motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
-    else:
-        motor_ur_pid.compute_pid(160, pose_data.encoder_data_ur)
-
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
+    if my_state.state in [_NAVIGATE, _READY_NAVIGATE, _RETURN, _STOP, _SCAN, _RETREAT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == MOVE:
-        if my_moving.current_state == ORBIT:
+    elif my_state.state == _MOVE:
+        if my_moving.current_state == _ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state in [SERVO, ADJUST]:
+        elif my_moving.current_state in [_SERVO, _ADJUST]:
             if not my_vision_manager.if_lost_object:
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state in [NAVIGATE, SCAN]:
+        elif my_moving.current_state in [_NAVIGATE, _SCAN]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state == MOVE:
+        elif my_moving.current_state == _MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
             else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state in [SERVO, ADJUST]:
+    elif my_state.state in [_SERVO, _ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == ORBIT:
+    elif my_state.state == _ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
 
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
@@ -389,128 +377,52 @@ def master_control():
 _HIGH_TARGET = 180         # >= 此值使用High挡
 _MID_TARGET = 120          # >= 此值使用Mid→High线性插值
 _LOW_TARGET = 50           # >= 此值使用Low→Mid线性插值，< 此值使用Low挡
+_PID_UL = const(0)
+_PID_UR = const(9)
+_PID_MD = const(18)
+_PID_HIGH = const(0)
+_PID_MID = const(3)
+_PID_LOW = const(6)
 
-def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
-                       kp_mid, ki_mid, kd_mid,
-                       kp_low, ki_low, kd_low):
+def _apply_pid_params(motor_pid, base):
+    motor_pid.set_pid_params(
+        pid_gains[base], pid_gains[base + 1], pid_gains[base + 2])
+
+def _select_pid_params(motor_pid, motor_base):
     """为单个电机按目标速度选择并设置PID参数"""
     target_abs = abs(motor_pid.target)
+    high = motor_base + _PID_HIGH
+    mid = motor_base + _PID_MID
+    low = motor_base + _PID_LOW
 
     # 刹车条件：目标接近0但误差很大 → 高挡参数强力纠正
     if target_abs >= _HIGH_TARGET:
-        motor_pid.set_pid_params(kp_high, ki_high, kd_high)
+        _apply_pid_params(motor_pid, high)
     elif target_abs >= _MID_TARGET:
         ratio = (target_abs - _MID_TARGET) / (_HIGH_TARGET - _MID_TARGET)
         motor_pid.set_pid_params(
-            kp_mid + (kp_high - kp_mid) * ratio,
-            ki_mid + (ki_high - ki_mid) * ratio,
-            kd_mid + (kd_high - kd_mid) * ratio)
+            pid_gains[mid] + (pid_gains[high] - pid_gains[mid]) * ratio,
+            pid_gains[mid + 1] + (pid_gains[high + 1] - pid_gains[mid + 1]) * ratio,
+            pid_gains[mid + 2] + (pid_gains[high + 2] - pid_gains[mid + 2]) * ratio)
     elif target_abs >= _LOW_TARGET:
         ratio = (target_abs - _LOW_TARGET) / (_MID_TARGET - _LOW_TARGET)
         motor_pid.set_pid_params(
-            kp_low + (kp_mid - kp_low) * ratio,
-            ki_low + (ki_mid - ki_low) * ratio,
-            kd_low + (kd_mid - kd_low) * ratio)
+            pid_gains[low] + (pid_gains[mid] - pid_gains[low]) * ratio,
+            pid_gains[low + 1] + (pid_gains[mid + 1] - pid_gains[low + 1]) * ratio,
+            pid_gains[low + 2] + (pid_gains[mid + 2] - pid_gains[low + 2]) * ratio)
     else:
-        motor_pid.set_pid_params(kp_low, ki_low, kd_low)
+        _apply_pid_params(motor_pid, low)
 
 
 def set_pid_params():
-    if my_state.state == MOVE:
-        motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
-        motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
-        motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
+    if my_state.state == _MOVE:
+        _apply_pid_params(motor_ul_pid, _PID_UL + _PID_HIGH)
+        _apply_pid_params(motor_ur_pid, _PID_UR + _PID_HIGH)
+        _apply_pid_params(motor_md_pid, _PID_MD + _PID_HIGH)
     else:
-        _select_pid_params(motor_ul_pid,
-            pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd,
-            pid_data.ul_mid_kp, pid_data.ul_mid_ki, pid_data.ul_mid_kd,
-            pid_data.ul_low_kp, pid_data.ul_low_ki, pid_data.ul_low_kd)
-        _select_pid_params(motor_ur_pid,
-            pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd,
-            pid_data.ur_mid_kp, pid_data.ur_mid_ki, pid_data.ur_mid_kd,
-            pid_data.ur_low_kp, pid_data.ur_low_ki, pid_data.ur_low_kd)
-        _select_pid_params(motor_md_pid,
-            pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd,
-            pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd,
-            pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
-
-# 视觉测试
-def test_vision_servo():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        if my_vision_manager.if_send_order == False:
-            my_order_manager.mode_target()
-            my_vision_manager.if_send_order = True
-
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
-            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
-            my_vision_manager.if_send_order = False
-            my_state.state = SERVO
-    elif my_state.state == SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            # my_order_manager.mode_target()
-            my_plan.reset_navigate_angle()
-            counter += 1
-            if counter >= 20:
-                counter = 0
-                # 测试
-                my_beep.test()
-                my_vision_manager.if_finish_servo = False
-                my_vision_manager.reset_orbit_angle()
-                my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == ADJUST:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
-
-# 环绕测试函数
-def test_orbit():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_vision_manager.object_radius = 25.0
-        my_vision_manager.object_radius_vision = 15.0
-        my_vision_manager.current_servo_object = 'S'
-        my_vision_manager.reset_orbit_angle()
-        my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
+        _select_pid_params(motor_ul_pid, _PID_UL)
+        _select_pid_params(motor_ur_pid, _PID_UR)
+        _select_pid_params(motor_md_pid, _PID_MD)
 
 # 任务机执行函数
 def task_machine():
@@ -525,15 +437,6 @@ def time_pit1_handler(time):
     # 更新小车姿态
     my_car.update_pose()
     
-    # 全向定位测试程序
-    # test_global_localization()
-    
-    # 速度环测试
-    # show_speed_PID_test()
-    
-    # 角度环测试
-    # complete_angle_circle()
-
     # 总控制函数
     master_control()
 
@@ -543,12 +446,6 @@ def time_pit1_handler(time):
     # 设置电机pwm输出
     my_car.set_motor_pwm()
 
-    # 更新负压风扇的高电平时间
-    """
-    if my_fan.if_fan:
-        my_fan.test_fan(1200)
-        my_fan.if_fan = False
-    """
 
 time__ = 0
 # 定时器3中断处理函数：路径规划与速度规划计算
@@ -562,14 +459,14 @@ def time_pit3_handler(timer) -> None:
 
     """
     # 全向定位测试程序
-    if my_state.state == READY_NAVIGATE:
+    if my_state.state == _READY_NAVIGATE:
         my_path.plan_path(220.0, 230.0)
         print(f"ready_path: {my_path.ready_path}\n")
-        my_state.state = NAVIGATE
+        my_state.state = _NAVIGATE
         time__ = time.ticks_ms()
         my_car.x_current = 0.0
         my_car.y_current = 0.0
-    elif my_state.state == NAVIGATE:
+    elif my_state.state == _NAVIGATE:
         my_plan.navigate(path = my_path.ready_path, target_turn_angle = 0.0)
         # my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
@@ -580,25 +477,25 @@ def time_pit3_handler(timer) -> None:
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
-            my_state.state = STOP
+            my_state.state = _STOP
             my_beep.test()
             print(f"Navigation finished in {time.ticks_diff(time.ticks_ms(), time__)} ms")
-    elif my_state.state == STOP:
+    elif my_state.state == _STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
     """
-    if my_state.state == READY_NAVIGATE:
+    if my_state.state == _READY_NAVIGATE:
         my_path.plan_path(220.0, 220.0)
         my_uart3.write(f"ready_path: {my_path.ready_path}\n")
-        # my_state.state = MOVE
+        # my_state.state = _MOVE
         my_plan.keep_x_or_y_v = False
-        # my_moving.current_state = MOVE
-        my_plan.move_state = MOVE
+        # my_moving.current_state = _MOVE
+        my_plan.move_state = _MOVE
         my_plan.move_v_max = 160
         my_car.x_current = 0.0
         my_car.y_current = 0.0
-    elif my_state.state == MOVE:
+    elif my_state.state == _MOVE:
         my_plan.navigate(path = [[50.0, 50.0], [50.0, 150.0]], target_turn_angle = 45.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
@@ -608,28 +505,13 @@ def time_pit3_handler(timer) -> None:
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
-            my_state.state = STOP
+            my_state.state = _STOP
             my_beep.test()
-    elif my_state.state == STOP:
+    elif my_state.state == _STOP:
         my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
         my_plan.stop()
         # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
-    # 视觉伺服测试程序
-    #test_vision_servo()
-
-    # 搬运控制测试程序
-    # test_moving()
-
-    # 边线和apriltag码校准测试程序
-    # test_apriltag_calibrate()
-
-    # 环绕物体测试程序
-    # test_orbit()
-
-    # 自转测试程序
-    # test_spin()
-
     pass
 
 
@@ -660,8 +542,8 @@ def time_pit2_handler(time):
     # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
     # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
     # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
-    # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{my_car.now_yaw * 180 / _PI}\n")
+    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / _PI}\n")
     # my_uart3.write(f"{my_state.state}\n")
     # my_uart3.write(f"{my_moving.current_state}\r\n")
 
@@ -673,21 +555,21 @@ def pit1_start():
     pose_data.init_bias()
     pit1.callback(time_pit1_handler)
     # 底层为4ms定时器
-    pit1.start(my_flash_sys.find_value("motor_control_T"))
+    pit1.start(_timer_periods[0])
 
 # 定时器2初始化（中断回调函数在 ant_menu 中）
 def pit2_start():
     global pit2
     pit2.callback(time_pit2_handler)
     pit2.capture_list(key)
-    pit2.start(my_flash_sys.find_value("uart_and_menu_T"))
+    pit2.start(_timer_periods[1])
 
 # 定时器3初始化（中断回调函数在 ant_plan 中）
 def pit3_start():
     global pit3
     pit3.callback(time_pit3_handler)
     # 规划为10ms定时器
-    pit3.start(my_flash_sys.find_value("plan_calculate_T"))
+    pit3.start(_timer_periods[2])
 
 ###################################【主程序模块】###################################
 # 检测电源电压是否正常
@@ -696,14 +578,13 @@ voltage_detect(11.2)
 pit2_start()
 
 while True:
-    if my_state.state == READY_NAVIGATE and my_task.if_start_task:
+    if my_state.state == _READY_NAVIGATE and my_task.if_start_task:
         if my_task.if_transitioning:
             my_task.enter()
         if not my_task.if_end_first_scan:
             my_task.exit()
             continue
-        # 在该模式下进行写入操作
-        my_write_system.write_in()
+
         if not my_task.if_choose_object:
             if my_task.now_objects:
                 if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
@@ -743,7 +624,7 @@ while True:
             else:my_task.exit()
         else:
             if plan_data.current_index >=plan_data.total_objects_num:
-                my_task.my_state.state = RETURN
+                my_task.my_state.state = _RETURN
                 my_task.if_transitioning = True
                 continue
             # 进入准备导航状态，做好路径规划准备和导航信息准?

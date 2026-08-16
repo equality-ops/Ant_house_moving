@@ -4,87 +4,87 @@ import gc
 # 引入 VL53L4CD 驱动
 from vl53l4cd import VL53L4CD,RANGE_VALID
 
-PI = const(3.1415926)
+_PI = const(3.1415926)
 # 计数器
 counter = 0 
 ##############################【蜂鸣器】##############################
-BEEP_OFF = const(0)
-BEEP_ON = const(1)
+_BEEP_OFF = const(0)
+_BEEP_ON = const(1)
 class beep:
     def __init__(self, beep):
         # 注入蜂鸣器对象
         self.beep = beep
-        self.beep_state = BEEP_OFF
+        self.beep_state = _BEEP_OFF
 
         gc.collect()
 
     # 蜂鸣器警告函数(响3声，每500ms响一声，每次持续50ms)
     def beep_warn(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             for i in range(3):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
                 time.sleep_ms(200)
-                self.beep_state = BEEP_OFF
+                self.beep_state = _BEEP_OFF
             return 
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return 
 
     # 低电量警告函数(响5声，每50ms响一声，每次持续50ms)
     def low_power_warn(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             for i in range(5):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
                 time.sleep_ms(50)
-                self.beep_state = BEEP_OFF
+                self.beep_state = _BEEP_OFF
             return 
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
 
     # 未发现tof
     def failure_to_find_tof(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             for i in range(5):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(300)
                 self.beep.low()
                 time.sleep_ms(100)
-                self.beep_state = BEEP_OFF
+                self.beep_state = _BEEP_OFF
             return 
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
         
     # 按键测试函数(响一声，持续80ms)
     def key_test(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             self.beep.high()
             time.sleep_ms(80)
             self.beep.low()
-            self.beep_state = BEEP_OFF
+            self.beep_state = _BEEP_OFF
             return
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
 
     # 蜂鸣器测试函数(响一声，持续50ms)
     def test(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             self.beep.high()
             time.sleep_ms(50)
             self.beep.low()
-            self.beep_state = BEEP_OFF
+            self.beep_state = _BEEP_OFF
             return
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
 
 

@@ -2,17 +2,17 @@ from micropython import const
 import math
 import gc
 
-PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)           # 微调状态
-RETURN = const(8)		    # 返回状态
-STOP = const(9)           # 停止状态
+_PI = const(3.1415926)
+_READY_NAVIGATE = const(0)   # 准备导航状态
+_NAVIGATE = const(1)       # 导航状态
+_SCAN = const(2)           # 扫描状态
+_SERVO = const(3)          # 视觉伺服状态
+_ORBIT = const(4)          # 环绕状态
+_MOVE = const(5)           # 搬运状态
+_CALIBRATE = const(6)      # 校准状态
+_ADJUST = const(7)           # 微调状态
+_RETURN = const(8)		    # 返回状态
+_STOP = const(9)           # 停止状态
 
 # 状态机
 class StateMachine:
@@ -136,7 +136,7 @@ class PathPlan:
             max_r = max(self.Data.FIELD_W, self.Data.FIELD_H)
             while search_radius < max_r:
                 num_points = int(search_radius) + 8
-                angle_step = 2.0 * PI / num_points
+                angle_step = 2.0 * _PI / num_points
                 for i in range(num_points):
                     angle = i * angle_step
                     test_p = (px + math.cos(angle) * search_radius, py + math.sin(angle) * search_radius)
@@ -239,7 +239,7 @@ class PathPlan:
     # 围绕圆心生成 8 个中继点
     def _add_circle_nodes_fixed(self, nodes, circles, block_r):
         num_points = 8
-        angle_step = 2.0 * PI / num_points
+        angle_step = 2.0 * _PI / num_points
         
         # 距离计算必须使得弦的距离中心距离大于 block_r 才能被视为有效线段
         # d * cos(angle_step / 2) > block_r  ==>  d = block_r / cos(angle_step / 2) + margin
@@ -457,7 +457,7 @@ class NavigationPlan:
         self.if_first_turn = True           # type: bool  # 判断是否先进行转角调整
         self.if_push_T = False              # type: bool  # 判断是否搬运网球标志位
         self.if_inside_sandbag = False      # type: bool  # 判断在沙包内侧
-        self.move_state = NAVIGATE
+        self.move_state = _NAVIGATE
 
     # 离线预计算速度表 (根据中继点附近曲率推算最佳过渡速度)
     def pre_calculate_profile(self, path: list):
@@ -478,8 +478,8 @@ class NavigationPlan:
         self.waypoint_v = [self.min_start_v] * n
 
         for i in range(1, n - 1):
-            yaw_in = -math.atan2(-(self.path[i][0] - self.path[i-1][0]), self.path[i][1] - self.path[i-1][1]) * 180.0 / PI
-            yaw_out = -math.atan2(-(self.path[i+1][0] - self.path[i][0]), self.path[i+1][1] - self.path[i][1]) * 180.0 / PI
+            yaw_in = -math.atan2(-(self.path[i][0] - self.path[i-1][0]), self.path[i][1] - self.path[i-1][1]) * 180.0 / _PI
+            yaw_out = -math.atan2(-(self.path[i+1][0] - self.path[i][0]), self.path[i+1][1] - self.path[i][1]) * 180.0 / _PI
             
             delta_yaw = abs(yaw_out - yaw_in)
             if delta_yaw > 180.0: delta_yaw = 360.0 - delta_yaw
@@ -517,7 +517,7 @@ class NavigationPlan:
         self.plan_acc_dec()
         self.target_v = self.waypoint_v[0]
         # 初始目标角直接看向第一个点
-        self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / PI
+        self.target_yaw = -math.atan2(-(self.path[1][0] - self.path[0][0]), self.path[1][1] - self.path[0][1]) * 180.0 / _PI
 
         x_dist = abs(self.path[1][0] - self.my_car.x_current)
 
@@ -545,9 +545,9 @@ class NavigationPlan:
             self.d_dec = 0.0
             return
         
-        if self.move_state == MOVE:
+        if self.move_state == _MOVE:
             v_cruise = self.move_v_max
-        elif self.my_state.state == SCAN:
+        elif self.my_state.state == _SCAN:
             v_cruise = self.long_v_max * self.scan_rate
         else:
             v_cruise = self.long_v_max
@@ -593,7 +593,7 @@ class NavigationPlan:
 
         v_cruise = self.long_v_max
         # 在搬运状态下，小车如果接近边界需要降低速度便于光电管寻线
-        if self.move_state == MOVE:
+        if self.move_state == _MOVE:
             near_line_threshold = 20.0  # 距离边界的阈值，单位：cm
             if self.my_car.y_current >= self.plan_data.FIELD_H - near_line_threshold and self.keep_x_or_y_v == False:
                 ratio = (self.plan_data.FIELD_H - self.my_car.y_current) / near_line_threshold
@@ -622,16 +622,16 @@ class NavigationPlan:
             return v_target
             # 在搬运模式下为保证加速阶段一致设置恒定速度
             '''if self.keep_x_or_y_v == True:
-                sin_fit = math.sin(self.fit_target_yaw*PI / 180.0)
-                sin_yaw = math.sin(self.target_yaw*PI / 180.0)
+                sin_fit = math.sin(self.fit_target_yaw*_PI / 180.0)
+                sin_yaw = math.sin(self.target_yaw*_PI / 180.0)
                 if abs(sin_fit) > 1e-3:return v_target*sin_yaw/sin_fit
                 else: return v_target
             else:
-                cos_fit = math.cos(self.fit_target_yaw*PI / 180.0)
-                cos_yaw = math.cos(self.target_yaw*PI / 180.0)
+                cos_fit = math.cos(self.fit_target_yaw*_PI / 180.0)
+                cos_yaw = math.cos(self.target_yaw*_PI / 180.0)
                 if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
                 else: return v_target'''
-        #elif self.my_state.state == SCAN:
+        #elif self.my_state.state == _SCAN:
         #    v_cruise = self.long_v_max * self.scan_rate  # 扫描状态下的巡航速度降低为长距离最大速度的指定比例
         else:
             v_cruise = self.long_v_max
@@ -670,14 +670,14 @@ class NavigationPlan:
             return self.target_v, self.target_yaw
         target_pt = self.path[self.aimed_point_index + 1]
         self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-        if self.move_state == MOVE: 
+        if self.move_state == _MOVE: 
             p0 = self.path[self.aimed_point_index]
             p1 = self.path[self.aimed_point_index + 1]
-            self.target_yaw = -math.atan2(-(p1[0] - p0[0]), p1[1] - p0[1]) * 180.0 / PI
+            self.target_yaw = -math.atan2(-(p1[0] - p0[0]), p1[1] - p0[1]) * 180.0 / _PI
             if self.fitting_path_:
                 target_pt = self.fitting_path_[self.aimed_point_index + 1]
                 self.fit_rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
-                self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+                self.fit_target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / _PI
             else:
                 if self.keep_x_or_y_v:self.fit_rest_dist = abs(target_pt[0] - car_x)
                 else:self.fit_rest_dist = abs(target_pt[1] - car_y)
@@ -685,7 +685,7 @@ class NavigationPlan:
             # =======================================================
             # 2. 闭环航向角解算模块
             # =======================================================
-            self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / PI
+            self.target_yaw = -math.atan2(-(target_pt[0] - car_x), target_pt[1] - car_y) * 180.0 / _PI
 
         # 1. 速度控制模块
         # =======================================================
@@ -702,13 +702,13 @@ class NavigationPlan:
         diff = 0.0
         if not self.if_finish_turn:
             # 在未完成转角调整时，持续进行转角调整
-            diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
+            diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / _PI)
             if diff > 180.0:
                 diff = 360.0 - diff
 
         if_finish_turn = (diff <= 1.5) or (self.if_first_turn)
 
-        if self.move_state == MOVE: 
+        if self.move_state == _MOVE: 
             rest_dist=self.fit_rest_dist
         if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
@@ -748,7 +748,7 @@ class NavigationPlan:
                     self.my_car.angle_pid.pwmout_limitmax = self.my_car.angle_pid.low_pwmout_limitmax
                     
                     # 在未完成转角调整时，持续进行转角调整
-                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / PI)
+                    diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / _PI)
                     if diff > 180.0:
                         diff = 360.0 - diff
 
@@ -764,7 +764,7 @@ class NavigationPlan:
                             self.if_finish_turn = True
                             self.pre_calculate_profile(path)
                 else:
-                    self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI
+                    self.turn_angle_target = self.my_car.now_yaw * 180.0 / _PI
                     if path is None:
                         # 处理传入路径和角度都为空的情况
                         self.if_finish_navigate = True
@@ -799,4 +799,4 @@ class NavigationPlan:
 
     # 重置小车导航姿态角
     def reset_navigate_angle(self):
-        self.turn_angle_target = self.my_car.now_yaw * 180.0 / PI
+        self.turn_angle_target = self.my_car.now_yaw * 180.0 / _PI

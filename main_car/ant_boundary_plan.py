@@ -1,6 +1,7 @@
 import math
 import gc
 import time
+from array import array
 class BoundaryPathPlanner:
     def __init__(self, plan_data, car, my_plan,flash_sys):
         self.Data = plan_data
@@ -25,8 +26,8 @@ class BoundaryPathPlanner:
         self.yy = 0
         self.direction = 0
         self.swell_size = 0
-        self._p = [0.0,0.0,0.0,0.0]
-        self._q = [0.0,0.0,0.0,0.0]
+        self._p = array('f', [0.0,0.0,0.0,0.0])
+        self._q = array('f', [0.0,0.0,0.0,0.0])
         gc.collect()
     def swell_rect(self,rect,swell_angle):
         out = []

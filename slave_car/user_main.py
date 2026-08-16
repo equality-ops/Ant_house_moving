@@ -73,18 +73,18 @@ else:
     import os
 
 ###################################【变量定义及初始化】###################################
-PI = const(3.1415926)
-READY_NAVIGATE = const(0) # 准备导航状态
-NAVIGATE = const(1)       # 导航状态
-SCAN = const(2)           # 扫描状态
-SERVO = const(3)          # 视觉伺服状态
-ORBIT = const(4)          # 环绕状态
-MOVE = const(5)           # 搬运状态
-CALIBRATE = const(6)      # 校准状态
-ADJUST = const(7)         # 微调状态
-RETURN = const(8)		  # 返回状态
-STOP = const(9)           # 停止状态
-RETREAT = const(10)       # 后退状态
+_PI = const(3.1415926)
+_READY_NAVIGATE = const(0) # 准备导航状态
+_NAVIGATE = const(1)       # 导航状态
+_SCAN = const(2)           # 扫描状态
+_SERVO = const(3)          # 视觉伺服状态
+_ORBIT = const(4)          # 环绕状态
+_MOVE = const(5)           # 搬运状态
+_CALIBRATE = const(6)      # 校准状态
+_ADJUST = const(7)         # 微调状态
+_RETURN = const(8)		  # 返回状态
+_STOP = const(9)           # 停止状态
+_RETREAT = const(10)       # 后退状态
 
 # 多路复用时间计数器
 counter = 0      # type: int
@@ -363,7 +363,7 @@ def voltage_detect(limit_min: float) -> None:
 # 角度环计算函数
 def angle_pid_compute():
     # 计算z轴的目标速度
-    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / PI)
+    angle_pid.compute_pid(my_car.turn_angle_target, my_car.now_yaw * 180 / _PI)
 
 # 用于从车启动的函数
 def slave_start():
@@ -383,7 +383,7 @@ def slave_start():
                 # 此时开启无刷负压风扇
                 my_fan.set_fan_signal()
                 # 初始状态设置为准备导航状态
-                my_state.state =READY_NAVIGATE
+                my_state.state =_READY_NAVIGATE
                 start_flag = True
                 # 延时1秒避免零漂校准不准确
                 time.sleep_ms(1000)
@@ -420,9 +420,9 @@ def show_speed_PID_test():
 spin_angle = 90.0
 def test_spin():
     global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
+    if my_state.state == _READY_NAVIGATE:
+        my_state.state = _NAVIGATE
+    elif my_state.state == _NAVIGATE:
         my_plan.navigate(target_turn_angle = spin_angle)
         if my_plan.if_finish_navigate == True:
             counter += 1
@@ -438,28 +438,28 @@ def complete_angle_circle():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
+    if my_state.state in [_NAVIGATE, _READY_NAVIGATE, _RETURN, _STOP, _SCAN, _RETREAT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == MOVE:
-        if my_moving.current_state == ORBIT:
+    elif my_state.state == _MOVE:
+        if my_moving.current_state == _ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-        elif my_moving.current_state in [SERVO, ADJUST]:
+        elif my_moving.current_state in [_SERVO, _ADJUST]:
             if not my_vision_manager.if_lost_object:
                 my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
             else:
                 my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state in [NAVIGATE, SCAN]:
+        elif my_moving.current_state in [_NAVIGATE, _SCAN]:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        elif my_moving.current_state == MOVE:
+        elif my_moving.current_state == _MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
             else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state in [SERVO, ADJUST]:
+    elif my_state.state in [_SERVO, _ADJUST]:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         else:
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state == ORBIT:
+    elif my_state.state == _ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
 
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
@@ -492,7 +492,7 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
         motor_pid.set_pid_params(kp_low, ki_low, kd_low)
 
 def set_pid_params():
-    if my_state.state == MOVE:
+    if my_state.state == _MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
         motor_ur_pid.set_pid_params(pid_data.ur_high_kp, pid_data.ur_high_ki, pid_data.ur_high_kd)
         motor_md_pid.set_pid_params(pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd)
@@ -512,16 +512,16 @@ def set_pid_params():
 
 # 测试tof距离控制
 def test_tof_distance_control():
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = MOVE
+    if my_state.state == _READY_NAVIGATE:
+        my_state.state = _MOVE
         my_plan.move_v_max = 160
-        my_moving.current_state = MOVE
-        my_plan.move_state = MOVE
+        my_moving.current_state = _MOVE
+        my_plan.move_state = _MOVE
         my_plan.keep_x_or_y_v = False
         my_tof.ready_tof('left',0)
         my_car.x_current = 0.0
         my_car.y_current = 0.0
-    elif my_state.state == MOVE:
+    elif my_state.state == _MOVE:
         # 距离控制
         my_tof.dist_control()
         my_plan.navigate(path = [[50.0, 50.0], [50.0, 150.0]], target_turn_angle = -45.0)
@@ -529,29 +529,29 @@ def test_tof_distance_control():
             my_tof.reset_tof()
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
-            my_state.state = STOP
-    elif my_state.state == STOP:
+            my_state.state = _STOP
+    elif my_state.state == _STOP:
         pass
         # my_uart3.write(f"slave_car: {my_car.x_current},{my_car.y_current}\n")
 
 # 环绕测试函数
 def test_orbit():
     global counter
-    if my_state.state == READY_NAVIGATE:
+    if my_state.state == _READY_NAVIGATE:
         my_car.x_current = 0.0
         my_car.y_current = 0.0
         my_vision_manager.object_radius = 25.0
         my_vision_manager.object_radius_vision = 15.0
         my_vision_manager.current_servo_object = 'S'
         my_vision_manager.reset_orbit_angle()
-        my_state.state = ORBIT
-    elif my_state.state == ORBIT:
+        my_state.state = _ORBIT
+    elif my_state.state == _ORBIT:
         my_vision_manager.orbit_control(140.0)
         if my_vision_manager.if_finish_orbit == True:
             my_plan.reset_navigate_angle()
             my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == STOP:
+            my_state.state = _STOP
+    elif my_state.state == _STOP:
         my_plan.stop()
 
 # 任务机执行函数
@@ -594,13 +594,13 @@ def time_pit3_handler(time) -> None:
 
     """
     # 全向定位测试程序
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
+    if my_state.state == _READY_NAVIGATE:
+        my_state.state = _NAVIGATE
         my_car.x_current = 0.0
         my_car.y_current = 0.0
         my_path.plan_path(240.0, 220.0)
         print(f"{my_path.ready_path}")
-    elif my_state.state == NAVIGATE:
+    elif my_state.state == _NAVIGATE:
         # my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle= -30.0)
         # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
         # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
@@ -608,9 +608,9 @@ def time_pit3_handler(time) -> None:
         if my_plan.if_finish_navigate == True:
             my_plan.reset_navigate()
             my_plan.reset_navigate_angle()
-            my_state.state = STOP
+            my_state.state = _STOP
             my_beep.test()
-    elif my_state.state == STOP:
+    elif my_state.state == _STOP:
         my_plan.stop()
         my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
     """
@@ -657,19 +657,19 @@ def time_pit2_handler(time):
     # my_uart2.write(f"{my_state.state},{my_moving.current_state},{my_plan.if_finish_navigate},{my_moving.if_finish_move}\r\n")
     # my_uart2.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output},{my_car.speed_weight}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")
-    # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / PI}\r\n")
+    # my_uart3.write(f"{pose_data.now_yaw}, {my_car.now_yaw * 180 / _PI}\r\n")
     # my_uart3.write(f"{my_vision_manager.if_ready_calibrate},{my_vision_manager.if_gain_calibrate_angle},{my_vision_manager.calibrate_times},{my_vision_manager.target_rel_turn_angle}\r\n")
     # my_uart3.write(f",{my_vision_manager.target_rel_speed_x},{my_vision_manager.target_rel_speed_y}\r\n")
     # my_uart2.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
     # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
     # my_uart2.write(f"{my_car.x_current},{my_car.y_current}\n")
-    # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / PI}\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{my_plan.target_v},{my_plan.target_yaw},{my_car.now_yaw * 180 / _PI}\n")
+    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z},{my_car.now_yaw * 180 / _PI}\n")
     # my_uart3.write(f"servo_pid.target_y: {servo_pid.target_y}, object_radius: {my_vision_manager.orbit_radius}\n")
     # my_uart3.write(f"state: {my_state.state}\n")
     # my_uart3.write(f"{my_vision_manager.current_servo_object}\r\n")
     # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
+    # my_uart3.write(f"{my_car.now_yaw * 180 / _PI}\n")
 
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():

@@ -4,12 +4,12 @@ import math
 import time
 import gc
 
-PI = const(3.1415926)
-OneThird = const(0.3333333)
-SQRT3 = const(1.7320508)
-InField = const(-1)
-OnLine = const(0)
-OutLine = const(1)
+_PI = const(3.1415926)
+_OneThird = const(0.3333333)
+_SQRT3 = const(1.7320508)
+_InField = const(-1)
+_OnLine = const(0)
+_OutLine = const(1)
 
 # 光电管控制类
 class PhotoControl:
@@ -18,7 +18,7 @@ class PhotoControl:
         self.my_beep = beep
         self.my_photo = photo
         self.photo_state = self.my_photo.value()
-        self.current_state = InField
+        self.current_state = _InField
         # 当光电管位于黄线正上方的次数
         self.on_line_times = 0
 
@@ -26,20 +26,20 @@ class PhotoControl:
 
     def update_photo_state(self):
         current_state = self.my_photo.value()
-        if current_state == 1 and self.current_state == InField:
+        if current_state == 1 and self.current_state == _InField:
             self.on_line_times += 1
             if self.on_line_times >= 3:  # 连续3次检测到在线，才认为真正进入了线上
                 self.on_line_times = 0
-                self.current_state = OnLine
+                self.current_state = _OnLine
         else:
             self.on_line_times = 0
         
-        if current_state == 0 and self.current_state == OnLine:
-            self.current_state = OutLine
+        if current_state == 0 and self.current_state == _OnLine:
+            self.current_state = _OutLine
 
     def reset_photo(self):
         self.on_line_times = 0
-        self.current_state = InField
+        self.current_state = _InField
         
 
 # 无刷风扇控制类
@@ -74,42 +74,20 @@ class FanControl:
     def fan_off(self):
         self.my_fan.highlevel_us(1000)
 
-class PID_data:
-    def __init__(self, flash_sys):
-        # 注入flash系统对象
-        self.flash_sys = flash_sys
-
-        self.ul_high_kp = self.flash_sys.find_value("ul_high_kp")  # type: float
-        self.ul_high_ki = self.flash_sys.find_value("ul_high_ki")  # type: float
-        self.ul_high_kd = self.flash_sys.find_value("ul_high_kd")  # type: float
-        self.ur_high_kp = self.flash_sys.find_value("ur_high_kp")  # type: float
-        self.ur_high_ki = self.flash_sys.find_value("ur_high_ki")  # type: float
-        self.ur_high_kd = self.flash_sys.find_value("ur_high_kd")  # type: float
-        self.md_high_kp = self.flash_sys.find_value("md_high_kp")  # type: float
-        self.md_high_ki = self.flash_sys.find_value("md_high_ki")  # type: float
-        self.md_high_kd = self.flash_sys.find_value("md_high_kd")  # type: float
-
-        self.ul_mid_kp = self.flash_sys.find_value("ul_mid_kp")  # type: float
-        self.ul_mid_ki = self.flash_sys.find_value("ul_mid_ki")  # type: float
-        self.ul_mid_kd = self.flash_sys.find_value("ul_mid_kd")  # type: float
-        self.ur_mid_kp = self.flash_sys.find_value("ur_mid_kp")  # type: float
-        self.ur_mid_ki = self.flash_sys.find_value("ur_mid_ki")  # type: float
-        self.ur_mid_kd = self.flash_sys.find_value("ur_mid_kd")  # type: float
-        self.md_mid_kp = self.flash_sys.find_value("md_mid_kp")  # type: float
-        self.md_mid_ki = self.flash_sys.find_value("md_mid_ki")  # type: float
-        self.md_mid_kd = self.flash_sys.find_value("md_mid_kd")  # type: float
-        
-        self.ul_low_kp = self.flash_sys.find_value("ul_low_kp")  # type: float
-        self.ul_low_ki = self.flash_sys.find_value("ul_low_ki")  # type: float
-        self.ul_low_kd = self.flash_sys.find_value("ul_low_kd")  # type: float
-        self.ur_low_kp = self.flash_sys.find_value("ur_low_kp")  # type: float
-        self.ur_low_ki = self.flash_sys.find_value("ur_low_ki")  # type: float
-        self.ur_low_kd = self.flash_sys.find_value("ur_low_kd")  # type: float
-        self.md_low_kp = self.flash_sys.find_value("md_low_kp")  # type: float
-        self.md_low_ki = self.flash_sys.find_value("md_low_ki")  # type: float
-        self.md_low_kd = self.flash_sys.find_value("md_low_kd")  # type: float
-
-        gc.collect()  # 主动触发垃圾回收，释放内存
+def load_pid_gains(flash_sys):
+    """Load UL/UR/MD high, mid and low (kp, ki, kd) into one flat tuple."""
+    find = flash_sys.find_value
+    gains = []
+    for motor in ("ul", "ur", "md"):
+        for level in ("high", "mid", "low"):
+            prefix = motor + "_" + level
+            gains.append(find(prefix + "_kp"))
+            gains.append(find(prefix + "_ki"))
+            gains.append(find(prefix + "_kd"))
+    result = tuple(gains)
+    del gains
+    gc.collect()
+    return result
 
 # 滑动平均滤波器
 class SlipAveragingFilter:
@@ -130,23 +108,7 @@ class SlipAveragingFilter:
         self.buffer[self.index] = data
         self.index = (self.index + 1) % self.filter_size
         return sum(self.buffer) / self.filter_size
-    
-# 一维卡尔曼滤波器
-class KalmanFilter:
-    def __init__(self, P=1.0, Q=0.01, R=0.1, initial_output=0.0):
-        self.P = P
-        self.Q = Q
-        self.R = R
-        self.Output = initial_output
-
-        gc.collect()
-
-    def update(self, input_value):
-        self.P += self.Q
-        K = self.P / (self.P + self.R)
-        self.Output += K * (input_value - self.Output)
-        self.P = (1 - K) * self.P
-        return self.Output    
+        
     
 class PoseData:
     def __init__(self, flash_sys, my_uart2, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_filter, acc_y_filter, acc_z_filter):
@@ -338,73 +300,21 @@ class PoseData:
         val = -2.0 * (q1 * q3 - q0 * q2)
         # 边界处理，防止 asin 超域报错
         val = max(-1.0, min(1.0, val))
-        self.now_pitch = math.asin(val) * (180.0 / PI)
+        self.now_pitch = math.asin(val) * (180.0 / _PI)
         
         # 保护万向节锁，当 Pitch 接近 +- 90 度时
         if abs(val) > 0.999: # 极高仰角时 Roll 和 Yaw 共线
             self.now_roll = 0.0
-            self.now_yaw = math.atan2(2.0 * (q1 * q2 - q0 * q3), 1.0 - 2.0 * (q1 * q1 + q3 * q3)) * (180.0 / PI)
+            self.now_yaw = math.atan2(2.0 * (q1 * q2 - q0 * q3), 1.0 - 2.0 * (q1 * q1 + q3 * q3)) * (180.0 / _PI)
         else:
             # 2. 横滚角 Roll (绕 X 轴旋转)
             # 使用更标准的 1 - 2*X^2 简化运算与误差
             self.now_roll = math.atan2(2.0 * (q2 * q3 + q0 * q1), 
-                                    1.0 - 2.0 * (q1 * q1 + q2 * q2)) * (180.0 / PI)
+                                    1.0 - 2.0 * (q1 * q1 + q2 * q2)) * (180.0 / _PI)
             
             # 3. 偏航角 Yaw (绕 Z 轴旋转)
             self.now_yaw = math.atan2(2.0 * (q1 * q2 + q0 * q3), 
-                                    1.0 - 2.0 * (q2 * q2 + q3 * q3)) * (180.0 / PI)
-
-    # 重置四元数
-    def reset_yaw(self, ref_yaw_deg):
-        """
-        通过外部参考信息强制重置当前的偏航角 (Yaw)。
-        保留当前的横滚角 (Roll) 和俯仰角 (Pitch)，重新合成四元数。
-        
-        :param ref_yaw_deg: 外部传感器获取的绝对偏航角，单位：度 (°)
-        """
-        # 1. 将角度转换为半角弧度
-
-        # 重置俯仰角和偏航角
-        self.now_roll = 0.0
-        self.now_pitch = 0.0
-
-        half_roll = self.now_roll * 0.5 * (PI / 180.0)
-        half_pitch = self.now_pitch * 0.5 * (PI / 180.0)
-        half_yaw = -ref_yaw_deg * 0.5 * (PI / 180.0)
-
-        # 2. 预计算三角函数以提高运算效率
-        sr = math.sin(half_roll)
-        cr = math.cos(half_roll)
-        sp = math.sin(half_pitch)
-        cp = math.cos(half_pitch)
-        sy = math.sin(half_yaw)
-        cy = math.cos(half_yaw)
-
-        # 3. 欧拉角转四元数 (基于你原始解算的 Z-Y-X 旋转顺序)
-        q0 = cr * cp * cy + sr * sp * sy
-        q1 = sr * cp * cy - cr * sp * sy
-        q2 = cr * sp * cy + sr * cp * sy
-        q3 = cr * cp * sy - sr * sp * cy
-
-        # 为了确保精度，再次对生成的四元数进行归一化
-        norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
-        if norm == 0:
-            return # 防止除零异常
-
-        # 4. 强制覆盖当前四元数状态
-        self.q[0] = q0/norm
-        self.q[1] = q1/norm
-        self.q[2] = q2/norm
-        self.q[3] = q3/norm
-
-        # 5. 清空 PI 算法的积分补偿项
-        # 这一步极其重要：如果不清空，历史误差的积分积累会在接下来的几个周期内把姿态又“拉回”一点点，导致修正不干脆
-        self.e_int[0] = 0.0
-        self.e_int[1] = 0.0
-        self.e_int[2] = 0.0
-
-        # 6. 同步更新底层的欧拉角输出，确保下一个控制周期读取的数据是最新值
-        self.update_euler_angles()
+                                    1.0 - 2.0 * (q2 * q2 + q3 * q3)) * (180.0 / _PI)
 
     # 初始零偏计算函数，总计需延时3s，初始化陀螺仪的同时进行启动延时，确保平稳启动
     def init_bias(self):
@@ -445,11 +355,11 @@ class PoseData:
         self.encoder_data_ur = self.encoder_ur.get()
         self.encoder_data_md = self.encoder_md.get()
         
-        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
-        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
-        self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * (PI / 180.0) * self.gyro_z_supply
+        self.gyro_x = (self.imu_data[3] - self.gyro_x_bias) / 16.4 * (_PI / 180.0) * self.gyro_z_supply
+        self.gyro_y = (self.imu_data[4] - self.gyro_y_bias) / 16.4 * (_PI / 180.0) * self.gyro_z_supply
+        self.gyro_z = (self.imu_data[5] - self.gyro_z_bias) / 16.4 * (_PI / 180.0) * self.gyro_z_supply
         # self.gkd用于角速度环控制
-        self.gyro_z_gkd = -self.gyro_z * (180.0 / PI)
+        self.gyro_z_gkd = -self.gyro_z * (180.0 / _PI)
 
         DEADBAND = 0.004 # 弧度每秒
         if abs(self.gyro_x) < DEADBAND: self.gyro_x = 0.0
@@ -784,14 +694,14 @@ class CarPose:
 
         # 计算小车当前x,y速度（互补融合）
         # car_speed_x, car_speed_y 单位：厘米每5ms
-        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
-        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (OneThird * SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
+        self.car_speed_x = self.speed_fuse_ratio * self.last_car_speed_x + (1 - self.speed_fuse_ratio) * (_OneThird * (self.pose_data.encoder_data_ur + self.pose_data.encoder_data_ul - self.pose_data.encoder_data_md * 2)  * self.speed_conversion_gamma / 1000)
+        self.car_speed_y = self.speed_fuse_ratio * self.last_car_speed_y + (1 - self.speed_fuse_ratio) * (_OneThird * _SQRT3 * (self.pose_data.encoder_data_ul - self.pose_data.encoder_data_ur)) * self.speed_conversion_gamma / 1000
 
         # 计算小车在世界坐标系下的偏航角
-        self.now_yaw = -self.pose_data.now_yaw * PI / 180.0
+        self.now_yaw = -self.pose_data.now_yaw * _PI / 180.0
         # 限定now_yaw在-2pi到2pi之间
-        if self.now_yaw > PI:  self.now_yaw -= 2 * PI
-        elif self.now_yaw < -PI:  self.now_yaw += 2 * PI
+        if self.now_yaw > _PI:  self.now_yaw -= 2 * _PI
+        elif self.now_yaw < -_PI:  self.now_yaw += 2 * _PI
         # 转换到世界坐标系下的速度
         real_speed_x = self.car_speed_x * math.cos(self.now_yaw) + self.car_speed_y * math.sin(self.now_yaw)
         real_speed_y = -self.car_speed_x * math.sin(self.now_yaw) + self.car_speed_y * math.cos(self.now_yaw)
@@ -825,7 +735,7 @@ class CarPose:
         self.turn_angle_target = turn_angle_target
 
         # 将move_angle_target转换为弧度
-        move_angle_target = move_angle_target * PI / 180
+        move_angle_target = move_angle_target * _PI / 180
         
         # 转换到小车坐标系下的目标速度
         car_speed_x_target = move_speed_target * math.sin(move_angle_target - self.now_yaw)
@@ -833,9 +743,9 @@ class CarPose:
         car_speed_w_target = self.angle_pid.pwm_output
 
         # 计算各个电机的目标速度
-        motor_ul_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target + car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
-        motor_ur_speed_target = (car_speed_w_target * OneThird + (car_speed_x_target - car_speed_y_target * SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
-        motor_md_speed_target = (car_speed_w_target * OneThird - car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
+        motor_ul_speed_target = (car_speed_w_target * _OneThird + (car_speed_x_target + car_speed_y_target * _SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
+        motor_ur_speed_target = (car_speed_w_target * _OneThird + (car_speed_x_target - car_speed_y_target * _SQRT3) * 0.5 + self.pose_data.gyro_z_gkd * self.gkd)
+        motor_md_speed_target = (car_speed_w_target * _OneThird - car_speed_x_target + self.pose_data.gyro_z_gkd * self.gkd)
 
         # 计算各个电机的pid得到pwm输出
         self.motor_ul_pid.compute_pid(motor_ul_speed_target, self.pose_data.encoder_data_ul)
@@ -847,12 +757,6 @@ class CarPose:
         self.motor_ul.duty(int(self.motor_ul_pid.pwm_output))
         self.motor_ur.duty(int(self.motor_ur_pid.pwm_output))
         self.motor_md.duty(int(self.motor_md_pid.pwm_output))
-
-    # pwm信号归零
-    def pwm_stop(self):
-        self.motor_ul.duty(0)
-        self.motor_ur.duty(0)
-        self.motor_md.duty(0)
 
     # 积分清零
     def reset_pid_integral(self):

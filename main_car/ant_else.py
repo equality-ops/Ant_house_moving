@@ -2,24 +2,11 @@ from micropython import const
 import time
 import gc
 
-PI = const(3.1415926)
-READY_NAVIGATE = const(0)   # 准备导航状�?
-NAVIGATE = const(1)       # 导航状�?
-SCAN = const(2)           # 扫描状�?
-SERVO = const(3)          # 视觉伺服状�?
-ORBIT = const(4)          # 环绕状�?
-MOVE = const(5)           # 搬运状�?
-CALIBRATE = const(6)      # 校准状�?
-ADJUST = const(7)           # 微调状�?
-RETURN = const(8)		    # 返回状�?
-STOP = const(9)           # 停止状�?
-RETREAT = const(10)
-
 # 计数�?
 counter = 0 
 ##############################【蜂鸣器�?#############################
-BEEP_OFF = const(0)
-BEEP_ON = const(1)
+_BEEP_OFF = const(0)
+_BEEP_ON = const(1)
 ##############################【flash系统操作�?#############################
 class flash_system:
     def __init__(self, beep, file_path: str):
@@ -84,11 +71,7 @@ class flash_system:
             print(f"Error: File {self.file_path} not found.")
             return
         line_count = 0
-        try:
-            line_iter = f
-        except:
-            line_iter = []
-        for line in line_iter:
+        for line in f:
             # 跳过空行和注释行
             if not line or line.startswith('#') or line.startswith('\r\n'):
                 continue
@@ -106,7 +89,7 @@ class flash_system:
                 if var_name == "rogue_planning":
                     try:
                         self.config[var_name] = eval("[" + var_value[1:-1] + "]")
-                    except Exception as e:
+                    except Exception:
                         print(f"Error: Failed to evaluate {var_name} = {var_value}")
                         self.beep.beep_warn()
                 else:
@@ -118,7 +101,7 @@ class flash_system:
                             self.config[var_name] = self._parse_tuple_list(inner)
                         else:
                             self.config[var_name] = [float(x.strip()) for x in inner.split(',')]
-                    except Exception as e:
+                    except Exception:
                         print(f"Error: Failed to parse {var_name} = {var_value}")
                         self.beep.beep_warn()
             elif var_value[0] == "'" and var_value[-1] == "'":
@@ -130,14 +113,24 @@ class flash_system:
             if line_count % 8 == 0:
                 gc.collect()
         f.close()
+        
     def find_value(self, var_name: str):
+        if not hasattr(self, "config"):
+            raise RuntimeError("configuration has been released")
         try:
             var_value = self.config[var_name.strip()]
             return var_value
-        except KeyError as e:
+        except KeyError:
             print(f"Failure to find {var_name.strip()} in {self.file_path}!")
             self.beep.beep_warn()
             return 0
+
+    def release_config(self) -> None:
+        # Deleting the reference releases the hash table and all unused values.
+        # dict.clear() may retain the allocated hash table.
+        if hasattr(self, "config"):
+            del self.config
+        gc.collect()
             
     def check_list_format(self) -> None:
         """检查特定的列表与其内部变量格式是否正确"""
@@ -217,7 +210,6 @@ class write_system:
         self.buf_size = 1024        # 缓冲区字节上限（可调）
         self.buf = bytearray(self.buf_size)
         self.if_write_log = self.flash_sys.find_value("if_write_log")
-        self.head = 0               # 已写入的有效字节数（数据始终从 buf[0] 连续存放）
         gc.collect()
 
     def write_str(self, line: str):
@@ -227,132 +219,64 @@ class write_system:
 
         print(line)
 
-        '''
-        """将一行日志写入缓冲区；空间不足时丢弃最旧的一行（循环队列语义）"""
-        if not line.endswith("\n"):
-            line += '\n'
-        try:
-            data = line.encode('utf-8')
-        except Exception:
-            return
-        n = len(data)
-
-        # 单行超过整个缓冲区：只保留末尾部分
-        if n > self.buf_size:
-            data = data[n - self.buf_size:]
-            n = self.buf_size
-
-        # 空间不足时，丢弃最旧的一行（从开头找第一个换行符）
-        while self.head + n > self.buf_size:
-            drop = 1
-            while drop < self.head and self.buf[drop - 1] != 10:  # 10 == ord('\n')
-                drop += 1
-            # 前移剩余数据，腾出 drop 字节空间
-            for i in range(drop, self.head):
-                self.buf[i - drop] = self.buf[i]
-            self.head -= drop
-
-        # 追加新数据
-        for i in range(n):
-            self.buf[self.head + i] = data[i]
-        self.head += n
-       '''
-
-    def write_in(self) -> None:
-        # 如果未开启日志则直接返回
-        if not self.if_write_log:
-            return
-        '''
-        """将缓冲区中的所有内容一次性刷入文件"""
-        if self.head == 0:
-            return
-        try:
-            with open(self.file_path, 'ab') as f:
-                f.write(self.buf[0:self.head])
-        except Exception as e:
-            # 写入失败，缓冲区数据原封不动，下次 write_in 会重试
-            print(f"Error: Failed to write to {self.file_path}: {e}")
-            return
-        self.head = 0
-        '''
-    def init_write(self) -> None:
-        self.num = 1
-        try:
-            with open(self.file_path, 'r') as f:
-                first_line = f.readline()
-            prefix = "This is the "
-            suffix = "th log of the main car."
-            if first_line.startswith(prefix):
-                end = first_line.find(suffix, len(prefix))
-                if end >= 0:
-                    self.num = int(first_line[len(prefix):end]) + 1
-        except Exception:
-            # The first boot may not have created a log file yet.
-            self.num = 1
-        try:
-            with open(self.file_path, 'w') as f:
-                f.write(f"This is the {self.num}th log of the main car.\n")
-        except Exception as e:
-            print(f"Error: Failed to write to {self.file_path}: {e}")
-
 class beep:
-    __slots__ = ('beep', 'beep_state')
     def __init__(self, beep):
         # 注入蜂鸣器对象，用于警报
         self.beep = beep
-        self.beep_state = BEEP_OFF
+        self.beep_state = _BEEP_OFF
+
     # 蜂鸣器警告函�?�?声，�?00ms响一声，每次持续50ms)
     def beep_warn(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
-            for i in range(3):
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
+            for _ in range(3):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
                 time.sleep_ms(200)
-                self.beep_state = BEEP_OFF
+                self.beep_state = _BEEP_OFF
             return 
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return 
         
     # 低电量警告函数(响5声，每50ms响一声，每次持续50ms)
     def low_power_warn(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
-            for i in range(5):
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
+            for _ in range(5):
                 time.sleep_ms(50)
                 self.beep.high()
                 time.sleep_ms(50)
                 self.beep.low()
                 time.sleep_ms(50)
-                self.beep_state = BEEP_OFF
+                self.beep_state = _BEEP_OFF
             return 
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
         
     # 按键测试函数(响一声，持续80ms)
     def key_test(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             self.beep.high()
             time.sleep_ms(80)
             self.beep.low()
-            self.beep_state = BEEP_OFF
+            self.beep_state = _BEEP_OFF
             return
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
 
     # 蜂鸣器测试函�?响一声，持续50ms)
     def test(self) -> None:
-        if self.beep_state == BEEP_OFF:
-            self.beep_state = BEEP_ON
+        if self.beep_state == _BEEP_OFF:
+            self.beep_state = _BEEP_ON
             self.beep.high()
             time.sleep_ms(50)
             self.beep.low()
-            self.beep_state = BEEP_OFF
+            self.beep_state = _BEEP_OFF
             return
-        elif self.beep_state == BEEP_ON:
+        elif self.beep_state == _BEEP_ON:
             return
         
 
@@ -364,7 +288,7 @@ class order_manager:
         self.flash_sys = flash_sys
         # 注入串口对象
         self.my_uart = uart
-        self.if_calibrate =self.flash_sys.find_value('if_calibrate')
+        self.if_calibrate = self.flash_sys.find_value('if_calibrate')
         # 使用模型还是色块
         self.if_model = self.flash_sys.find_value("if_model")
 
@@ -377,10 +301,6 @@ class order_manager:
 
     def trans_to_mode_detect(self):
         self.my_uart.write("m")
-
-    # 切换到apriltag识别模式
-    def mode_apriltag(self):
-        self.my_uart.write("R")
 
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
@@ -421,6 +341,7 @@ class UARTProtocol:
         self.object_buffer = ['',0,0]
         self.state_object = 0 # 0:等待x, 1:等待y, 2:等待物体种类
         gc.collect()
+
     def clear_uart_buffer(self):
         self.state_coordinate = 0
         self.state_apriltag = 0
@@ -430,6 +351,7 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.object_buffer = ['',0,0]
         self.my_uart.read(self.my_uart.any())#清空缓冲�?
+
     # 非阻塞接收并解析物体中心的像素点坐标  
     def coordinate_receive(self):
         last_valid_frame = None
@@ -510,6 +432,7 @@ class UARTProtocol:
                 self.reset_detect_objects()
                 continue
         return objects_package
+    
     # 发送物体种�?
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
@@ -577,45 +500,6 @@ class LinkProtocol:
         if isinstance(target_object, int):
             target_object = chr(target_object)
         packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
-        self.my_uart3.write(packet.encode('utf-8'))
-
-    def send_orbit_path(self, target_object, target_turn, target_point):
-        """
-        发送路径点列表 (非阻�?
-        格式: #P/S/B/T/E/W/A,0.0,120.5,80.1!
-        :param target_object: 目标物体种类
-        :param target_turn: 目标转向角度
-        :param target_point: (x, y) 目标点坐�?
-        """
-        packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
-        self.my_uart3.write(packet.encode('utf-8'))
-
-    def send_detected_object(self, object_kind, target_point):
-        if isinstance(object_kind, int):
-            object_kind = chr(object_kind)
-        packet = "#D,{},{:.1f},{:.1f}!".format(object_kind, target_point[0], target_point[1])
-        self.my_uart3.write(packet.encode('utf-8'))
-    # 用于主车向从车发送当前姿�?
-    def send_pose(self, v, yaw, turn_angle):
-        """
-        发送数据包 (非阻�?
-        格式: #Z,120.0,0.0,0.0!
-        :param v, yaw, turn_angle: 浮点数，分别表示当前速度、航向角和姿态角
-        """
-        # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频�?
-        packet = "#Z,{:.1f},{:.1f},{:.1f}!".format(
-            v, yaw, turn_angle
-        )
-        self.my_uart3.write(packet.encode('utf-8'))
-        
-    # 用于主车向从车发送环绕角�?
-    def send_orbit_angle(self, angle):
-        """
-        发送环绕角�?(非阻�?
-        格式: #O,45.0!
-        :param angle: 浮点环绕角度
-        """
-        packet = "#O,{:.1f}!".format(angle)
         self.my_uart3.write(packet.encode('utf-8'))
 
     # 向从车发送开始信�?
