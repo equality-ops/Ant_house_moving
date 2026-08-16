@@ -267,6 +267,7 @@ class TaskController:
                         self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
                         self.my_moving.reset_move()  # 重置搬运标志
                         self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                    return
                 else:
                     self.if_send_path = False
                     self.data.current_index += 1
@@ -285,6 +286,7 @@ class TaskController:
                     self.my_state.state = RETURN  # 如果所有物体都处理完了，进入返回状�?
                     self.my_moving.reset_move()  # 重置搬运标志
                     self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
+                return
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
