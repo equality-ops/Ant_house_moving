@@ -116,25 +116,14 @@ class VisionManager:
         self.angle_B = self.flash_sys.find_value("angle_B")     # type: float   # 玩具熊环绕角度
         self.direct = 'CW'  # 'CW'为顺时针(Clockwise)，'CCW'为逆时针(Counter-Clockwise)
         self.correct_dist = 7.27     # 经验修正
-        # 边线矫正时小车位置
-        self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
-        # 相对于apriltag码的位置（左侧还是右侧）
-        self.rel_pos_to_apriltag = 'left'  # 'left'为左侧，'right'为右侧
-        # 延时计数器
-        self.if_waiting = True
         self.counter = 0       # type: int     # 延时计数器
-        # 目标横或纵坐标缓冲区
-        self.calibrate_buffer = []     # type: list    # 目标横或纵坐标缓冲区
         # 矫正时丢失需要行进的路径
-        self.lost_path = []
-        # 目标角度缓冲区
-        self.angle_buffer = []     # type: list    # 目标角度缓冲区    
+        self.lost_path = []   
         # 上一帧预测的物体点位
         self.last_predict_point = None
         # 临时用于测试的角度变量
         self.angle_temp = 0.0
-        # 停在物体的左侧或者右侧
-        self.direction = ''  
+
         self.last_real_servo_point = None
         # 标志位
         self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位

@@ -126,21 +126,9 @@ class VisionManager:
         self.correct_dist = 10.51    # 经验修正值（物体在推杆正前方的值）
         # apriltag码矫正相关变量
         # 延时计数器
-        self.counter = 0       # type: int     # 延时计数器
-        self.assist_car_pos = []    # type: list    # 辅助车的位置位置
-        # 目标横或纵坐标缓冲区
-        self.point_buffer = []     # type: list    # 目标横或纵坐标缓冲区
-        # 目标角度缓冲区
-        self.angle_buffer = []     # type: list    # 目标角度缓冲区      
-        # 边线矫正时小车位置
-        self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
-        self.rel_pos_to_apriltag = 'left'  # 'left'为左侧，'right'为右侧
-        # 临时用于测试的角度变量
-        self.angle_temp = 0.0
+        self.counter = 0       # type: int     # 延时计数器     
         # 上一帧预测的物体点位
         self.last_predict_point = None
-        # 停在物体的左侧或者右侧
-        self.direction = ''  
         self.last_real_servo_point = None
         # 标志位
         self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位
@@ -167,8 +155,6 @@ class VisionManager:
         self.apriltag_threshold_x = self.flash_sys.find_value("apriltag_threshold_x")
         self.apriltag_threshold_y = self.flash_sys.find_value("apriltag_threshold_y")
 
-        # 边线矫正时小车位置
-        self.car_position = 'L'  # 'L', 'R', 'U', 'D'分别代表小车在左边线、右边线、上边线、下边线
         # 延时计数器
         self.if_waiting = True
         self.counter = 0       # type: int     # 延时计数器
