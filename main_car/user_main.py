@@ -187,10 +187,11 @@ gc.collect()
 # 创建视觉伺服管理对象2
 my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
-# 搬运控制类
-my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager,my_uart3, angle_pid)
-
 my_obj_plan = ant_boundary_plan.objects_planner(my_flash_sys,my_write_system,plan_data,my_car,my_plan,move_plan)
+
+# 搬运控制类
+my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager,my_uart3, angle_pid, my_obj_plan)
+
 # 任务及类
 my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
 
@@ -573,7 +574,7 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     """
 
-    my_uart2.write(f"{my_state.state}\r\n")
+    # my_uart2.write(f"{my_state.state}\r\n")
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))

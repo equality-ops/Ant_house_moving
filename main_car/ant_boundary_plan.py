@@ -589,6 +589,7 @@ class objects_planner:
                             self.judge_state = 2
                             return False
                         idx+=1
+            idx = 0
             for target in self.now_objects:
                 #t_target = time.ticks_ms()
                 could_select = True
