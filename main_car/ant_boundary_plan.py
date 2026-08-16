@@ -398,11 +398,10 @@ class objects_planner:
         gc.collect()
     def set_barriers(self,barriers):
         for i in self.now_objects:
-            # Vision results can occasionally be incomplete.  Ignore malformed
-            # entries here instead of indexing into them and crashing the task.
-            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in self.wideness:
-                continue
-            w,h=self.wideness[i[0]],self.height[i[0]]
+            try:
+                w,h=self.wideness[i[0]],self.height[i[0]]
+            except:
+                print("w&herror")
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
         self.last_sandbag_idx = -1
@@ -420,11 +419,6 @@ class objects_planner:
 
     def nine_grid_postion_to_idx(self, x, y=None):
         """Return [row, col] for an exact nine-grid center, or [] if absent."""
-        if y is None:
-            if not isinstance(x, (list, tuple)) or len(x) != 2:
-                return []
-            x, y = x
-
         center_x = self.Data.center_x
         center_y = self.Data.center_y
         length = self.Data.lenth
@@ -445,13 +439,9 @@ class objects_planner:
     def nine_grid_idx_to_postion(self, idx, col=None):
         """Return [x, y] for a [row, col] index, or [] if the index is invalid."""
         if col is None:
-            if not isinstance(idx, (list, tuple)) or len(idx) != 2:
-                return []
             row, col = idx
         else:
             row = idx
-        if not isinstance(row, int) or not isinstance(col, int):
-            return []
         if row < 0 or row > 2 or col < 0 or col > 2:
             return []
         center_x = self.Data.center_x

@@ -3,7 +3,24 @@ import gc
 import time
 import os
 from micropython import const
-
+def max_block():
+            gc.collect()
+            low = 0
+            high = gc.mem_free()
+            while low + 16 < high:
+                mid = (low + high) // 2
+                try:
+                    b = bytearray(mid)
+                    del b
+                    low = mid
+                except MemoryError:
+                    high = mid
+                gc.collect()
+            return low
+def mem(tag):
+    print(tag,gc.mem_free(),gc.mem_alloc(),max_block())
+    #my_uart3.write(f"{tag},{gc.mem_free()}, {gc.mem_alloc()}, {max_block()}\n")
+    gc.collect()
 gc.collect()
 # 从 machine 库包含所有内容 
 from machine import *
@@ -631,14 +648,14 @@ while True:
         if not my_task.if_choose_object:
             if my_task.now_objects:
                 if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
-                    print(f"JUDGE_COMPLETE{time.ticks_ms()}\n")
+                    mem("JUDGE_COMPLETE")
                     gc.collect()
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
-                    my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    #my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                    #my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                    #my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                    #my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
@@ -649,9 +666,9 @@ while True:
                         #self.my_uart.write(f"barriar{my_task.my_moving.now_barriar}\n")
                         my_task.current_object=target[1]
                         my_vision_manager.current_servo_object = my_task.current_object
-                        print(f"READY_START{time.ticks_ms()}\n")
+                        mem("READYSTART")
                         rm = my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
-                        print(f"READY_COMPLETE{time.ticks_ms()}\n")
+                        mem("READYEND")
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
                         if rm:
                             my_moving.saved_best_path =my_task.object_plan.best_path
