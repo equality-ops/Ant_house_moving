@@ -532,6 +532,7 @@ class MoveControl:
                 self.state_transition() # 退出当前状态，进入搬运状态
                 return
             NAV_T=self.navigate_buffer
+            print(f"{self.navigate_buffer}")
             self.vision_manager.orbit_control(NAV_T['ANGLE'][2])
         elif self.current_state == SCAN:
             NAV_T=self.navigate_buffer
