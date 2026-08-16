@@ -117,7 +117,7 @@ class TaskController:
             self.my_path.plan_path(self.pt_buffer[1][0], self.pt_buffer[1][1], ignore_center_rect=True)  # 规划回起始点的路径
             self.my_path.ready_path[-1] = self.pt_buffer[1]
             # 最后插入一个途径点便于计时
-            self.my_path.ready_path.insert(-1, [self.data.fixed_point[3][0], 10.0])
+            self.my_path.ready_path.insert(-1, [self.pt_buffer[1][0], 10.0])
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
