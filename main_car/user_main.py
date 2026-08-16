@@ -650,7 +650,7 @@ while True:
                 if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
                     mem("JUDGE_COMPLETE")
                     gc.collect()
-                    target = my_obj_plan.plan_target
+                    target = my_obj_plan.plan_target[:]
                     my_task.if_end_first_scan = True
                     #my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
                     #my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
@@ -668,6 +668,7 @@ while True:
                         my_vision_manager.current_servo_object = my_task.current_object
                         mem("READYSTART")
                         rm = my_moving.ready_move([target[2],target[3]],now_side = my_task.last_side,target_side = target[4],RECT = target[5],Num = target[6])
+                        my_obj_plan.reset_judge()
                         mem("READYEND")
                         # self.my_uart.write(f"car_position:{my_task.my_moving.push_postion}\n")
                         if rm:

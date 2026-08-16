@@ -104,10 +104,11 @@ class MoveControl:
 
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_turn, sp):
-        if sp == 'T':angle = 0
-        elif sp in ['S','E']:angle = -90
-        else: angle = 90
-        return (angle - current_turn + 180) % 360 -180
+        if sp == 'T':
+            self.move_dir = 0
+        elif sp in ['S','E']:self.move_dir = -90
+        else: self.move_dir = 90
+        return (self.move_dir - current_turn - 180) % 360 +180
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
         a=self.navigate_distance
         if car_angle == 0:
@@ -341,7 +342,7 @@ class MoveControl:
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
         self.navigate_buffer=({
-                        'MAIN_P':PLAN_PATH.ready_path,
+                        'MAIN_P':PLAN_PATH.ready_path[:],
                         'SLA_P':S_PAth,
                         'ANGLE':ANGle,
                     })
