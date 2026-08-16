@@ -272,12 +272,9 @@ class BoundaryPathPlanner:
         return (-1.0, 0.0), (0.0, 1.0)
     
     def _to_edge(self, p, direction):#计算在方向上边界的投影点
-        if direction == 0:
-            return (p[0], self.Data.FIELD_H+20)
-        if direction == 180:
-            return (p[0], -20)
-        if direction == 90:
-            return (self.Data.FIELD_W+20, p[1])
+        if direction == 0:return (p[0], self.Data.FIELD_H+20)
+        if direction == 180:return (p[0], -20)
+        if direction == 90:return (self.Data.FIELD_W+20, p[1])
         return (-20, p[1])
 
     def _nearest_valid(self, p, rects):

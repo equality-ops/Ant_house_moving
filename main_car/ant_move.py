@@ -82,26 +82,8 @@ class MoveControl:
         self.run_first = True
         self.get_slave_navigate_state = False
         self.saved_best_path = []
-        self.slave_massage ={
-            'path':[],
-            'angle':0,
-        }
         self.sidenum_dicc = {'D':0,'L':1,'U':2,'R':3,}
         gc.collect()
-
-    # 更新物体当前坐标，已知物体在小车正前方的距离 dist
-    def update_object_pos(self):
-        # 当前车头朝向 (弧度)
-        now_yaw = self.my_car.now_yaw
-        dist_y = self.vision_manager.final_dist_y + self.vision_manager.car_radius
-        dist_x = self.vision_manager.final_dist_x
-        # 已知世界坐标系下向北(+Y)为0度，向东(+X)为90度
-        # 车头指向的正方向向量为 (sin(now_yaw), cos(now_yaw))
-        self.now_object_pt = [
-            self.my_car.x_current + dist_y * math.sin(now_yaw)+dist_x * math.cos(now_yaw),
-            self.my_car.y_current + dist_y * math.cos(now_yaw)-dist_x * math.sin(now_yaw)
-        ]
-
     # 判断小车编队到下一目标点时的转向（返回基于小车坐标系的相对朝向）
     def judge_next_turn(self, current_turn, sp):
         if sp == 'T':
@@ -129,10 +111,7 @@ class MoveControl:
         lx, ly = -rx, -ry
         LD = [self.now_object_pt[0] + lx * a - fx * a, self.now_object_pt[1] + ly * a - fy * a]
         RD = [self.now_object_pt[0] + rx * a - fx * a, self.now_object_pt[1] + ry * a - fy * a]
-        self.surrounding_points =  {
-            'LD': LD,
-            'RD': RD,
-        }
+        self.surrounding_points =  {'LD': LD,'RD': RD,}
     # 搬运前的准备
     def ready_move(self,point,now_side = 'D',target_side = 'D',RECT = [],Num = 0):
         #now_side (从上次推动的物体导出，小车现在所在边)
@@ -363,10 +342,6 @@ class MoveControl:
         self.if_slave_ready_move = False
         self.saved_best_path = []
         self.moving_idx = 0
-        self.slave_massage ={
-            'path':[],
-            'angle':0,
-        }
         self.angle_buffer.clear()
         self.next_point.clear()
         self.adjust_point.clear()
