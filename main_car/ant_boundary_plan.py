@@ -16,6 +16,7 @@ class BoundaryPathPlanner:
         self.forward_push_value = self.flash_sys.find_value("FORWARD_PUSH_VALUE")
         self.rects = []
         self.rectangles = []
+        self.special_push = False
         self.circle = []
         self.fixed_obj = []
         self.ready_path = []
@@ -417,6 +418,7 @@ class objects_planner:
         self.best_path = [0,0]
         self.target_score = []
         self.plan_target = []
+        self.special_push = False
         self.now_idx = 0
 
     def nine_grid_postion_to_idx(self, x, y=None):
@@ -535,7 +537,23 @@ class objects_planner:
             i[1] -= push_dir[1]
         if use_big_rect:return [[],0]
         else :return [None,0]
-
+    def if_special_push(self):
+        num_ = 0
+        for i in range(3):
+            num_+=1
+            line_has_S = False
+            nine_grid = self.nine_grid
+            for j in range(3):
+                if nine_grid[i][j] == 'T':
+                    return False,num_
+                if not line_has_S:
+                    if nine_grid[i][j] in ['S','E']:
+                        line_has_S = True
+                else:
+                    if nine_grid[i][j] in ['B','W']:
+                        return True,num_
+            if line_has_S: return False,num_
+        return False,num_
     def judge_object_character(self,objects,car_side):
         if self.judge_state == 0:
             self.judge_start_ticks = time.ticks_ms()
@@ -553,6 +571,24 @@ class objects_planner:
             #t_state = time.ticks_ms()
             idx=0
             self.target_objects = []
+            if len(self.now_objects) == 2 and car_side == 'L':
+                self.special_push,num = self.if_special_push()
+                if self.special_push:#强制选择熊
+                    lenth = self.Data.lenth
+                    center_x = self.Data.center_x
+                    center_y = self.Data.center_y
+                    for target in self.now_objects:
+                        if target[0] in ['B','W']:
+                            cy = num * lenth + center_y - lenth*2
+                            half_h = 2 + self.Data.SAFE_MARGIN
+                            rect = [(center_x - lenth*1.6,cy - half_h),
+                                    (target[1] - lenth*0.5,cy - half_h),
+                                    (target[1] - lenth*0.5,cy + half_h),
+                                    (center_x - lenth*1.6,cy + half_h),]
+                            self.target_objects.append([idx,target[0],target[1],target[2],'L',rect,num])
+                            self.judge_state = 2
+                            return False
+                        idx+=1
             for target in self.now_objects:
                 #t_target = time.ticks_ms()
                 could_select = True

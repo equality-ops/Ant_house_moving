@@ -19,11 +19,12 @@ OutLine = const(1)
 # 多路复用器计数器
 counter = 0
 class MoveControl:
-    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart, angle_pid):
+    def __init__(self,my_write_system,flash_sys, beep, photo, car, plan,path, plan_data,move_plan, vision_manager, state, main_protocol, art_protocol, order_manager,my_uart, angle_pid,obj_paln):
         self.my_write_system = my_write_system
         self.my_beep = beep
         self.my_photo = photo
         self.vision_manager = vision_manager
+        self.my_obj_plan = obj_paln
         self.my_plan = plan
         self.my_path = path
         self.plan_data = plan_data
@@ -352,6 +353,7 @@ class MoveControl:
                 car_postion += 90
                 self.next_postion = 'r'
             if turn_angle == 0.0:
+                if self.my_obj_plan.special_push:ANGle[1] = target_turn_deg + 5 * Num
                 self.if_to_the_top =True
             elif turn_angle == 90.0:
                 if self.next_postion == 'r':self.if_first_orbit = True
@@ -371,11 +373,15 @@ class MoveControl:
             elif turn_angle == -90.0:
                 if self.next_postion == 'r':self.if_first_orbit = False
                 else:self.if_first_orbit = True
+            if self.my_obj_plan.special_push:
+                self.plan_data.rectangles.insert(-1,RECT)
             if target_side =='D':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[0][1],ignore_center_rect=True)
             elif target_side =='U':self.my_path.plan_path(m_PAth[0][0],self.my_plan.plan_data.center_rect[3][1],ignore_center_rect=True)
             elif target_side =='L':self.my_path.plan_path(self.my_plan.plan_data.center_rect[0][0],m_PAth[0][1],ignore_center_rect=True)   
             else:self.my_path.plan_path(self.my_plan.plan_data.center_rect[3][0],m_PAth[0][1],ignore_center_rect=True)
             M_PAth = self.my_path.ready_path + m_PAth
+            if self.my_obj_plan.special_push:
+                self.plan_data.rectangles.pop(-2)
         # print(f"if_change_side:{self.if_change_side}, RECT: {RECT}, if_first_navigate: {self.if_first_navigate},  ready_path: {self.my_path.ready_path}")
         car_postion = 180 - (180 - car_postion) % 360
         # Offset toward the other car rather than away from the object pair.
