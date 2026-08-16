@@ -89,7 +89,12 @@ class MoveControl:
             self.move_dir = 0
         elif sp in ['S','E']:self.move_dir = -90
         else: self.move_dir = 90
-        return (self.move_dir - current_turn - 180) % 360 +180
+        angle = self.move_dir - current_turn
+        if angle <= -180:
+            angle += 360
+        elif angle > 180:
+            angle -= 360
+        return angle
 
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
         a=self.navigate_distance
@@ -167,7 +172,6 @@ class MoveControl:
         angle_r0=(target_turn_deg - self.__angle + 180.0) % 360.0 - 180.0
         angle_l=(target_turn + self.__angle + 180.0) % 360.0 - 180.0
         angle_r=(target_turn - self.__angle + 180.0) % 360.0 - 180.0
-        M_PAth = []
         S_PAth = [self.vision_manager.current_servo_object,self.now_object_pt]
         self.run_first = True
         if self.if_change_side:
