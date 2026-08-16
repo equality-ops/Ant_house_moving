@@ -336,6 +336,7 @@ class MoveControl:
         self.my_plan.reset_navigate()
         self.my_plan.reset_navigate_angle()
 
+        print(f"{self.if_first_orbit}, {self.if_change_side}, {self.next_postion}, {now_side}, {target_side}, {target_ref_yaw_deg}, {turn_angle}, {self.navigate_buffer['SLA_P']}, {self.navigate_buffer['ANGLE']}, {self.push_postion}")
     # 重置小车里程计
     def reset_car_pos(self):
         current_object = self.vision_manager.current_servo_object
