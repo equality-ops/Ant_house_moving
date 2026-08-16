@@ -91,7 +91,7 @@ my_uart2 = UART(1)
 my_uart2.init(115200)
 os.dupterm(my_uart2)
 """电机初始化"""
-motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = False)
+motor_ul = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C30_DIR_C31, 13000, duty = 0, invert = True)
 motor_ur = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_C28_DIR_C29, 13000, duty = 0, invert = True)
 motor_md = MOTOR_CONTROLLER(MOTOR_CONTROLLER.PWM_D4_DIR_D5  , 13000, duty = 0, invert = False)
 
@@ -573,7 +573,7 @@ def time_pit2_handler(time):
         my_menu.handle_key_from_interrupt(key)
     """
 
-    # my_uart2.write(f"{my_state.state}\r\n")
+    my_uart2.write(f"{my_state.state}\r\n")
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
@@ -630,7 +630,7 @@ while True:
             continue
 
         # 在该模式下进行写入操作
-        my_write_system.write_in()
+        # my_write_system.write_in()
 
         if not my_task.if_choose_object:
             if my_task.now_objects:
@@ -638,10 +638,10 @@ while True:
                     gc.collect()
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
-                    my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                    my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                    my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                    my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                    # my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                    # my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
+                    # my_write_system.write_str(f"path{my_task.object_plan.path}\n")
+                    # my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
