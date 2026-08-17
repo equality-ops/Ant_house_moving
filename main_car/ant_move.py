@@ -45,7 +45,6 @@ class MoveControl:
                         'ANGLE':0,
                     })
         self.if_delay_more = False
-        self.navigate_distance=20
         self.__angle=30
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
@@ -93,7 +92,7 @@ class MoveControl:
         elif angle > 180:angle -= 360
         return angle
     def get_object_square_points(self,car_angle,L):#寻找物体周围点位
-        a=self.navigate_distance
+        a=L
         if car_angle == 0:
             forward = (0, 1)
             right = (1, 0)

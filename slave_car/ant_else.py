@@ -812,7 +812,6 @@ class TofControl:
     # 重置tof传感器信息
     def reset_tof(self):
         self._desired_side = None
-
         self.data_L, self.data_R = -1.0, -1.0
         self._stale_count_L, self._stale_count_R = 0, 0
         self._invalid_count = 0
