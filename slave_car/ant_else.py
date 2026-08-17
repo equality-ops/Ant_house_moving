@@ -740,7 +740,6 @@ class TofControl:
             return
         if self.tof_R is None and self.which_one == 'R':
             return
-
         if now is None:
             now = time.ticks_ms()
         if self.which_one == 'L':
