@@ -129,11 +129,9 @@ class BoundaryPathPlanner:
             self.first_run = False
         # 每轮重新定向膨胀和按车位置过滤
         for obj_idx in range(len(objects)):
-            if skip_idx is not None and obj_idx == skip_idx:
-                continue
+            if skip_idx is not None and obj_idx == skip_idx:continue
             obj = self.fixed_obj[obj_idx]
-            if obj is None:
-                continue
+            if obj is None:continue
             new = self.swell_rect(obj,swell_angle)
             if new:rects.append(new)
         for rect in self.circle:
@@ -153,20 +151,24 @@ class BoundaryPathPlanner:
     def plan_one_turn(self, direction,limit_angle):
         path_left = self._plan_one_turn_with_avoid(direction, -1)
         path_right = self._plan_one_turn_with_avoid(direction, 1)
+        def calculate_angle(path,angle):
+            if not path:return [],0
+            push_yaw = math.atan2(path[1][0] - path[0][0], path[1][1] - path[0][1]) * 180.0 / math.pi
+            push_angle = abs(push_yaw - direction)
+            if push_angle > 180:
+                push_angle = 360 - push_angle
+            push_angle = abs(push_angle)
+            if push_angle>angle:return [],0
+            return path,push_angle
         if limit_angle:
-            def calculate_angle(path,angle):
-                if not path:return []
-                push_yaw = math.atan2(path[1][0] - path[0][0], path[1][1] - path[0][1]) * 180.0 / math.pi
-                push_angle = abs(push_yaw - direction)
-                if push_angle > 180:
-                    push_angle = 360 - push_angle
-                if abs(push_angle)>angle:return []
-                return path
-            path_left = calculate_angle(path_left,limit_angle)
-            path_right = calculate_angle(path_right,limit_angle)
+            path_left,angle_l = calculate_angle(path_left,limit_angle)
+            path_right,angle_r = calculate_angle(path_right,limit_angle)
+        else:
+            path_left,angle_l = calculate_angle(path_left,90)
+            path_right,angle_r = calculate_angle(path_right,90)
         if not path_left:return path_right
         if not path_right:return path_left
-        if self._path_cost(path_left) <= self._path_cost(path_right):return path_left
+        if self._path_cost(path_left,angle_l) <= self._path_cost(path_right,angle_r):return path_left
         return path_right
     def _plan_one_turn_with_avoid(self, direction, avoid_dir):
         direction = self._normalize_dir(direction)
@@ -241,17 +243,14 @@ class BoundaryPathPlanner:
             return self.Data.INF
         if not self._line_valid(p, end, rects):
             return self.Data.INF
-
         return self.my_plan._distance(start, p) + self.my_plan._distance(p, end)
 
-    def _path_cost(self, path):
-        if not path:
-            return self.Data.INF
+    def _path_cost(self, path,angle):
+        if not path:return self.Data.INF
         cost = 0.0
-        for i in range(len(path) - 1):
-            cost += self.my_plan._distance(path[i], path[i + 1])
+        for i in range(len(path) - 1):cost += self.my_plan._distance(path[i], path[i + 1])
+        cost += angle*angle
         return cost
-
     def _normalize_dir(self, direction):
         if direction in (0, 90, 180, -90):
             return int(direction)
@@ -276,6 +275,7 @@ class BoundaryPathPlanner:
         return (-20, p[1])
 
     def _nearest_valid(self, p, rects):
+        print('P_M in rects')
         px = max(0.0, min(float(p[0]), self.Data.FIELD_W))
         py = max(0.0, min(float(p[1]), self.Data.FIELD_H))
         p = (px, py)
@@ -288,8 +288,7 @@ class BoundaryPathPlanner:
             for i in range(count):
                 a = 2.0 * math.pi * i / count
                 q = (px + math.cos(a) * radius, py + math.sin(a) * radius)
-                if self._point_valid(q, rects):
-                    return q
+                if self._point_valid(q, rects):return q
             radius += 2.0
         return p
 
@@ -391,10 +390,6 @@ class objects_planner:
         gc.collect()
     def set_barriers(self,barriers):
         for i in self.now_objects:
-            # Vision results can occasionally be incomplete.  Ignore malformed
-            # entries here instead of indexing into them and crashing the task.
-            if not isinstance(i, (list, tuple)) or len(i) < 3 or i[0] not in self.wideness:
-                continue
             w,h=self.wideness[i[0]],self.height[i[0]]
             barriers.append([i[1],i[2],w,h])
     def reset_judge(self):
@@ -414,46 +409,30 @@ class objects_planner:
     def nine_grid_postion_to_idx(self, x, y=None):
         """Return [row, col] for an exact nine-grid center, or [] if absent."""
         if y is None:
-            if not isinstance(x, (list, tuple)) or len(x) != 2:
-                return []
             x, y = x
-
         center_x = self.Data.center_x
         center_y = self.Data.center_y
         length = self.Data.lenth
         if length <= 0:
             return []
-
         col = int(round((x - center_x) / length)) + 1
         row = int(round((y - center_y) / length)) + 1
         if row < 0 or row > 2 or col < 0 or col > 2:
             return []
-
         expected_x = center_x + (col - 1) * length
         expected_y = center_y + (row - 1) * length
-        if abs(x - expected_x) > 1e-6 or abs(y - expected_y) > 1e-6:
-            return []
+        if abs(x - expected_x) > 1e-6 or abs(y - expected_y) > 1e-6:return []
         return [row, col]
 
     def nine_grid_idx_to_postion(self, idx, col=None):
         """Return [x, y] for a [row, col] index, or [] if the index is invalid."""
-        if col is None:
-            if not isinstance(idx, (list, tuple)) or len(idx) != 2:
-                return []
-            row, col = idx
-        else:
-            row = idx
-
-        if not isinstance(row, int) or not isinstance(col, int):
-            return []
-        if row < 0 or row > 2 or col < 0 or col > 2:
-            return []
-
+        if col is None:row, col = idx
+        else:row = idx
+        if row < 0 or row > 2 or col < 0 or col > 2:return []
         center_x = self.Data.center_x
         center_y = self.Data.center_y
         length = self.Data.lenth
-        if length <= 0:
-            return []
+        if length <= 0:return []
         return [center_x + (col - 1) * length,
                 center_y + (row - 1) * length]
 
@@ -477,8 +456,9 @@ class objects_planner:
             return False
         now_pt[0] += dir[0] * k
         now_pt[1] += dir[1] * k
+        nine_grid = self.nine_grid
         while now_pt[0] < 3 and now_pt[0] >= 0 and now_pt[1] < 3 and now_pt[1] >= 0:
-            if self.nine_grid[now_pt[0]][now_pt[1]] != '':
+            if nine_grid[now_pt[0]][now_pt[1]] != '':
                 return False
             now_pt[0] += dir[0] * k
             now_pt[1] += dir[1] * k
@@ -491,8 +471,9 @@ class objects_planner:
         idx = idx[:]
         idx[0] += dir[0] * k
         idx[1] += dir[1] * k
+        nine_grid = self.nine_grid
         while idx[0] < 3 and idx[0] >= 0 and idx[1] < 3 and idx[1] >= 0:
-            if self.nine_grid[idx[0]][idx[1]] != '':
+            if nine_grid[idx[0]][idx[1]] != '':
                 return False
             idx[0] += dir[0] * k
             idx[1] += dir[1] * k
@@ -675,10 +656,8 @@ class objects_planner:
                 elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
-                    if i[1] == 'T': 
-                        score+=10000
-                    else:
-                        score+=5000
+                    if i[1] == 'T': score+=10000
+                    else:score+=5000
                 if car_side == i[4]:
                     dx_car = i[2] - self.my_car.x_current
                     dy_car = i[3] - self.my_car.y_current
@@ -712,7 +691,6 @@ class objects_planner:
             # print("[judge][state2] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             return False
         elif self.judge_state == 3:#选择评分最低的物体作为目标
-            t_state = time.ticks_ms()
             new_path = []
             for i in range(len(self.target_score)):
                 if self.target_score[i] == min(self.target_score):
@@ -734,41 +712,10 @@ class objects_planner:
             # print("[judge][state3] total {} ms".format(time.ticks_diff(time.ticks_ms(), t_state)))
             # print("[judge][whole] flow total {} ms".format(time.ticks_diff(time.ticks_ms(), self.judge_start_ticks)))
             return True
-    def find_target(self):
-        if self.objects_score:
-            Target = self.objects_score[0]
-            for i in self.objects_score:
-                if i[1]==Target[1]:
-                    if i[2]<Target[2]:Target = i
-                elif i[1]<Target[1]:Target = i
-            return Target
-        else:
-            return []
     def calculate_distance(self,p1,p2):
         return math.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
-    def judge_need_area(self,sp):
-        if sp=='T': return {'DL':[],'DR':[]}
-        elif sp=='S' or sp=='E': return {'DR':[],'UR':[]}
-        elif sp=='B' or sp=='W': return {'DL':[],'UL':[]}
-        else :return {}
     def judge_push_direction(self,sp):
         if sp=='T': return 0,-1
         elif sp=='S' or sp=='E': return -90,1
         elif sp=='B' or sp=='W': return 90,1
         else :return {}
-    def judge_UDRL_area(self,p,p_):
-        if p[0]>p_[0]:
-            if p[1]>p_[1]: return 'DL'
-            else:return 'UL'
-        else :
-            if p[1]>p_[1]: return 'DR'
-            else:return 'UR'
-    def judge_running_area(self,p,p_,barriar,sp):
-        dx = p[0]-p_[0]
-        dy = p[1]-p_[1]
-        if dy!=0 and (dx<5 or abs(dx-5)/abs(dy)<=0.1):
-            if dy>0:barriar['D'].append(sp)
-            else:barriar['U'].append(sp)
-        if dx!=0 and (dy<5 or abs(dy-5)/abs(dx)<=0.1):
-            if dy>0:barriar['L'].append(sp)
-            else:barriar['R'].append(sp)

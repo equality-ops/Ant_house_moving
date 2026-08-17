@@ -96,7 +96,8 @@ class PathPlan:
         # 获取当前障碍物列表（切片）
         circles = self.Data.circle[:]
         rects = self.Data.rectangles[:]
-
+        self._p = [0.0,0.0,0.0,0.0]
+        self._q = [0.0,0.0,0.0,0.0]
         # 如果特定状态激活，将原有的中心区域矩形障碍物移除
         # 根据 PlanData 的初始化，中心矩形障碍物是最后追加进去的
         if ignore_center_rect and len(rects) > 0:
@@ -277,7 +278,7 @@ class PathPlan:
         for c in circles:
             if self._distance(p, c) <= block_r: return False
         for rect in rects:
-            if self._point_in_poly(p, rect): return False
+            if self._point_in_rect(p, rect): return False
         return True
 
     # 判断线段ab是否与任何障碍物相交（ab不穿过障碍物）
@@ -285,7 +286,7 @@ class PathPlan:
         for c in circles:
             if self._dist_point_to_seg(c, a, b) <= block_r: return False
         for rect in rects:
-            if self._segment_hits_poly(a, b, rect): return False
+            if self.line_cross_rect(a, b, rect): return False
         return True
 
     # 判断点p是否在场地内
@@ -312,43 +313,51 @@ class PathPlan:
     def _cross(self, a, b, c):
         return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 
-    # 判断a, b, p三点是否共线且p在a,b之间
-    def _on_segment(self, a, b, p):
-        return (min(a[0], b[0]) <= p[0] <= max(a[0], b[0]) and
-                min(a[1], b[1]) <= p[1] <= max(a[1], b[1]) and
-                abs(self._cross(a, b, p)) < 0.000001)
-
-    # 判断ab, cd两线段是否相交
-    def _seg_intersect(self, a, b, c, d):
-        c1, c2 = self._cross(a, b, c), self._cross(a, b, d)
-        c3, c4 = self._cross(c, d, a), self._cross(c, d, b)
-        if c1 * c2 < 0.0 and c3 * c4 < 0.0: return True
-        if abs(c1) < 0.000001 and self._on_segment(a, b, c): return True
-        if abs(c2) < 0.000001 and self._on_segment(a, b, d): return True
-        if abs(c3) < 0.000001 and self._on_segment(c, d, a): return True
-        if abs(c4) < 0.000001 and self._on_segment(c, d, b): return True
-        return False
-
     # 判断点p是否在多边形poly内
-    def _point_in_poly(self, p, poly):
-        inside = False; j = len(poly) - 1
-        for i in range(len(poly)):
-            pi, pj = poly[i], poly[j]
-            if self._on_segment(pi, pj, p): return True
-            if ((pi[1] > p[1]) != (pj[1] > p[1])):
-                x = (pj[0] - pi[0]) * (p[1] - pi[1]) / (pj[1] - pi[1]) + pi[0]
-                if p[0] < x: inside = not inside
-            j = i
-        return inside
+    def _point_in_rect(self,p,rect):
+        eps = 0.001
+        if p[0]>rect[0][0]-eps and p[0]<rect[2][0]+eps and p[1]<rect[2][1]+eps and p[1]>rect[0][1]-eps:
+            return True
+        return False
 
     # 判断线段ab是否与多边形poly相交
-    def _segment_hits_poly(self, a, b, poly):
-        if self._point_in_poly(a, poly) or self._point_in_poly(b, poly): return True
-        j = len(poly) - 1
-        for i in range(len(poly)):
-            if self._seg_intersect(a, b, poly[j], poly[i]): return True
-            j = i
-        return False
+    # 判断线段ab是否与多边形poly相交
+    def line_cross_rect(self, p1, p2, rect):
+        x1, y1 = p1
+        x2, y2 = p2
+        minn ,_ ,maxx ,_ = rect
+        x_min, y_min = minn
+        x_max, y_max = maxx
+        if max(x1, x2) < x_min or min(x1, x2) > x_max or max(y1,y2) < y_min or min(y1, y2) > y_max:
+            return False
+        dx = x2 - x1
+        dy = y2 - y1
+        # 关键优化：将 self 属性 赋值给 局部变量（只需查找一次 self）
+        p = self._p
+        q = self._q
+        # 原地修改数值（复用内存，无分配）
+        p[0] = -dx; p[1] = dx; p[2] = -dy; p[3] = dy
+        q[0] = x1 - x_min; q[1] = x_max - x1
+        q[2] = y1 - y_min; q[3] = y_max - y1
+        u1 = 0.0
+        u2 = 1.0
+        for i in range(4):  # 这里的循环开销在 Micropython 中还能接受
+            if p[i] == 0:
+                if q[i] < 0:
+                    return False
+            else:
+                t = q[i] / p[i]
+                if p[i] < 0:
+                    if t > u2:
+                        return False
+                    if t > u1:
+                        u1 = t
+                else:
+                    if t < u1:
+                        return False
+                    if t < u2:
+                        u2 = t
+        return u1 <= u2
 
     # 判断路径是否需要平滑，如果需要则进行平滑处理
     def _smooth_path(self, path, circles, rects, block_r):
@@ -598,24 +607,8 @@ class NavigationPlan:
                 move_v_max *= 1.2
             elif self.if_inside_sandbag and self.aimed_point_index == 0 and len(self.path) > 2:
                 move_v_max = self.move_v_max_S + self.move_S_increment
-
             v_target = self.find_line_v_max + (move_v_max - self.find_line_v_max) * ratio
-
             return v_target
-            """
-            # 在搬运模式下为保证加速阶段一致设置恒定速度
-            if self.keep_x_or_y_v == True:
-                sin_fit = math.sin(self.fit_target_yaw*_PI / 180.0)
-                sin_yaw = math.sin(self.target_yaw*_PI / 180.0)
-                if abs(sin_fit) > 1e-3:return v_target*sin_yaw/sin_fit
-                else: return v_target
-            else:
-                cos_fit = math.cos(self.fit_target_yaw*_PI / 180.0)
-                cos_yaw = math.cos(self.target_yaw*_PI / 180.0)
-                if abs(cos_fit) > 1e-3:return v_target*cos_yaw/cos_fit
-                else: return v_target
-            """
-            return self.move_v_max
         # s 直接基于我们之前算出的 usable_len 限制
         s = self.segment_start_dist - self.rest_dist
         s_usable = max(0.0, min(s, self.usable_len))  # 强制束缚在可用区间内
