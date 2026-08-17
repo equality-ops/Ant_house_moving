@@ -66,7 +66,6 @@ class MoveControl:
                         'SLA_P':[],
                         'ANGLE':[0,0],
         }
-        self.navigate_distance=20
         self.__angle=30
         self.surrounding_points = {
             'LD': [],
@@ -193,14 +192,14 @@ class MoveControl:
                 angle0 = angle_r0
                 angle = angle_r
                 self.next_postion = 'l'
-                self.my_tof.ready_tof('left',target_turn)
+                self.my_tof.ready_tof('left', target_turn, sp)
                 car_postion -= 90
             else:
                 sla_p = self.surrounding_points['LD']
                 angle0 = angle_l0
                 angle = angle_l
                 self.next_postion = 'r'
-                self.my_tof.ready_tof('right',target_turn)
+                self.my_tof.ready_tof('right', target_turn, sp)
                 car_postion += 90
             if turn_angle == 0.0:
                 self.vision_manager.if_next_orbit = False
@@ -215,14 +214,14 @@ class MoveControl:
                     angle = angle_r
                     car_postion -= 180
                     self.next_postion = 'l'
-                    self.my_tof.ready_tof('left',target_turn)
+                    self.my_tof.ready_tof('left', target_turn, sp)
                 else:
                     sla_p = self.surrounding_points['RD']
                     angle0 = angle_r0
                     angle = angle_l
                     car_postion += 180
                     self.next_postion = 'r'
-                    self.my_tof.ready_tof('right',target_turn)
+                    self.my_tof.ready_tof('right', target_turn, sp)
                 self.if_first_orbit = False
             elif turn_angle == -90.0:
                 if self.next_postion == 'r':self.if_first_orbit = False
@@ -244,14 +243,14 @@ class MoveControl:
                     angle0 = angle_r0
                     angle = angle_r
                     self.next_postion = 'l'
-                    self.my_tof.ready_tof('left',target_turn)
+                    self.my_tof.ready_tof('left', target_turn, sp)
                     car_postion -= 90      
                 else:
                     sla_p = self.surrounding_points['LD']
                     angle0 = angle_l0
                     angle = angle_l
                     self.next_postion = 'r'
-                    self.my_tof.ready_tof('right',target_turn)
+                    self.my_tof.ready_tof('right', target_turn, sp)
                     car_postion += 90
             else:
                 if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
@@ -260,14 +259,14 @@ class MoveControl:
                         angle0 = angle_r0
                         angle = angle_r
                         self.next_postion = 'l'
-                        self.my_tof.ready_tof('left',target_turn)
+                        self.my_tof.ready_tof('left', target_turn, sp)
                         car_postion -= 90      
                     else:
                         sla_p = self.surrounding_points['LD']
                         angle0 = angle_l0
                         angle = angle_l
                         self.next_postion = 'r'
-                        self.my_tof.ready_tof('right',target_turn)
+                        self.my_tof.ready_tof('right', target_turn, sp)
                         car_postion += 90
                 else:
                     if self.next_postion == 'r':
@@ -275,14 +274,14 @@ class MoveControl:
                         angle0 = angle_r0
                         angle = angle_r
                         self.next_postion = 'l'
-                        self.my_tof.ready_tof('left',target_turn)
+                        self.my_tof.ready_tof('left', target_turn, sp)
                         car_postion -= 90    
                     else:
                         sla_p = self.surrounding_points['LD']
                         angle0 = angle_l0
                         angle = angle_l
                         self.next_postion = 'r'
-                        self.my_tof.ready_tof('right',target_turn)
+                        self.my_tof.ready_tof('right', target_turn, sp)
                         car_postion += 90
             self.if_to_the_top =True
             if not RECT:

@@ -535,7 +535,7 @@ class VisionManager:
             dx = self.orbit_center_x - self.my_car.x_current
             dy = self.orbit_center_y - self.my_car.y_current
 
-            if self.if_use_vision:
+            if self.if_use_vision and self.current_servo_object != 'T':
                 actual_r = actual_r_vision
             else:
                 actual_r = math.sqrt(dx**2 + dy**2)

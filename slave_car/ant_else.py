@@ -792,7 +792,7 @@ class TofControl:
         self.my_car.speed_weight = 0.0
 
     # tof准备
-    def ready_tof(self, sensor, fixed_dir):
+    def ready_tof(self, sensor, fixed_dir, target_obj):
         def choose_sensor(sensor):
             if sensor == 'left':
                 self.which_one = 'L'
@@ -803,6 +803,8 @@ class TofControl:
 
         # 选择tof传感器
         choose_sensor(sensor)
+        self.dist_pid_L.choose_dist(target_obj)
+        self.dist_pid_R.choose_dist(target_obj)
         self.my_car.fixed_direction = fixed_dir
         self.my_car.if_control_dist = True
         self.if_init_fil = False

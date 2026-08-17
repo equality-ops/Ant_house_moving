@@ -466,7 +466,7 @@ def test_tof_distance_control():
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
         my_plan.keep_x_or_y_v = False
-        my_tof.ready_tof('left',0)
+        my_tof.ready_tof('left', 0, 'S')
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == MOVE:
@@ -652,22 +652,5 @@ while True:
     # I2C访问可能阻塞，必须放在普通主循环中，避免拖住姿态和电机定时器。
     if not if_menu:
         my_tof.service()
-
-    # 屏幕测试程序
-    # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
-    # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0xF800)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x07E0)s
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x001F)
-    
-    # 如果拨码开关打开 对应引脚拉低 就退出循环
-    # 这么做是为了防止写错代码导致异常 有一个退出的手段 
-    if switch2.value() != state2:
-        print("Test program stop.")
-        gc.collect()
-        break
 
     gc.collect()

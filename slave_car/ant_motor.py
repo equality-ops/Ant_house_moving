@@ -711,12 +711,12 @@ class DistPID(ControlPID):
         self.flash_sys = flash_sys
         self.dist_kp = self.flash_sys.find_value("dist_kp")        # type: float
         self.dist_kd = self.flash_sys.find_value("dist_kd")        # type: float
+        self.target_T = self.flash_sys.find_value("target_T")
+        self.target_S = self.flash_sys.find_value("target_S")
+        self.target_B = self.flash_sys.find_value("target_B")
         self.L_or_R = L_or_R
         self.my_filter = filter
-        if L_or_R == "L":
-            self.target = self.flash_sys.find_value("target_L")     # type: float
-        elif L_or_R == "R":
-            self.target =  self.flash_sys.find_value("target_R")     # type: float
+        self.target =  0.0     # type: float
         self.actual = 0.0
         self.deadzone = self.flash_sys.find_value("dist_deadzone")     # type: float
         self.nowError = 0   # type: float
@@ -759,6 +759,16 @@ class DistPID(ControlPID):
     # 初始化滤波器
     def init_filter(self, data):
         self.my_filter.buffer_init(data)
+
+    # 根据物体种类选择小车间距
+    def choose_dist(self, obj):
+        if obj == 'T':
+            self.target = self.target_T
+        elif obj in ['S', 'E']:
+            self.target = self.target_S
+        elif obj in ['B', 'W']:
+            self.target = self.target_B
+
 
 # 小车姿态控制
 class CarPose:
