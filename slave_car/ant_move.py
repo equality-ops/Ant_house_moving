@@ -66,7 +66,6 @@ class MoveControl:
                         'SLA_P':[],
                         'ANGLE':[0,0],
         }
-        self.navigate_distance=20
         self.__angle=30
         self.surrounding_points = {
             'LD': [],
