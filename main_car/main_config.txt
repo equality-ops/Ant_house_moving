@@ -180,7 +180,11 @@ if_model_detect = 1
 scan_num = 6
 # 开始扫描的距离阈值
 start_scan_range = 5.0
-
+max_num_T
+max_num_S
+max_num_E
+max_num_B
+max_num_W
 #--------------场地相关---------------------
 # CENTER_X = 147.6
 # CENTER_Y = 114.0

@@ -71,20 +71,18 @@ class TaskController:
         self.SUDOKU_length_x = self.my_flash_system.find_value("SUDOKU_length_x")
         self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
         self.use_scan_point = self.my_flash_system.find_value("USE_SCAN_POINT")
-        #self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
-        T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
-        S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
-        B_dis = self.my_flash_system.find_value("BEAR_cla_dis")
         self.if_back = self.my_flash_system.find_value("IF_BACK")
         self.scan_num = self.my_flash_system.find_value("scan_num")
-        self.clamp_distance = {'T':T_dis,'S':S_dis,'E':S_dis,'W':B_dis,'B':B_dis}
-
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
-        self.ap_slave_buffer = []
-        #self.april_tag_list = ['L','U']
         self.planned_scan_path = []
         self.dangerous_object_kinds = set()
+        self.max_num_T = self.my_flash_system.find_value("max_num_T")
+        self.max_num_S = self.my_flash_system.find_value("max_num_S")
+        self.max_num_E = self.my_flash_system.find_value("max_num_E")
+        self.max_num_B = self.my_flash_system.find_value("max_num_B")
+        self.max_num_W = self.my_flash_system.find_value("max_num_W")
+        self.obj_num_ = {'T':0,'S':0,'B':0,'W':0,'E':0}
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
@@ -112,7 +110,13 @@ class TaskController:
             elif self.scan_side == 'U':
                 self.fixed_scan_point = [[[self.data.center_x - self.data.lenth, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[2][1]], 180]] # type: ignore
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
-        
+    def if_danger(self,sp,num):
+        if sp == 'T':return num>self.max_num_T
+        elif sp == 'S':return num>self.max_num_S
+        elif sp == 'E':return num>self.max_num_E
+        elif sp == 'W':return num>self.max_num_W
+        elif sp == 'B':return num>self.max_num_B
+        return True
     # 不同模式下的执行函数
     def run(self):
         # 开始任务标志
@@ -358,124 +362,109 @@ class TaskController:
     
     def snap_objects_to_nine_grid(self, objects, cell_x, cell_y, maxNum,
                                   grid_center_x=160.0, grid_center_y=120.0):
-        """Snap objects to unique grid centers while removing unsafe conflicts."""
+        """Snap detections into the fixed 3x3 grid with bounded allocations."""
         if not objects:
-            self.object_kind_counts = {}
-            self.dangerous_object_kinds = set()
             return []
-        if cell_x <= 0 or cell_y <= 0:
-            raise ValueError("cell_x and cell_y must be greater than zero")
-        if maxNum < 0:
-            raise ValueError("maxNum must not be negative")
+        # Reuse the planner's 3x3 kind grid.  slots retains only indices;
+        # object fields are read from objects only when a conflict needs them.
+        kind_grid = self.object_plan.nine_grid
+        slots = [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]]
+        for i in range(3):
+            kind_grid[i][0] = ''
+            kind_grid[i][1] = ''
+            kind_grid[i][2] = ''
+        half_x = cell_x * 0.5
+        half_y = cell_y * 0.5
 
-        grid_centers = []
-        for row in (-1, 0, 1):
-            for col in (-1, 0, 1):
-                grid_centers.append((grid_center_x + col * cell_x,
-                                     grid_center_y + row * cell_y))
-
-        # Keep the original index so results remain in detection order.
-        valid_objects = []
-        for original_idx, obj in enumerate(objects):
+        for obj_idx in range(len(objects)):
             try:
-                kind, obj_x, obj_y = obj
-                obj_x = float(obj_x)
-                obj_y = float(obj_y)
+                kind, x, y = objects[obj_idx]
+                if kind not in self.obj_num_:
+                    continue
+                x = float(x)
+                y = float(y)
             except:
                 continue
 
-            nearest_center_idx = 0
-            nearest_dist2 = float('inf')
-            for center_idx, (center_x, center_y) in enumerate(grid_centers):
-                dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
-                if dist2 < nearest_dist2:
-                    nearest_dist2 = dist2
-                    nearest_center_idx = center_idx
-            valid_objects.append((original_idx, kind, obj_x, obj_y,
-                                  nearest_center_idx, nearest_dist2))
+            if x < grid_center_x - half_x: j = 0
+            elif x > grid_center_x + half_x: j = 2
+            else: j = 1
+            if y < grid_center_y - half_y: i = 0
+            elif y > grid_center_y + half_y: i = 2
+            else: i = 1
 
-        kind_counts = {}
-        for _, kind, _, _, _, _ in valid_objects:
-            kind_counts[kind] = kind_counts.get(kind, 0) + 1
-        dangerous_kinds = set()
-        for kind, count in kind_counts.items():
-            if count > maxNum:
-                dangerous_kinds.add(kind)
-        self.object_kind_counts = kind_counts
-        self.dangerous_object_kinds = dangerous_kinds
-
-        # First group detections by their natural nearest cell.  A dangerous
-        # kind is removed only when it conflicts with another detection in the
-        # same cell; a lone detection remains usable.
-        grouped = [[] for _ in grid_centers]
-        for valid_idx, obj in enumerate(valid_objects):
-            grouped[obj[4]].append(valid_idx)
-
-        kept = []
-        for group in grouped:
-            if len(group) > 1:
-                group = [valid_idx for valid_idx in group
-                         if valid_objects[valid_idx][1] not in dangerous_kinds]
-            kept.extend(group)
-
-        # Stable nearest-first assignment: objects that are closest to their
-        # intended cell get first choice; unresolved conflicts move to the
-        # nearest still-free cell.
-        candidates = [(valid_objects[valid_idx][5], valid_idx)
-                      for valid_idx in kept]
-        candidates.sort(key=lambda item: item[0])
-        occupied = [False] * len(grid_centers)
-        assignments = {}
-        for _, valid_idx in candidates:
-            _, _, obj_x, obj_y, _, _ = valid_objects[valid_idx]
-            best_center_idx = -1
-            best_dist2 = float('inf')
-            for center_idx, (center_x, center_y) in enumerate(grid_centers):
-                if occupied[center_idx]:
-                    continue
-                dist2 = (obj_x - center_x) ** 2 + (obj_y - center_y) ** 2
-                if dist2 < best_dist2:
-                    best_dist2 = dist2
-                    best_center_idx = center_idx
-
-            # There are only nine legal cells.  Extra detections cannot be
-            # represented without creating a duplicate grid position, so drop
-            # them instead of silently reusing an occupied cell.
-            if best_center_idx < 0:
+            old = slots[i][j]
+            if old < 0:
+                slots[i][j] = obj_idx
+                kind_grid[i][j] = kind
                 continue
-            occupied[best_center_idx] = True
-            assignments[valid_idx] = best_center_idx
+            if self.if_danger(kind, self.obj_num_[kind]):
+                continue
+            old_kind = objects[old][0]
+            if self.if_danger(old_kind, self.obj_num_[old_kind]):
+                slots[i][j] = obj_idx
+                kind_grid[i][j] = kind
+                continue
+
+            center_x = grid_center_x + (j - 1) * cell_x
+            center_y = grid_center_y + (i - 1) * cell_y
+            old_x = float(objects[old][1])
+            old_y = float(objects[old][2])
+            old_dx, old_dy = old_x - center_x, old_y - center_y
+            new_dx, new_dy = x - center_x, y - center_y
+            if new_dx * new_dx + new_dy * new_dy < old_dx * old_dx + old_dy * old_dy:
+                displaced = old
+                slots[i][j] = obj_idx
+                kind_grid[i][j] = kind
+            else:
+                displaced = obj_idx
+
+            best_i = -1
+            best_j = -1
+            best_dist2 = None
+            for free_i in range(3):
+                for free_j in range(3):
+                    if slots[free_i][free_j] >= 0:
+                        continue
+                    dx = float(objects[displaced][1]) - (grid_center_x + (free_j - 1) * cell_x)
+                    dy = float(objects[displaced][2]) - (grid_center_y + (free_i - 1) * cell_y)
+                    dist2 = dx * dx + dy * dy
+                    if best_dist2 is None or dist2 < best_dist2:
+                        best_dist2 = dist2
+                        best_i, best_j = free_i, free_j
+            if best_i >= 0:
+                slots[best_i][best_j] = displaced
+                kind_grid[best_i][best_j] = objects[displaced][0]
 
         snapped = []
-        for valid_idx, (original_idx, kind, _, _, _, _) in enumerate(valid_objects):
-            if valid_idx not in assignments:
-                continue
-            center_x, center_y = grid_centers[assignments[valid_idx]]
-            snapped.append((original_idx, kind, center_x, center_y))
-        snapped.sort(key=lambda item: item[0])
-        return [(kind, center_x, center_y)
-                for _, kind, center_x, center_y in snapped]
-
+        for i in range(3):
+            for j in range(3):
+                obj_idx = slots[i][j]
+                if obj_idx >= 0:
+                    snapped.append((objects[obj_idx][0], grid_center_x + (j - 1) * cell_x,
+                                    grid_center_y + (i - 1) * cell_y))
+        return snapped
     def merge_nearby_same_kind(self,objects, threshold_near=10.0):
         merged = []
         threshold_far = threshold_near+10
         for kind, x, y in objects:
             match_idx = -1
-            for idx, (old_kind, old_x, old_y) in enumerate(merged):
-                if old_kind != kind:
-                    continue
-                object_dist = max(abs(y - self.my_car.y_current),abs(old_y - self.my_car.y_current))
-                if object_dist <= 30.0 or self.use_scan_point > 2:
-                    threshold = threshold_near
-                elif object_dist >= 110.0:
-                    threshold = threshold_far
-                else:
-                    ratio = (object_dist - 30.0) / 80.0
-                    threshold = threshold_near + (threshold_far - threshold_near) * ratio
-                dist2 = (x - old_x) ** 2 + (y - old_y) ** 2
-                if dist2 <= threshold ** 2:
-                    match_idx = idx
-                    break
+            if self.obj_num_[kind]>1:
+                for idx, (old_kind, old_x, old_y) in enumerate(merged):
+                    if old_kind != kind:
+                        continue
+                    if self.last_side in ['U','D']:
+                        object_dist = max(abs(y - self.my_car.y_current),abs(old_y - self.my_car.y_current))
+                    else:object_dist = max(abs(x - self.my_car.x_current),abs(old_x - self.my_car.x_current))
+                    if object_dist <= 30.0 or self.use_scan_point > 2:threshold = threshold_near
+                    elif object_dist >= 110.0:threshold = threshold_far
+                    else:
+                        ratio = (object_dist - 30.0) / 80.0
+                        threshold = threshold_near + (threshold_far - threshold_near) * ratio
+                    dist2 = (x - old_x) ** 2 + (y - old_y) ** 2
+                    if dist2 <= threshold ** 2:
+                        match_idx = idx
+                        break
             if match_idx < 0:
                 merged.append((kind, x, y))
             else:
@@ -485,8 +474,8 @@ class TaskController:
                     (old_x + x) / 2.0,
                     (old_y + y) / 2.0,
                 )
+                self.obj_num_[old_kind]-=1
         return merged
-    
     # 合并物体信息（双目视觉融合）
     def integrate_object_info(self,world_1,world_2):
         # 同一物体在两个扫描中的最大世界坐标偏差（cm）
@@ -517,8 +506,8 @@ class TaskController:
             candidates = []
             for i1, x1, y1 in objs_1:
                 for i2, x2, y2 in objs_2:
-                    d = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-                    if d <= MATCH_DIST_THRESHOLD:
+                    d = (x1 - x2) ** 2 + (y1 - y2) ** 2
+                    if d <= MATCH_DIST_THRESHOLD**2:
                         candidates.append((d, i1, i2))
             candidates.sort(key=lambda t: t[0])
             for d, i1, i2 in candidates:
@@ -527,16 +516,23 @@ class TaskController:
                     used_1.add(i1)
                     used_2.add(i2)
         ob_info = []
+        self.obj_num_['T'],self.obj_num_['S'],self.obj_num_['E'] = 0,0,0
+        self.obj_num_['B'],self.obj_num_['W'] = 0,0
         for i1, i2 in matched_pairs:
             kind, x1, y1,  = world_1[i1]
             _, x2, y2 = world_2[i2]
             ob_info.append((kind,(x1 + x2) / 2.0, (y1 + y2) / 2.0))
+            self.obj_num_[kind]+=1
         for i in range(len(world_1)):
             if i not in used_1:
                 ob_info.append(world_1[i])
+                kind,_,_ = world_1[i]
+                self.obj_num_[kind]+=1
         for i in range(len(world_2)):
             if i not in used_2:
-                ob_info.append(world_2[i])  
+                ob_info.append(world_2[i])
+                kind,_,_ = world_2[i]
+                self.obj_num_[kind]+=1
         return ob_info
     
     def first_scan(self):
@@ -576,7 +572,7 @@ class TaskController:
             self.my_plan.navigate(path = self.planned_scan_path[self.detected_num][0],
                                   target_turn_angle = self.planned_scan_path[self.detected_num][1])
             if self.my_plan.if_finish_navigate:
-                if self.scan_waiting_count < 10:
+                if self.scan_waiting_count < 5:
                     if not self.if_send_detect_message:
                         self.scan_empty_counter=0
                         self.if_send_detect_message = True
@@ -615,7 +611,6 @@ class TaskController:
         if not self.if_end_first_scan:
             if not self.if_plan_scan:
                 start_point = [self.my_car.x_current, self.my_car.y_current + 40.0]
-
                 if self.use_scan_point == 1:
                     target_point = self.fixed_scan_point[0][0] # type: ignore
                     target_angle = self.fixed_scan_point[0][1] # type: ignore

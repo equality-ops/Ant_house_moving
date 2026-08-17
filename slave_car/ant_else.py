@@ -783,7 +783,6 @@ class TofControl:
             raw_valid = self.data_L != -1.0 and self.tof_valid_min <= self.data_L <= self.tof_valid_max
         elif self.which_one == 'R':
             raw_valid = self.data_R != -1.0 and self.tof_valid_min <= self.data_R <= self.tof_valid_max
-
         if raw_valid:
             return True
         else:
