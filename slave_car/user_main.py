@@ -653,21 +653,4 @@ while True:
     if not if_menu:
         my_tof.service()
 
-    # 屏幕测试程序
-    # ant_menu.lcd.str32(100,80,"<--",0xFFFF)
-    # ant_menu.lcd.line(90,40,90,280,color = 0xFFFF, thick = 5)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0xF800)
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x07E0)s
-    # time.sleep_ms(500)
-    # ant_menu.lcd.clear(0x001F)
-    
-    # 如果拨码开关打开 对应引脚拉低 就退出循环
-    # 这么做是为了防止写错代码导致异常 有一个退出的手段 
-    if switch2.value() != state2:
-        print("Test program stop.")
-        gc.collect()
-        break
-
     gc.collect()
