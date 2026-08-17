@@ -233,6 +233,9 @@ car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
 sin_servo_fil = ant_motor.SlipAveragingFilter(4)    
 cos_servo_fil = ant_motor.SlipAveragingFilter(4)
+# 创建环绕控制航向角/转角滤波对象（视觉模式下滑动平均，平滑视觉噪声）
+orbit_yaw_fil = ant_motor.SlipAveragingFilter(3)
+orbit_turn_angle_fil = ant_motor.SlipAveragingFilter(3)
 # 创建距离控制滤波对象
 dist_fil_L = ant_motor.SlipAveragingFilter(3)
 dist_fil_R = ant_motor.SlipAveragingFilter(3)
@@ -265,7 +268,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys,my_fan, plan_data, my_car, my_sta
 my_tof = ant_else.TofControl(my_flash_sys, my_beep, my_car, my_plan, dist_pid_L, dist_pid_R, tof_L, tof_R)
 
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, orbit_yaw_fil, orbit_turn_angle_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_uart2, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof, angle_pid)
@@ -486,7 +489,7 @@ def test_orbit():
         my_car.x_current = 0.0
         my_car.y_current = 0.0
         my_vision_manager.object_radius = 25.0
-        my_vision_manager.object_radius_vision = 15.0
+        my_vision_manager.object_radius_vision = 20.0
         my_vision_manager.current_servo_object = 'S'
         my_vision_manager.reset_orbit_angle()
         my_state.state = ORBIT

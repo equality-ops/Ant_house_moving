@@ -90,7 +90,7 @@ class TaskController:
 
         self.scan_side = self.my_flash_system.find_value("scan_side")  # 在哪边进行扫描
         if self.scan_side not in ['D', 'L', 'R', 'U']:
-            print("Write invalid scan_side in flash, default to 'D'")
+            # print("Write invalid scan_side in flash, default to 'D'")
             self.my_beep.beep_warn()    # 蜂鸣器进行提醒此时扫描边参数输入错误
             self.scan_side = 'D'  # 默认扫描在下边
 
@@ -108,7 +108,7 @@ class TaskController:
             elif self.scan_side == 'R':
                 self.fixed_scan_point = [[[self.data.fixed_point[2][0], self.data.center_y - self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y+self.data.lenth*0.5],- 90]] # type: ignore
             elif self.scan_side == 'U':
-                self.fixed_scan_point = [[[self.data.center_x - self.data.lenth, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[2][1]], 180]] # type: ignore
+                self.fixed_scan_point = [[[self.data.center_x - self.data.lenth*0.5, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth, self.data.fixed_point[2][1]], 180]] # type: ignore
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
     def if_danger(self,sp,num):
         if sp == 'T':return num>self.max_num_T
@@ -534,12 +534,14 @@ class TaskController:
             if object_package:
                 counter +=1
                 self.scan_empty_counter = 0
+                # print(f"{counter}detectST{time.ticks_ms()}")
                 new_world = self.handle_object_info(object_package,angle)
                 if self.my_write_system.if_write_log:
                     self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
                 self.my_vision.analysed_objects = self.now_objects
+                # print(f"{counter}detectED{time.ticks_ms()}")
             else:
                 self.scan_empty_counter += 1
                 if self.scan_empty_counter>40:
@@ -574,13 +576,16 @@ class TaskController:
                         if self.if_model_detect:
                             self.my_order_manager.trans_to_mode_detect()
                     self.scan_waiting_count +=1
-                else:analyse_package(num,self.planned_scan_path[self.detected_num][1])
+                else:
+                    analyse_package(num,self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
+            # print(f"startmerge:{time.ticks_ms()}")
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
             self.now_objects = self.snap_objects_to_nine_grid(
                 self.now_objects, self.SUDOKU_length_x, self.SUDOKU_width_y,
                 maxNum=1, grid_center_x=self.data.center_x,
                 grid_center_y=self.data.center_y)
+            # print(f"endmerge:{time.ticks_ms()}")
             if self.if_back:
                 if len(self.now_objects) != self.data.total_objects_num:
                     for i in range(len(self.now_objects)):

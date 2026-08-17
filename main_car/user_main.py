@@ -155,8 +155,11 @@ acc_z_fil.buffer_init(4096)  # 初始化z轴加速度计滤波器的初始值为
 # 创建小车自转角滤波器对象（已弃用）
 car_yaw_fil = ant_motor.SlipAveragingFilter(1)
 # 创建视觉伺服正余弦滤波对象
-sin_servo_fil = ant_motor.SlipAveragingFilter(5)    
+sin_servo_fil = ant_motor.SlipAveragingFilter(5)
 cos_servo_fil = ant_motor.SlipAveragingFilter(5)
+# 创建环绕控制航向角/转角滤波对象（视觉模式下滑动平均，平滑视觉噪声）
+orbit_yaw_fil = ant_motor.SlipAveragingFilter(5)
+orbit_turn_angle_fil = ant_motor.SlipAveragingFilter(3)
 
 # 创建姿态数据对象
 pose_data = ant_motor.PoseData(my_flash_sys, my_uart2, imu, encoder_ul, encoder_ur, encoder_md, diff_filter_gyroz, acc_x_fil, acc_y_fil, acc_z_fil)
@@ -185,7 +188,7 @@ my_plan = ant_plan.NavigationPlan(my_flash_sys, plan_data, my_fan, my_car, my_st
 move_plan = ant_boundary_plan.BoundaryPathPlanner(plan_data, my_car, my_path,my_flash_sys)
 gc.collect()
 # 创建视觉伺服管理对象2
-my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
+my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data,  angle_pid, servo_pid, sin_servo_fil, cos_servo_fil, orbit_yaw_fil, orbit_turn_angle_fil, my_uart3, my_car, my_art_protocol, my_order_manager, my_plan, my_state)
 
 my_obj_plan = ant_boundary_plan.objects_planner(my_flash_sys,my_write_system,plan_data,my_car,my_plan,move_plan)
 
@@ -431,9 +434,9 @@ def test_orbit():
     if my_state.state == READY_NAVIGATE:
         my_car.x_current = 0.0
         my_car.y_current = 0.0
-        my_vision_manager.object_radius = 25.0
-        my_vision_manager.object_radius_vision = 15.0
-        my_vision_manager.current_servo_object = 'S'
+        my_vision_manager.object_radius = 15.0
+        my_vision_manager.object_radius_vision = 20.0
+        my_vision_manager.current_servo_object = 'B'
         my_vision_manager.reset_orbit_angle()
         my_state.state = ORBIT
     elif my_state.state == ORBIT:
@@ -581,6 +584,7 @@ def time_pit2_handler(time):
     """
 
     # my_uart2.write(f"{my_state.state}\r\n")
+    # my_uart3.write(f"{my_vision_manager.orbit_yaw},{my_vision_manager.orbit_turn_angle}\r\n")
     # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
     # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
