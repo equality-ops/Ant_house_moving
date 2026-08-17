@@ -56,6 +56,7 @@ class MoveControl:
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.start_scan_range = self.flash_sys.find_value("start_scan_range")
+        self.delay_more = False
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
         self.if_send_to_main = False  # 是否向art发送完成信号
         self.if_finish_move = False  # 是否完成搬运
@@ -112,6 +113,7 @@ class MoveControl:
         elif angle > 180:angle -= 360
         return angle
     def ready_move(self, target_ref_yaw_deg, point, sp,now_side = 'D'):
+        self.delay_more = False
         self.send_navigate_feed_back = False
         self.record_angle = self.my_car.now_yaw  # 保持弧度制供 judge_next_turn 默认使用
         RECT = []
@@ -236,6 +238,7 @@ class MoveControl:
             if self.special_push:
                 self.plan_data.rectangles.pop(-2)
         else:
+            self.delay_more = True
             dicc = {'D':0,'L':1,'U':2,'R':3,}
             if self.if_first_navigate:
                 if (dicc[target_side] - dicc[now_side]) % 4 == 1:#要到左侧
@@ -490,7 +493,10 @@ class MoveControl:
             else:
                 if self.if_first_navigate:self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=False,if_first_turn=False)
                 else:self.my_plan.navigate(NAV_T['SLA_P'], NAV_T['ANGLE'][0],if_high_angle=True,if_first_turn=False)
-            if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= 15:
+            if self.delay_more and len(self.my_plan.path) >=4:
+                _delay = 15 + (len(self.my_plan.path)-3)*15
+            else:_delay = 15
+            if self.send_navigate_feed_back == False and self.my_plan.finished_dist >= _delay:
                 self.send_navigate_feed_back = True
                 self.my_slave_protocol.send_slave_state("ready")
             if (self.my_plan.aimed_point_index == len(self.my_plan.path) - 2) and self.my_plan.rest_dist <= self.start_scan_range:
