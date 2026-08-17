@@ -327,15 +327,7 @@ class TaskController:
         pass
 
     def handle_navigate(self):
-        # if state == NAVIGATE
-        self.my_plan.navigate(path = self.navigate_message[0], target_turn_angle = self.navigate_message[1])
-        # 主车行驶多远后给从车发送路径信�?
-        dist_threshold = 20.0
-        if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path:
-            self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0])  # 发送路径信息给从车
-            self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
-        if self.my_plan.if_finish_navigate:
-            self.exit()  # 退出当前状态，进入扫描状�?
+        pass
             
     # 处理物体信息（将像素坐标转换为世界坐标）
     def handle_object_info(self, ob_info,angle):
@@ -665,7 +657,7 @@ class TaskController:
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
         # 主车行驶多远后给从车发送路径信�?
-        dist_threshold = 30.0
+        dist_threshold = 15.0
         if self.my_plan.finished_dist >= dist_threshold and not self.if_send_path and not self.if_send_return_message:
             self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4])  # 发送路径信息给从车
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
