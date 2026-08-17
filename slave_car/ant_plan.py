@@ -693,6 +693,9 @@ class NavigationPlan:
             self.plan_acc_dec() 
             # pid积分清零
             self.my_car.reset_pid_integral()
+            if self.move_state != _MOVE:
+                target_pt = self.path[self.aimed_point_index + 1]
+                self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
         elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()

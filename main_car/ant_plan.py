@@ -708,11 +708,15 @@ class NavigationPlan:
         if not is_last_segment and rest_dist <= self.branch_threshold:
             self.aimed_point_index += 1
             # 计算当前路径的加减速参数
-            self.plan_acc_dec() 
             # pid积分清零
             self.my_car.reset_pid_integral()
+            self.plan_acc_dec() 
+            if not self.move_state != _MOVE:
+                target_pt = self.path[self.aimed_point_index + 1]
+                self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
         elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:
             self.aimed_point_index += 1
+
             # 清空上一次小车速度
             self.my_car.clear_last_car_speed()
             self.angle_pid.choose_high_angle_mode(False)

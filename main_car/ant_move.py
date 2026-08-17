@@ -398,11 +398,7 @@ class MoveControl:
             self.plan_path = plan_path[1:]
         elif len(plan_path) == 3:
             self.send_point=[plan_path[1][0]-self.my_car.x_current,plan_path[1][1]-self.my_car.y_current]
-            dx1,dy1=abs(plan_path[1][0]-self.my_car.x_current),abs(plan_path[1][1]-self.my_car.y_current)
-            dx2,dy2=abs(plan_path[1][0]-plan_path[2][0]),abs(plan_path[1][1]-plan_path[2][1])
-            #self.my_plan.fitting_path_ = [plan_path[0],p1,p2]
             self.plan_path = plan_path[1:]
-
         if self.my_write_system.if_write_log:
             self.my_write_system.write_str(f"used path:{used_path},dx:{self.send_point[0]},dy:{self.send_point[1]},car_x:{self.my_car.x_current},car_y:{self.my_car.y_current},push_pos:{self.push_postion}\n")
 

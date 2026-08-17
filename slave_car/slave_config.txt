@@ -150,7 +150,7 @@ if_calibrate = 0
 # 环绕是否进行视觉闭环
 if_use_vision = 1
 # 开始扫描的距离阈值
-start_scan_range = 10.0
+start_scan_range = 7.0
 #--------------障碍相关---------------------
 #障碍物位置
 cube_obstacles = "(200, 48.5, 25, 15), (200, 198, 25, 15)"
