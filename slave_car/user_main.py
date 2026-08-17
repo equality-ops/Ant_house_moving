@@ -466,7 +466,7 @@ def test_tof_distance_control():
         my_moving.current_state = MOVE
         my_plan.move_state = MOVE
         my_plan.keep_x_or_y_v = False
-        my_tof.ready_tof('left',0)
+        my_tof.ready_tof('left', 0, 'S')
         my_car.x_current = 0.0
         my_car.y_current = 0.0
     elif my_state.state == MOVE:
