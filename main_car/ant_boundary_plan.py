@@ -651,13 +651,12 @@ class objects_planner:
                 #旋转加分
                 if (i[1] == 'S' or i[1] == 'E'):
                     if i[4] !='R':score+=1000
-                    if self.last_sandbag_idx == 0:score+=3000
+                    if self.last_sandbag_idx == 0:score+=5000
                 elif (i[1] == 'T') and i[4] !='D':score+=1000
                 elif (i[1] == 'W' or i[1] == 'B') and i[4] !='L':score+=1000
                 # 大角度搬运路径加分
                 if abs(push_angle) > 55: 
-                    if i[1] == 'T': score+=10000
-                    else:score+=5000
+                    score+=3000
                 if car_side == i[4]:
                     dx_car = i[2] - self.my_car.x_current
                     dy_car = i[3] - self.my_car.y_current

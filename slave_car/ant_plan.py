@@ -682,6 +682,10 @@ class NavigationPlan:
             if diff > 180.0:
                 diff = 360.0 - diff
 
+        # 此时转角已完成转换成小角度模式
+        if diff <= 1.5:
+            self.angle_pid.choose_high_angle_mode(False)
+
         if_finish_turn = (diff <= 1.5) or (self.if_first_turn)
 
         if self.move_state == _MOVE: 

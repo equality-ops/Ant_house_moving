@@ -99,7 +99,7 @@ class TaskController:
         else:self.my_moving.next_postion = 'l'
 
         if self.use_scan_point == 1:
-            self.fixed_scan_point = [[[self.data.center_x, self.data.center_y], 45]] # type: ignore # type: list
+            self.fixed_scan_point = [[self.data.center_rect[0], 45]] # type: ignore # type: list
         else:
             if self.scan_side == 'D':
                 self.fixed_scan_point = [[[self.data.center_x - self.data.lenth, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[1][1]], 0]] # type: ignore

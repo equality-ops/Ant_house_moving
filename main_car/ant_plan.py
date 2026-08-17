@@ -701,6 +701,10 @@ class NavigationPlan:
             if diff > 180.0:
                 diff = 360.0 - diff
 
+        # 此时转角已完成转换成小角度模式
+        if diff <= 1.5:
+            self.angle_pid.choose_high_angle_mode(False)
+
         if_finish_turn = (diff <= 1.5) or (self.if_first_turn)
 
         if self.move_state == _MOVE: 
@@ -711,7 +715,7 @@ class NavigationPlan:
             # pid积分清零
             self.my_car.reset_pid_integral()
             self.plan_acc_dec() 
-            if not self.move_state != _MOVE:
+            if self.move_state != _MOVE:
                 target_pt = self.path[self.aimed_point_index + 1]
                 self.rest_dist = math.sqrt((target_pt[0] - car_x)**2 + (target_pt[1] - car_y)**2)
         elif is_last_segment and rest_dist <= self.final_threshold and if_finish_turn:

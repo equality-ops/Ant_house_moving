@@ -408,12 +408,8 @@ class VisionManager:
         finish_threshold_y = self.finish_threshold_y
         # 熊的阈值调大一些
         if self.current_servo_object in ['B', 'W']:
-            finish_threshold_x += 0.5
-            finish_threshold_y += 0.5
-        else:
-            # 若下次需要环绕则加大伺服成功的阈值
-            if self.if_next_orbit :
-                finish_threshold_y += 0.5
+            finish_threshold_x += 0.3
+            finish_threshold_y += 0.3
 
         if abs(self.absolute_actual_x) <= finish_threshold_x and abs(self.absolute_actual_y) <= finish_threshold_y:
             self.target_rel_speed = 0.0
@@ -547,7 +543,7 @@ class VisionManager:
             err_r = self.orbit_radius - actual_r
 
             # 向心/离心纠正比例 (将厘米级的偏离对应成航向角偏置)
-            kr = 7.5
+            kr = 2.0
 
             if self.direct == 'CW':
                 # 顺时针切线为 theta - 90。若太近(err_r>0)，需向外偏，减小转角
