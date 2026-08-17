@@ -86,9 +86,9 @@ orbit_v_min = 30
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_kp_normal_x = 8.0
+servo_kp_normal_x = 9.0
 servo_kd_normal_x = 5.0
-servo_kp_normal_y = 8.0
+servo_kp_normal_y = 9.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.0
@@ -106,13 +106,13 @@ radius_T_U = 17.0
 radius_T_R = 15.0
 radius_T_L = 15.0
 radius_T_D = 16.0
-radius_T_vision = 14.0
+radius_T_vision = 20.0
 
 radius_S_U = 14.0
 radius_S_R = 16.0
 radius_S_L = 16.0
 radius_S_D = 14.0
-radius_S_vision = 15.0
+radius_S_vision = 20.0
 
 radius_B_U = 16.0
 radius_B_R = 18.0
@@ -171,7 +171,7 @@ AVOID_WIDTH = 20
 #使用扫描点
 USE_SCAN_POINT = 2
 # 选择哪条边进行扫描
-scan_side = 'D'
+scan_side = 'U'
 #是否使用模型servo
 if_model = 1
 #是否使用模型scan
@@ -180,11 +180,13 @@ if_model_detect = 1
 scan_num = 6
 # 开始扫描的距离阈值
 start_scan_range = 5.0
-max_num_T
-max_num_S
-max_num_E
-max_num_B
-max_num_W
+# 每个种类物体的最大数量
+max_num_T = 1
+max_num_S = 1
+max_num_E = 1
+max_num_B = 1
+max_num_W = 1
+
 #--------------场地相关---------------------
 # CENTER_X = 147.6
 # CENTER_Y = 114.0
