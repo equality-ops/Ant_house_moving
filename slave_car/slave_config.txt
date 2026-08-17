@@ -74,7 +74,7 @@ fixed_high_level_us = 1300
 
 ###################【速度规划】####################
 min_start_v = 40
-long_v_max = 180
+long_v_max = 200
 find_line_v_max = 80
 acc_normal_coef = 0.03
 dec_coef = 0.08
@@ -84,9 +84,9 @@ orbit_v_min = 30
 
 ###################【视觉伺服】####################
 # 普通的视觉伺服pid参数
-servo_kp_normal_x = 7.0
+servo_kp_normal_x = 9.0
 servo_kd_normal_x = 5.0
-servo_kp_normal_y = 7.0
+servo_kp_normal_y = 9.0
 servo_kd_normal_y = 5.0
 
 servo_target_y_T = 2.0
@@ -103,8 +103,9 @@ servo_pwmout_limitmax = 130
 ###################【tof距离控制】####################
 dist_kp = 16.0
 dist_kd = 5.0
-target_L = 15.0
-target_R = 15.0
+target_T = 16.0
+target_S = 15.0
+target_B = 19.5
 dist_deadzone = 0.5
 tof_valid_min = 5.0
 tof_valid_max = 45.0
@@ -114,17 +115,17 @@ radius_T_U = 17.0
 radius_T_R = 14.0
 radius_T_L = 14.0
 radius_T_D = 16.0
-radius_T_vision = 10.0
+radius_T_vision = 20.0
 
 radius_S_U = 14.0
 radius_S_R = 16.0
 radius_S_L = 16.0
 radius_S_D = 14.5
-radius_S_vision = 15.0
+radius_S_vision = 17.0
 
 radius_B_U = 16.0
-radius_B_R = 18.0
-radius_B_L = 18.0
+radius_B_R = 19.0
+radius_B_L = 19.0
 radius_B_D = 16.0
 radius_B_vision = 20.0
 
@@ -144,17 +145,15 @@ BEAR_cla_dis = 2.4
 #是否使用模型servo
 if_model = 1
 # 是否需要障碍物
-if_obstacles = 1
-# 是否矫正从车坐标
-if_calibrate = 0
+if_obstacles = 0
 # 环绕是否进行视觉闭环
-if_use_vision = 1
+if_use_vision = 0
 # 开始扫描的距离阈值
 start_scan_range = 7.0
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(200, 48.5, 25, 15), (200, 198, 25, 15)"
-circle = "(55, 100)"
+cube_obstacles = "(43, 124, 15, 25), (180, 195.5, 25, 15)"
+circle = "(235, 115)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 20.0
 # 根据主车位置矫正从车位置的距离 
@@ -182,7 +181,7 @@ FIELD_W = 320.0
 FIELD_H = 240.0
 
 # 不同物体的搬运速度
-move_v_max_T = 160
-move_v_max_S = 140
-move_v_max_B = 160
+move_v_max_T = 200
+move_v_max_S = 200
+move_v_max_B = 200
 move_S_increment = 3
