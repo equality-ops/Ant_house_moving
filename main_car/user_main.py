@@ -681,26 +681,27 @@ while True:
             slave_stop_threshold = 25.0
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
+            nowx,nowy= my_car.x_current,my_car.y_current
+            max_x,max_y = plan_data.FIELD_W - 15,plan_data.FIELD_H - 15
+            min_x,min_y = 15,15
+            if nowx > max_x or nowx < min_x or nowy > max_y or nowy < min_y:
+                insert_point = [max(min_x,min(max_x,nowx)),max(min_y,min(max_y,nowy))]
             if my_task.last_side == "L":
                 target_angle = 90.0
                 my_task.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
-                else:insert_point = [my_task.my_car.x_current+15,my_task.my_car.y_current]
             elif my_task.last_side == "R":
                 target_angle = -90.0
                 my_task.slave_navigate_message = [[planned_path[-2][0] + slave_stop_threshold,planned_path[-2][1]], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
-                else:insert_point = [my_task.my_car.x_current-15,my_task.my_car.y_current]
             elif my_task.last_side == "U":
                 target_angle = 180.0
                 my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] + slave_stop_threshold], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
-                else:insert_point = [my_task.my_car.x_current,my_task.my_car.y_current-15]
             else:
                 target_angle = 0.0
                 my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] - slave_stop_threshold], target_angle]
                 if my_task.if_first_round:my_task.if_first_round = False
-                else:insert_point = [my_task.my_car.x_current,my_task.my_car.y_current+15]
             # 进行路径规划
             my_task.my_moving.slave_massage['path'] = my_task.slave_navigate_message [0]
             my_task.my_moving.slave_massage['angle'] = my_task.slave_navigate_message [1]

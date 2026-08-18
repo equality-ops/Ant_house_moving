@@ -319,6 +319,11 @@ class MoveControl:
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
+        nowx,nowy= self.my_car.x_current,self.my_car.y_current
+        max_x,max_y = self.plan_data.FIELD_W - 15,self.plan_data.FIELD_H - 15
+        min_x,min_y = 15,15
+        if nowx > max_x or nowx < min_x or nowy > max_y or nowy < min_y:
+            self.plan_path.insert(0,[max(min_x,min(max_x,nowx)),max(min_y,min(max_y,nowy))])
         self.navigate_buffer={
                     'SLA_P':self.my_path.ready_path,
                     'ANGLE':[angle0,angle],
