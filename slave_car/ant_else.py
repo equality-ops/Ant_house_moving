@@ -627,6 +627,7 @@ class TofControl:
         self.status_R = RANGE_VALID 
         self.bias_L = 0.0  # 左传感器偏置值
         self.bias_R = 0.0  # 右传感器偏置值
+        self.car_dist_increment = self.flash_sys.find_value("car_dist_increment")
         # 传感器读数合理的最小值和最大值
         self.tof_valid_min = self.flash_sys.find_value("tof_valid_min")  # type: float
         self.tof_valid_max = self.flash_sys.find_value("tof_valid_max")  # type: float
@@ -831,6 +832,20 @@ class TofControl:
             return
         if self.tof_R is None and self.which_one == 'R':
             return
+
+        # 搬运小熊的时候第一阶段距离更大一些
+        if self.which_one == 'L':
+            if self.dist_pid_L.current_obj in ['B', 'W'] and len(self.my_plan.path) > 2:
+                if self.my_plan.aimed_point_index == 0:
+                    self.dist_pid_L.target = self.dist_pid_L.target_B + self.car_dist_increment
+                else:
+                    self.dist_pid_L.target = self.dist_pid_L.target_B
+        elif self.which_one == 'R':
+            if self.dist_pid_R.current_obj in ['B', 'W'] and len(self.my_plan.path) > 2:
+                if self.my_plan.aimed_point_index == 0:
+                    self.dist_pid_R.target = self.dist_pid_R.target_B + self.car_dist_increment
+                else:
+                    self.dist_pid_R.target = self.dist_pid_R.target_B
         
         # TOF数据由主循环service()更新；定时器中仅使用最近一次缓存。
         if self.is_data_valid():

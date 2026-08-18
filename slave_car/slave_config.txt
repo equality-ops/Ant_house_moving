@@ -74,7 +74,7 @@ fixed_high_level_us = 1300
 
 ###################【速度规划】####################
 min_start_v = 40
-long_v_max = 200
+long_v_max = 180
 find_line_v_max = 80
 acc_normal_coef = 0.03
 dec_coef = 0.08
@@ -103,9 +103,10 @@ servo_pwmout_limitmax = 130
 ###################【tof距离控制】####################
 dist_kp = 16.0
 dist_kd = 5.0
-target_T = 16.0
-target_S = 15.0
-target_B = 19.5
+target_T = 14.0
+target_S = 13.0
+target_B = 15.0
+car_dist_increment = 2.0
 dist_deadzone = 0.5
 tof_valid_min = 5.0
 tof_valid_max = 45.0
@@ -145,17 +146,17 @@ BEAR_cla_dis = 2.4
 #是否使用模型servo
 if_model = 1
 # 是否需要障碍物
-if_obstacles = 0
+if_obstacles = 1
 # 环绕是否进行视觉闭环
 if_use_vision = 0
 # 开始扫描的距离阈值
 start_scan_range = 7.0
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(43, 124, 15, 25), (180, 195.5, 25, 15)"
+cube_obstacles = "(43, 124, 15, 35), (180, 195.5, 20, 25)"
 circle = "(235, 115)"
 #惯导避障膨胀半径
-SAFE_MARGIN = 20.0
+SAFE_MARGIN = 15.0
 # 根据主车位置矫正从车位置的距离 
 calibrate_dist = 23.0
 
@@ -181,7 +182,7 @@ FIELD_W = 320.0
 FIELD_H = 240.0
 
 # 不同物体的搬运速度
-move_v_max_T = 200
-move_v_max_S = 200
-move_v_max_B = 200
+move_v_max_T = 160
+move_v_max_S = 140
+move_v_max_B = 160
 move_S_increment = 3

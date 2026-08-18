@@ -672,7 +672,7 @@ class ServoPID(ControlPID):
         self.target_y_T = self.flash_sys.find_value("servo_target_y_T")     # type: float
         self.target_y_S = self.flash_sys.find_value("servo_target_y_S")     # type: float
         self.target_y_B = self.flash_sys.find_value("servo_target_y_B")     # type: float    # type: float
-
+        self.current_obj = '' # type: str 
         self.nowError_x = 0   # type: float
         self.preError_x = 0   # type: float
         self.nowError_y = 0   # type: float
@@ -762,6 +762,7 @@ class DistPID(ControlPID):
 
     # 根据物体种类选择小车间距
     def choose_dist(self, obj):
+        self.current_obj = obj
         if obj == 'T':
             self.target = self.target_T
         elif obj in ['S', 'E']:
