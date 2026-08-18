@@ -681,11 +681,8 @@ while True:
             slave_stop_threshold = 25.0
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
-            nowx,nowy= my_car.x_current,my_car.y_current
-            max_x,max_y = plan_data.FIELD_W - 15,plan_data.FIELD_H - 15
-            min_x,min_y = 15,15
-            if nowx > max_x or nowx < min_x or nowy > max_y or nowy < min_y:
-                insert_point = [max(min_x,min(max_x,nowx)),max(min_y,min(max_y,nowy))]
+            if my_car.x_current > plan_data.FIELD_W - 15 or my_car.x_current < 15 or my_car.y_current > plan_data.FIELD_H - 15 or my_car.y_current < 15:
+                insert_point = [max(15,min(plan_data.FIELD_W - 15,my_car.x_current)),max(15,min(plan_data.FIELD_H - 15,my_car.y_current))]
             if my_task.last_side == "L":
                 target_angle = 90.0
                 my_task.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]
