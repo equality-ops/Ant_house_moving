@@ -202,16 +202,6 @@ plan_calculate_T = my_flash_sys.find_value("plan_calculate_T")
 
 my_flash_sys.release_config()  # 释放配置文件占用的内存
 
-# 测试打印变量解析是否成功
-"""
-print("fixed+point:", plan_data.fixed_point)
-print("center_rect:", plan_data.center_rect)
-print("rectangle_obstacles:", plan_data.rectangle_obstacles)
-"""
-
-# 创建菜单对象  
-# my_menu = ant_menu.Menu(my_flash_sys, my_beep, lcd, enc_rotation, key_data, key)
-
 gc.collect()
 ###################################【函数定义】###################################
 # 电机驱动函数
@@ -271,27 +261,6 @@ def main_start():
                 my_car.y_current = plan_data.fixed_point[0][1]
                 my_car.now_yaw = 0.0
 
-
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    global counter
-    counter += 1
-    # motor_ul_pid.compute_pid(180, pose_data.encoder_data_ul)
-    # motor_ur_pid.compute_pid(120, pose_data.encoder_data_ur)
-    # motor_md_pid.compute_pid(120, pose_data.encoder_data_md)
-    
-    # 测试不同速度下的pid参数切换情况
-    if counter >= 8000:
-        counter = 0
-    elif counter >= 6000:
-        motor_ur_pid.compute_pid(50, pose_data.encoder_data_ur)
-    elif counter >= 4000:
-        motor_ur_pid.compute_pid(-100, pose_data.encoder_data_ur)
-    elif counter >= 2000:
-        motor_ur_pid.compute_pid(60, pose_data.encoder_data_ur)
-    else:
-        motor_ur_pid.compute_pid(160, pose_data.encoder_data_ur)
-
 # 小车姿态总控制函数
 def master_control():
     if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
@@ -329,7 +298,6 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
                        kp_low, ki_low, kd_low):
     """为单个电机按目标速度选择并设置PID参数"""
     target_abs = abs(motor_pid.target)
-
     # 刹车条件：目标接近0但误差很大 → 高挡参数强力纠正
     if target_abs >= _HIGH_TARGET:
         motor_pid.set_pid_params(kp_high, ki_high, kd_high)
@@ -347,8 +315,6 @@ def _select_pid_params(motor_pid, kp_high, ki_high, kd_high,
             kd_low + (kd_mid - kd_low) * ratio)
     else:
         motor_pid.set_pid_params(kp_low, ki_low, kd_low)
-
-
 def set_pid_params():
     if my_state.state == MOVE:
         motor_ul_pid.set_pid_params(pid_data.ul_high_kp, pid_data.ul_high_ki, pid_data.ul_high_kd)
@@ -367,85 +333,6 @@ def set_pid_params():
             pid_data.md_high_kp, pid_data.md_high_ki, pid_data.md_high_kd,
             pid_data.md_mid_kp, pid_data.md_mid_ki, pid_data.md_mid_kd,
             pid_data.md_low_kp, pid_data.md_low_ki, pid_data.md_low_kd)
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
-
-# 视觉测试
-def test_vision_servo():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        if my_vision_manager.if_send_order == False:
-            my_order_manager.mode_target()
-            my_vision_manager.if_send_order = True
-
-        target_point = my_art_protocol.coordinate_receive()
-        if target_point:
-            my_vision_manager.ready_servo_and_orbit(target_point, 'servo')
-            # my_vision_manager.calculate_dist(target_point[0], target_point[1], 'far')
-            my_vision_manager.if_send_order = False
-            my_state.state = SERVO
-    elif my_state.state == SERVO:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            # my_order_manager.mode_target()
-            my_plan.reset_navigate_angle()
-            counter += 1
-            if counter >= 20:
-                counter = 0
-                # 测试
-                my_beep.test()
-                my_vision_manager.if_finish_servo = False
-                my_vision_manager.reset_orbit_angle()
-                my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == ADJUST:
-        my_vision_manager.visual_servo_control()
-        if my_vision_manager.if_finish_servo == True:
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
-
-# 环绕测试函数
-def test_orbit():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_vision_manager.object_radius = 15.0
-        my_vision_manager.object_radius_vision = 20.0
-        my_vision_manager.current_servo_object = 'B'
-        my_vision_manager.reset_orbit_angle()
-        my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
-
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -493,62 +380,6 @@ def time_pit3_handler(timer) -> None:
 
     # 任务执行机
     task_machine()
-
-    """
-    # 全向定位测试程序
-    if my_state.state == READY_NAVIGATE:
-        my_path.plan_path(220.0, 230.0)
-        print(f"ready_path: {my_path.ready_path}\n")
-        my_state.state = NAVIGATE
-        time__ = time.ticks_ms()
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(path = my_path.ready_path, target_turn_angle = 0.0)
-        # my_plan.navigate(path = [[50.0, 30.0], [50.0, 100.0]], target_turn_angle = 30.0)
-        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
-        # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        # my_plan.navigate(path = [[0.0, 120.0]])
-        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
-        if my_plan.if_finish_navigate == True:
-            my_plan.reset_navigate()
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-            my_beep.test()
-            print(f"Navigation finished in {time.ticks_diff(time.ticks_ms(), time__)} ms")
-    elif my_state.state == STOP:
-        my_plan.stop()
-        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    """
-    """
-    if my_state.state == READY_NAVIGATE:
-        my_path.plan_path(220.0, 220.0)
-        my_uart3.write(f"ready_path: {my_path.ready_path}\n")
-        # my_state.state = MOVE
-        my_plan.keep_x_or_y_v = False
-        # my_moving.current_state = MOVE
-        my_plan.move_state = MOVE
-        my_plan.move_v_max = 160
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-    elif my_state.state == MOVE:
-        my_plan.navigate(path = [[50.0, 50.0], [50.0, 150.0]], target_turn_angle = 45.0)
-        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
-        # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        # my_main_protocol.send_pose(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-        # my_plan.navigate(path = [[0.0, 120.0]])
-        # my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
-        if my_plan.if_finish_navigate == True:
-            my_plan.reset_navigate()
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-            my_beep.test()
-    elif my_state.state == STOP:
-        my_uart3.write(f"main_car: {my_car.x_current},{my_car.y_current}\n")
-        my_plan.stop()
-        # my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    """
     # 视觉伺服测试程序
     #test_vision_servo()
 

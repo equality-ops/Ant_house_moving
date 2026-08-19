@@ -16,7 +16,6 @@ my_uart3 = UART(2)
 my_uart3.init(115200)
 my_uart2 = UART(7)
 my_uart2.init(115200)
-
 import ant_plan
 gc.collect()
 import ant_else
@@ -344,46 +343,6 @@ def slave_start():
                 my_car.x_current = plan_data.fixed_point[0][0]
                 my_car.y_current = plan_data.fixed_point[0][1]
 
-# 调试电机速度环pid函数
-def show_speed_PID_test():
-    global counter
-    counter += 1
-    motor_ul_pid.compute_pid(100, pose_data.encoder_data_ul)
-    motor_ur_pid.compute_pid(100, pose_data.encoder_data_ur)
-    #motor_md_pid.compute_pid(100, pose_data.encoder_data_md)
-    # 测试不同速度下的pid参数切换情况
-    if counter >= 10000:
-        counter = 0
-    elif counter >= 8000:
-        motor_md_pid.compute_pid(-160, pose_data.encoder_data_md)
-    elif counter >= 6000:
-        motor_md_pid.compute_pid(70, pose_data.encoder_data_md)
-    elif counter >= 4000:
-        motor_md_pid.compute_pid(-40, pose_data.encoder_data_md)
-    elif counter >= 2000:
-        motor_md_pid.compute_pid(-120, pose_data.encoder_data_md)
-    else:
-        motor_md_pid.compute_pid(200, pose_data.encoder_data_md)
-
-spin_angle = 90.0
-def test_spin():
-    global spin_angle, counter
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-    elif my_state.state == NAVIGATE:
-        my_plan.navigate(target_turn_angle = spin_angle)
-        if my_plan.if_finish_navigate == True:
-            counter += 1
-            if counter >= 100:
-                counter = 0
-                my_plan.reset_navigate()
-                spin_angle += 90.0
-                spin_angle = (spin_angle + 180) % 360 - 180  
-
-# 测试角度闭环函数
-def complete_angle_circle():
-    my_car.move_ctrl(0, 0, 0)
-
 # 小车姿态总控制函数
 def master_control():
     if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
@@ -481,27 +440,6 @@ def test_tof_distance_control():
     elif my_state.state == STOP:
         pass
         # my_uart3.write(f"slave_car: {my_car.x_current},{my_car.y_current}\n")
-
-# 环绕测试函数
-def test_orbit():
-    global counter
-    if my_state.state == READY_NAVIGATE:
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_vision_manager.object_radius = 25.0
-        my_vision_manager.object_radius_vision = 20.0
-        my_vision_manager.current_servo_object = 'S'
-        my_vision_manager.reset_orbit_angle()
-        my_state.state = ORBIT
-    elif my_state.state == ORBIT:
-        my_vision_manager.orbit_control(140.0)
-        if my_vision_manager.if_finish_orbit == True:
-            my_plan.reset_navigate_angle()
-            my_moving.reset_orbit()
-            my_state.state = STOP
-    elif my_state.state == STOP:
-        my_plan.stop()
-
 # 任务机执行函数
 def task_machine():
     my_task.run()
@@ -539,29 +477,6 @@ def time_pit3_handler(time) -> None:
 
     # 任务执行机
     task_machine()
-
-    """
-    # 全向定位测试程序
-    if my_state.state == READY_NAVIGATE:
-        my_state.state = NAVIGATE
-        my_car.x_current = 0.0
-        my_car.y_current = 0.0
-        my_path.plan_path(240.0, 220.0)
-        print(f"{my_path.ready_path}")
-    elif my_state.state == NAVIGATE:
-        # my_plan.navigate(path = [[0.0, 150.0]], target_turn_angle= -30.0)
-        # my_plan.navigate(path = [[160,0],[160,240],[0,240],[-160,240],[-160,0],[0,0]])
-        # my_plan.navigate(path = [[-100,20.0],[50, 100.0],[0,240],[130,70],[100,-30],[-10,60],[20,10],[0,0]])
-        my_plan.navigate(path = [[0.0, 80.0], [80.0, 80.0], [80.0, 0.0], [0.0, 0.0], [80.0, 0.0], [80.0, 80.0], [0.0, 80.0], [0.0, 0.0]])
-        if my_plan.if_finish_navigate == True:
-            my_plan.reset_navigate()
-            my_plan.reset_navigate_angle()
-            my_state.state = STOP
-            my_beep.test()
-    elif my_state.state == STOP:
-        my_plan.stop()
-        my_uart3.write(f"x: {my_car.x_current},y: {my_car.y_current}\n")
-    """
     # my_plan.navigate([plan_data.fixed_point[1], plan_data.fixed_point[3], plan_data.fixed_point[2], plan_data.fixed_point[0]])
     
     # 视觉伺服测试程序
