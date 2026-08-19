@@ -33,8 +33,6 @@ import ant_motor
 gc.collect()
 import ant_else
 gc.collect()
-#import ant_pid
-#gc.collect()
 
 ###################################【变量定义及初始化】###################################
 PI = const(3.1415926)
