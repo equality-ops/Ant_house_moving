@@ -179,6 +179,7 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
+            self.my_plan.navigate(target_turn_angle = self.my_car.now_yaw,if_high_angle = True)
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             p1 = [min(max(20,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
@@ -684,7 +685,6 @@ class TaskController:
     def handle_calibrate(self):
         pass
     def handle_adjust(self):
-        self.my_plan.navigate(target_turn_angle = self.my_car.now_yaw,if_high_angle = True)
         if self.my_plan.if_finish_navigate:
             self.exit()
     def handle_return(self):
