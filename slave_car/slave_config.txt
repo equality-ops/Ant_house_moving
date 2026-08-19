@@ -146,41 +146,40 @@ BEAR_cla_dis = 2.4
 #是否使用模型servo
 if_model = 1
 # 是否需要障碍物
-if_obstacles = 1
+if_obstacles = 0
 # 环绕是否进行视觉闭环
 if_use_vision = 0
+# 是否完成盲盒
+IF_BLIND_BOX = 1
 # 开始扫描的距离阈值
 start_scan_range = 7.0
+# 小车后退的距离
+retreat_lenth = 20.0
+
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(43, 124, 15, 35), (180, 195.5, 20, 25)"
-circle = "(235, 115)"
+cube_obstacles = "(45, 132, 15, 35), (270, 78.5, 30, 25)"
+circle = "(157, 210)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 15.0
 # 根据主车位置矫正从车位置的距离 
 calibrate_dist = 23.0
-#后退距离
-retreat_lenth = 20
+
 #--------------场地相关---------------------
-# 九宫格尺寸
+CENTER_X = 147.0
+CENTER_Y = 115.0
+
+FIELD_W = 315.0
+FIELD_H = 235.0
+
+#九宫格长宽
 SUDOKU_length_x = 30.0
+SUDOKU_width_y = 30.0
 
 # 惯导矩形缩放比例（根据九宫格长度）
 rect_zoom_rate = 1.8
 # 视觉矩形缩放比例
 vision_rect_zoom_rate = 1.7
-        
-# CENTER_X = 147.6
-# CENTER_Y = 114.0
-
-CENTER_X = 160.0
-CENTER_Y = 120.0
-
-# FIELD_W = 315.0
-# FIELD_H = 235.0
-
-FIELD_W = 320.0
-FIELD_H = 240.0
 
 # 不同物体的搬运速度
 move_v_max_T = 160

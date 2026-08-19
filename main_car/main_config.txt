@@ -124,6 +124,8 @@ angle_T = 42
 angle_S = 44
 angle_B = 47
 
+rogue_planning = "[(160.0, 120.0), 'S', 'D', []], [(160.0, 120.0), 'T', 'L', []], [(160.0, 120.0), 'B', 'R', []]"
+
 ###################【内收】####################
 #推动内收因子
 CLAMP_FACTOR = 1.08
@@ -135,22 +137,22 @@ BEAR_cla_dis = 2.4
 
 #！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
 # 总物体个数
-total_objects_num = 5
+total_objects_num = 3
 #是否返回
 IF_BACK = 0
 #是否有障碍
-if_obstacles = 1
+if_obstacles = 0
 # 是否开启日志
 if_write_log = 0
 # 环绕是否进行视觉闭环
 if_use_vision = 0
-# 是否执行盲盒任务
-IF_BLIND_BOX
+# 是否完成盲盒
+IF_BLIND_BOX = 1
 
 #--------------障碍相关---------------------
 #障碍物位置
-cube_obstacles = "(43, 124, 15, 35), (180, 195.5, 20, 25)"
-circle = "(235, 115)"
+cube_obstacles = "(45, 132, 15, 35), (264, 78.5, 30, 25)"
+circle = "(157, 210)"
 #惯导避障膨胀半径
 SAFE_MARGIN = 15.0
 #推动避障膨胀半径
@@ -167,8 +169,8 @@ FORWARD_PUSH_VALUE = 0
 NEAR_AREA = 3
 #车进入所需宽度
 AVOID_WIDTH = 20
-#后退距离
-retreat_lenth = 20
+# 小车后退的距离
+retreat_lenth = 20.0
 
 #--------------扫描相关---------------------
 #使用扫描点
@@ -191,17 +193,11 @@ max_num_B = 1
 max_num_W = 1
 
 #--------------场地相关---------------------
-# CENTER_X = 147.6
-# CENTER_Y = 114.0
+CENTER_X = 147.0
+CENTER_Y = 115.0
 
-CENTER_X = 160.0
-CENTER_Y = 120.0
-
-# FIELD_W = 315.0
-# FIELD_H = 235.0
-
-FIELD_W = 320.0
-FIELD_H = 240.0
+FIELD_W = 315.0
+FIELD_H = 235.0
 
 #九宫格长宽
 SUDOKU_length_x = 30.0
@@ -211,7 +207,7 @@ SUDOKU_width_y = 30.0
 rect_zoom_rate = 1.8
 
 # 视觉过滤矩形缩放比例（根据九宫格长度）
-vision_rect_zoom_rate = 1.7
+vision_rect_zoom_rate = 2.0
 
 # 不同物体的搬运速度
 move_v_max_T = 160

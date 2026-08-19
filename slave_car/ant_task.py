@@ -106,14 +106,17 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 10.0
+            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 15.0
             self.angle_buffer = (self.angle_buffer + 180) % 360 - 180  # 将角度归一化到[-180, 180]范围内
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
-            self.my_path.plan_path(self.pt_buffer[0][0], self.pt_buffer[0][1], ignore_center_rect=True)  # 规划回起始点的路径
-            self.my_path.ready_path[-1] = self.pt_buffer[0]
-            # 最后插入一个途径点便于计时
-            self.my_path.ready_path.insert(-1, [self.pt_buffer[0][0], 10.0])
+            if len(self.pt_buffer) > 0:
+                self.my_path.plan_path(self.pt_buffer[0][0], self.pt_buffer[0][1], ignore_center_rect=True)  # 规划回起始点的路径
+                self.my_path.ready_path[-1] = self.pt_buffer[0]
+                # 最后插入一个途径点便于计时
+                self.my_path.ready_path.insert(-1, [self.pt_buffer[0][0], 10.0])
+            else:
+                self.my_path.ready_path = [[self.data.fixed_point[3][0], 10.0], self.data.fixed_point[3]]
         elif state == STOP:
             # 进入停止状态，停止所有动作等待下一指令
             self.my_plan.reset_navigate_angle()
@@ -187,7 +190,10 @@ class TaskController:
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == MOVE:
             if self.my_moving.current_state != NAVIGATE:
-                self.my_state.state = RETURN  # 直接切换到校准状态
+                self.my_plan.reset_navigate()
+                self.my_plan.reset_navigate_angle()
+                self.pt_buffer.clear()  # 清空目标点缓冲区
+                self.my_state.state = RETURN # 直接切换到返回状态
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
             else:
                 self.retreat_message = [self.my_car.x_current, self.my_car.y_current]
