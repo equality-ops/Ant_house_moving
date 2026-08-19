@@ -239,6 +239,7 @@ class VisionManager:
     def predict_point(self, x, y, limit_y = None):
         car_radius = 9.0
         raw_x, raw_y = self.pixel_to_real_world_scan(x, y)
+        # print(f"x: {raw_x}, y: {raw_y}, limit_y: {limit_y}")
         if limit_y:
             if raw_y > limit_y: return []
         raw_y += car_radius
