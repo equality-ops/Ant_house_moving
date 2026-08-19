@@ -135,6 +135,7 @@ class TaskController:
         # 开始任务标志
         if not self.if_start_task:
             self.if_start_task = True
+            
         if self.if_transitioning:
             self.enter()  # 进入新状态执行一次性的进入函数
         # 获取当前状态对应的函数并执�?
@@ -179,7 +180,7 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 10.0
+            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 15.0
             self.angle_buffer = (self.angle_buffer + 180) % 360 - 180  # 将角度归一化到[-180, 180]范围内
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
