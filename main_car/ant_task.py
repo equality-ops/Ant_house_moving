@@ -606,43 +606,43 @@ class TaskController:
                     self.planned_scan_path[0][0].insert(0, start_point)
                     self.if_plan_scan = True
                     counter = 0
+                    # 处理给从车发的消息
+                    a = 0.0
+                    slave_x = target_point[0]
+                    slave_y = 20.0
+                    self.my_main_protocol.send_path('P', a, (slave_x, slave_y))
+                    self.if_plan_scan = True
                 else:
                     if counter >= self.use_scan_point:
                         self.planned_scan_path[0][0].insert(0, start_point)
                         self.if_plan_scan = True
                         counter = 0
 
-                        if self.use_scan_point == 1:
-                            p = self.fixed_scan_point[0][0] # type: ignore
-                            a = 0.0
-                            slave_x = p[0]
-                            slave_y = 20.0
-                        else:
-                            dist = 30.0
-                            if self.use_scan_point == 4:
-                                if self.scan_side == 'D' or self.scan_side == 'U':
-                                    slave_x = self.data.center_x
-                                    slave_y = self.max_pos + dist
-                                    a = 180
-                                else:
-                                    slave_x = self.max_pos + dist
-                                    slave_y = self.data.center_y
-                                    a = -90
+                        dist = 30.0
+                        if self.use_scan_point == 4:
+                            if self.scan_side == 'D' or self.scan_side == 'U':
+                                slave_x = self.data.center_x
+                                slave_y = self.max_pos + dist
+                                a = 180
                             else:
-                                a = self.fixed_scan_point[0][1] # type: ignore
+                                slave_x = self.max_pos + dist
+                                slave_y = self.data.center_y
+                                a = -90
+                        else:
+                            a = self.fixed_scan_point[0][1] # type: ignore
 
-                                if self.scan_side == 'D':
-                                    slave_x = self.data.center_x
-                                    slave_y = self.max_pos - dist
-                                elif self.scan_side == 'L':
-                                    slave_x = self.max_pos - dist
-                                    slave_y = self.data.center_y
-                                elif self.scan_side == 'R':
-                                    slave_x = self.max_pos + dist
-                                    slave_y = self.data.center_y
-                                elif self.scan_side == 'U':
-                                    slave_x = self.data.center_x
-                                    slave_y = self.max_pos + dist
+                            if self.scan_side == 'D':
+                                slave_x = self.data.center_x
+                                slave_y = self.max_pos - dist
+                            elif self.scan_side == 'L':
+                                slave_x = self.max_pos - dist
+                                slave_y = self.data.center_y
+                            elif self.scan_side == 'R':
+                                slave_x = self.max_pos + dist
+                                slave_y = self.data.center_y
+                            elif self.scan_side == 'U':
+                                slave_x = self.data.center_x
+                                slave_y = self.max_pos + dist
 
                         self.my_main_protocol.send_path('P', a, (slave_x, slave_y))
                         return
