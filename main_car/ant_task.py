@@ -77,6 +77,7 @@ class TaskController:
         self.max_num_B = self.my_flash_system.find_value("max_num_B")
         self.max_num_W = self.my_flash_system.find_value("max_num_W")
         self.obj_num_ = {'T':0,'S':0,'B':0,'W':0,'E':0}
+        self.max_pos = 0.0
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
@@ -206,46 +207,16 @@ class TaskController:
             self.if_send_path = False  # 重置路径发送标志位
             self.my_plan.reset_navigate()  # 重置导航标志
             if not self.if_end_first_scan:
-                if self.use_scan_point == 1:
-                    p = self.fixed_scan_point[0][0] # type: ignore
-                    a = 0.0
-                    slave_x = p[0]
-                    slave_y = 20.0
-                else:
-                    p = self.fixed_scan_point[0][0] # type: ignore
-                    a = self.fixed_scan_point[0][1] # type: ignore
-                    dist = 50.0
-
-                    if self.use_scan_point == 4:
-                        if self.scan_side == 'D' or self.scan_side == 'U':
-                            slave_x = self.data.center_x
-                            slave_y = p[1] + dist
-                        else:
-                            slave_x = p[0] + dist
-                            slave_y = self.data.center_y
-                    else:
-                        if self.scan_side == 'D':
-                            slave_x = self.data.center_x
-                            slave_y = p[1] - dist
-                        elif self.scan_side == 'L':
-                            slave_x = p[0] - dist
-                            slave_y = self.data.center_y
-                        elif self.scan_side == 'R':
-                            slave_x = p[0] + dist
-                            slave_y = self.data.center_y
-                        elif self.scan_side == 'U':
-                            slave_x = self.data.center_x
-                            slave_y = p[1] + dist
-
-                self.my_main_protocol.send_path('P',a,(slave_x, slave_y))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
+            
             if not self.if_choose_object:
                 self.my_plan.reset_navigate()
                 self.my_state.state = RETURN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
+            
             self.my_state.state = MOVE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
@@ -608,6 +579,19 @@ class TaskController:
 
     def handle_scan(self):
         global counter
+
+        def path_extreme(points, mode):
+            """从路径点列表中取指定坐标轴的最大值或最小值。
+
+            :param points: 路径点列表，如 [[150, 90], [120, 10]]
+            :param mode: 形如 'x_max' / 'x_min' / 'y_max' / 'y_min'，
+                         首字符指定坐标轴(x/y)，后缀指定极值(max/min)
+            :return: 对应坐标轴的最大值或最小值
+            """
+            idx = 0 if mode[0] == 'x' else 1
+            values = [p[idx] for p in points]
+            return max(values) if mode.endswith('max') else min(values)
+
         if not self.if_end_first_scan:
             if not self.if_plan_scan:
                 start_point = [self.my_car.x_current, self.my_car.y_current + 40.0]
@@ -625,6 +609,40 @@ class TaskController:
                         self.planned_scan_path[0][0].insert(0, start_point)
                         self.if_plan_scan = True
                         counter = 0
+
+                        if self.use_scan_point == 1:
+                            p = self.fixed_scan_point[0][0] # type: ignore
+                            a = 0.0
+                            slave_x = p[0]
+                            slave_y = 20.0
+                        else:
+                            dist = 30.0
+                            if self.use_scan_point == 4:
+                                if self.scan_side == 'D' or self.scan_side == 'U':
+                                    slave_x = self.data.center_x
+                                    slave_y = self.max_pos + dist
+                                    a = 180
+                                else:
+                                    slave_x = self.max_pos + dist
+                                    slave_y = self.data.center_y
+                                    a = -90
+                            else:
+                                a = self.fixed_scan_point[0][1] # type: ignore
+
+                                if self.scan_side == 'D':
+                                    slave_x = self.data.center_x
+                                    slave_y = self.max_pos - dist
+                                elif self.scan_side == 'L':
+                                    slave_x = self.max_pos - dist
+                                    slave_y = self.data.center_y
+                                elif self.scan_side == 'R':
+                                    slave_x = self.max_pos + dist
+                                    slave_y = self.data.center_y
+                                elif self.scan_side == 'U':
+                                    slave_x = self.data.center_x
+                                    slave_y = self.max_pos + dist
+
+                        self.my_main_protocol.send_path('P', a, (slave_x, slave_y))
                         return
                     pt = self.fixed_scan_point[counter] # type: ignore
                     if counter > 0:
@@ -632,6 +650,25 @@ class TaskController:
                     else:
                         self.my_path.plan_path(pt[0][0], pt[0][1], start_point = start_point) 
                     self.my_path.ready_path[-1] = pt[0]
+
+                    if self.use_scan_point > 1 and counter == self.use_scan_point - 1:
+                        if self.use_scan_point == 4:
+                            if self.scan_side == 'D' or self.scan_side == 'U':
+                                mode = 'y_max'
+                            else:
+                                mode = 'x_max'
+                        else:
+                            if self.scan_side == 'D':
+                                mode = 'y_min'
+                            elif self.scan_side == 'L':
+                                mode = 'x_min'
+                            elif self.scan_side == 'U':
+                                mode = 'y_max'
+                            else:
+                                mode = 'x_max'
+
+                        self.max_pos = path_extreme(self.my_path.ready_path, mode)
+                        print(f"{self.max_pos}")
                     self.planned_scan_path.append([self.my_path.ready_path, pt[1]])
                     counter += 1
             else:self.first_scan()
