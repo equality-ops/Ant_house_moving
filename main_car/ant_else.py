@@ -421,8 +421,6 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
-
-        self.object_species = [ord('T'),ord('E'),ord('S'),ord('B'),ord('W')]
         self.state_detect_all_objects = 0 # 0:等待帧头1, 1:等待物体数量, 2:等待发送物体讯�? 5:等待帧尾
         self.detect_buffer = [0,[]]
         self.object_buffer = ['',0,0]
@@ -502,7 +500,7 @@ class UARTProtocol:
                     self.object_buffer[2] = byte
                     self.state_object = 2
                 elif self.state_object == 2:
-                    if byte in self.object_species:
+                    if byte in [84,69,83,66,87]:
                         self.object_buffer[0] = byte
                         self.state_object = 0
                         self.detect_buffer[1].append(self.object_buffer[:])
@@ -584,45 +582,6 @@ class LinkProtocol:
         if isinstance(target_object, int):
             target_object = chr(target_object)
         packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
-        self.my_uart3.write(packet.encode('utf-8'))
-
-    def send_orbit_path(self, target_object, target_turn, target_point):
-        """
-        发送路径点列表 (非阻�?
-        格式: #P/S/B/T/E/W/A,0.0,120.5,80.1!
-        :param target_object: 目标物体种类
-        :param target_turn: 目标转向角度
-        :param target_point: (x, y) 目标点坐�?
-        """
-        packet = "#" + target_object + "," + str(target_turn) + "," + "{:.1f},{:.1f}".format(*target_point) + "!"
-        self.my_uart3.write(packet.encode('utf-8'))
-
-    def send_detected_object(self, object_kind, target_point):
-        if isinstance(object_kind, int):
-            object_kind = chr(object_kind)
-        packet = "#D,{},{:.1f},{:.1f}!".format(object_kind, target_point[0], target_point[1])
-        self.my_uart3.write(packet.encode('utf-8'))
-    # 用于主车向从车发送当前姿�?
-    def send_pose(self, v, yaw, turn_angle):
-        """
-        发送数据包 (非阻�?
-        格式: #Z,120.0,0.0,0.0!
-        :param v, yaw, turn_angle: 浮点数，分别表示当前速度、航向角和姿态角
-        """
-        # {:.1f} 保留1位小数足够精度且节省带宽，提高传输频�?
-        packet = "#Z,{:.1f},{:.1f},{:.1f}!".format(
-            v, yaw, turn_angle
-        )
-        self.my_uart3.write(packet.encode('utf-8'))
-        
-    # 用于主车向从车发送环绕角�?
-    def send_orbit_angle(self, angle):
-        """
-        发送环绕角�?(非阻�?
-        格式: #O,45.0!
-        :param angle: 浮点环绕角度
-        """
-        packet = "#O,{:.1f}!".format(angle)
         self.my_uart3.write(packet.encode('utf-8'))
 
     # 向从车发送开始信�?

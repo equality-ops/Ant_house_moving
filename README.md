@@ -4,7 +4,11 @@
 
 by 21st 南工绝影一队
 
+ps小精灵：codex，claude code
+
 本代码采取全局惯性导航方案，通过三轮全向小车惯性导航，tof测距模块，yolo目标识别实现双车协同推动小球，沙袋，小熊等物体
+
+主车5750lines 从车5280lines 共11030lines by 2026/8/19
 
 主要硬件：
 MCU：恩智浦rt1021（micropython）

@@ -646,14 +646,18 @@ while True:
         if not my_task.if_choose_object:
             if my_task.now_objects:
                 if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
-                    gc.collect()
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
                     if my_write_system.if_write_log:
                         my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                        my_write_system.write_str(f"target{my_task.object_plan.target_objects}\n")
-                        my_write_system.write_str(f"path{my_task.object_plan.path}\n")
-                        my_write_system.write_str(f"score{my_task.object_plan.target_score}\n")
+                        my_write_system.write_str(f"target{my_obj_plan.target_objects}\n")
+                        my_write_system.write_str(f"path{my_obj_plan.path}\n")
+                        my_write_system.write_str(f"score{my_obj_plan.target_score}\n")
+                    my_obj_plan.path = []
+                    my_obj_plan.target_score = []
+                    my_obj_plan.target_objects = []
+                    my_obj_plan.now_objects = []
+                    gc.collect()
                     if not target:
                         #self.my_uart.write("False\n")
                         my_task.exit()
@@ -678,30 +682,12 @@ while True:
                 my_task.if_transitioning = True
                 continue
             # 进入准备导航状态，做好路径规划准备和导航信息准?
-            slave_stop_threshold = 25.0
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
             if my_car.x_current > plan_data.FIELD_W - 15 or my_car.x_current < 15 or my_car.y_current > plan_data.FIELD_H - 15 or my_car.y_current < 15:
                 insert_point = [max(15,min(plan_data.FIELD_W - 15,my_car.x_current)),max(15,min(plan_data.FIELD_H - 15,my_car.y_current))]
-            if my_task.last_side == "L":
-                target_angle = 90.0
-                my_task.slave_navigate_message = [[planned_path[-2][0] - slave_stop_threshold, planned_path[-2][1]], target_angle]
-                if my_task.if_first_round:my_task.if_first_round = False
-            elif my_task.last_side == "R":
-                target_angle = -90.0
-                my_task.slave_navigate_message = [[planned_path[-2][0] + slave_stop_threshold,planned_path[-2][1]], target_angle]
-                if my_task.if_first_round:my_task.if_first_round = False
-            elif my_task.last_side == "U":
-                target_angle = 180.0
-                my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] + slave_stop_threshold], target_angle]
-                if my_task.if_first_round:my_task.if_first_round = False
-            else:
-                target_angle = 0.0
-                my_task.slave_navigate_message = [[planned_path[-2][0], planned_path[-2][1] - slave_stop_threshold], target_angle]
-                if my_task.if_first_round:my_task.if_first_round = False
+            if my_task.if_first_round:my_task.if_first_round = False
             # 进行路径规划
-            my_task.my_moving.slave_massage['path'] = my_task.slave_navigate_message [0]
-            my_task.my_moving.slave_massage['angle'] = my_task.slave_navigate_message [1]
             if insert_point:planned_path = [insert_point] + planned_path
             my_task.my_moving.navigate_buffer['MAIN_P'] = planned_path
             my_task.exit()  # 退出当前状态，进入导航状态

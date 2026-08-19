@@ -110,14 +110,6 @@ class order_manager:
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
 
-    # 切换到apriltag识别模式
-    def mode_apriltag(self):
-        self.my_uart.write("R")
-
-    # 切换到搬运检查模式
-    def mode_pickup_check(self):
-        self.my_uart.write("D")
-
     def mode_all_detect(self):
         self.my_uart.write("A")
 
@@ -135,9 +127,6 @@ class UARTProtocol:
         self.coordinate_buffer = [0, 0, 0, 0, '', 0]
         self.apriltag_buffer = [0, 0, 0, 0, 0, 0, 0]
         self.byte_count = 0
-
-        self.object_species = [ord('T'),ord('E'),ord('S'),ord('B'),ord('W')]
-
         self.state_detect_all_objects = 0 # 0:等待帧头1, 1:等待物体数量, 2:等待发送物体讯息, 5:等待帧尾
         self.detect_buffer = [0,[]]
         self.object_buffer = ['',0,0]
@@ -209,7 +198,7 @@ class UARTProtocol:
                     continue
             elif self.state_detect_all_objects == 2:
                 if self.state_object == 0:
-                    if byte in self.object_species:
+                    if byte in [84,69,83,66,87]:
                         self.state_object = 1
                         self.object_buffer[0] = byte
                     else:
@@ -236,58 +225,6 @@ class UARTProtocol:
                 self.reset_detect_objects()
                 continue
         return objects_package
-    # 非阻塞接收并解析apriltag码的像素点坐标和角度  
-    
-    def apriltag_receive(self):
-        last_valid_frame = None
-        # 持续读取直到处理完当前缓冲区的所有数据
-        while self.my_uart.any():	
-            byte = self.my_uart.read(1)[0]
-            if self.state_apriltag == 0:
-                if byte == 0xA5:
-                    self.state_apriltag = 1
-            elif self.state_apriltag == 1:
-                if byte == 0xA8:
-                    self.state_apriltag = 2
-                else:
-                    self.state_apriltag = 0
-            elif self.state_apriltag == 2:
-                self.apriltag_buffer[2] = byte
-                self.state_apriltag = 3
-            elif self.state_apriltag == 3:
-                self.apriltag_buffer[3] = byte
-                self.state_apriltag = 4
-            elif self.state_apriltag == 4:
-                self.apriltag_buffer[4] = byte
-                self.state_apriltag = 5
-            elif self.state_apriltag == 5:
-                self.apriltag_buffer[5] = byte
-                self.state_apriltag = 6
-            elif self.state_apriltag == 6:
-                if byte == 0x5B:
-                    # 解析成功，保存当前帧，但【不要】清空缓冲区，【不要】立即返回
-                    last_valid_frame = [self.apriltag_buffer[2], self.apriltag_buffer[3], ((self.apriltag_buffer[5] << 8 | self.apriltag_buffer[4]) / 10 - 90)]
-                    self.state_apriltag = 0 
-                else:
-                    self.state_apriltag = 0
-                
-        # 循环结束后，返回缓冲区里最新的一帧
-        return last_valid_frame
-    
-    # 接收来自openart的搬运过程中是否丢失物体的信息
-    def get_object_state(self):
-        if self.my_uart.any():
-            try:
-                byte = self.my_uart.read(1)[0]
-                if byte == ord('N'):
-                    return "No"
-                else:
-                    return None
-            except:
-                return None
-        else:
-            return None
-        
     def send_object_kind(self, object_kind):
         self.my_uart.write(object_kind.lower())
 
@@ -385,80 +322,24 @@ class LinkProtocol:
                     
             except:
                 return None
-
-            # 5. 提取中间的纯数据段
-            # 跳过 "#X," 这三个字节，直到 "!" 之前
             payload_bytes = self.raw_buffer[self.start_idx + 3 : self.end_idx]
-            
             # 6. 消费缓冲区
             self.raw_buffer = self.raw_buffer[self.end_idx+1:]
-
             # 7. 纯字符串解析逻辑
             try:
                 payload_str = payload_bytes.decode('utf-8')
-                
                 # 按照逗号分割，应该得到比如 ['L', '120.5', '80.1'] 这样的3个元素
                 parts = payload_str.split(',')
                 if len(parts) == 3:
                     target_turn = float(parts[0])
                     x = float(parts[1])
                     y = float(parts[2])
-                    
                     # 【关键点】返回类型：物体种类，转向，目标坐标
                     return [tag_type, target_turn, (x, y)]
                 else:
                     return None
-                    
             except Exception as e:
                 return None
-    def get_main_pose(self):
-        # 1. 填充缓冲区
-        if self.my_uart3.any():
-            try:
-                chunk = self.my_uart3.read()
-                if chunk:
-                    self.raw_buffer += chunk
-            except:
-                pass
-
-        if not self.raw_buffer:
-            return None
-
-        # 内存保护
-        if len(self.raw_buffer) > self.max_buf:
-            self.raw_buffer = self.raw_buffer[-self.max_buf:]
-
-        # 2. 寻找包头 '#A,' 和包尾 '!'
-        start_idx = self.raw_buffer.find(b'#A,')
-        if start_idx == -1:
-            # 没找到需要的包头，清理掉无关的数据，防止内存越界
-            # 只保留最后的边界，以免刚好读了一半的包头
-            if len(self.raw_buffer) > 3:
-                 self.raw_buffer = self.raw_buffer[-3:]
-            return None
-            
-        end_idx = self.raw_buffer.find(b'!', start_idx)
-        if end_idx == -1:
-            # 包尾还没收到，说明数据还没传完，等下次再解析
-            return None
-
-        # 3. 提取有效数据段并清空已经处理的缓冲
-        payload_bytes = self.raw_buffer[start_idx + 3 : end_idx]
-        self.raw_buffer = self.raw_buffer[end_idx + 1:]
-
-        # 4. 解析数据
-        try:
-            data_str = payload_bytes.decode('utf-8')
-            data_parts = data_str.split(',')
-            if len(data_parts) >= 3:
-                v = float(data_parts[0])
-                yaw = float(data_parts[1])
-                turn_angle = float(data_parts[2])
-                return (v, yaw, turn_angle)
-        except Exception as e:
-            # 解析失败（如数据转换乱码等）
-            pass
-        return None
 
 ##############################【flash系统操作】##############################
 class flash_system:
@@ -469,9 +350,7 @@ class flash_system:
         self.file_path = file_path  # type: str
         # 创建变量字典
         self.config = dict()
-
         gc.collect()
-
     # 将字符串解析为整数或浮点数，如果无法解析则返回原始字符串
     def phase_num_string(self, s: str):
         # 尝试解析为整数(只支持十进制)
@@ -480,17 +359,14 @@ class flash_system:
             return value
         except ValueError:
             pass
-
         # 尝试解析为浮点数
         try:
             value = float(s)
             return value
         except ValueError:
             pass
-
         # 如果无法解析为数字，则返回原始字符串
         return s
-
     def _parse_tuple_list(self, s: str):
         items = []
         current = []
