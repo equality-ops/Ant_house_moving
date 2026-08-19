@@ -17,14 +17,6 @@ STOP = const(9)           # 停止状态
 RETREAT = const(10)       # 后退状态
 KEEP_SPACE = const(11)    # 保持距离状态
 counter = 0  # 计数器
-object_to_line_dict = {
-    'T': 'U',
-    'S': 'L',
-    'E': 'L',
-    'W': 'R',
-    'B': 'R'
-}
-
 class TaskController:
     def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol, my_tof):
         # 注入对象
@@ -57,6 +49,7 @@ class TaskController:
             # ... 其他状态
         }
         self.if_first_run = True
+        self.if_blind_box = self.my_flash_system.find_value("IF_BLIND_BOX")
         self.num_clamp_factor = self.my_flash_system.find_value("NUM_CLAMP_FACTOR")
         T_dis = self.my_flash_system.find_value("TENNIS_cla_dis")
         S_dis = self.my_flash_system.find_value("SANDBAG_cla_dis")
@@ -110,8 +103,8 @@ class TaskController:
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
-            # 进入调整状态，根据需要进行微调
-            pass
+            self.my_plan.reset_navigate()
+            self.my_plan.reset_navigate_angle()
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             self.my_path.plan_path(self.pt_buffer[0][0], self.pt_buffer[0][1], ignore_center_rect=True)  # 规划回起始点的路径
@@ -211,8 +204,11 @@ class TaskController:
         elif state == RETURN:
             # 退出返回状态，完成返回后进行必要的状态更新
             self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_state.state = STOP  # 直接切换到停止状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            if self.if_blind_box:
+                self.my_state.state = ADJUST  #进入adjust模式进行盲盒任务
+            else:
+                self.my_state.state = STOP  # 直接切换到停止状�?
         elif state == STOP:
             # 退出停止状态，准备进入下一任务或待命状态
             self.my_beep.test()  # 任务完成，发出提示音
@@ -289,7 +285,6 @@ class TaskController:
             # self.my_uart.write(f"Ready to navigate to {self.current_object} at {self.navigate_message[0]} with turn {self.navigate_message[1]}\r\n")  # 调试信息
             # self.my_uart.write(f"{self.my_path.ready_path}\r\n")
             self.exit()  # 退出当前状态，进入导航状态
-
     def handle_navigate(self):
         # if state == NAVIGATE
         if self.navigate_message:
@@ -348,8 +343,9 @@ class TaskController:
         pass
     
     def handle_adjust(self):
-        # if state == ADJUST
-        pass
+        self.my_plan.navigate(target_turn_angle = self.my_car.now_yaw,if_high_angle = True)
+        if self.my_plan.if_finish_navigate:
+            self.exit()
 
     def handle_return(self):
         # if state == RETURN

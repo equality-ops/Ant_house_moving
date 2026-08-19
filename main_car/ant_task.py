@@ -12,13 +12,6 @@ ADJUST = const(7)           # 微调状�?
 RETURN = const(8)		    # 返回状�?
 STOP = const(9)           # 停止状�?
 RETREAT = const(10)
-object_to_line_dict = {
-    'T': 'U',
-    'S': 'L',
-    'E': 'L',
-    'W': 'R',
-    'B': 'R'
-}
 counter = 0 
 class TaskController:
     def __init__(self,my_write_system,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
@@ -127,9 +120,7 @@ class TaskController:
                 self.fixed_scan_point = [[[self.data.fixed_point[2][0], self.data.center_y - self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y+self.data.lenth*0.5],- 90]] # type: ignore
             elif self.scan_side == 'U':
                 self.fixed_scan_point = [[[self.data.center_x - self.data.lenth*0.5, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth, self.data.fixed_point[2][1]], 180]] # type: ignore
-
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
-
     def if_danger(self,sp,num):
         if sp == 'T':return num>self.max_num_T
         elif sp == 'S':return num>self.max_num_S
@@ -143,10 +134,8 @@ class TaskController:
         # 开始任务标志
         if not self.if_start_task:
             self.if_start_task = True
-
         if self.if_transitioning:
             self.enter()  # 进入新状态执行一次性的进入函数
-
         # 获取当前状态对应的函数并执�?
         handler = self.handlers.get(self.my_state.state)
         if handler:
@@ -353,7 +342,6 @@ class TaskController:
             kind = chr(sp)
             # 更新当前物体种类，便于选择物体高度
             self.my_vision.current_servo_object = kind
-
             if self.use_scan_point > 2:  
                 if angle == 180 or angle == -90: 
                     limit_y = 50
@@ -361,7 +349,6 @@ class TaskController:
                     limit_y = 78
             else: 
                 limit_y = None
-
             real_point = self.my_vision.predict_point(x, y, limit_y = limit_y)
             if not real_point: continue
             if not self.my_vision.if_in_rect(real_point[0],real_point[1]): continue
@@ -375,8 +362,6 @@ class TaskController:
         """Snap detections into the fixed 3x3 grid with bounded allocations."""
         if not objects:
             return []
-        # Reuse the planner's 3x3 kind grid.  slots retains only indices;
-        # object fields are read from objects only when a conflict needs them.
         kind_grid = self.object_plan.nine_grid
         slots = [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]]
         for i in range(3):
@@ -609,7 +594,6 @@ class TaskController:
                     for i in range(len(self.now_objects)):
                         self.my_beep.test()
                         time.sleep_ms(300)
-                        
                     if self.my_write_system.if_write_log:
                         self.my_write_system.write_str(f"final_objects:{len(self.now_objects)}\n")
                         self.my_write_system.write_str(f"target{len(self.object_plan.target_objects)}\n")
@@ -641,7 +625,6 @@ class TaskController:
                         self.if_plan_scan = True
                         counter = 0
                         return
-
                     pt = self.fixed_scan_point[counter] # type: ignore
                     if counter > 0:
                         self.my_path.plan_path(pt[0][0], pt[0][1], start_point = self.fixed_scan_point[counter - 1][0]) # type: ignore
@@ -652,10 +635,8 @@ class TaskController:
                     counter += 1
             else:self.first_scan()
         else:self.exit()
-
     def handle_servo(self):
         pass
-
     def handle_move(self):
         # if state == MOVE
         self.my_moving.moving()
@@ -679,7 +660,6 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状�?
-
     def handle_stop(self):
         # if state == STOP
         self.my_plan.stop()             
