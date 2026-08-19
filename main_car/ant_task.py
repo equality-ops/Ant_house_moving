@@ -72,6 +72,7 @@ class TaskController:
         self.SUDOKU_width_y = self.my_flash_system.find_value("SUDOKU_width_y")
         self.use_scan_point = self.my_flash_system.find_value("USE_SCAN_POINT")
         self.if_back = self.my_flash_system.find_value("IF_BACK")
+        self.if_blind_box = self.my_flash_system.find_value("IF_BLIND_BOX")
         self.scan_num = self.my_flash_system.find_value("scan_num")
         self.retreat_message= (0,0)
         self.scan_waiting_count = 0
@@ -163,13 +164,11 @@ class TaskController:
             self.my_plan.reset_navigate_angle()
             self.my_moving.my_photo.reset_photo()
             pass
-            # 测试
-            # self.my_uart.write(f"state: {self.my_moving.current_state},moving_pt: {self.my_moving.moving_point},angle_buffer: {self.my_moving.angle_buffer}\n")
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
-            # 进入调整状态，根据需要进行微�?
-            pass
+            self.my_plan.reset_navigate()
+            self.my_plan.reset_navigate_angle()
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             p1 = [min(max(20,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
@@ -219,9 +218,7 @@ class TaskController:
                     elif self.scan_side == 'U':
                         slave_x = self.data.center_x
                         slave_y = p[1] + dist
-
                 self.my_main_protocol.send_path('P',a,(slave_x, slave_y))
-
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
                 return
@@ -233,14 +230,7 @@ class TaskController:
             self.my_state.state = MOVE  # 直接切换到导航状态
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == NAVIGATE:
-            if not self.if_send_path:
-                # 发送路径信息给从车
-                self.my_main_protocol.send_path('P', self.slave_navigate_message[1], self.slave_navigate_message[0]) 
-            # 退出导航状态，停止路径跟随
-            self.if_send_path = False  # 重置路径发送标志位
-            self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_state.state = SCAN  # 直接切换到扫描状态
-            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
+            pass
         elif state == SCAN:
             self.planned_scan_path.clear()
             self.if_plan_scan = False
@@ -265,7 +255,6 @@ class TaskController:
             else:
                 self.my_plan.reset_naviself.if_finish_movegate_angle()
                 self.my_state.state = RETURN 
-
             # print(f"{self.last_side}, {self.my_moving.next_postion}, {self.first_return}")
             if self.first_return:
                 if self.data.current_index >= self.data.total_objects_num - 1 or not self.now_objects or self.my_moving.current_state != NAVIGATE:
@@ -301,34 +290,29 @@ class TaskController:
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
-            # 退出调整状态，完成微调后进行必要的状态更�?
-            self.my_vision.reset_orbit()
-            self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_plan.reset_navigate_angle()
-            self.my_state.state = READY_NAVIGATE  # 直接切换到准备导航状态，准备处理下一个物�?
+            self.my_state.state = STOP  # 直接切换到停止状�?
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == RETURN:
             if not self.if_send_path:
                 # 发送路径信息给从车
                 self.my_main_protocol.send_path('R', 999, self.data.fixed_point[4]) 
-        
             # 退出返回状态，完成返回后进行必要的状态更�?
             self.if_send_path = True
             self.my_plan.reset_navigate()  # 重置导航标志
-            self.my_state.state = STOP  # 直接切换到停止状�?
+            if self.if_blind_box:
+                self.my_state.state = ADJUST  #进入adjust模式进行盲盒任务
+            else:
+                self.my_state.state = STOP  # 直接切换到停止状�?
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == STOP:
             # 退出停止状态，准备进入下一任务或待命状�?
             self.my_beep.test()  # 任务完成，发出提示音
         elif state == RETREAT:
             pass
-
     def handle_ready_navigate(self):
         pass
-
     def handle_navigate(self):
         pass
-            
     # 处理物体信息（将像素坐标转换为世界坐标）
     def handle_object_info(self, ob_info,angle):
         """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
@@ -643,16 +627,14 @@ class TaskController:
         self.my_moving.moving()
         if self.my_moving.if_finish_move:
             self.exit()  # 退出当前状态，进入下一个状�?
-
     def handle_retreat(self):
         pass
-
     def handle_calibrate(self):
         pass
-
     def handle_adjust(self):
-        pass
-
+        self.my_plan.navigate(target_turn_angle = self.my_car.now_yaw,if_high_angle = True)
+        if self.my_plan.if_finish_navigate:
+            self.exit()
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
