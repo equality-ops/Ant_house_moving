@@ -1,4 +1,3 @@
-import micropython
 from micropython import const
 import math
 import time

@@ -1,5 +1,5 @@
 from micropython import const
-import gc,math,time
+import gc,time
 PI = const(3.1415926)
 READY_NAVIGATE = const(0)   # 准备导航状�?
 NAVIGATE = const(1)       # 导航状�?
@@ -95,13 +95,30 @@ class TaskController:
             self.my_beep.beep_warn()    # 蜂鸣器进行提醒此时扫描边参数输入错误
             self.scan_side = 'D'  # 默认扫描在下边
 
-        self.last_side = self.scan_side  # 开始边与扫描边一致
-        if self.scan_side in ['D', 'R']:self.my_moving.next_postion = 'r'
-        else:self.my_moving.next_postion = 'l'
+        if self.use_scan_point == 4:
+            if self.scan_side in ['D', 'U']:
+                self.last_side = 'U'
+                self.my_moving.next_postion = 'l'
+            else:
+                self.last_side = 'R'
+                self.my_moving.next_postion = 'r'
+        else:
+            self.last_side = self.scan_side  # 开始边与扫描边一致
+
+            if self.scan_side in ['D', 'R']:
+                self.my_moving.next_postion = 'r'
+            else:
+                self.my_moving.next_postion = 'l'
 
         if self.use_scan_point == 1:
             self.fixed_scan_point = [[self.data.center_rect[0], 45]] # type: ignore # type: list
+        elif self.use_scan_point == 4:
+            if self.scan_side == 'D' or self.scan_side == 'U':
+                self.fixed_scan_point = [[[self.data.center_x - self.data.lenth, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth, self.data.fixed_point[2][1]], 180], [[self.data.center_x - self.data.lenth * 0.5, self.data.fixed_point[2][1]], 180]]
+            else:
+                self.fixed_scan_point = [[[self.data.fixed_point[1][0], self.data.center_y - self.data.lenth], 90], [[self.data.fixed_point[1][0], self.data.center_y+self.data.lenth*0.5], 90], [[self.data.fixed_point[2][0], self.data.center_y + self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y-self.data.lenth*0.5],- 90]]
         else:
+            # self.use_scan_point == 2
             if self.scan_side == 'D':
                 self.fixed_scan_point = [[[self.data.center_x - self.data.lenth, self.data.fixed_point[1][1]], 0], [[self.data.center_x + self.data.lenth*0.5, self.data.fixed_point[1][1]], 0]] # type: ignore
             elif self.scan_side == 'L':
@@ -110,7 +127,9 @@ class TaskController:
                 self.fixed_scan_point = [[[self.data.fixed_point[2][0], self.data.center_y - self.data.lenth], -90], [[self.data.fixed_point[2][0], self.data.center_y+self.data.lenth*0.5],- 90]] # type: ignore
             elif self.scan_side == 'U':
                 self.fixed_scan_point = [[[self.data.center_x - self.data.lenth*0.5, self.data.fixed_point[2][1]], 180], [[self.data.center_x + self.data.lenth, self.data.fixed_point[2][1]], 180]] # type: ignore
+
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
+
     def if_danger(self,sp,num):
         if sp == 'T':return num>self.max_num_T
         elif sp == 'S':return num>self.max_num_S
@@ -118,6 +137,7 @@ class TaskController:
         elif sp == 'W':return num>self.max_num_W
         elif sp == 'B':return num>self.max_num_B
         return True
+    
     # 不同模式下的执行函数
     def run(self):
         # 开始任务标志
@@ -204,20 +224,29 @@ class TaskController:
                 else:
                     p = self.fixed_scan_point[0][0] # type: ignore
                     a = self.fixed_scan_point[0][1] # type: ignore
-
                     dist = 50.0
-                    if self.scan_side == 'D':
-                        slave_x = self.data.center_x
-                        slave_y = p[1] - dist
-                    elif self.scan_side == 'L':
-                        slave_x = p[0] - dist
-                        slave_y = self.data.center_y
-                    elif self.scan_side == 'R':
-                        slave_x = p[0] + dist
-                        slave_y = self.data.center_y
-                    elif self.scan_side == 'U':
-                        slave_x = self.data.center_x
-                        slave_y = p[1] + dist
+
+                    if self.use_scan_point == 4:
+                        if self.scan_side == 'D' or self.scan_side == 'U':
+                            slave_x = self.data.center_x
+                            slave_y = p[1] + dist
+                        else:
+                            slave_x = p[0] + dist
+                            slave_y = self.data.center_y
+                    else:
+                        if self.scan_side == 'D':
+                            slave_x = self.data.center_x
+                            slave_y = p[1] - dist
+                        elif self.scan_side == 'L':
+                            slave_x = p[0] - dist
+                            slave_y = self.data.center_y
+                        elif self.scan_side == 'R':
+                            slave_x = p[0] + dist
+                            slave_y = self.data.center_y
+                        elif self.scan_side == 'U':
+                            slave_x = self.data.center_x
+                            slave_y = p[1] + dist
+
                 self.my_main_protocol.send_path('P',a,(slave_x, slave_y))
                 self.my_state.state = SCAN
                 self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
@@ -314,7 +343,7 @@ class TaskController:
     def handle_navigate(self):
         pass
     # 处理物体信息（将像素坐标转换为世界坐标）
-    def handle_object_info(self, ob_info,angle):
+    def handle_object_info(self, ob_info, angle):
         """将单帧物体列表的像素坐标转换为世界坐标，返回新列表"""
         real_ob_info = []
         for ob in ob_info[1]:
@@ -324,10 +353,15 @@ class TaskController:
             kind = chr(sp)
             # 更新当前物体种类，便于选择物体高度
             self.my_vision.current_servo_object = kind
-            if self.use_scan_point>2:  
-                if angle == 180: limit_y = 50
-                else:limit_y = 78
-            else: limit_y = None
+
+            if self.use_scan_point > 2:  
+                if angle == 180 or angle == -90: 
+                    limit_y = 50
+                else: 
+                    limit_y = 78
+            else: 
+                limit_y = None
+
             real_point = self.my_vision.predict_point(x, y, limit_y = limit_y)
             if not real_point: continue
             if not self.my_vision.if_in_rect(real_point[0],real_point[1]): continue
@@ -512,14 +546,14 @@ class TaskController:
         return ob_info
     
     def first_scan(self):
-        def analyse_package(num,angle):
+        def analyse_package(num, angle):
             global counter
             object_package=self.my_art_protocol.detect_objects_on_the_court()#[物体种类(ord),x,y]
             if object_package:
                 counter +=1
                 self.scan_empty_counter = 0
                 # print(f"{counter}detectST{time.ticks_ms()}")
-                new_world = self.handle_object_info(object_package,angle)
+                new_world = self.handle_object_info(object_package, angle)
                 if self.my_write_system.if_write_log:
                     self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
@@ -561,7 +595,7 @@ class TaskController:
                             self.my_order_manager.trans_to_mode_detect()
                     self.scan_waiting_count +=1
                 else:
-                    analyse_package(num,self.planned_scan_path[self.detected_num][1])
+                    analyse_package(num, self.planned_scan_path[self.detected_num][1])
         if self.detected_num == self.use_scan_point:
             # print(f"startmerge:{time.ticks_ms()}")
             self.now_objects = self.merge_nearby_same_kind(self.now_objects)
