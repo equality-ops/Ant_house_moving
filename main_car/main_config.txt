@@ -167,6 +167,8 @@ FORWARD_PUSH_VALUE = 0
 NEAR_AREA = 3
 #车进入所需宽度
 AVOID_WIDTH = 20
+#后退距离
+retreat_lenth = 20
 
 #--------------扫描相关---------------------
 #使用扫描点

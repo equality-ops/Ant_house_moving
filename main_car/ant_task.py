@@ -67,7 +67,6 @@ class TaskController:
         self.if_back = self.my_flash_system.find_value("IF_BACK")
         self.if_blind_box = self.my_flash_system.find_value("IF_BLIND_BOX")
         self.scan_num = self.my_flash_system.find_value("scan_num")
-        self.retreat_message= (0,0)
         self.scan_waiting_count = 0
         self.planned_scan_path = []
         self.dangerous_object_kinds = set()

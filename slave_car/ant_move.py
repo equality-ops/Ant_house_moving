@@ -55,6 +55,7 @@ class MoveControl:
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
+        self.retreat_lenth = self.flash_sys.find_value("retreat_lenth")
         self.start_scan_range = self.flash_sys.find_value("start_scan_range")
         self.delay_more = False
         self.current_state = ORBIT  # 当前状态：0为环绕，1为视觉伺服，2为搬运， 3为微调
@@ -320,8 +321,8 @@ class MoveControl:
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
         nowx,nowy= self.my_car.x_current,self.my_car.y_current
-        max_x,max_y = self.plan_data.FIELD_W - 15,self.plan_data.FIELD_H - 15
-        min_x,min_y = 15,15
+        max_x,max_y = self.plan_data.FIELD_W - self.retreat_lenth,self.plan_data.FIELD_H - self.retreat_lenth
+        min_x,min_y = self.retreat_lenth,self.retreat_lenth
         if nowx > max_x or nowx < min_x or nowy > max_y or nowy < min_y:
             self.plan_path.insert(0,[max(min_x,min(max_x,nowx)),max(min_y,min(max_y,nowy))])
         self.navigate_buffer={

@@ -159,7 +159,8 @@ circle = "(235, 115)"
 SAFE_MARGIN = 15.0
 # 根据主车位置矫正从车位置的距离 
 calibrate_dist = 23.0
-
+#后退距离
+retreat_lenth = 20
 #--------------场地相关---------------------
 # 九宫格尺寸
 SUDOKU_length_x = 30.0

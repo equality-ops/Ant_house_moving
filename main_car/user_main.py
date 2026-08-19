@@ -513,8 +513,8 @@ while True:
             # 进入准备导航状态，做好路径规划准备和导航信息准?
             planned_path = my_moving.navigate_buffer['MAIN_P']
             insert_point = []
-            if my_car.x_current > plan_data.FIELD_W - 15 or my_car.x_current < 15 or my_car.y_current > plan_data.FIELD_H - 15 or my_car.y_current < 15:
-                insert_point = [max(15,min(plan_data.FIELD_W - 15,my_car.x_current)),max(15,min(plan_data.FIELD_H - 15,my_car.y_current))]
+            if my_car.x_current > plan_data.FIELD_W - my_task.retreat_lenth or my_car.x_current < my_task.retreat_lenth or my_car.y_current > plan_data.FIELD_H - my_task.retreat_lenth or my_car.y_current < my_task.retreat_lenth:
+                insert_point = [max(my_task.retreat_lenth,min(plan_data.FIELD_W - my_task.retreat_lenth,my_car.x_current)),max(my_task.retreat_lenth,min(plan_data.FIELD_H - my_task.retreat_lenth,my_car.y_current))]
             if my_task.if_first_round:my_task.if_first_round = False
             # 进行路径规划
             if insert_point:planned_path = [insert_point] + planned_path
