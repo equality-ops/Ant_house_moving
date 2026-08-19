@@ -77,6 +77,7 @@ class TaskController:
         self.max_num_B = self.my_flash_system.find_value("max_num_B")
         self.max_num_W = self.my_flash_system.find_value("max_num_W")
         self.obj_num_ = {'T':0,'S':0,'B':0,'W':0,'E':0}
+        self.angle_buffer = 0.0
         self.max_pos = 0.0
         self.if_plan_scan =False#是否规划出扫描路径
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
@@ -179,7 +180,8 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.my_plan.navigate(target_turn_angle = self.my_car.now_yaw,if_high_angle = True)
+            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 10.0
+            self.angle_buffer = (self.angle_buffer + 180) % 360 - 180  # 将角度归一化到[-180, 180]范围内
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             p1 = [min(max(20,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
@@ -316,11 +318,12 @@ class TaskController:
             self.my_vision.current_servo_object = kind
             if self.use_scan_point > 2:  
                 if angle == 180 or angle == -90: 
-                    limit_y = 50
+                    limit_y = 40
                 else: 
-                    limit_y = 78
+                    limit_y = 68
             else: 
                 limit_y = None
+
             real_point = self.my_vision.predict_point(x, y, limit_y = limit_y)
             if not real_point: continue
             if not self.my_vision.if_in_rect(real_point[0],real_point[1]): continue
@@ -509,14 +512,12 @@ class TaskController:
             if object_package:
                 counter +=1
                 self.scan_empty_counter = 0
-                # print(f"{counter}detectST{time.ticks_ms()}")
                 new_world = self.handle_object_info(object_package, angle)
                 if self.my_write_system.if_write_log:
-                    self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}\n")
+                    self.my_write_system.write_str(f"detect{self.detected_num}:{new_world}, angle: {angle}\n")
                 if self.now_objects: self.now_objects = self.integrate_object_info(self.now_objects,new_world)#将新帧与上一帧融合
                 else: self.now_objects = new_world
-                self.my_vision.analysed_objects = self.now_objects
-                # print(f"{counter}detectED{time.ticks_ms()}")
+                self.my_vision.analysed_objects = self.now_objects  
             else:
                 self.scan_empty_counter += 1
                 if self.scan_empty_counter>40:
@@ -673,20 +674,28 @@ class TaskController:
                     counter += 1
             else:self.first_scan()
         else:self.exit()
+
     def handle_servo(self):
         pass
+
     def handle_move(self):
         # if state == MOVE
         self.my_moving.moving()
         if self.my_moving.if_finish_move:
             self.exit()  # 退出当前状态，进入下一个状�?
+
     def handle_retreat(self):
         pass
+
     def handle_calibrate(self):
         pass
+
     def handle_adjust(self):
+        self.my_plan.navigate(target_turn_angle = self.angle_buffer ,if_high_angle = True)
+
         if self.my_plan.if_finish_navigate:
             self.exit()
+
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?
@@ -697,6 +706,7 @@ class TaskController:
             self.if_send_path = True  # 设置标志位，避免重复发送路径信�?
         if self.my_plan.if_finish_navigate:
             self.exit()  # 退出当前状态，进入停止状�?
+
     def handle_stop(self):
         # if state == STOP
         self.my_plan.stop()             
