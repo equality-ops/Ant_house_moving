@@ -163,41 +163,6 @@ class VisionManager:
     def reset_last_car_pos(self):
         self.last_car_x = self.my_car.x_current
         self.last_car_y = self.my_car.y_current
-
-    # 用单应性矩阵将像素坐标转换为实际物理坐标（单位：cm）
-    def pixel_to_real_world(self, u, v, object_kind = None, mode = 'M'):
-        """
-        将像素坐标转换为实际物理坐标
-        :param u: 像素点的 x 坐标 (列)
-        :param v: 像素点的 y 坐标 (行)
-        :param sign: 远近标志
-        :return: 真实的物理坐标 (X_w, Y_w)
-        """
-        # 默认值，防止 current_servo_object 为空或匹配不到时出现未赋值报错
-        object_H = 0.0
-        if not object_kind:
-            object_kind = self.current_servo_object
-        if mode == 'M':
-            if object_kind in ['T']: object_H = 2.5
-            elif object_kind in ['S', 'E']: object_H = 5.0
-            elif object_kind in ['W', 'B']: object_H = 3.0
-        else:
-            if object_kind in ['T']: object_H = 3.5
-            elif object_kind in ['S', 'E']: object_H = 4.0
-            elif object_kind in ['W', 'B']: object_H = 3
-                
-        # 根据物体远近选择单应性矩阵H
-        H_matrix = self.H_matrix
-
-        K = (23.5 - object_H) / 23.5
-
-        # 计算缩放因子
-        w_prime = H_matrix[2][0] * u + H_matrix[2][1] * v + H_matrix[2][2]
-        # 计算真实的物理坐标
-        X_w = (H_matrix[0][0] * u + H_matrix[0][1] * v + H_matrix[0][2]) / w_prime * K
-        Y_w = ((H_matrix[1][0] * u + H_matrix[1][1] * v + H_matrix[1][2]) / w_prime)* K
-        return X_w, Y_w
-
     # 动态调整视觉伺服pid参数
     def adjust_pid_by_dist(self, dist):
         # 距离越近，Kp 越小，防止超调；

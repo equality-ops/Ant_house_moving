@@ -369,7 +369,6 @@ class objects_planner:
         self.my_car = car
         self.my_plan = my_plan
         self.my_BoundaryPath = my_BoundaryPath
-        self.objects_score = []
         self.barrier = []
         self.now_objects = []
         self.target_score = []
@@ -395,7 +394,6 @@ class objects_planner:
     def reset_judge(self):
         self.last_sandbag_idx = -1
         self.path = []
-        self.objects_score = []
         self.target_objects = []
         self.now_objects = []
         self.judge_state = 0

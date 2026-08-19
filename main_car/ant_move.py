@@ -39,21 +39,13 @@ class MoveControl:
         self.now_object_pt = [0.0, 0.0]
         self.record_angle = 0.0  # 记录的角度(记录小车的最初的角度)
         self.flash_sys = flash_sys
-        self.navigate_buffer=({
-                        'MAIN_P':[],
-                        'SLA_P':[],
-                        'ANGLE':0,
-                    })
         self.if_delay_more = False
         self.__angle=30
         self.angle_T = self.flash_sys.find_value("angle_T")
         self.angle_S = self.flash_sys.find_value("angle_S")
         self.angle_B = self.flash_sys.find_value("angle_B")
         self.start_scan_range = self.flash_sys.find_value("start_scan_range")
-        self.surrounding_points = {
-            'LD': [],
-            'RD': [],
-        }
+        self.surrounding_points = {'LD': [],'RD': [],}
         self.if_first_orbit = False
         self.slave_message_delay = 15
         self.now_barriar = []
@@ -76,9 +68,10 @@ class MoveControl:
         self.run_first = True
         self.get_slave_navigate_state = False
         self.saved_best_path = []
-        self.slave_massage ={
-            'path':[],
-            'angle':0,
+        self.navigate_buffer = {
+            'MAIN_P':[],
+            'SLA_P':[],
+            'ANGLE':0,
         }
         gc.collect()
     # 判断小车编队到下一目标点时的转向
@@ -313,11 +306,11 @@ class MoveControl:
         elif car_postion<=0.01 and car_postion>=-0.01:self.push_postion = [0,1]
         elif car_postion<=-90+0.01 and car_postion>=-90-0.01:self.push_postion = [-1,0]
         else :self.push_postion = [0,-1]
-        self.navigate_buffer=({
+        self.navigate_buffer={
                         'MAIN_P':self.my_path.ready_path,
                         'SLA_P':S_PAth,
                         'ANGLE':ANGle,
-                    })
+                    }
         # print(f"{self.if_first_orbit}, {self.if_change_side}, {self.next_postion}, {now_side}, {target_side}, {target_turn_deg}")
         if not self.navigate_buffer:
             return False
@@ -334,10 +327,6 @@ class MoveControl:
     def reset_move(self):
         self.if_slave_ready_move = False
         self.saved_best_path = []
-        self.slave_massage ={
-            'path':[],
-            'angle':0,
-        }
         self.angle_buffer.clear()
         self.surrounding_points.clear()
         self.navigate_buffer.clear()
