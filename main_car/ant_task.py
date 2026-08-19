@@ -75,6 +75,7 @@ class TaskController:
         self.max_num_E = self.my_flash_system.find_value("max_num_E")
         self.max_num_B = self.my_flash_system.find_value("max_num_B")
         self.max_num_W = self.my_flash_system.find_value("max_num_W")
+        self.retreat_lenth = self.my_flash_system.find_value("retreat_lenth")
         self.obj_num_ = {'T':0,'S':0,'B':0,'W':0,'E':0}
         self.angle_buffer = 0.0
         self.max_pos = 0.0
