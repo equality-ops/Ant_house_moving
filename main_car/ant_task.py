@@ -14,7 +14,7 @@ STOP = const(9)           # 停止状�?
 RETREAT = const(10)
 counter = 0 
 class TaskController:
-    def __init__(self,my_write_system,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug):
+    def __init__(self,my_write_system,flash_system,object_plan, beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, main_protocol,uart_debug,angle_pid):
         # 注入对象
         self.my_write_system = my_write_system
         self.my_beep = beep
@@ -32,6 +32,7 @@ class TaskController:
         self.object_plan = object_plan
         self.uart_debug = uart_debug
         self.my_flash_system = flash_system
+        self.angle_pid = angle_pid
         # 状态映射表：将状态常量映射到对应的处理函�?
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -83,7 +84,8 @@ class TaskController:
         self.if_end_first_scan = False#是否完成第一次扫描，全局只扫一次
         self.if_first_round = True#是否是第一轮用于判断是否需插入从边线返回途经点
         self.if_choose_object = False#用于判断readynavigate是否成功选择到物体并readymove
-
+        self.black_state = READY_NAVIGATE
+        self.black_angle = 0
         self.scan_side = self.my_flash_system.find_value("scan_side")  # 在哪边进行扫描
         if self.scan_side not in ['D', 'L', 'R', 'U']:
             # print("Write invalid scan_side in flash, default to 'D'")
@@ -179,10 +181,9 @@ class TaskController:
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
+            self.black_state = READY_NAVIGATE
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 15.0
-            self.angle_buffer = (self.angle_buffer + 180) % 360 - 180  # 将角度归一化到[-180, 180]范围内
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务�?
             p1 = [min(max(20,self.my_car.x_current),self.data.FIELD_W-15),min(max(15,self.my_car.y_current),self.data.FIELD_H-15)]
@@ -692,11 +693,55 @@ class TaskController:
         pass
 
     def handle_adjust(self):
-        self.my_plan.navigate(target_turn_angle = self.angle_buffer ,if_high_angle = True)
-
-        if self.my_plan.if_finish_navigate:
-            self.exit()
-
+        if self.black_state == READY_NAVIGATE:
+            if self.my_car.y_current < -65:self.black_angle = 60#下
+            else:self.black_angle = 120#
+            self.my_vision.current_servo_object = 'S'
+            self.my_order_manager.mode_target()
+            self.my_art_protocol.send_object_kind(self.my_vision.current_servo_object)
+            self.black_state = NAVIGATE
+        elif self.black_state == NAVIGATE:
+            if self.black_angle == 60:
+                self.my_plan.navigate(path = (60,-65-16),turn_angle = self.black_angle)
+            else:
+                self.my_plan.navigate(path = (60,-65+16),turn_angle = self.black_angle)
+            target_point = self.my_art_protocol.coordinate_receive()
+            if (target_point and chr(target_point[2]) == self.my_vision.current_servo_object and self.angle_pid.if_finish_turn())\
+                or self.my_plan.if_finish_navigate:
+                self.my_vision.ready_servo_and_orbit(target_point, 'servo')
+                self.my_vision.object_radius = 16.0
+                self.my_vision.reset_servo_angle()
+                self.my_plan.reset_navigate()
+                self.black_state = SERVO
+                return
+        elif self.black_state == SERVO:
+            if self.my_vision.if_finish_servo:
+                if self.my_main_protocol.get_slave_state() == "get":
+                    global counter
+                    self.my_main_protocol.send_start()
+                    self.my_vision.if_orbit_ready = False
+                    self.my_vision.if_finish_orbit = False
+                    self.black_state = ORBIT
+                    counter = 1
+            self.my_vision.visual_servo_control()
+        elif self.black_state == ORBIT:
+            global counter
+            if self.black_angle == 60:
+                if counter == 1:angle = 180 
+                elif counter == 2:angle = -60
+                else: angle = 60
+            else:
+                if counter == 1:angle = -120 
+                elif counter == 2:angle = 0
+                else: angle = 120
+            if self.my_vision.if_finish_orbit:
+                if counter == 3:self.my_state = STOP
+                else:
+                    counter += 1
+                    self.my_vision.if_orbit_ready = False
+                    self.my_vision.if_finish_orbit = False
+            else:
+                self.my_vision.orbit_control(angle)
     def handle_return(self):
         # if state == RETURN
         self.my_plan.navigate(path = self.my_path.ready_path)  # 返回起始�?

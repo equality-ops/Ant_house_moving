@@ -194,7 +194,7 @@ my_obj_plan = ant_boundary_plan.objects_planner(my_flash_sys,my_write_system,pla
 my_moving = ant_move.MoveControl(my_write_system,my_flash_sys,my_beep, my_photo, my_car, my_plan,my_path, plan_data,move_plan, my_vision_manager, my_state, my_main_protocol, my_art_protocol, my_order_manager,my_uart3, angle_pid, my_obj_plan)
 
 # 任务及类
-my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug)
+my_task = ant_task.TaskController(my_write_system,my_flash_sys,my_obj_plan,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_main_protocol, my_uart_debug,angle_pid)
 
 motor_control_T = my_flash_sys.find_value("motor_control_T")
 uart_and_menu_T = my_flash_sys.find_value("uart_and_menu_T")
@@ -263,7 +263,7 @@ def main_start():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT, ADJUST]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
@@ -278,7 +278,7 @@ def master_control():
         elif my_moving.current_state == MOVE:
             if my_plan.fitting_path_:my_car.move_ctrl(my_plan.target_v, my_plan.fit_target_yaw, my_plan.turn_angle_target)
             else:my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
-    elif my_state.state in [SERVO]:
+    elif my_state.state == SERVO:
         # 未丢失物体时正常进行视觉伺服控制，丢失物体时进行矩形轨迹的导航控制
         if my_vision_manager.if_lost_object == False:
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
@@ -286,7 +286,13 @@ def master_control():
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-
+    elif my_state.state == ADJUST:
+        if my_task.black_state == NAVIGATE:
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+        elif my_task.black_state == SERVO:
+            my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
+        elif my_task.black_state == ORBIT:
+            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
 _HIGH_TARGET = 180         # >= 此值使用High挡
@@ -405,32 +411,6 @@ def time_pit2_handler(time):
     # 发车启动函数
     main_start()
 
-    """
-    if start_flag == False:
-        # 读取按键（中断中避免阻塞，快速返回）
-        key = my_menu.read_key()
-        my_menu.handle_key_from_interrupt(key)
-    """
-
-    # my_uart2.write(f"{my_state.state}\r\n")
-    # my_uart3.write(f"{my_vision_manager.orbit_yaw},{my_vision_manager.orbit_turn_angle}\r\n")
-    # my_uart2.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ul_pid.pwm_output, motor_ul_pid.derivative * motor_ul_pid.kd, motor_ul_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ur_pid.target, motor_ur_pid.actual, motor_ur_pid.pwm_output, motor_ur_pid.derivative * motor_ur_pid.kd, motor_ur_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_md_pid.target, motor_md_pid.actual, motor_md_pid.pwm_output, motor_md_pid.derivative * motor_md_pid.kd, motor_md_pid.integral))
-    # my_uart3.write("{:<f},{:<f},{:<f},{:<f},{:<f},{:<f},{:<f}\n".format(motor_ul_pid.target, motor_ul_pid.actual, motor_ur_pid.target, motor_ur_pid.actual,motor_md_pid.target, motor_md_pid.actual, my_plan.target_v))
-    # my_uart3.write(f"{angle_pid.kp},{angle_pid.target},{angle_pid.actual},{angle_pid.pwm_output}\n")
-    # my_uart3.write(f"{my_vision_manager.if_lost_object}\r\n")
-    # my_uart3.write(f"{my_moving.current_state},{my_vision_manager.if_lost_object}\r\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.acc_x},{pose_data.acc_y},{pose_data.acc_z},{pose_data.gyro_x},{pose_data.gyro_y},{pose_data.gyro_z}\n")
-    # my_uart3.write(f"{pose_data.now_pitch},{pose_data.now_roll},{pose_data.now_yaw},{pose_data.gyro_z}\n")
-    # my_uart3.write("{:<f},{:<f}\n".format(my_car.x_current, my_car.y_current))
-    # my_uart3.write(f"{my_car.alpha_x},{my_car.alpha_y}\r\n")
-    # my_uart3.write(f"{servo_pid.actual_x},{servo_pid.target_x},{servo_pid.pwm_output_x},{servo_pid.actual_y},{servo_pid.target_y},{servo_pid.pwm_output_y},{my_vision_manager.target_rel_yaw}\n")
-    # my_uart3.write(f"{my_car.now_yaw * 180 / PI}\n")
-    # my_uart3.write(f"{my_vision_manager.target_rel_speed},{my_vision_manager.target_rel_yaw},{my_vision_manager.target_rel_turn_angle},{my_car.now_yaw * 180 / PI}\n")
-    # my_uart3.write(f"{my_state.state}\n")
-    # my_uart3.write(f"{my_moving.current_state}\r\n")
-
 # 定时器1初始化（中断回调函数在 ant_motor 中）
 def pit1_start():
     global imu_data, pit1
@@ -477,11 +457,6 @@ while True:
                 if my_obj_plan.judge_object_character(my_task.now_objects, my_task.last_side):
                     target = my_obj_plan.plan_target
                     my_task.if_end_first_scan = True
-                    if my_write_system.if_write_log:
-                        my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
-                        my_write_system.write_str(f"target{my_obj_plan.target_objects}\n")
-                        my_write_system.write_str(f"path{my_obj_plan.path}\n")
-                        my_write_system.write_str(f"score{my_obj_plan.target_score}\n")
                     my_obj_plan.path = []
                     my_obj_plan.target_score = []
                     my_obj_plan.target_objects = []
