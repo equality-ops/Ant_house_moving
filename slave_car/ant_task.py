@@ -15,10 +15,10 @@ ADJUST = const(7)         # 微调状态
 RETURN = const(8)		  # 返回状态
 STOP = const(9)           # 停止状态
 RETREAT = const(10)       # 后退状态
-KEEP_SPACE = const(11)    # 保持距离状态
+
 counter = 0  # 计数器
 class TaskController:
-    def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol, my_tof):
+    def __init__(self,flash,beep, state, uart, car, path, plan, vision, moving, plan_data, order_manager, art_protocal, slave_protocol, my_tof, angle_pid):
         # 注入对象
         self.my_beep = beep
         self.my_path = path
@@ -34,6 +34,7 @@ class TaskController:
         self.my_slave_protocol = slave_protocol
         self.my_flash_system = flash
         self.my_tof = my_tof
+        self.angle_pid = angle_pid
         # 状态映射表：将状态常量映射到对应的处理函数
         self.handlers = {
             READY_NAVIGATE: self.handle_ready_navigate,
@@ -61,13 +62,21 @@ class TaskController:
         self.retreat_message = [] # 后退点坐标缓冲区
         self.current_object = ''  # 当前目标物体种类
         self.last_side = 'D'
-        self.angle_buffer = 0.0
+        self.blind_buffer = [[0.0, 0.0], 0.0] # 盲盒任务缓冲区
+        self.blind_box_state = NAVIGATE # 盲盒状态机状态
+        self.car_pos = 'U' # 盲盒任务小车位置
+        self.orbit_state = 0 # 环绕状态机状态
+
         # 标志位
         self.if_transitioning = True  # 是否正在进行状态转换
         self.if_init_move_data = False # 是否初始化过搬运数据
+        self.if_send_to_main = False # 是否向主车发送消息
         self.current_pushed_num = 0
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
-        
+
+    def update_orbit_angle(self):
+        self.blind_buffer[1] = (self.blind_buffer[1] + 120.0) % 360.0 - 180.0
+
     # 不同模式下的执行函数
     def run(self):
         if self.if_transitioning:
@@ -106,8 +115,17 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
-            self.angle_buffer = self.my_car.now_yaw * 180 / PI + 15.0
-            self.angle_buffer = (self.angle_buffer + 180) % 360 - 180  # 将角度归一化到[-180, 180]范围内
+            # 发送消息打开摄像头
+            self.my_order_manager.mode_target()
+            self.my_art_protocol.send_object_kind(self.my_vision.current_servo_object)
+            self.my_art_protocol.clear_uart_buffer()
+            # 判断小车是在上方还是下方
+            if self.my_car.y_current < -65.0:
+                self.car_pos = 'D'
+                self.blind_buffer = [[60.0, -81.0], 60.0]
+            else:
+                self.car_pos = 'U'
+                self.blind_buffer = [[60.0, -49.0], 120.0]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             if len(self.pt_buffer) > 0:
@@ -209,7 +227,10 @@ class TaskController:
             pass
         elif state == ADJUST:
             # 退出调整状态，完成微调后进行必要的状态更新
-            pass
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()  # 重置导航角度
+            self.my_state.state = STOP  # 直接切换到停止状�?
+            self.if_transitioning = True  # 退出当前状态，准备进入下一个状态
         elif state == RETURN:
             # 退出返回状态，完成返回后进行必要的状态更新
             self.my_plan.reset_navigate()  # 重置导航标志
@@ -352,10 +373,58 @@ class TaskController:
         pass
     
     def handle_adjust(self):
-        self.my_plan.navigate(target_turn_angle = self.angle_buffer ,if_high_angle = True)
+       
 
-        if self.my_plan.if_finish_navigate:
-            self.exit()
+        if self.blind_box_state == NAVIGATE:
+            self.my_plan.navigate(path = [self.blind_buffer[0]], target_turn_angle = self.blind_buffer[1])
+
+            target_point = self.my_art_protocol.coordinate_receive()
+            if self.my_plan.if_finish_navigate or (self.angle_pid.if_finish_turn() and target_point and chr(target_point[2]) == self.my_vision.current_servo_object):
+                if not self.my_plan.if_finish_navigate:
+                    self.my_vision.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
+                self.my_vision.object_radius = 16.0
+                self.my_vision.reset_servo_angle()
+                self.my_plan.reset_navigate()
+                self.my_vision.if_finish_servo = False
+                self.blind_box_state = SERVO
+        elif self.blind_box_state == SERVO:
+            self.my_vision.visual_servo_control()
+
+            if self.my_vision.if_finish_servo:
+                if not self.if_send_to_main:
+                    self.my_slave_protocol.send_slave_state("get")
+                    self.if_send_to_main = True
+
+                if self.my_slave_protocol.get_start_signal():
+                    self.blind_box_state = ORBIT
+                    self.my_vision.reset_orbit()
+                    self.my_vision.reset_orbit_angle()
+                    self.update_orbit_angle()  # 更新环绕角度
+        elif self.blind_box_state == ORBIT:
+            if self.orbit_state == 0:
+                self.my_vision.orbit_control(self.blind_buffer[1])
+
+                if self.my_vision.if_finish_orbit:
+                    self.orbit_state = 1
+                    self.my_vision.reset_orbit()
+                    self.my_vision.reset_orbit_angle()
+                    self.update_orbit_angle()  # 更新环绕角度
+            elif self.orbit_state == 1:
+                self.my_vision.orbit_control(self.blind_buffer[1])
+
+                if self.my_vision.if_finish_orbit:
+                    self.orbit_state = 2
+                    self.my_vision.reset_orbit()
+                    self.my_vision.reset_orbit_angle()
+                    self.update_orbit_angle()  # 更新环绕角度
+            elif self.orbit_state == 2:
+                self.my_vision.orbit_control(self.blind_buffer[1])
+
+                if self.my_vision.if_finish_orbit:
+                    self.orbit_state = 3
+                    self.my_vision.reset_orbit()
+                    self.my_vision.reset_orbit_angle()
+                    self.exit()
 
     def handle_return(self):
         # if state == RETURN

@@ -272,7 +272,7 @@ my_vision_manager = ant_vision.VisionManager(my_flash_sys, my_beep, pose_data, a
 # 搬运控制类
 my_moving = ant_move.MoveControl(my_flash_sys,my_beep, my_photo, my_uart3, my_uart2, my_car, my_plan, my_path, plan_data, my_vision_manager, my_state, my_slave_protocol, my_art_protocol, my_order_manager, my_tof, angle_pid)
 # 任务及类
-my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol, my_tof)
+my_task = ant_task.TaskController(my_flash_sys,my_beep, my_state, my_uart3, my_car, my_path, my_plan, my_vision_manager,  my_moving, plan_data, my_order_manager, my_art_protocol,  my_slave_protocol, my_tof, angle_pid)
 
 motor_control_T = my_flash_sys.find_value("motor_control_T")
 uart_and_menu_T = my_flash_sys.find_value("uart_and_menu_T")
@@ -345,7 +345,7 @@ def slave_start():
 
 # 小车姿态总控制函数
 def master_control():
-    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT, ADJUST]:
+    if my_state.state in [NAVIGATE, READY_NAVIGATE, RETURN, STOP, SCAN, RETREAT]:
         my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == MOVE:
         if my_moving.current_state == ORBIT:
@@ -368,7 +368,14 @@ def master_control():
             my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
     elif my_state.state == ORBIT:
         my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-
+    elif my_state.state ==  ADJUST:
+        if my_task.blind_box_state == NAVIGATE:
+            my_car.move_ctrl(my_plan.target_v, my_plan.target_yaw, my_plan.turn_angle_target)
+        elif my_task.blind_box_state == SERVO:
+            my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
+        elif my_task.blind_box_state == ORBIT:
+            my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
+            
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
 _HIGH_TARGET = 180         # >= 此值使用High挡
