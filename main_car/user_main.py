@@ -386,6 +386,7 @@ def time_pit3_handler(timer) -> None:
 
     # 任务执行机
     task_machine()
+    
     # 视觉伺服测试程序
     #test_vision_servo()
 

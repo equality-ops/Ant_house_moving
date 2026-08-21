@@ -375,7 +375,7 @@ def master_control():
             my_car.move_ctrl(my_vision_manager.target_rel_speed, my_vision_manager.target_rel_yaw, my_vision_manager.target_rel_turn_angle)
         elif my_task.blind_box_state == ORBIT:
             my_car.move_ctrl(my_vision_manager.orbit_speed, my_vision_manager.orbit_yaw, my_vision_manager.orbit_turn_angle)
-            
+
 # 根据目标速度选择对应挡位的PID参数（gain scheduling）
 # 阈值常量
 _HIGH_TARGET = 180         # >= 此值使用High挡
@@ -524,6 +524,7 @@ def time_pit2_handler(time):
 
     # 更新tof传感器信息
     # my_tof.update_tof()
+    # print(f"{my_state.state},{my_task.blind_box_state},{my_vision_manager.if_finish_servo},{my_vision_manager.target_point},{my_vision_manager.current_servo_object}")
     # my_uart2.write(f"{my_state.state},{my_moving.current_state},{my_plan.if_finish_navigate},{my_moving.if_finish_move}\r\n")
     # my_uart2.write(f"{my_tof.data_L},{my_tof.data_R},{dist_pid_L.pwm_output},{dist_pid_R.pwm_output},{my_car.speed_weight}\r\n")
     # my_uart2.write(f"{my_vision_manager.car_position},{my_vision_manager.rel_pos_to_apriltag},{my_car.x_current},{my_car.y_current}\r\n")

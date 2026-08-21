@@ -284,6 +284,8 @@ class TaskController:
         elif state == CALIBRATE:
             pass
         elif state == ADJUST:
+            self.my_plan.reset_navigate()  # 重置导航标志
+            self.my_plan.reset_navigate_angle()
             self.my_state.state = STOP  # 直接切换到停止状�?
             self.if_transitioning = True  # 退出当前状态，准备进入下一个状�?
         elif state == RETURN:
@@ -671,7 +673,7 @@ class TaskController:
                                 mode = 'x_max'
 
                         self.max_pos = path_extreme(self.my_path.ready_path, mode)
-                        print(f"{self.max_pos}")
+
                     self.planned_scan_path.append([self.my_path.ready_path, pt[1]])
                     counter += 1
             else:self.first_scan()
@@ -696,20 +698,21 @@ class TaskController:
         if self.black_state == READY_NAVIGATE:
             if self.my_car.y_current < -65:self.black_angle = 60#下
             else:self.black_angle = 120#
+            # 此时进入盲盒状态
+            self.my_vision.if_in_blind = True
             self.my_vision.current_servo_object = 'S'
             self.my_order_manager.mode_target()
             self.my_art_protocol.send_object_kind(self.my_vision.current_servo_object)
             self.black_state = NAVIGATE
         elif self.black_state == NAVIGATE:
             if self.black_angle == 60:
-                self.my_plan.navigate(path = (60,-65-16),turn_angle = self.black_angle)
+                self.my_plan.navigate(path = [[60,-65-22]],target_turn_angle = self.black_angle)
             else:
-                self.my_plan.navigate(path = (60,-65+16),turn_angle = self.black_angle)
+                self.my_plan.navigate(path = [[60,-65+22]],target_turn_angle = self.black_angle)
             target_point = self.my_art_protocol.coordinate_receive()
-            if (target_point and chr(target_point[2]) == self.my_vision.current_servo_object and self.angle_pid.if_finish_turn())\
-                or self.my_plan.if_finish_navigate:
+            if target_point and chr(target_point[2]) == self.my_vision.current_servo_object and self.angle_pid.if_finish_turn():
                 self.my_vision.ready_servo_and_orbit(target_point, 'servo')
-                self.my_vision.object_radius = 16.0
+                self.my_vision.object_radius = 19.0
                 self.my_vision.reset_servo_angle()
                 self.my_plan.reset_navigate()
                 self.black_state = SERVO
@@ -735,7 +738,7 @@ class TaskController:
                 elif counter == 2:angle = 0
                 else: angle = 120
             if self.my_vision.if_finish_orbit:
-                if counter == 3:self.my_state = STOP
+                if counter == 3:self.exit()
                 else:
                     counter += 1
                     self.my_vision.if_orbit_ready = False

@@ -64,7 +64,7 @@ class TaskController:
         self.last_side = 'D'
         self.blind_buffer = [[0.0, 0.0], 0.0] # 盲盒任务缓冲区
         self.blind_box_state = NAVIGATE # 盲盒状态机状态
-        self.car_pos = 'U' # 盲盒任务小车位置
+        self.car_pos = 'U' # 小车在主车的上侧还是下侧
         self.orbit_state = 0 # 环绕状态机状态
 
         # 标志位
@@ -73,9 +73,6 @@ class TaskController:
         self.if_send_to_main = False # 是否向主车发送消息
         self.current_pushed_num = 0
         gc.collect()  # 进行垃圾回收，确保有足够内存用于状态机操作
-
-    def update_orbit_angle(self):
-        self.blind_buffer[1] = (self.blind_buffer[1] + 120.0) % 360.0 - 180.0
 
     # 不同模式下的执行函数
     def run(self):
@@ -115,17 +112,20 @@ class TaskController:
         elif state == ADJUST:
             self.my_plan.reset_navigate()
             self.my_plan.reset_navigate_angle()
+            # 此时进入盲盒状态
+            self.my_vision.if_in_blind = True
             # 发送消息打开摄像头
+            self.my_vision.current_servo_object = 'S'
             self.my_order_manager.mode_target()
             self.my_art_protocol.send_object_kind(self.my_vision.current_servo_object)
             self.my_art_protocol.clear_uart_buffer()
             # 判断小车是在上方还是下方
             if self.my_car.y_current < -65.0:
                 self.car_pos = 'D'
-                self.blind_buffer = [[60.0, -81.0], 60.0]
+                self.blind_buffer = [[60.0, -87.0], 60.0]
             else:
                 self.car_pos = 'U'
-                self.blind_buffer = [[60.0, -49.0], 120.0]
+                self.blind_buffer = [[60.0, -43.0], 120.0]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             if len(self.pt_buffer) > 0:
@@ -373,16 +373,13 @@ class TaskController:
         pass
     
     def handle_adjust(self):
-       
-
         if self.blind_box_state == NAVIGATE:
             self.my_plan.navigate(path = [self.blind_buffer[0]], target_turn_angle = self.blind_buffer[1])
 
             target_point = self.my_art_protocol.coordinate_receive()
-            if self.my_plan.if_finish_navigate or (self.angle_pid.if_finish_turn() and target_point and chr(target_point[2]) == self.my_vision.current_servo_object):
-                if not self.my_plan.if_finish_navigate:
-                    self.my_vision.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
-                self.my_vision.object_radius = 16.0
+            if self.angle_pid.if_finish_turn() and target_point and chr(target_point[2]) == self.my_vision.current_servo_object:
+                self.my_vision.ready_servo_and_orbit(chr(target_point[2]), 'servo', target_point)
+                self.my_vision.object_radius = 19.0
                 self.my_vision.reset_servo_angle()
                 self.my_plan.reset_navigate()
                 self.my_vision.if_finish_servo = False
@@ -399,26 +396,32 @@ class TaskController:
                     self.blind_box_state = ORBIT
                     self.my_vision.reset_orbit()
                     self.my_vision.reset_orbit_angle()
-                    self.update_orbit_angle()  # 更新环绕角度
         elif self.blind_box_state == ORBIT:
             if self.orbit_state == 0:
-                self.my_vision.orbit_control(self.blind_buffer[1])
+                if self.car_pos == 'U':
+                    self.my_vision.orbit_control(-120.0)
+                else:
+                    self.my_vision.orbit_control(180.0)
 
                 if self.my_vision.if_finish_orbit:
                     self.orbit_state = 1
                     self.my_vision.reset_orbit()
                     self.my_vision.reset_orbit_angle()
-                    self.update_orbit_angle()  # 更新环绕角度
             elif self.orbit_state == 1:
-                self.my_vision.orbit_control(self.blind_buffer[1])
+                if self.car_pos == 'U':
+                    self.my_vision.orbit_control(0.0)
+                else:
+                    self.my_vision.orbit_control(-60.0)
 
                 if self.my_vision.if_finish_orbit:
                     self.orbit_state = 2
                     self.my_vision.reset_orbit()
                     self.my_vision.reset_orbit_angle()
-                    self.update_orbit_angle()  # 更新环绕角度
             elif self.orbit_state == 2:
-                self.my_vision.orbit_control(self.blind_buffer[1])
+                if self.car_pos == 'U':
+                    self.my_vision.orbit_control(120.0)
+                else:
+                    self.my_vision.orbit_control(60.0)
 
                 if self.my_vision.if_finish_orbit:
                     self.orbit_state = 3

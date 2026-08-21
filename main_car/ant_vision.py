@@ -130,6 +130,7 @@ class VisionManager:
 
         self.last_real_servo_point = None
         # 标志位
+        self.if_in_blind = False          # type: bool   # 是否在盲盒状态中 
         self.if_send_order = False        # type: bool   # 是否向openart发送指令标志位
         self.if_lost_object = False       # type: bool   # 是否丢失目标物体标志位
         self.if_next_orbit = False        # type: bool   # 下一次是否进行环绕
@@ -303,7 +304,7 @@ class VisionManager:
 
         # 判断红色沙包是否在矩形框内
         if self.target_point:
-            if self.current_servo_object == 'S':
+            if self.current_servo_object == 'S' and not self.if_in_blind:
                 actual_point = self.predict_point(self.target_point[0], self.target_point[1])
                 if_red_valid = self.if_in_rect(actual_point[0], actual_point[1])
             else:
