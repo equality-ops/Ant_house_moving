@@ -122,10 +122,10 @@ class TaskController:
             # 判断小车是在上方还是下方
             if self.my_car.y_current < -65.0:
                 self.car_pos = 'D'
-                self.blind_buffer = [[60.0, -87.0], 60.0]
+                self.blind_buffer = [[60.0, -87.0], 57.0]
             else:
                 self.car_pos = 'U'
-                self.blind_buffer = [[60.0, -43.0], 120.0]
+                self.blind_buffer = [[60.0, -43.0], 123.0]
         elif state == RETURN:
             # 进入返回状态，返回起始点或下一任务点
             if len(self.pt_buffer) > 0:

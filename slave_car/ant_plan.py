@@ -676,7 +676,7 @@ class NavigationPlan:
         rest_dist=self.rest_dist
 
         diff = 0.0
-        if not self.if_finish_turn:
+        if not self.if_first_turn:
             # 在未完成转角调整时，持续进行转角调整
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / _PI)
             if diff > 180.0:
