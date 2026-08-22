@@ -462,6 +462,11 @@ while True:
                     my_obj_plan.target_score = []
                     my_obj_plan.target_objects = []
                     my_obj_plan.now_objects = []
+                    if my_write_system.if_write_log:
+                        my_write_system.write_str(f"final_objects:{my_task.now_objects}\n")
+                        my_write_system.write_str(f"target{my_obj_plan.target_objects}\n")
+                        my_write_system.write_str(f"path{my_obj_plan.path}\n")
+                        my_write_system.write_str(f"score{my_obj_plan.target_score}\n")
                     gc.collect()
                     if not target:
                         #self.my_uart.write("False\n")

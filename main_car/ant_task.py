@@ -349,7 +349,6 @@ class TaskController:
             kind_grid[i][2] = ''
         half_x = cell_x * 0.5
         half_y = cell_y * 0.5
-
         for obj_idx in range(len(objects)):
             try:
                 kind, x, y = objects[obj_idx]
@@ -359,27 +358,32 @@ class TaskController:
                 y = float(y)
             except:
                 continue
-
             if x < grid_center_x - half_x: j = 0
             elif x > grid_center_x + half_x: j = 2
             else: j = 1
             if y < grid_center_y - half_y: i = 0
             elif y > grid_center_y + half_y: i = 2
             else: i = 1
-
             old = slots[i][j]
             if old < 0:
                 slots[i][j] = obj_idx
                 kind_grid[i][j] = kind
                 continue
+            old_kind = objects[old][0]
+            if (kind =='B' and old_kind =='S')\
+                or (kind == 'W' and old_kind =='B'):
+                slots[i][j] = obj_idx
+                kind_grid[i][j] = kind
+                continue
+            elif (kind =='S' and old_kind =='B')\
+                or (kind == 'B' and old_kind =='W'):
+                continue
             if self.if_danger(kind, self.obj_num_[kind]):
                 continue
-            old_kind = objects[old][0]
             if self.if_danger(old_kind, self.obj_num_[old_kind]):
                 slots[i][j] = obj_idx
                 kind_grid[i][j] = kind
                 continue
-
             center_x = grid_center_x + (j - 1) * cell_x
             center_y = grid_center_y + (i - 1) * cell_y
             old_x = float(objects[old][1])
@@ -392,7 +396,6 @@ class TaskController:
                 kind_grid[i][j] = kind
             else:
                 displaced = obj_idx
-
             best_i = -1
             best_j = -1
             best_dist2 = None
