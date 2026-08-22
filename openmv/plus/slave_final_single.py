@@ -698,8 +698,23 @@ def detect_all_objects(img, Ts):
 ]
     objects = nms(objects, iou_thresh=0.3)
 
-    brown_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3]
-    white_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3]
+    # 过滤长宽比大于3的棕色/白色物体（细长多为误检）
+    brown_bear = []
+    for obj in objects:
+        if LABEL_TO_COLOR.get(obj[4]) == 'brown' and obj[5] > 0.3:
+            obj_w = (obj[2] - obj[0]) * img.width()
+            obj_h = (obj[3] - obj[1]) * img.height()
+            if obj_w > 3 * obj_h or obj_h > 3 * obj_w:
+                continue
+            brown_bear.append(obj)
+    white_bear = []
+    for obj in objects:
+        if LABEL_TO_COLOR.get(obj[4]) == 'white' and obj[5] > 0.3:
+            obj_w = (obj[2] - obj[0]) * img.width()
+            obj_h = (obj[3] - obj[1]) * img.height()
+            if obj_w > 3 * obj_h or obj_h > 3 * obj_w:
+                continue
+            white_bear.append(obj)
     blue_bear = [obj for obj in objects if LABEL_TO_COLOR.get(obj[4]) == 'blue' and obj[5] > 0.3]
 
     other_objects = []
@@ -707,6 +722,13 @@ def detect_all_objects(img, Ts):
         color = LABEL_TO_COLOR.get(obj[4])
         confidence = obj[5]
         if color in ['red', 'green'] and confidence > 0.5:
+            # 过滤长宽比大于2的红色物体（红色沙包近似圆形，细长多为误检）
+            if color == 'red':
+                x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
+                red_w = (x2 - x1) * img.width()
+                red_h = (y2 - y1) * img.height()
+                if red_w > 1.5 * red_h or red_h > 1.5 * red_w:
+                    continue
             other_objects.append((obj, color))
 
     model_detector.process_kalman(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
