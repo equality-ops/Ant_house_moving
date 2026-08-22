@@ -696,8 +696,8 @@ class TaskController:
 
     def handle_adjust(self):
         if self.black_state == READY_NAVIGATE:
-            if self.my_car.y_current < -65:self.black_angle = 60#下
-            else:self.black_angle = 120#
+            if self.my_car.y_current < -65:self.black_angle = 57#下
+            else:self.black_angle = 123#
             # 此时进入盲盒状态
             self.my_vision.if_in_blind = True
             self.my_vision.current_servo_object = 'S'
@@ -705,10 +705,10 @@ class TaskController:
             self.my_art_protocol.send_object_kind(self.my_vision.current_servo_object)
             self.black_state = NAVIGATE
         elif self.black_state == NAVIGATE:
-            if self.black_angle == 60:
-                self.my_plan.navigate(path = [[60,-65-22]],target_turn_angle = self.black_angle)
+            if self.black_angle == 57:
+                self.my_plan.navigate(path = [[60,-65-6]],target_turn_angle = self.black_angle)
             else:
-                self.my_plan.navigate(path = [[60,-65+22]],target_turn_angle = self.black_angle)
+                self.my_plan.navigate(path = [[60,-65+46]],target_turn_angle = self.black_angle)
             target_point = self.my_art_protocol.coordinate_receive()
             if target_point and chr(target_point[2]) == self.my_vision.current_servo_object and self.angle_pid.if_finish_turn():
                 self.my_vision.ready_servo_and_orbit(target_point, 'servo')
@@ -729,7 +729,7 @@ class TaskController:
             self.my_vision.visual_servo_control()
         elif self.black_state == ORBIT:
             global counter
-            if self.black_angle == 60:
+            if self.black_angle == 57:
                 if counter == 1:angle = 180 
                 elif counter == 2:angle = -60
                 else: angle = 60

@@ -37,7 +37,7 @@ class PlanData:
         rate_vision = self.flash_sys.find_value("vision_rect_zoom_rate")
         
         self.fixed_point = [[35.0, -40.0], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
-                            [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -85.0], [25.0, -50.0]]  # type: list
+                            [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -80.0], [25.0, -35.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x - self.lenth*rate,self.center_y + self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate]] 
@@ -695,7 +695,7 @@ class NavigationPlan:
         rest_dist=self.rest_dist
 
         diff = 0.0
-        if not self.if_finish_turn:
+        if not self.if_first_turn:
             # 在未完成转角调整时，持续进行转角调整
             diff = abs(self.turn_angle_target - self.my_car.now_yaw * 180 / _PI)
             if diff > 180.0:
