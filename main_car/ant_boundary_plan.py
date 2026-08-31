@@ -275,7 +275,6 @@ class BoundaryPathPlanner:
         return (-20, p[1])
 
     def _nearest_valid(self, p, rects):
-        print('P_M in rects')
         px = max(0.0, min(float(p[0]), self.Data.FIELD_W))
         py = max(0.0, min(float(p[1]), self.Data.FIELD_H))
         p = (px, py)

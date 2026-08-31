@@ -242,7 +242,7 @@ def main_start():
                 if_press_start_key = True
         else:   
             # 测试，此时只调试主车，双车正常通信时需要解注释  
-            if my_main_protocol.get_slave_state() == "ready":
+            # if my_main_protocol.get_slave_state() == "ready":
                 # 此时开启无刷负压风扇          
                 my_fan.set_fan_signal()
                 # 盲盒任务测试，一定要修改！！！
@@ -377,15 +377,40 @@ def time_pit1_handler(time):
         my_fan.if_fan = False
     """
 
-time__ = 0
+navigate_state = 0
 # 定时器3中断处理函数：路径规划与速度规划计算
 def time_pit3_handler(timer) -> None:
-    global time__
+    global navigate_state
     # 角度环计算（10ms）
     angle_pid_compute()
 
+    if navigate_state == 0:
+        my_plan.navigate(path = [[50.0, 0.0]], target_turn_angle = 90.0, if_first_turn = False)
+        if my_plan.if_finish_navigate:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            navigate_state = 1
+    elif navigate_state == 1:
+        my_plan.navigate(path = [[50.0, -50.0]], target_turn_angle = 180.0, if_first_turn = False)
+        if my_plan.if_finish_navigate:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            navigate_state = 2
+    elif navigate_state == 2:
+        my_plan.navigate(path = [[0.0, -50.0]], target_turn_angle = -90.0, if_first_turn = False)
+        if my_plan.if_finish_navigate:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            navigate_state = 3
+    elif navigate_state == 3:
+        my_plan.navigate(path = [[0.0, 0.0]], target_turn_angle = 0.0, if_first_turn = False)
+        if my_plan.if_finish_navigate:
+            my_plan.reset_navigate()
+            my_plan.reset_navigate_angle()
+            navigate_state = 0
+
     # 任务执行机
-    task_machine()
+    # task_machine()
     
     # 视觉伺服测试程序
     #test_vision_servo()

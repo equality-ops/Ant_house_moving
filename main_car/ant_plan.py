@@ -37,7 +37,7 @@ class PlanData:
         rate_vision = self.flash_sys.find_value("vision_rect_zoom_rate")
         
         self.fixed_point = [[35.0, -40.0], [self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], 
-                            [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -80.0], [25.0, -35.0]]  # type: list
+                            [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate], [25.0, -80.0], [25.0, -50.0]]  # type: list
         # 中心物品摆放的矩形区域
         self.center_rect = [[self.center_x - self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x - self.lenth*rate,self.center_y + self.lenth*rate], 
                             [self.center_x + self.lenth*rate,self.center_y - self.lenth*rate], [self.center_x + self.lenth*rate,self.center_y + self.lenth*rate]] 
