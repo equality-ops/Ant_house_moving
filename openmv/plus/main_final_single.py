@@ -113,6 +113,16 @@ THRESHOLD = {
     'white':[(40, 69, -17, 2, 1, 16)]
 }
 
+# ======================== 红→棕 改判配置（模型模式） ========================
+# 模型有时会把棕熊误检为红色沙包。对策：对每个红框中心区域做色块复核，
+# 若中心区域棕色占优（棕色占比≥15% 且 棕色像素 > 红色像素），改判为棕熊：
+# 坐标与长宽保持红框不变，仅类型 red→brown、绘制与串口类型改为棕色。
+RED_TO_BROWN_REGION = 0.6               # 中心采样区域：红框长宽各取60%
+RED_TO_BROWN_MIN_BROWN_FRACTION = 0.15  # 棕色像素占中心区域面积比例下限
+RED_TO_BROWN_BROWN_THRESHOLD = [(10, 49, -5, 18, -1, 46)]  # 棕色阈值
+RED_TO_BROWN_RED_THRESHOLD   = [(15, 48, 15, 67, -16, 42)] # 红色阈值
+RED_TO_BROWN_DEDUP_IOU = 0.3            # 红框与已有棕色框IoU超过此值视为同一只熊，跳过
+
 # YOLO模型路径
 face_detect = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
 # 载入模型
@@ -869,6 +879,51 @@ def nms(objects, iou_thresh=0.3, cross_iou_thresh=0.6):
     return kept
 
 
+def boxes_iou(x1, y1, x2, y2, u1, v1, u2, v2):
+    """计算两个矩形框的IoU（像素坐标）"""
+    ix1, iy1 = max(x1, u1), max(y1, v1)
+    ix2, iy2 = min(x2, u2), min(y2, v2)
+    if ix2 <= ix1 or iy2 <= iy1:
+        return 0.0
+    inter = (ix2 - ix1) * (iy2 - iy1)
+    area1 = (x2 - x1) * (y2 - y1)
+    area2 = (u2 - u1) * (v2 - v1)
+    return inter / (area1 + area2 - inter)
+
+
+def check_red_box_is_bear(img, x1, y1, x2, y2):
+    """红框中心区域棕色占优则判定为棕熊（纠偏模型误检）
+
+    Args:
+        img: 当前帧原图（160x120）
+        x1, y1, x2, y2: 红框像素坐标
+    Returns:
+        True → 改判为棕熊；False → 保留红沙包
+    """
+    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+    half_w = int((x2 - x1) * RED_TO_BROWN_REGION / 2)
+    half_h = int((y2 - y1) * RED_TO_BROWN_REGION / 2)
+    rx1 = max(0, cx - half_w)
+    ry1 = max(0, cy - half_h)
+    rx2 = min(SCREEN_WIDTH - 1, cx + half_w)
+    ry2 = min(SCREEN_HEIGHT - 1, cy + half_h)
+    if rx2 <= rx1 or ry2 <= ry1:
+        return False
+    roi = (rx1, ry1, rx2 - rx1, ry2 - ry1)
+
+    brown_pixels = 0
+    for b in img.find_blobs(RED_TO_BROWN_BROWN_THRESHOLD, roi=roi,
+                            pixels_threshold=5, area_threshold=5, merge=True):
+        brown_pixels += b.pixels()
+    red_pixels = 0
+    for b in img.find_blobs(RED_TO_BROWN_RED_THRESHOLD, roi=roi,
+                            pixels_threshold=5, area_threshold=5, merge=True):
+        red_pixels += b.pixels()
+
+    frac = brown_pixels / (roi[2] * roi[3])
+    return frac >= RED_TO_BROWN_MIN_BROWN_FRACTION and brown_pixels > red_pixels
+
+
 def detect_all_objects(img, Ts):
     """执行全量目标检测，按颜色分类处理并汇总结果
 
@@ -919,15 +974,35 @@ def detect_all_objects(img, Ts):
     for obj in objects:
         color = LABEL_TO_COLOR.get(obj[4])
         confidence = obj[5]
-        if color in ['red', 'green'] and confidence > 0.5:
+        if color == 'red' and confidence > 0.5:
             # 过滤长宽比大于2的红色物体（红色沙包近似圆形，细长多为误检）
-            if color == 'red':
-                x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
-                red_w = (x2 - x1) * img.width()
-                red_h = (y2 - y1) * img.height()
-                if red_w > 1.5 * red_h or red_h > 1.5 * red_w:
-                    continue
-            other_objects.append((obj, color))
+            x1, y1, x2, y2 = obj[0], obj[1], obj[2], obj[3]
+            red_w = (x2 - x1) * img.width()
+            red_h = (y2 - y1) * img.height()
+            if red_w > 1.5 * red_h or red_h > 1.5 * red_w:
+                continue
+            px1, py1 = int(x1 * img.width()), int(y1 * img.height())
+            px2, py2 = int(x2 * img.width()), int(y2 * img.height())
+
+            # 与已有棕色框高度重叠 → 同一只熊已被模型正确判棕，跳过（不转换也不保留红）
+            skip = False
+            for b_obj in brown_bear:
+                u1, v1, u2, v2 = b_obj[0], b_obj[1], b_obj[2], b_obj[3]
+                u1 = int(u1 * img.width()); v1 = int(v1 * img.height())
+                u2 = int(u2 * img.width()); v2 = int(v2 * img.height())
+                if boxes_iou(px1, py1, px2, py2, u1, v1, u2, v2) > RED_TO_BROWN_DEDUP_IOU:
+                    skip = True
+                    break
+            if skip:
+                continue
+
+            # 中心区域棕色占优 → 改判为棕熊（坐标/长宽不变，复用棕色管线）
+            if check_red_box_is_bear(img, px1, py1, px2, py2):
+                brown_bear.append(obj)
+            else:
+                other_objects.append((obj, 'red'))
+        elif color == 'green' and confidence > 0.5:
+            other_objects.append((obj, 'green'))
 
     # brown/white/blue使用多目标卡尔曼跟踪（含丢失预测），其他颜色直接绘制
     model_detector.process_kalman(img, brown_bear, brown_tracker, 'brown', Ts, center, kalman_coords)
